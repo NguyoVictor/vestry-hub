@@ -18,13 +18,28 @@ const SignIn = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
       toast.error(error.message);
     } else {
       toast.success("Signed in successfully!");
-      navigate("/dashboard");
+      // Check onboarding status
+      const { data: user } = await supabase
+        .from("users")
+        .select("tenant_id")
+        .eq("id", data.session.user.id)
+        .single();
+      if (user?.tenant_id) {
+        const { data: tenant } = await supabase
+          .from("tenants")
+          .select("onboarding_completed")
+          .eq("id", user.tenant_id)
+          .single();
+        navigate(tenant?.onboarding_completed ? "/dashboard" : "/onboarding");
+      } else {
+        navigate("/onboarding");
+      }
     }
   };
 
