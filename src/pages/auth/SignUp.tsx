@@ -45,7 +45,7 @@ const SignUp = () => {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: window.location.origin + "/auth/callback",
       },
     });
     setLoading(false);
@@ -60,7 +60,7 @@ const SignUp = () => {
   const handleGoogleSignUp = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin + "/dashboard" },
+      options: { redirectTo: window.location.origin + "/auth/callback" },
     });
     if (error) toast.error(error.message);
   };
