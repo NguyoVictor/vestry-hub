@@ -28,6 +28,9 @@ const Navbar = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="ghost" asChild>
+            <Link to="/member-login">Member Portal</Link>
+          </Button>
+          <Button variant="ghost" asChild>
             <Link to="/auth/signin">Sign In</Link>
           </Button>
           <Button asChild className="bg-primary hover:bg-accent hover:text-accent-foreground">
@@ -53,6 +56,9 @@ const Navbar = () => {
             <a href="#pricing" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>Pricing</a>
             <a href="#about" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>About</a>
             <hr className="border-border" />
+            <Button variant="ghost" asChild className="justify-start">
+              <Link to="/member-login">Member Portal</Link>
+            </Button>
             <Button variant="ghost" asChild className="justify-start">
               <Link to="/auth/signin">Sign In</Link>
             </Button>
