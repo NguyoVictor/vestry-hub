@@ -45,7 +45,7 @@ const SignUp = () => {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: window.location.origin + "/auth/callback",
       },
     });
     setLoading(false);
