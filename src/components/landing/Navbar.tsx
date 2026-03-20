@@ -57,6 +57,9 @@ const Navbar = () => {
             <a href="#about" className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>About</a>
             <hr className="border-border" />
             <Button variant="ghost" asChild className="justify-start">
+              <Link to="/member-login">Member Portal</Link>
+            </Button>
+            <Button variant="ghost" asChild className="justify-start">
               <Link to="/auth/signin">Sign In</Link>
             </Button>
             <Button asChild className="bg-primary hover:bg-accent hover:text-accent-foreground">
