@@ -28,6 +28,9 @@ const Navbar = () => {
 
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="ghost" asChild>
+            <Link to="/member-login">Member Portal</Link>
+          </Button>
+          <Button variant="ghost" asChild>
             <Link to="/auth/signin">Sign In</Link>
           </Button>
           <Button asChild className="bg-primary hover:bg-accent hover:text-accent-foreground">
