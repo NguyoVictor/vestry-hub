@@ -378,6 +378,71 @@ export type Database = {
           },
         ]
       }
+      broadcasts: {
+        Row: {
+          body: string
+          channels: string[]
+          created_at: string | null
+          delivered_count: number | null
+          id: string
+          read_count: number | null
+          recipient_config: Json | null
+          recipient_count: number | null
+          recipient_type: string
+          scheduled_at: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          subject: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          body: string
+          channels?: string[]
+          created_at?: string | null
+          delivered_count?: number | null
+          id?: string
+          read_count?: number | null
+          recipient_config?: Json | null
+          recipient_count?: number | null
+          recipient_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          body?: string
+          channels?: string[]
+          created_at?: string | null
+          delivered_count?: number | null
+          id?: string
+          read_count?: number | null
+          recipient_config?: Json | null
+          recipient_count?: number | null
+          recipient_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          subject?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_categories: {
         Row: {
           allocated_amount: number
@@ -606,6 +671,85 @@ export type Database = {
           },
           {
             foreignKeyName: "communications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_participants: {
+        Row: {
+          conversation_id: string
+          id: string
+          joined_at: string | null
+          last_read_at: string | null
+          unread_count: number | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          joined_at?: string | null
+          last_read_at?: string | null
+          unread_count?: number | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          joined_at?: string | null
+          last_read_at?: string | null
+          unread_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          last_message_at: string | null
+          last_message_preview: string | null
+          name: string | null
+          tenant_id: string
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          name?: string | null
+          tenant_id: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          name?: string | null
+          tenant_id?: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1721,6 +1865,41 @@ export type Database = {
           zone?: string | null
         }
         Relationships: []
+      }
+      incident_updates: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          incident_id: string
+          status_at_time: string | null
+          update_text: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          incident_id: string
+          status_at_time?: string | null
+          update_text: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          incident_id?: string
+          status_at_time?: string | null
+          update_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incident_updates_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       incidents: {
         Row: {
@@ -3210,6 +3389,71 @@ export type Database = {
           },
         ]
       }
+      security_alerts: {
+        Row: {
+          affected_user_id: string | null
+          affected_user_name: string | null
+          alert_type: string
+          created_at: string | null
+          description: string
+          id: string
+          ip_address: string | null
+          location: string | null
+          raw_data: Json | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          affected_user_id?: string | null
+          affected_user_name?: string | null
+          alert_type: string
+          created_at?: string | null
+          description: string
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          raw_data?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          affected_user_id?: string | null
+          affected_user_name?: string | null
+          alert_type?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          raw_data?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sermons: {
         Row: {
           audio_url: string | null
@@ -3396,6 +3640,47 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_answers: {
+        Row: {
+          answer_value: Json | null
+          created_at: string | null
+          file_url: string | null
+          id: string
+          question_index: number
+          question_text: string
+          question_type: string
+          response_id: string
+        }
+        Insert: {
+          answer_value?: Json | null
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          question_index: number
+          question_text: string
+          question_type: string
+          response_id: string
+        }
+        Update: {
+          answer_value?: Json | null
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          question_index?: number
+          question_text?: string
+          question_type?: string
+          response_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_answers_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "survey_responses"
             referencedColumns: ["id"]
           },
         ]
