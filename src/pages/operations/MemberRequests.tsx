@@ -119,7 +119,7 @@ export default function MemberRequestsPage() {
 
   const openCount = requests?.filter(r => r.status === "open").length || 0;
   const inProgressCount = requests?.filter(r => r.status === "in_progress").length || 0;
-  const closedThisMonth = requests?.filter(r => {
+  const closedThisMonth = requests?.filter((r: any) => {
     if (r.status !== "closed" || !r.resolved_at) return false;
     return new Date(r.resolved_at).getMonth() === new Date().getMonth();
   }).length || 0;

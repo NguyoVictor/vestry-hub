@@ -54,12 +54,21 @@ const AccountsPayable = lazy(() => import("./pages/finance/AccountsPayable"));
 const GeneralLedger = lazy(() => import("./pages/finance/GeneralLedger"));
 const Payouts = lazy(() => import("./pages/finance/Payouts"));
 
+// Operations pages
+const ServicesPage = lazy(() => import("./pages/operations/Services"));
+const EventsPage = lazy(() => import("./pages/operations/Events"));
+const Volunteering = lazy(() => import("./pages/operations/Volunteering"));
+const MemberRequestsPage = lazy(() => import("./pages/operations/MemberRequests"));
+const BoardMeetingsPage = lazy(() => import("./pages/operations/BoardMeetings"));
+const FacilityBooking = lazy(() => import("./pages/operations/FacilityBooking"));
+
 const queryClient = new QueryClient();
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
+const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
@@ -100,6 +109,13 @@ const App = () => (
                 <Route path="/accounts-payable" element={<Suspense fallback={<Fallback />}><AccountsPayable /></Suspense>} />
                 <Route path="/general-ledger" element={<Suspense fallback={<Fallback />}><GeneralLedger /></Suspense>} />
                 <Route path="/payouts" element={<Suspense fallback={<Fallback />}><Payouts /></Suspense>} />
+                {/* Operations routes */}
+                <Route path="/services" element={<Suspense fallback={<Fallback />}><ServicesPage /></Suspense>} />
+                <Route path="/events" element={<Suspense fallback={<Fallback />}><EventsPage /></Suspense>} />
+                <Route path="/volunteering" element={<Suspense fallback={<Fallback />}><Volunteering /></Suspense>} />
+                <Route path="/member-requests" element={<Suspense fallback={<Fallback />}><MemberRequestsPage /></Suspense>} />
+                <Route path="/board-meetings" element={<Suspense fallback={<Fallback />}><BoardMeetingsPage /></Suspense>} />
+                <Route path="/facility-booking" element={<Suspense fallback={<Fallback />}><FacilityBooking /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
@@ -114,7 +130,7 @@ const App = () => (
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems
-                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path))
+                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path) && !OPS_PATHS.includes(i.path))
                   .map(item => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}

@@ -238,7 +238,7 @@ export default function FacilityBookingPage() {
                         <StatusBadge status={BOOKING_STATUS_MAP[b.status || "open"] || "pending"} />
                       </TableCell>
                       <TableCell>
-                        {(b.status === "open" || b.status === "pending") && (
+                        {(b.status === "open" || (b.status as string) === "pending") && (
                           <div className="flex gap-1">
                             <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-600"
                               onClick={() => updateBookingStatus.mutate({ id: b.id, status: "approved" })}>
