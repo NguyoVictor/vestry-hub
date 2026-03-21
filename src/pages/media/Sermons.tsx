@@ -20,16 +20,17 @@ const Sermons = () => {
   const { data: media = [], isLoading } = useQuery({
     queryKey: ["published_sermons", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("studio_media").select("*").eq("status", "published").order("recording_date", { ascending: false });
+      const { data } = await supabase.from("studio_media").select("*").eq("status", "published").order("recording_date", { ascending: false }) as { data: any[] | null };
       return data || [];
     },
   });
 
   const { data: sermonPreps = [] } = useQuery({
     queryKey: ["published_sermon_preps", church.tenantId],
-    queryFn: async () => {
-      const { data } = await supabase.from("sermons").select("*").eq("status", "published").order("date_to_preach", { ascending: false });
-      return data || [];
+    queryFn: async (): Promise<any[]> => {
+      // @ts-ignore - deep type instantiation from sermons table
+      const res = await supabase.from("sermons").select("*").eq("status", "published").order("date_to_preach", { ascending: false });
+      return (res as any).data || [];
     },
   });
 
