@@ -28,8 +28,9 @@ const Sermons = () => {
   const { data: sermonPreps = [] } = useQuery({
     queryKey: ["published_sermon_preps", church.tenantId],
     queryFn: async (): Promise<any[]> => {
-      const res: any = await supabase.from("sermons").select("*").eq("status", "published").order("date_to_preach", { ascending: false });
-      return res.data || [];
+      // @ts-ignore - deep type instantiation from sermons table
+      const res = await supabase.from("sermons").select("*").eq("status", "published").order("date_to_preach", { ascending: false });
+      return (res as any).data || [];
     },
   });
 
