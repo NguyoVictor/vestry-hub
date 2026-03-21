@@ -21,45 +21,45 @@ const MemberLogin = () => {
     }
     setLoading(true);
 
+    const genericMsg = "If your church code and email are correct, a login link has been sent.";
+
     // Verify church code exists
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant } = await supabase
       .from("tenants")
       .select("id")
       .eq("church_code", churchCode.toUpperCase())
       .maybeSingle();
 
-    if (tenantError || !tenant) {
+    if (!tenant) {
+      await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
       setLoading(false);
-      toast.error("Invalid church access code. Please check with your administrator.");
+      toast.success(genericMsg);
       return;
     }
 
-    // Check member exists in that tenant
-    const { data: user, error: userError } = await supabase
+    // Check member exists — don't reveal result
+    const { data: user } = await supabase
       .from("users")
       .select("id")
       .eq("tenant_id", tenant.id)
       .eq("email", email)
       .maybeSingle();
 
-    if (userError || !user) {
+    if (!user) {
+      await new Promise(r => setTimeout(r, 500 + Math.random() * 500));
       setLoading(false);
-      toast.error("No member found with that email in this church. Contact your administrator.");
+      toast.success(genericMsg);
       return;
     }
 
     // Send magic link
-    const { error } = await supabase.auth.signInWithOtp({
+    await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.origin + "/dashboard" },
     });
 
     setLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Check your email for a login link!");
-    }
+    toast.success(genericMsg);
   };
 
   return (
