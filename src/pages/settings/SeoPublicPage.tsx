@@ -167,7 +167,7 @@ const SeoPublicPage = () => {
                     <FormItem>
                       <FormLabel>Page Title</FormLabel>
                       <FormControl><Input maxLength={60} {...field} /></FormControl>
-                      <p className={cn("text-xs", (field.value?.length || 0) >= 55 ? (field.value?.length || 0) >= 60 ? "text-destructive" : "text-amber-500") : "text-muted-foreground")}>{field.value?.length || 0} / 60</p>
+                      <p className={cn("text-xs", (field.value?.length || 0) >= 60 ? "text-destructive" : (field.value?.length || 0) >= 55 ? "text-amber-500" : "text-muted-foreground")}>{field.value?.length || 0} / 60</p>
                       <FormMessage />
                     </FormItem>
                   )} />
