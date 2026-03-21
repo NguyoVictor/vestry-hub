@@ -77,6 +77,44 @@ export type Database = {
           },
         ]
       }
+      ai_tool_usage: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          input_summary: string | null
+          output_length: number | null
+          tenant_id: string
+          tool_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          input_summary?: string | null
+          output_length?: number | null
+          tenant_id: string
+          tool_name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          input_summary?: string | null
+          output_length?: number | null
+          tenant_id?: string
+          tool_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_tool_usage_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           body: string
@@ -136,6 +174,50 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_maintenance: {
+        Row: {
+          asset_id: string
+          cost: number | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string
+          id: string
+          maintenance_date: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          asset_id: string
+          cost?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description: string
+          id?: string
+          maintenance_date?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          asset_id?: string
+          cost?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string
+          id?: string
+          maintenance_date?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_maintenance_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "church_assets"
             referencedColumns: ["id"]
           },
         ]
@@ -236,6 +318,110 @@ export type Database = {
           },
           {
             foreignKeyName: "attendance_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bible_favorites: {
+        Row: {
+          book: string
+          chapter: number
+          created_at: string | null
+          id: string
+          user_id: string
+          verse: number
+          verse_text: string | null
+        }
+        Insert: {
+          book: string
+          chapter: number
+          created_at?: string | null
+          id?: string
+          user_id: string
+          verse: number
+          verse_text?: string | null
+        }
+        Update: {
+          book?: string
+          chapter?: number
+          created_at?: string | null
+          id?: string
+          user_id?: string
+          verse?: number
+          verse_text?: string | null
+        }
+        Relationships: []
+      }
+      bible_highlights: {
+        Row: {
+          book: string
+          chapter: number
+          color: string | null
+          created_at: string | null
+          id: string
+          user_id: string
+          verse: number
+        }
+        Insert: {
+          book: string
+          chapter: number
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          user_id: string
+          verse: number
+        }
+        Update: {
+          book?: string
+          chapter?: number
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          user_id?: string
+          verse?: number
+        }
+        Relationships: []
+      }
+      bible_notes: {
+        Row: {
+          book: string
+          chapter: number
+          created_at: string | null
+          id: string
+          note_text: string
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+          verse: number
+        }
+        Insert: {
+          book: string
+          chapter: number
+          created_at?: string | null
+          id?: string
+          note_text: string
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+          verse: number
+        }
+        Update: {
+          book?: string
+          chapter?: number
+          created_at?: string | null
+          id?: string
+          note_text?: string
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+          verse?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bible_notes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2222,6 +2408,86 @@ export type Database = {
           },
         ]
       }
+      livestreams: {
+        Row: {
+          actual_end: string | null
+          actual_start: string | null
+          chat_embed_url: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          embed_url: string | null
+          estimated_duration: number | null
+          id: string
+          linked_event_id: string | null
+          linked_service_id: string | null
+          notify_members: boolean | null
+          platform: string
+          scheduled_start: string | null
+          show_on_public_page: boolean | null
+          status: string | null
+          stream_key: string | null
+          stream_url: string
+          tenant_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
+          chat_embed_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          embed_url?: string | null
+          estimated_duration?: number | null
+          id?: string
+          linked_event_id?: string | null
+          linked_service_id?: string | null
+          notify_members?: boolean | null
+          platform: string
+          scheduled_start?: string | null
+          show_on_public_page?: boolean | null
+          status?: string | null
+          stream_key?: string | null
+          stream_url: string
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          actual_end?: string | null
+          actual_start?: string | null
+          chat_embed_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          embed_url?: string | null
+          estimated_duration?: number | null
+          id?: string
+          linked_event_id?: string | null
+          linked_service_id?: string | null
+          notify_members?: boolean | null
+          platform?: string
+          scheduled_start?: string | null
+          show_on_public_page?: boolean | null
+          status?: string | null
+          stream_key?: string | null
+          stream_url?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "livestreams_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_events: {
         Row: {
           created_at: string | null
@@ -2251,6 +2517,209 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      media_albums: {
+        Row: {
+          cover_photo_url: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          linked_event_id: string | null
+          name: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cover_photo_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          linked_event_id?: string | null
+          name: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          cover_photo_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          linked_event_id?: string | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_albums_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_assets: {
+        Row: {
+          created_at: string | null
+          file_size: number | null
+          file_type: string
+          file_url: string
+          folder_id: string | null
+          height: number | null
+          id: string
+          name: string
+          tags: string[] | null
+          tenant_id: string
+          updated_at: string | null
+          uploaded_by: string | null
+          width: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          folder_id?: string | null
+          height?: number | null
+          id?: string
+          name: string
+          tags?: string[] | null
+          tenant_id: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          folder_id?: string | null
+          height?: number | null
+          id?: string
+          name?: string
+          tags?: string[] | null
+          tenant_id?: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_assets_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_assets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_folders: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_folders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_photos: {
+        Row: {
+          album_id: string | null
+          caption: string | null
+          created_at: string | null
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          height: number | null
+          id: string
+          tenant_id: string
+          uploaded_by: string | null
+          width: number | null
+        }
+        Insert: {
+          album_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          height?: number | null
+          id?: string
+          tenant_id: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Update: {
+          album_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          height?: number | null
+          id?: string
+          tenant_id?: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_photos_album_id_fkey"
+            columns: ["album_id"]
+            isOneToOne: false
+            referencedRelation: "media_albums"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_photos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_action_items: {
         Row: {
@@ -3454,6 +3923,53 @@ export type Database = {
           },
         ]
       }
+      sermon_series: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          start_date: string | null
+          tenant_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          start_date?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          start_date?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sermon_series_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sermons: {
         Row: {
           audio_url: string | null
@@ -3597,6 +4113,89 @@ export type Database = {
           },
         ]
       }
+      set_list_songs: {
+        Row: {
+          id: string
+          key_override: string | null
+          notes: string | null
+          position: number
+          set_list_id: string
+          song_id: string
+        }
+        Insert: {
+          id?: string
+          key_override?: string | null
+          notes?: string | null
+          position: number
+          set_list_id: string
+          song_id: string
+        }
+        Update: {
+          id?: string
+          key_override?: string | null
+          notes?: string | null
+          position?: number
+          set_list_id?: string
+          song_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "set_list_songs_set_list_id_fkey"
+            columns: ["set_list_id"]
+            isOneToOne: false
+            referencedRelation: "set_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "set_list_songs_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      set_lists: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          service_date: string | null
+          service_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          service_date?: string | null
+          service_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          service_date?: string | null
+          service_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "set_lists_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       songs: {
         Row: {
           artist: string | null
@@ -3637,6 +4236,90 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "songs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_media: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          duration_seconds: number | null
+          file_size: number | null
+          file_url: string
+          id: string
+          linked_sermon_id: string | null
+          media_type: string
+          recording_date: string | null
+          scripture_reference: string | null
+          series_id: string | null
+          speaker: string | null
+          speaker_member_id: string | null
+          status: string | null
+          tags: string[] | null
+          tenant_id: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          file_url: string
+          id?: string
+          linked_sermon_id?: string | null
+          media_type: string
+          recording_date?: string | null
+          scripture_reference?: string | null
+          series_id?: string | null
+          speaker?: string | null
+          speaker_member_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          tenant_id: string
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          linked_sermon_id?: string | null
+          media_type?: string
+          recording_date?: string | null
+          scripture_reference?: string | null
+          series_id?: string | null
+          speaker?: string | null
+          speaker_member_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          tenant_id?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_media_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "sermon_series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_media_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
