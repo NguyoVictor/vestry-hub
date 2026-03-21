@@ -27,9 +27,9 @@ const Sermons = () => {
 
   const { data: sermonPreps = [] } = useQuery({
     queryKey: ["published_sermon_preps", church.tenantId],
-    queryFn: async () => {
-      const { data } = await supabase.from("sermons").select("*").eq("status", "published").order("date_to_preach", { ascending: false }) as { data: any[] | null };
-      return data || [];
+    queryFn: async (): Promise<any[]> => {
+      const res: any = await supabase.from("sermons").select("*").eq("status", "published").order("date_to_preach", { ascending: false });
+      return res.data || [];
     },
   });
 
