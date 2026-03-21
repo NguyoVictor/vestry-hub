@@ -128,6 +128,14 @@ const App = () => (
                 <Route path="/member-requests" element={<Suspense fallback={<Fallback />}><MemberRequestsPage /></Suspense>} />
                 <Route path="/board-meetings" element={<Suspense fallback={<Fallback />}><BoardMeetingsPage /></Suspense>} />
                 <Route path="/facility-booking" element={<Suspense fallback={<Fallback />}><FacilityBooking /></Suspense>} />
+                {/* Security & Communications routes */}
+                <Route path="/security-centre" element={<Suspense fallback={<Fallback />}><SecurityCentre /></Suspense>} />
+                <Route path="/incident-management" element={<Suspense fallback={<Fallback />}><IncidentManagement /></Suspense>} />
+                <Route path="/communications" element={<Suspense fallback={<Fallback />}><CommunicationsPage /></Suspense>} />
+                <Route path="/announcements" element={<Suspense fallback={<Fallback />}><AnnouncementsPage /></Suspense>} />
+                <Route path="/member-messaging" element={<Suspense fallback={<Fallback />}><MemberMessaging /></Suspense>} />
+                <Route path="/testimonies" element={<Suspense fallback={<Fallback />}><TestimoniesPage /></Suspense>} />
+                <Route path="/surveys" element={<Suspense fallback={<Fallback />}><SurveysPage /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
