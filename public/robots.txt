@@ -1,8 +1,10 @@
 User-agent: Googlebot
 Allow: /
+Allow: /church/
 
 User-agent: Bingbot
 Allow: /
+Allow: /church/
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +14,10 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /members
+Disallow: /finance
+Disallow: /reports
+
+Sitemap: https://vestry.com/sitemap.xml
