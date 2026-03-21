@@ -1,0 +1,139 @@
+import { useState } from "react";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { useChurch } from "@/contexts/ChurchContext";
+import { navigationGroups } from "@/config/navigation";
+import { supabase } from "@/integrations/supabase/client";
+import { TopNavbar } from "./TopNavbar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+export const AppLayout = () => {
+  const church = useChurch();
+  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(() =>
+    localStorage.getItem("sidebar_collapsed") === "true"
+  );
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem("sidebar_collapsed", String(next));
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Signed out");
+    navigate("/auth/signin", { replace: true });
+  };
+
+  const initials = church.name.slice(0, 2).toUpperCase();
+  const userInitials = `${church.userFirstName?.[0] || ""}${church.userLastName?.[0] || ""}`;
+
+  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+    <div className="flex h-full flex-col">
+      <div className={cn("flex items-center gap-3 border-b border-border p-4", !mobile && collapsed && "justify-center")}>
+        {church.logoUrl ? (
+          <img src={church.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+            {initials}
+          </div>
+        )}
+        {(mobile || !collapsed) && (
+          <span className="truncate text-sm font-semibold text-foreground">{church.name}</span>
+        )}
+      </div>
+
+      <ScrollArea className="flex-1 py-2">
+        {navigationGroups.map(group => (
+          <div key={group.label} className="mb-1">
+            {(mobile || !collapsed) && (
+              <div className="px-4 py-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {group.label}
+                </span>
+              </div>
+            )}
+            {group.items.map(item => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => mobile && setMobileOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    isActive
+                      ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    !mobile && collapsed && "justify-center px-2"
+                  )
+                }
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {(mobile || !collapsed) && <span className="truncate">{item.title}</span>}
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </ScrollArea>
+
+      <div className="border-t border-border p-3">
+        {!mobile && (
+          <Button variant="ghost" size="sm" className="mb-2 w-full justify-center" onClick={toggleCollapsed}>
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        )}
+        <div className={cn("flex items-center gap-3", !mobile && collapsed && "justify-center")}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+            {userInitials}
+          </div>
+          {(mobile || !collapsed) && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{church.userName}</p>
+              <p className="truncate text-xs text-muted-foreground">{church.userEmail}</p>
+            </div>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn("mt-2 w-full text-muted-foreground hover:text-destructive", !mobile && collapsed ? "justify-center" : "justify-start")}
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4" />
+          {(mobile || !collapsed) && <span className="ml-2">Sign Out</span>}
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-40 hidden border-r border-border bg-card transition-all duration-300 lg:flex lg:flex-col",
+        collapsed ? "w-16" : "w-60"
+      )}>
+        <SidebarContent />
+      </aside>
+
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-72 p-0">
+          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+          <SidebarContent mobile />
+        </SheetContent>
+      </Sheet>
+
+      <div className={cn("flex flex-col transition-all duration-300", collapsed ? "lg:ml-16" : "lg:ml-60")}>
+        <TopNavbar onMenuClick={() => setMobileOpen(true)} />
+        <main className="flex-1 overflow-y-auto p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};
