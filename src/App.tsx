@@ -150,7 +150,7 @@ const App = () => (
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems
-                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path) && !OPS_PATHS.includes(i.path))
+                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path) && !OPS_PATHS.includes(i.path) && !SEC_COMM_PATHS.includes(i.path))
                   .map(item => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}
