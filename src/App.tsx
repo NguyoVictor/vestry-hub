@@ -89,6 +89,17 @@ const App = () => (
                 <Route path="/visitors" element={<Suspense fallback={<Fallback />}><Visitors /></Suspense>} />
                 <Route path="/follow-up-tasks" element={<Suspense fallback={<Fallback />}><FollowUpTasks /></Suspense>} />
                 <Route path="/new-converts" element={<Suspense fallback={<Fallback />}><NewConverts /></Suspense>} />
+                {/* Finance routes */}
+                <Route path="/give-online" element={<Suspense fallback={<Fallback />}><GiveOnline /></Suspense>} />
+                <Route path="/giving-records" element={<Suspense fallback={<Fallback />}><GivingRecords /></Suspense>} />
+                <Route path="/pledge-campaigns" element={<Suspense fallback={<Fallback />}><PledgeCampaigns /></Suspense>} />
+                <Route path="/church-expenses" element={<Suspense fallback={<Fallback />}><ChurchExpenses /></Suspense>} />
+                <Route path="/budget-management" element={<Suspense fallback={<Fallback />}><BudgetManagement /></Suspense>} />
+                <Route path="/payroll" element={<Suspense fallback={<Fallback />}><Payroll /></Suspense>} />
+                <Route path="/fund-accounting" element={<Suspense fallback={<Fallback />}><FundAccounting /></Suspense>} />
+                <Route path="/accounts-payable" element={<Suspense fallback={<Fallback />}><AccountsPayable /></Suspense>} />
+                <Route path="/general-ledger" element={<Suspense fallback={<Fallback />}><GeneralLedger /></Suspense>} />
+                <Route path="/payouts" element={<Suspense fallback={<Fallback />}><Payouts /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
@@ -103,7 +114,7 @@ const App = () => (
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems
-                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path))
+                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path))
                   .map(item => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}
