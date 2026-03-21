@@ -21,6 +21,7 @@ import { allNavItems } from "./config/navigation";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
+// Settings pages
 const ChurchProfile = lazy(() => import("./pages/settings/ChurchProfile"));
 const ServicesModules = lazy(() => import("./pages/settings/ServicesModules"));
 const RolesPermissions = lazy(() => import("./pages/settings/RolesPermissions"));
@@ -30,9 +31,22 @@ const Security = lazy(() => import("./pages/settings/Security"));
 const Integrations = lazy(() => import("./pages/settings/Integrations"));
 const SeoPublicPage = lazy(() => import("./pages/settings/SeoPublicPage"));
 
+// People pages
+const Members = lazy(() => import("./pages/people/Members"));
+const MemberProfile = lazy(() => import("./pages/people/MemberProfile"));
+const Groups = lazy(() => import("./pages/people/Groups"));
+const GroupDetail = lazy(() => import("./pages/people/GroupDetail"));
+const HouseFellowships = lazy(() => import("./pages/people/HouseFellowships"));
+const Families = lazy(() => import("./pages/people/Families"));
+const Visitors = lazy(() => import("./pages/people/Visitors"));
+const FollowUpTasks = lazy(() => import("./pages/people/FollowUpTasks"));
+const NewConverts = lazy(() => import("./pages/people/NewConverts"));
+
 const queryClient = new QueryClient();
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+
+const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
@@ -52,6 +66,17 @@ const App = () => (
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                {/* People routes */}
+                <Route path="/members" element={<Suspense fallback={<Fallback />}><Members /></Suspense>} />
+                <Route path="/members/:memberId" element={<Suspense fallback={<Fallback />}><MemberProfile /></Suspense>} />
+                <Route path="/groups" element={<Suspense fallback={<Fallback />}><Groups /></Suspense>} />
+                <Route path="/groups/:groupId" element={<Suspense fallback={<Fallback />}><GroupDetail /></Suspense>} />
+                <Route path="/house-fellowships" element={<Suspense fallback={<Fallback />}><HouseFellowships /></Suspense>} />
+                <Route path="/families" element={<Suspense fallback={<Fallback />}><Families /></Suspense>} />
+                <Route path="/visitors" element={<Suspense fallback={<Fallback />}><Visitors /></Suspense>} />
+                <Route path="/follow-up-tasks" element={<Suspense fallback={<Fallback />}><FollowUpTasks /></Suspense>} />
+                <Route path="/new-converts" element={<Suspense fallback={<Fallback />}><NewConverts /></Suspense>} />
+                {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
                   <Route path="profile" element={<Suspense fallback={<Fallback />}><ChurchProfile /></Suspense>} />
@@ -63,8 +88,9 @@ const App = () => (
                   <Route path="integrations" element={<Suspense fallback={<Fallback />}><Integrations /></Suspense>} />
                   <Route path="seo" element={<Suspense fallback={<Fallback />}><SeoPublicPage /></Suspense>} />
                 </Route>
+                {/* Remaining placeholder routes */}
                 {allNavItems
-                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings")
+                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path))
                   .map(item => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}
