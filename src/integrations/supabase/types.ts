@@ -421,6 +421,36 @@ export type Database = {
           },
         ]
       }
+      chart_of_accounts: {
+        Row: {
+          account_code: string | null
+          account_name: string
+          account_type: string
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          tenant_id: string
+        }
+        Insert: {
+          account_code?: string | null
+          account_name: string
+          account_type: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          tenant_id: string
+        }
+        Update: {
+          account_code?: string | null
+          account_name?: string
+          account_type?: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       church_assets: {
         Row: {
           assigned_to: string | null
@@ -1118,6 +1148,59 @@ export type Database = {
           },
         ]
       }
+      fund_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          fund_id: string
+          id: string
+          reference_id: string | null
+          reference_type: string | null
+          running_balance: number | null
+          tenant_id: string
+          transaction_date: string | null
+          type: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          fund_id: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          running_balance?: number | null
+          tenant_id: string
+          transaction_date?: string | null
+          type: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          fund_id?: string
+          id?: string
+          reference_id?: string | null
+          reference_type?: string | null
+          running_balance?: number | null
+          tenant_id?: string
+          transaction_date?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fund_transactions_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funds: {
         Row: {
           balance: number | null
@@ -1534,6 +1617,168 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          document_url: string | null
+          due_date: string
+          id: string
+          invoice_number: string | null
+          issue_date: string | null
+          line_items: Json
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_terms: string | null
+          status: string | null
+          subtotal: number
+          tax_amount: number | null
+          tax_percent: number | null
+          tenant_id: string
+          total_amount: number
+          updated_at: string | null
+          vendor_email: string | null
+          vendor_name: string
+          vendor_phone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          document_url?: string | null
+          due_date: string
+          id?: string
+          invoice_number?: string | null
+          issue_date?: string | null
+          line_items?: Json
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_terms?: string | null
+          status?: string | null
+          subtotal: number
+          tax_amount?: number | null
+          tax_percent?: number | null
+          tenant_id: string
+          total_amount: number
+          updated_at?: string | null
+          vendor_email?: string | null
+          vendor_name: string
+          vendor_phone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          document_url?: string | null
+          due_date?: string
+          id?: string
+          invoice_number?: string | null
+          issue_date?: string | null
+          line_items?: Json
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_terms?: string | null
+          status?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          tax_percent?: number | null
+          tenant_id?: string
+          total_amount?: number
+          updated_at?: string | null
+          vendor_email?: string | null
+          vendor_name?: string
+          vendor_phone?: string | null
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string
+          entry_date: string | null
+          id: string
+          journal_number: string | null
+          reference: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          entry_date?: string | null
+          id?: string
+          journal_number?: string | null
+          reference?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          entry_date?: string | null
+          id?: string
+          journal_number?: string | null
+          reference?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      journal_lines: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          credit_amount: number | null
+          debit_amount: number | null
+          id: string
+          journal_entry_id: string
+          notes: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          credit_amount?: number | null
+          debit_amount?: number | null
+          id?: string
+          journal_entry_id: string
+          notes?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          credit_amount?: number | null
+          debit_amount?: number | null
+          id?: string
+          journal_entry_id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -2231,6 +2476,60 @@ export type Database = {
           },
         ]
       }
+      payroll_payments: {
+        Row: {
+          created_at: string | null
+          deductions_breakdown: Json
+          gross_amount: number
+          id: string
+          net_amount: number
+          payment_method: string | null
+          payment_reference: string | null
+          payroll_run_id: string
+          payroll_staff_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          deductions_breakdown: Json
+          gross_amount: number
+          id?: string
+          net_amount: number
+          payment_method?: string | null
+          payment_reference?: string | null
+          payroll_run_id: string
+          payroll_staff_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          deductions_breakdown?: Json
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          payment_method?: string | null
+          payment_reference?: string | null
+          payroll_run_id?: string
+          payroll_staff_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_payments_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_payments_payroll_staff_id_fkey"
+            columns: ["payroll_staff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_records: {
         Row: {
           amount: number
@@ -2309,6 +2608,108 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payroll_runs: {
+        Row: {
+          id: string
+          period_month: number
+          period_year: number
+          processed_at: string | null
+          processed_by: string | null
+          staff_count: number
+          tenant_id: string
+          total_deductions: number
+          total_gross: number
+          total_net: number
+        }
+        Insert: {
+          id?: string
+          period_month: number
+          period_year: number
+          processed_at?: string | null
+          processed_by?: string | null
+          staff_count: number
+          tenant_id: string
+          total_deductions: number
+          total_gross: number
+          total_net: number
+        }
+        Update: {
+          id?: string
+          period_month?: number
+          period_year?: number
+          processed_at?: string | null
+          processed_by?: string | null
+          staff_count?: number
+          tenant_id?: string
+          total_deductions?: number
+          total_gross?: number
+          total_net?: number
+        }
+        Relationships: []
+      }
+      payroll_staff: {
+        Row: {
+          account_number: string | null
+          bank_name: string | null
+          created_at: string | null
+          deductions: Json | null
+          employment_type: string | null
+          gross_salary: number
+          id: string
+          job_title: string | null
+          member_id: string | null
+          mpesa_number: string | null
+          net_salary: number
+          notes: string | null
+          pay_frequency: string | null
+          payment_method: string | null
+          start_date: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          deductions?: Json | null
+          employment_type?: string | null
+          gross_salary: number
+          id?: string
+          job_title?: string | null
+          member_id?: string | null
+          mpesa_number?: string | null
+          net_salary: number
+          notes?: string | null
+          pay_frequency?: string | null
+          payment_method?: string | null
+          start_date?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string | null
+          deductions?: Json | null
+          employment_type?: string | null
+          gross_salary?: number
+          id?: string
+          job_title?: string | null
+          member_id?: string | null
+          mpesa_number?: string | null
+          net_salary?: number
+          notes?: string | null
+          pay_frequency?: string | null
+          payment_method?: string | null
+          start_date?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       pledge_campaigns: {
         Row: {
@@ -3388,6 +3789,10 @@ export type Database = {
     }
     Functions: {
       get_my_tenant_id: { Args: never; Returns: string }
+      seed_chart_of_accounts: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       announcement_audience_enum: "all" | "group" | "branch"
