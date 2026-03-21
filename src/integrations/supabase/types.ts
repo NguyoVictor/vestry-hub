@@ -1405,6 +1405,36 @@ export type Database = {
           },
         ]
       }
+      login_events: {
+        Row: {
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          location: string | null
+          status: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          status?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          status?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       member_requests: {
         Row: {
           assigned_to: string | null
@@ -1686,6 +1716,74 @@ export type Database = {
             columns: ["visitor_id"]
             isOneToOne: false
             referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_preferences: {
+        Row: {
+          email_member_request: boolean | null
+          email_new_donation: boolean | null
+          email_new_event: boolean | null
+          email_new_member: boolean | null
+          email_new_visitor: boolean | null
+          email_weekly_digest: boolean | null
+          email_weekly_summary: boolean | null
+          id: string
+          inapp_member_request: boolean | null
+          inapp_new_donation: boolean | null
+          inapp_new_event: boolean | null
+          inapp_new_member: boolean | null
+          inapp_new_visitor: boolean | null
+          inapp_weekly_digest: boolean | null
+          inapp_weekly_summary: boolean | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          email_member_request?: boolean | null
+          email_new_donation?: boolean | null
+          email_new_event?: boolean | null
+          email_new_member?: boolean | null
+          email_new_visitor?: boolean | null
+          email_weekly_digest?: boolean | null
+          email_weekly_summary?: boolean | null
+          id?: string
+          inapp_member_request?: boolean | null
+          inapp_new_donation?: boolean | null
+          inapp_new_event?: boolean | null
+          inapp_new_member?: boolean | null
+          inapp_new_visitor?: boolean | null
+          inapp_weekly_digest?: boolean | null
+          inapp_weekly_summary?: boolean | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          email_member_request?: boolean | null
+          email_new_donation?: boolean | null
+          email_new_event?: boolean | null
+          email_new_member?: boolean | null
+          email_new_visitor?: boolean | null
+          email_weekly_digest?: boolean | null
+          email_weekly_summary?: boolean | null
+          id?: string
+          inapp_member_request?: boolean | null
+          inapp_new_donation?: boolean | null
+          inapp_new_event?: boolean | null
+          inapp_new_member?: boolean | null
+          inapp_new_visitor?: boolean | null
+          inapp_weekly_digest?: boolean | null
+          inapp_weekly_summary?: boolean | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -2469,9 +2567,80 @@ export type Database = {
           },
         ]
       }
+      tenant_seo_settings: {
+        Row: {
+          created_at: string | null
+          facebook_pixel_id: string | null
+          ga_measurement_id: string | null
+          gsc_verification: string | null
+          id: string
+          keywords: string[] | null
+          meta_description: string | null
+          og_description: string | null
+          og_image_url: string | null
+          og_title: string | null
+          page_title: string | null
+          public_page_visible: boolean | null
+          show_in_directory: boolean | null
+          structured_data_enabled: boolean | null
+          tenant_id: string
+          twitter_card_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          facebook_pixel_id?: string | null
+          ga_measurement_id?: string | null
+          gsc_verification?: string | null
+          id?: string
+          keywords?: string[] | null
+          meta_description?: string | null
+          og_description?: string | null
+          og_image_url?: string | null
+          og_title?: string | null
+          page_title?: string | null
+          public_page_visible?: boolean | null
+          show_in_directory?: boolean | null
+          structured_data_enabled?: boolean | null
+          tenant_id: string
+          twitter_card_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          facebook_pixel_id?: string | null
+          ga_measurement_id?: string | null
+          gsc_verification?: string | null
+          id?: string
+          keywords?: string[] | null
+          meta_description?: string | null
+          og_description?: string | null
+          og_image_url?: string | null
+          og_title?: string | null
+          page_title?: string | null
+          public_page_visible?: boolean | null
+          show_in_directory?: boolean | null
+          structured_data_enabled?: boolean | null
+          tenant_id?: string
+          twitter_card_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_seo_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
+          about: string | null
           accent_color: string | null
+          address: string | null
+          average_attendance: number | null
           church_code: string | null
           city: string | null
           contact_email: string | null
@@ -2480,13 +2649,20 @@ export type Database = {
           currency: string | null
           custom_domain: string | null
           default_language: string | null
+          denomination: string | null
+          enabled_modules: Json | null
+          facebook_url: string | null
+          founded_year: number | null
           id: string
+          instagram_url: string | null
           logo: string | null
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
           phone: string | null
           primary_color: string | null
+          service_days: string[] | null
+          service_time: string | null
           slug: string
           subscription_plan:
             | Database["public"]["Enums"]["subscription_plan_enum"]
@@ -2496,11 +2672,17 @@ export type Database = {
           tagline: string | null
           tenant_metadata: Json | null
           timezone: string | null
+          twitter_url: string | null
           updated_at: string
           website_url: string | null
+          whatsapp_number: string | null
+          youtube_url: string | null
         }
         Insert: {
+          about?: string | null
           accent_color?: string | null
+          address?: string | null
+          average_attendance?: number | null
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
@@ -2509,13 +2691,20 @@ export type Database = {
           currency?: string | null
           custom_domain?: string | null
           default_language?: string | null
+          denomination?: string | null
+          enabled_modules?: Json | null
+          facebook_url?: string | null
+          founded_year?: number | null
           id: string
+          instagram_url?: string | null
           logo?: string | null
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
           phone?: string | null
           primary_color?: string | null
+          service_days?: string[] | null
+          service_time?: string | null
           slug: string
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan_enum"]
@@ -2525,11 +2714,17 @@ export type Database = {
           tagline?: string | null
           tenant_metadata?: Json | null
           timezone?: string | null
+          twitter_url?: string | null
           updated_at: string
           website_url?: string | null
+          whatsapp_number?: string | null
+          youtube_url?: string | null
         }
         Update: {
+          about?: string | null
           accent_color?: string | null
+          address?: string | null
+          average_attendance?: number | null
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
@@ -2538,13 +2733,20 @@ export type Database = {
           currency?: string | null
           custom_domain?: string | null
           default_language?: string | null
+          denomination?: string | null
+          enabled_modules?: Json | null
+          facebook_url?: string | null
+          founded_year?: number | null
           id?: string
+          instagram_url?: string | null
           logo?: string | null
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
           phone?: string | null
           primary_color?: string | null
+          service_days?: string[] | null
+          service_time?: string | null
           slug?: string
           subscription_plan?:
             | Database["public"]["Enums"]["subscription_plan_enum"]
@@ -2554,8 +2756,11 @@ export type Database = {
           tagline?: string | null
           tenant_metadata?: Json | null
           timezone?: string | null
+          twitter_url?: string | null
           updated_at?: string
           website_url?: string | null
+          whatsapp_number?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
