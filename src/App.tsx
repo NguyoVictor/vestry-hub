@@ -42,11 +42,24 @@ const Visitors = lazy(() => import("./pages/people/Visitors"));
 const FollowUpTasks = lazy(() => import("./pages/people/FollowUpTasks"));
 const NewConverts = lazy(() => import("./pages/people/NewConverts"));
 
+// Finance pages
+const GiveOnline = lazy(() => import("./pages/finance/GiveOnline"));
+const GivingRecords = lazy(() => import("./pages/finance/GivingRecords"));
+const PledgeCampaigns = lazy(() => import("./pages/finance/PledgeCampaigns"));
+const ChurchExpenses = lazy(() => import("./pages/finance/ChurchExpenses"));
+const BudgetManagement = lazy(() => import("./pages/finance/BudgetManagement"));
+const Payroll = lazy(() => import("./pages/finance/Payroll"));
+const FundAccounting = lazy(() => import("./pages/finance/FundAccounting"));
+const AccountsPayable = lazy(() => import("./pages/finance/AccountsPayable"));
+const GeneralLedger = lazy(() => import("./pages/finance/GeneralLedger"));
+const Payouts = lazy(() => import("./pages/finance/Payouts"));
+
 const queryClient = new QueryClient();
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
+const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
@@ -76,6 +89,17 @@ const App = () => (
                 <Route path="/visitors" element={<Suspense fallback={<Fallback />}><Visitors /></Suspense>} />
                 <Route path="/follow-up-tasks" element={<Suspense fallback={<Fallback />}><FollowUpTasks /></Suspense>} />
                 <Route path="/new-converts" element={<Suspense fallback={<Fallback />}><NewConverts /></Suspense>} />
+                {/* Finance routes */}
+                <Route path="/give-online" element={<Suspense fallback={<Fallback />}><GiveOnline /></Suspense>} />
+                <Route path="/giving-records" element={<Suspense fallback={<Fallback />}><GivingRecords /></Suspense>} />
+                <Route path="/pledge-campaigns" element={<Suspense fallback={<Fallback />}><PledgeCampaigns /></Suspense>} />
+                <Route path="/church-expenses" element={<Suspense fallback={<Fallback />}><ChurchExpenses /></Suspense>} />
+                <Route path="/budget-management" element={<Suspense fallback={<Fallback />}><BudgetManagement /></Suspense>} />
+                <Route path="/payroll" element={<Suspense fallback={<Fallback />}><Payroll /></Suspense>} />
+                <Route path="/fund-accounting" element={<Suspense fallback={<Fallback />}><FundAccounting /></Suspense>} />
+                <Route path="/accounts-payable" element={<Suspense fallback={<Fallback />}><AccountsPayable /></Suspense>} />
+                <Route path="/general-ledger" element={<Suspense fallback={<Fallback />}><GeneralLedger /></Suspense>} />
+                <Route path="/payouts" element={<Suspense fallback={<Fallback />}><Payouts /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
@@ -90,7 +114,7 @@ const App = () => (
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems
-                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path))
+                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path))
                   .map(item => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}
