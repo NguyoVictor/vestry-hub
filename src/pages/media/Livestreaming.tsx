@@ -79,7 +79,7 @@ const Livestreaming = () => {
                   <CardContent className="pt-5">
                     <div className="flex items-center gap-2 mb-3"><Badge variant="destructive">🔴 LIVE</Badge><h3 className="font-semibold">{stream.title}</h3></div>
                     {stream.stream_url && ReactPlayer.canPlay(stream.stream_url) && (
-                      <div className="aspect-video rounded-lg overflow-hidden mb-3"><ReactPlayer url={stream.stream_url} width="100%" height="100%" controls /></div>
+                      <div className="aspect-video rounded-lg overflow-hidden mb-3"><ReactPlayer {...{url: stream.stream_url, width: "100%", height: "100%", controls: true} as any} /></div>
                     )}
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => window.open(stream.stream_url, "_blank")}><ExternalLink className="mr-2 h-3.5 w-3.5" />Open Stream</Button>
@@ -150,7 +150,7 @@ const Livestreaming = () => {
             <div className="flex items-center justify-between"><Label>Show on Public Page</Label><Switch checked={form.watch("show_on_public_page")} onCheckedChange={v => form.setValue("show_on_public_page", v)} /></div>
             <div className="flex items-center justify-between"><Label>Notify Members</Label><Switch checked={form.watch("notify_members")} onCheckedChange={v => form.setValue("notify_members", v)} /></div>
             {form.watch("stream_url") && ReactPlayer.canPlay(form.watch("stream_url")) && (
-              <div><Label>Preview</Label><div className="aspect-video rounded-lg overflow-hidden border"><ReactPlayer url={form.watch("stream_url")} width="100%" height="100%" controls={false} /></div></div>
+              <div><Label>Preview</Label><div className="aspect-video rounded-lg overflow-hidden border"><ReactPlayer {...{url: form.watch("stream_url"), width: "100%", height: "100%", controls: false} as any} /></div></div>
             )}
             <Button type="submit" className="w-full" disabled={createStream.isPending}>Schedule Stream</Button>
           </form>
