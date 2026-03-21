@@ -58,12 +58,11 @@ export default function Testimonies() {
     mutationFn: async () => {
       const { error } = await supabase.from("testimonies").insert({
         tenant_id: tenantId,
+        member_id: userId,
         title: form.title,
         body: form.body,
-        category: form.category,
-        is_anonymous: form.is_anonymous,
         is_approved: true,
-        submitted_by: userId,
+        approved_by: userId,
       });
       if (error) throw error;
     },
