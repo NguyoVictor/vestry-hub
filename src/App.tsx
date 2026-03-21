@@ -62,6 +62,17 @@ const MemberRequestsPage = lazy(() => import("./pages/operations/MemberRequests"
 const BoardMeetingsPage = lazy(() => import("./pages/operations/BoardMeetings"));
 const FacilityBooking = lazy(() => import("./pages/operations/FacilityBooking"));
 
+// Security pages
+const SecurityCentre = lazy(() => import("./pages/security/SecurityCentre"));
+const IncidentManagement = lazy(() => import("./pages/security/IncidentManagement"));
+
+// Communications pages
+const CommunicationsPage = lazy(() => import("./pages/communications/Communications"));
+const AnnouncementsPage = lazy(() => import("./pages/communications/Announcements"));
+const MemberMessaging = lazy(() => import("./pages/communications/MemberMessaging"));
+const TestimoniesPage = lazy(() => import("./pages/communications/Testimonies"));
+const SurveysPage = lazy(() => import("./pages/communications/Surveys"));
+
 const queryClient = new QueryClient();
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -69,6 +80,7 @@ const Fallback = () => <div className="flex items-center justify-center p-12"><L
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
+const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
@@ -116,6 +128,14 @@ const App = () => (
                 <Route path="/member-requests" element={<Suspense fallback={<Fallback />}><MemberRequestsPage /></Suspense>} />
                 <Route path="/board-meetings" element={<Suspense fallback={<Fallback />}><BoardMeetingsPage /></Suspense>} />
                 <Route path="/facility-booking" element={<Suspense fallback={<Fallback />}><FacilityBooking /></Suspense>} />
+                {/* Security & Communications routes */}
+                <Route path="/security-centre" element={<Suspense fallback={<Fallback />}><SecurityCentre /></Suspense>} />
+                <Route path="/incident-management" element={<Suspense fallback={<Fallback />}><IncidentManagement /></Suspense>} />
+                <Route path="/communications" element={<Suspense fallback={<Fallback />}><CommunicationsPage /></Suspense>} />
+                <Route path="/announcements" element={<Suspense fallback={<Fallback />}><AnnouncementsPage /></Suspense>} />
+                <Route path="/member-messaging" element={<Suspense fallback={<Fallback />}><MemberMessaging /></Suspense>} />
+                <Route path="/testimonies" element={<Suspense fallback={<Fallback />}><TestimoniesPage /></Suspense>} />
+                <Route path="/surveys" element={<Suspense fallback={<Fallback />}><SurveysPage /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
@@ -130,7 +150,7 @@ const App = () => (
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems
-                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path) && !OPS_PATHS.includes(i.path))
+                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path) && !OPS_PATHS.includes(i.path) && !SEC_COMM_PATHS.includes(i.path))
                   .map(item => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}
