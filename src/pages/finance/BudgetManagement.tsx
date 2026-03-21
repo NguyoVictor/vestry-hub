@@ -46,7 +46,7 @@ const BudgetManagement = () => {
   const { data: expenses = [] } = useQuery({
     queryKey: ["expenses-for-budget", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("expenses").select("category, amount").eq("approval_status", "approved");
+      const { data } = await (supabase.from("expenses").select("category, amount") as any).eq("approval_status", "approved");
       return data || [];
     },
     enabled: !!tenantId,
