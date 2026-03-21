@@ -249,39 +249,66 @@ export type Database = {
           agenda: string | null
           created_at: string | null
           created_by: string | null
+          end_time: string | null
           id: string
           location: string | null
+          location_type: string | null
           meeting_date: string
           minutes: string | null
+          minutes_content: string | null
+          minutes_document_url: string | null
+          online_link: string | null
+          pre_meeting_notes: string | null
           start_time: string | null
+          status: string | null
           tenant_id: string
           title: string
+          type: string | null
+          venue: string | null
         }
         Insert: {
           action_items?: Json | null
           agenda?: string | null
           created_at?: string | null
           created_by?: string | null
+          end_time?: string | null
           id?: string
           location?: string | null
+          location_type?: string | null
           meeting_date: string
           minutes?: string | null
+          minutes_content?: string | null
+          minutes_document_url?: string | null
+          online_link?: string | null
+          pre_meeting_notes?: string | null
           start_time?: string | null
+          status?: string | null
           tenant_id: string
           title: string
+          type?: string | null
+          venue?: string | null
         }
         Update: {
           action_items?: Json | null
           agenda?: string | null
           created_at?: string | null
           created_by?: string | null
+          end_time?: string | null
           id?: string
           location?: string | null
+          location_type?: string | null
           meeting_date?: string
           minutes?: string | null
+          minutes_content?: string | null
+          minutes_document_url?: string | null
+          online_link?: string | null
+          pre_meeting_notes?: string | null
           start_time?: string | null
+          status?: string | null
           tenant_id?: string
           title?: string
+          type?: string | null
+          venue?: string | null
         }
         Relationships: [
           {
@@ -762,9 +789,63 @@ export type Database = {
           },
         ]
       }
+      event_rsvps: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          event_id: string
+          id: string
+          member_id: string | null
+          name: string | null
+          notes: string | null
+          phone: string | null
+          rsvp_source: string | null
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          event_id: string
+          id?: string
+          member_id?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          rsvp_source?: string | null
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          event_id?: string
+          id?: string
+          member_id?: string | null
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          rsvp_source?: string | null
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_rsvps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
+          address: string | null
+          allow_rsvp: boolean | null
+          banner_image_url: string | null
           branch_id: string | null
+          budget: number | null
           capacity_limit: number | null
           created_at: string | null
           created_by: string | null
@@ -772,15 +853,28 @@ export type Database = {
           end_time: string | null
           event_date: string
           id: string
+          is_all_day: boolean | null
           is_published: boolean | null
           location: string | null
+          location_type: string | null
+          online_link: string | null
+          organizer_id: string | null
           registration_deadline: string | null
+          show_on_public_page: boolean | null
           start_time: string | null
+          status: string | null
+          tags: string[] | null
           tenant_id: string
           title: string
+          type: string | null
+          venue_name: string | null
         }
         Insert: {
+          address?: string | null
+          allow_rsvp?: boolean | null
+          banner_image_url?: string | null
           branch_id?: string | null
+          budget?: number | null
           capacity_limit?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -788,15 +882,28 @@ export type Database = {
           end_time?: string | null
           event_date: string
           id?: string
+          is_all_day?: boolean | null
           is_published?: boolean | null
           location?: string | null
+          location_type?: string | null
+          online_link?: string | null
+          organizer_id?: string | null
           registration_deadline?: string | null
+          show_on_public_page?: boolean | null
           start_time?: string | null
+          status?: string | null
+          tags?: string[] | null
           tenant_id: string
           title: string
+          type?: string | null
+          venue_name?: string | null
         }
         Update: {
+          address?: string | null
+          allow_rsvp?: boolean | null
+          banner_image_url?: string | null
           branch_id?: string | null
+          budget?: number | null
           capacity_limit?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -804,12 +911,21 @@ export type Database = {
           end_time?: string | null
           event_date?: string
           id?: string
+          is_all_day?: boolean | null
           is_published?: boolean | null
           location?: string | null
+          location_type?: string | null
+          online_link?: string | null
+          organizer_id?: string | null
           registration_deadline?: string | null
+          show_on_public_page?: boolean | null
           start_time?: string | null
+          status?: string | null
+          tags?: string[] | null
           tenant_id?: string
           title?: string
+          type?: string | null
+          venue_name?: string | null
         }
         Relationships: [
           {
@@ -892,39 +1008,119 @@ export type Database = {
           },
         ]
       }
+      facilities: {
+        Row: {
+          amenities: string[] | null
+          capacity: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          photo_url: string | null
+          tenant_id: string
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amenities?: string[] | null
+          capacity?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          photo_url?: string | null
+          tenant_id: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amenities?: string[] | null
+          capacity?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          photo_url?: string | null
+          tenant_id?: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facilities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facility_bookings: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           booked_by: string | null
           booking_date: string
+          booking_reference: string | null
           created_at: string | null
           end_time: string | null
+          equipment_needed: string[] | null
+          expected_attendees: number | null
+          facility_id: string | null
           facility_name: string
           id: string
+          notes: string | null
           purpose: string | null
+          rejection_reason: string | null
+          setup_notes: string | null
+          setup_required: boolean | null
           start_time: string | null
           status: Database["public"]["Enums"]["task_status_enum"] | null
           tenant_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           booked_by?: string | null
           booking_date: string
+          booking_reference?: string | null
           created_at?: string | null
           end_time?: string | null
+          equipment_needed?: string[] | null
+          expected_attendees?: number | null
+          facility_id?: string | null
           facility_name: string
           id?: string
+          notes?: string | null
           purpose?: string | null
+          rejection_reason?: string | null
+          setup_notes?: string | null
+          setup_required?: boolean | null
           start_time?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
           tenant_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           booked_by?: string | null
           booking_date?: string
+          booking_reference?: string | null
           created_at?: string | null
           end_time?: string | null
+          equipment_needed?: string[] | null
+          expected_attendees?: number | null
+          facility_id?: string | null
           facility_name?: string
           id?: string
+          notes?: string | null
           purpose?: string | null
+          rejection_reason?: string | null
+          setup_notes?: string | null
+          setup_required?: boolean | null
           start_time?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
           tenant_id?: string
@@ -1877,39 +2073,135 @@ export type Database = {
         }
         Relationships: []
       }
-      member_requests: {
+      meeting_action_items: {
         Row: {
           assigned_to: string | null
           created_at: string | null
-          description: string | null
+          description: string
+          due_date: string | null
           id: string
-          member_id: string
-          request_type: string
-          resolved_at: string | null
-          status: Database["public"]["Enums"]["task_status_enum"] | null
-          tenant_id: string
+          meeting_id: string
+          status: string | null
+          updated_at: string | null
         }
         Insert: {
           assigned_to?: string | null
           created_at?: string | null
-          description?: string | null
+          description: string
+          due_date?: string | null
           id?: string
-          member_id: string
-          request_type: string
-          resolved_at?: string | null
-          status?: Database["public"]["Enums"]["task_status_enum"] | null
-          tenant_id: string
+          meeting_id: string
+          status?: string | null
+          updated_at?: string | null
         }
         Update: {
           assigned_to?: string | null
           created_at?: string | null
+          description?: string
+          due_date?: string | null
+          id?: string
+          meeting_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      meeting_attendees: {
+        Row: {
+          attendance_status: string | null
+          id: string
+          meeting_id: string
+          member_id: string
+        }
+        Insert: {
+          attendance_status?: string | null
+          id?: string
+          meeting_id: string
+          member_id: string
+        }
+        Update: {
+          attendance_status?: string | null
+          id?: string
+          meeting_id?: string
+          member_id?: string
+        }
+        Relationships: []
+      }
+      member_request_notes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          note: string
+          request_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          note: string
+          request_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          note?: string
+          request_id?: string
+        }
+        Relationships: []
+      }
+      member_requests: {
+        Row: {
+          assigned_to: string | null
+          attachment_url: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_confidential: boolean | null
+          member_id: string
+          priority: string | null
+          request_type: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["task_status_enum"] | null
+          tenant_id: string
+          title: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          attachment_url?: string | null
+          created_at?: string | null
           description?: string | null
           id?: string
-          member_id?: string
-          request_type?: string
+          is_confidential?: boolean | null
+          member_id: string
+          priority?: string | null
+          request_type: string
+          resolution_notes?: string | null
           resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["task_status_enum"] | null
+          tenant_id: string
+          title?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          attachment_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_confidential?: boolean | null
+          member_id?: string
+          priority?: string | null
+          request_type?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
           tenant_id?: string
+          title?: string | null
         }
         Relationships: [
           {
@@ -3776,6 +4068,113 @@ export type Database = {
           },
           {
             foreignKeyName: "volunteer_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      volunteer_roles: {
+        Row: {
+          created_at: string | null
+          department: string | null
+          description: string | null
+          id: string
+          max_volunteers: number | null
+          min_volunteers: number | null
+          name: string
+          required_skills: string[] | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department?: string | null
+          description?: string | null
+          id?: string
+          max_volunteers?: number | null
+          min_volunteers?: number | null
+          name: string
+          required_skills?: string[] | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department?: string | null
+          description?: string | null
+          id?: string
+          max_volunteers?: number | null
+          min_volunteers?: number | null
+          name?: string
+          required_skills?: string[] | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "volunteer_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      volunteers: {
+        Row: {
+          assigned_by: string | null
+          created_at: string | null
+          hours_served: number | null
+          id: string
+          member_id: string
+          notes: string | null
+          reference_id: string | null
+          reference_type: string | null
+          role_id: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string | null
+          hours_served?: number | null
+          id?: string
+          member_id: string
+          notes?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          role_id?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string | null
+          hours_served?: number | null
+          id?: string
+          member_id?: string
+          notes?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          role_id?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "volunteers_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "volunteer_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "volunteers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
