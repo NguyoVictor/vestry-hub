@@ -556,6 +556,79 @@ export type Database = {
           },
         ]
       }
+      convert_checkins: {
+        Row: {
+          checkin_date: string | null
+          conducted_by: string | null
+          convert_id: string
+          created_at: string | null
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          checkin_date?: string | null
+          conducted_by?: string | null
+          convert_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          checkin_date?: string | null
+          conducted_by?: string | null
+          convert_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convert_checkins_convert_id_fkey"
+            columns: ["convert_id"]
+            isOneToOne: false
+            referencedRelation: "new_converts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      convert_stage_history: {
+        Row: {
+          advanced_at: string | null
+          advanced_by: string | null
+          convert_id: string
+          from_stage: number | null
+          id: string
+          notes: string | null
+          to_stage: number
+        }
+        Insert: {
+          advanced_at?: string | null
+          advanced_by?: string | null
+          convert_id: string
+          from_stage?: number | null
+          id?: string
+          notes?: string | null
+          to_stage: number
+        }
+        Update: {
+          advanced_at?: string | null
+          advanced_by?: string | null
+          convert_id?: string
+          from_stage?: number | null
+          id?: string
+          notes?: string | null
+          to_stage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convert_stage_history_convert_id_fkey"
+            columns: ["convert_id"]
+            isOneToOne: false
+            referencedRelation: "new_converts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discipleship_pathways: {
         Row: {
           created_at: string | null
@@ -900,6 +973,67 @@ export type Database = {
           },
         ]
       }
+      family_members: {
+        Row: {
+          family_id: string
+          id: string
+          member_id: string
+          relationship: string
+        }
+        Insert: {
+          family_id: string
+          id?: string
+          member_id: string
+          relationship?: string
+        }
+        Update: {
+          family_id?: string
+          id?: string
+          member_id?: string
+          relationship?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fellowship_members: {
+        Row: {
+          fellowship_id: string
+          id: string
+          joined_at: string | null
+          member_id: string
+          tenant_id: string
+        }
+        Insert: {
+          fellowship_id: string
+          id?: string
+          joined_at?: string | null
+          member_id: string
+          tenant_id: string
+        }
+        Update: {
+          fellowship_id?: string
+          id?: string
+          joined_at?: string | null
+          member_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fellowship_members_fellowship_id_fkey"
+            columns: ["fellowship_id"]
+            isOneToOne: false
+            referencedRelation: "house_fellowships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follow_up_tasks: {
         Row: {
           assigned_to: string | null
@@ -1194,37 +1328,49 @@ export type Database = {
       }
       groups: {
         Row: {
+          color: string | null
           created_at: string | null
           description: string | null
           id: string
           is_active: boolean | null
           last_meeting_date: string | null
           leader_id: string | null
+          meeting_day: string | null
+          meeting_location: string | null
           meeting_schedule: string | null
+          meeting_time: string | null
           name: string
           tenant_id: string
           type: Database["public"]["Enums"]["group_type_enum"] | null
         }
         Insert: {
+          color?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           last_meeting_date?: string | null
           leader_id?: string | null
+          meeting_day?: string | null
+          meeting_location?: string | null
           meeting_schedule?: string | null
+          meeting_time?: string | null
           name: string
           tenant_id: string
           type?: Database["public"]["Enums"]["group_type_enum"] | null
         }
         Update: {
+          color?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           last_meeting_date?: string | null
           leader_id?: string | null
+          meeting_day?: string | null
+          meeting_location?: string | null
           meeting_schedule?: string | null
+          meeting_time?: string | null
           name?: string
           tenant_id?: string
           type?: Database["public"]["Enums"]["group_type_enum"] | null
@@ -1245,6 +1391,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      house_fellowships: {
+        Row: {
+          created_at: string | null
+          host_address: string | null
+          host_name: string | null
+          id: string
+          is_active: boolean | null
+          leader_id: string | null
+          max_capacity: number | null
+          meeting_day: string | null
+          meeting_time: string | null
+          name: string
+          notes: string | null
+          tenant_id: string
+          updated_at: string | null
+          zone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          host_address?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          leader_id?: string | null
+          max_capacity?: number | null
+          meeting_day?: string | null
+          meeting_time?: string | null
+          name: string
+          notes?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          zone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          host_address?: string | null
+          host_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          leader_id?: string | null
+          max_capacity?: number | null
+          meeting_day?: string | null
+          meeting_time?: string | null
+          name?: string
+          notes?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          zone?: string | null
+        }
+        Relationships: []
       }
       incidents: {
         Row: {
@@ -1496,24 +1693,30 @@ export type Database = {
       members: {
         Row: {
           baptism_date: string | null
+          baptized: boolean | null
           city: string | null
           country: string | null
           created_at: string
           custom_fields: Json | null
+          department: string | null
           discipleship_stage: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
           family_id: string | null
           id: string
+          id_number: string | null
           marital_status:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
           membership_number: string
+          nationality: string | null
           notes: string | null
           occupation: string | null
           postal_code: string | null
           salvation_date: string | null
+          secondary_phone: string | null
+          skills: string[] | null
           state: string | null
           street: string | null
           tenant_id: string
@@ -1521,24 +1724,30 @@ export type Database = {
         }
         Insert: {
           baptism_date?: string | null
+          baptized?: boolean | null
           city?: string | null
           country?: string | null
           created_at: string
           custom_fields?: Json | null
+          department?: string | null
           discipleship_stage?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           family_id?: string | null
           id: string
+          id_number?: string | null
           marital_status?:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
           membership_number: string
+          nationality?: string | null
           notes?: string | null
           occupation?: string | null
           postal_code?: string | null
           salvation_date?: string | null
+          secondary_phone?: string | null
+          skills?: string[] | null
           state?: string | null
           street?: string | null
           tenant_id: string
@@ -1546,24 +1755,30 @@ export type Database = {
         }
         Update: {
           baptism_date?: string | null
+          baptized?: boolean | null
           city?: string | null
           country?: string | null
           created_at?: string
           custom_fields?: Json | null
+          department?: string | null
           discipleship_stage?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           family_id?: string | null
           id?: string
+          id_number?: string | null
           marital_status?:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
           membership_number?: string
+          nationality?: string | null
           notes?: string | null
           occupation?: string | null
           postal_code?: string | null
           salvation_date?: string | null
+          secondary_phone?: string | null
+          skills?: string[] | null
           state?: string | null
           street?: string | null
           tenant_id?: string
@@ -1657,33 +1872,45 @@ export type Database = {
       }
       new_converts: {
         Row: {
+          baptism_date: string | null
+          baptism_status: string | null
           counsellor_id: string | null
           created_at: string | null
           discipleship_stage: string | null
+          graduated_at: string | null
           id: string
           member_id: string | null
+          mentor_id: string | null
           notes: string | null
           salvation_date: string | null
           tenant_id: string
           visitor_id: string | null
         }
         Insert: {
+          baptism_date?: string | null
+          baptism_status?: string | null
           counsellor_id?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
+          graduated_at?: string | null
           id?: string
           member_id?: string | null
+          mentor_id?: string | null
           notes?: string | null
           salvation_date?: string | null
           tenant_id: string
           visitor_id?: string | null
         }
         Update: {
+          baptism_date?: string | null
+          baptism_status?: string | null
           counsellor_id?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
+          graduated_at?: string | null
           id?: string
           member_id?: string | null
+          mentor_id?: string | null
           notes?: string | null
           salvation_date?: string | null
           tenant_id?: string
@@ -2989,43 +3216,90 @@ export type Database = {
           },
         ]
       }
+      visitor_followup_notes: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          note: string
+          status_at_time: string | null
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          note: string
+          status_at_time?: string | null
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          note?: string
+          status_at_time?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_followup_notes_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitors: {
         Row: {
+          assigned_to: string | null
           converted_to_member_id: string | null
           created_at: string | null
           email: string | null
           first_name: string
+          follow_up_due_date: string | null
+          follow_up_status: string | null
           how_heard: string | null
           id: string
           last_name: string
           notes: string | null
           phone: string | null
+          service_attended: string | null
           tenant_id: string
           visit_date: string
         }
         Insert: {
+          assigned_to?: string | null
           converted_to_member_id?: string | null
           created_at?: string | null
           email?: string | null
           first_name: string
+          follow_up_due_date?: string | null
+          follow_up_status?: string | null
           how_heard?: string | null
           id?: string
           last_name: string
           notes?: string | null
           phone?: string | null
+          service_attended?: string | null
           tenant_id: string
           visit_date: string
         }
         Update: {
+          assigned_to?: string | null
           converted_to_member_id?: string | null
           created_at?: string | null
           email?: string | null
           first_name?: string
+          follow_up_due_date?: string | null
+          follow_up_status?: string | null
           how_heard?: string | null
           id?: string
           last_name?: string
           notes?: string | null
           phone?: string | null
+          service_attended?: string | null
           tenant_id?: string
           visit_date?: string
         }
