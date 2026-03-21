@@ -62,6 +62,17 @@ const MemberRequestsPage = lazy(() => import("./pages/operations/MemberRequests"
 const BoardMeetingsPage = lazy(() => import("./pages/operations/BoardMeetings"));
 const FacilityBooking = lazy(() => import("./pages/operations/FacilityBooking"));
 
+// Security pages
+const SecurityCentre = lazy(() => import("./pages/security/SecurityCentre"));
+const IncidentManagement = lazy(() => import("./pages/security/IncidentManagement"));
+
+// Communications pages
+const CommunicationsPage = lazy(() => import("./pages/communications/Communications"));
+const AnnouncementsPage = lazy(() => import("./pages/communications/Announcements"));
+const MemberMessaging = lazy(() => import("./pages/communications/MemberMessaging"));
+const TestimoniesPage = lazy(() => import("./pages/communications/Testimonies"));
+const SurveysPage = lazy(() => import("./pages/communications/Surveys"));
+
 const queryClient = new QueryClient();
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -69,6 +80,7 @@ const Fallback = () => <div className="flex items-center justify-center p-12"><L
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
+const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
