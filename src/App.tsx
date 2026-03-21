@@ -42,6 +42,18 @@ const Visitors = lazy(() => import("./pages/people/Visitors"));
 const FollowUpTasks = lazy(() => import("./pages/people/FollowUpTasks"));
 const NewConverts = lazy(() => import("./pages/people/NewConverts"));
 
+// Finance pages
+const GiveOnline = lazy(() => import("./pages/finance/GiveOnline"));
+const GivingRecords = lazy(() => import("./pages/finance/GivingRecords"));
+const PledgeCampaigns = lazy(() => import("./pages/finance/PledgeCampaigns"));
+const ChurchExpenses = lazy(() => import("./pages/finance/ChurchExpenses"));
+const BudgetManagement = lazy(() => import("./pages/finance/BudgetManagement"));
+const Payroll = lazy(() => import("./pages/finance/Payroll"));
+const FundAccounting = lazy(() => import("./pages/finance/FundAccounting"));
+const AccountsPayable = lazy(() => import("./pages/finance/AccountsPayable"));
+const GeneralLedger = lazy(() => import("./pages/finance/GeneralLedger"));
+const Payouts = lazy(() => import("./pages/finance/Payouts"));
+
 const queryClient = new QueryClient();
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
