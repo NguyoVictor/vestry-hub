@@ -52,10 +52,10 @@ const ChurchExpenses = () => {
     mutationFn: async () => {
       const payload: any = { tenant_id: tenantId, description: form.description || form.title, amount: parseFloat(form.amount), category: form.category, payment_method: form.payment_method, expense_date: form.expense_date, recorded_by: userId, currency, title: form.title };
       if (editingId) {
-        const { error } = await supabase.from("expenses").update(payload).eq("id", editingId);
+        const { error } = await supabase.from("expenses").update(payload as any).eq("id", editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("expenses").insert(payload);
+        const { error } = await supabase.from("expenses").insert(payload as any);
         if (error) throw error;
       }
     },
@@ -65,7 +65,7 @@ const ChurchExpenses = () => {
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("expenses").update({ approval_status: status, approved_by: userId, approved_at: new Date().toISOString() }).eq("id", id);
+      const { error } = await supabase.from("expenses").update({ approval_status: status, approved_by: userId, approved_at: new Date().toISOString() } as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: (_, { status }) => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); toast.success(`Expense ${status}`); },

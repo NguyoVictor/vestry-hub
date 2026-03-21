@@ -67,7 +67,7 @@ const BudgetManagement = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { data: budget, error } = await supabase.from("budgets").insert({ tenant_id: tenantId, name: budgetName }).select().single();
+      const { data: budget, error } = await supabase.from("budgets").insert({ tenant_id: tenantId, name: budgetName } as any).select().single();
       if (error) throw error;
       const validLines = lines.filter(l => l.category && l.allocated_amount);
       if (validLines.length > 0) {
