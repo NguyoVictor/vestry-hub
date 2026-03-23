@@ -53,26 +53,32 @@ const RolesPermissions = () => {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const { error } = await supabase.from("users").update({ role } as any).eq("id", userId);
+      const { data, error } = await supabase.functions.invoke("update-user-role", {
+        body: { action: "update_role", targetUserId: userId, role },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["team-members", church.tenantId] });
       toast.success("Role updated");
     },
-    onError: () => toast.error("Failed to update role"),
+    onError: (e: Error) => toast.error(e.message || "Failed to update role"),
   });
 
   const removeMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { error } = await supabase.from("users").update({ status: "inactive" } as any).eq("id", userId);
+      const { data, error } = await supabase.functions.invoke("update-user-role", {
+        body: { action: "deactivate", targetUserId: userId },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["team-members", church.tenantId] });
       toast.success("Member removed");
     },
-    onError: () => toast.error("Failed to remove member"),
+    onError: (e: Error) => toast.error(e.message || "Failed to remove member"),
   });
 
   const superAdminCount = teamMembers?.filter(m => m.role === "super_admin").length || 0;
