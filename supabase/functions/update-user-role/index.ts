@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (!caller || !["super_admin", "church_admin"].includes(caller.role)) {
+    if (!caller || !["super_admin", "staff_leader"].includes(caller.role)) {
       return new Response(JSON.stringify({ error: "Forbidden: admin role required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update_role") {
-      const validRoles = ["super_admin", "church_admin", "staff", "member"];
+      const validRoles = ["super_admin", "staff_leader", "member", "guest"];
       if (!role || !validRoles.includes(role)) {
         return new Response(JSON.stringify({ error: "Invalid role" }), {
           status: 400,
