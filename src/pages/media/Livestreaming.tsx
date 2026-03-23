@@ -31,7 +31,7 @@ const Livestreaming = () => {
 
   const { data: streams = [], isLoading } = useQuery({
     queryKey: ["livestreams", church.tenantId],
-    queryFn: async () => { const { data, error } = await supabase.from("livestreams").select("*").order("scheduled_start", { ascending: false }); if (error) throw error; return data || []; },
+    queryFn: async () => { const { data, error } = await supabase.from("livestreams").select("id, tenant_id, title, platform, stream_url, embed_url, chat_embed_url, linked_service_id, linked_event_id, scheduled_start, estimated_duration, description, show_on_public_page, notify_members, status, actual_start, actual_end, created_by, created_at, updated_at").order("scheduled_start", { ascending: false }); if (error) throw error; return data || []; },
   });
 
   const createStream = useMutation({
