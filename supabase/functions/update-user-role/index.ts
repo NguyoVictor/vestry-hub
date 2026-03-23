@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (!caller || !["super_admin", "church_admin"].includes(caller.role)) {
+    if (!caller || !["super_admin", "staff_leader"].includes(caller.role)) {
       return new Response(JSON.stringify({ error: "Forbidden: admin role required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
