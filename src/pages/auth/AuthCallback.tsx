@@ -11,10 +11,10 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Exchange the OAuth code in the URL for a session
-        const { data, error } = await supabase.auth.exchangeCodeForSession(
-          window.location.href
-        );
+        // Let the SDK handle PKCE code exchange automatically via getSession().
+        // It detects ?code= in the URL, reads the code_verifier from localStorage,
+        // and exchanges them — no manual exchangeCodeForSession needed.
+        const { data, error } = await supabase.auth.getSession();
 
         if (error) throw error;
 
