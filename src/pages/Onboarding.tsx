@@ -52,16 +52,21 @@ const Onboarding = () => {
         .from("users")
         .select("tenant_id")
         .eq("id", session.user.id)
-        .single();
+        .maybeSingle();
+
+      console.log("[Onboarding] checkAuth user row:", user);
 
       if (user?.tenant_id) {
         const { data: tenant } = await supabase
           .from("tenants")
           .select("onboarding_completed")
           .eq("id", user.tenant_id)
-          .single();
+          .maybeSingle();
+
+        console.log("[Onboarding] checkAuth tenant row:", tenant);
 
         if (tenant?.onboarding_completed) {
+          // Already completed — go straight to dashboard
           navigate("/dashboard", { replace: true });
           return;
         }
@@ -101,14 +106,33 @@ const Onboarding = () => {
     const currency = getCurrencyByCountry(countryName);
     const fullPhone = phoneNumber ? `${dialCode}${phoneNumber}` : null;
 
+    console.log("[Onboarding] submit — tenantId in state:", tenantId);
+
+    // If the trigger ran correctly, tenantId is already set from useEffect.
+    // If not (edge case), fetch it fresh from the DB before deciding what to do.
     let resolvedTenantId = tenantId;
 
-    // If no tenantId, the trigger didn't run (e.g. Google OAuth before fix).
-    // Create tenant + user rows manually.
     if (!resolvedTenantId) {
+      console.log("[Onboarding] tenantId empty — fetching fresh from DB");
+      const { data: freshUser } = await supabase
+        .from("users")
+        .select("tenant_id")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      console.log("[Onboarding] fresh user row:", freshUser);
+      resolvedTenantId = freshUser?.tenant_id || "";
+    }
+
+    if (!resolvedTenantId) {
+      // Trigger genuinely didn't run — create tenant + link user manually
+      console.log("[Onboarding] no tenant found — creating manually");
       const newTenantId = crypto.randomUUID();
-      const churchCode = Math.random().toString(36).substring(2, 6).toUpperCase() +
-                         Math.random().toString(36).substring(2, 6).toUpperCase();
+      const churchCode = (
+        Math.random().toString(36).substring(2, 6) +
+        Math.random().toString(36).substring(2, 6)
+      ).toUpperCase();
+      const now = new Date().toISOString();
 
       const { error: tenantError } = await supabase.from("tenants").insert({
         id: newTenantId,
@@ -125,12 +149,14 @@ const Onboarding = () => {
         onboarding_completed: true,
         onboarding_step: 1,
         tenant_metadata: { priority_needs: selectedNeeds },
+        created_at: now,
+        updated_at: now,
       });
 
       if (tenantError) {
+        console.error("[Onboarding] tenant insert error:", tenantError);
         setLoading(false);
         toast.error("Failed to create church. Please try again.");
-        console.error(tenantError);
         return;
       }
 
@@ -138,7 +164,8 @@ const Onboarding = () => {
       const firstName = fullName.split(" ")[0] || "Admin";
       const lastName = fullName.split(" ").slice(1).join(" ") || "User";
 
-      const { error: userError } = await supabase.from("users").upsert({
+      // Try insert; if row already exists just update the tenant_id link
+      const { error: insertUserError } = await supabase.from("users").insert({
         id: session.user.id,
         tenant_id: newTenantId,
         email: session.user.email,
@@ -146,19 +173,34 @@ const Onboarding = () => {
         last_name: lastName,
         role: "super_admin",
         status: "active",
-        join_date: new Date().toISOString().split("T")[0],
+        join_date: now.split("T")[0],
+        created_at: now,
+        updated_at: now,
+        mfa_enabled: false,
+        email_verified: true,
+        phone_verified: false,
       });
 
-      if (userError) {
-        setLoading(false);
-        toast.error("Failed to link user to church. Please try again.");
-        console.error(userError);
-        return;
+      if (insertUserError) {
+        console.log("[Onboarding] user insert failed (row exists), updating tenant_id:", insertUserError.message);
+        const { error: updateUserError } = await supabase
+          .from("users")
+          .update({ tenant_id: newTenantId })
+          .eq("id", session.user.id);
+
+        if (updateUserError) {
+          console.error("[Onboarding] user update error:", updateUserError);
+          setLoading(false);
+          toast.error("Failed to link user to church. Please try again.");
+          return;
+        }
       }
 
       resolvedTenantId = newTenantId;
+      console.log("[Onboarding] manual creation done, resolvedTenantId:", resolvedTenantId);
     } else {
-      // Tenant already exists — just update it
+      // Tenant exists — update it with the church details from the form
+      console.log("[Onboarding] updating existing tenant:", resolvedTenantId);
       const { error } = await supabase
         .from("tenants")
         .update({
@@ -174,15 +216,41 @@ const Onboarding = () => {
         .eq("id", resolvedTenantId);
 
       if (error) {
+        console.error("[Onboarding] tenant update error:", error);
         setLoading(false);
         toast.error("Failed to save church details. Please try again.");
-        console.error(error);
         return;
       }
     }
 
+    // Verify the write actually committed before navigating
+    console.log("[Onboarding] verifying DB write committed...");
+    let verified = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await new Promise((r) => setTimeout(r, 400));
+      const { data: check } = await supabase
+        .from("tenants")
+        .select("onboarding_completed")
+        .eq("id", resolvedTenantId)
+        .maybeSingle();
+
+      console.log(`[Onboarding] verify attempt ${attempt + 1}:`, check);
+      if (check?.onboarding_completed === true) {
+        verified = true;
+        break;
+      }
+    }
+
     setLoading(false);
+
+    if (!verified) {
+      console.error("[Onboarding] could not verify onboarding_completed after 5 attempts");
+      toast.error("Something went wrong saving your church. Please try again.");
+      return;
+    }
+
     toast.success("Church created successfully! 🎉");
+    console.log("[Onboarding] verified — navigating to /dashboard");
     navigate("/dashboard", { replace: true });
   };
 

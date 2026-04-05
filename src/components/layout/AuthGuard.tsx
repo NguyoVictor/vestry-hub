@@ -22,17 +22,29 @@ export const AuthGuard = () => {
         .from("users")
         .select("tenant_id, first_name, last_name, email, role")
         .eq("id", session.user.id)
-        .single();
+        .maybeSingle();
 
-      if (!user?.tenant_id) { if (mounted) setState("needs-onboarding"); return; }
+      console.log("[AuthGuard] user row:", user);
+
+      if (!user?.tenant_id) {
+        console.log("[AuthGuard] no tenant_id — redirecting to onboarding");
+        if (mounted) setState("needs-onboarding");
+        return;
+      }
 
       const { data: tenant } = await supabase
         .from("tenants")
         .select("*")
         .eq("id", user.tenant_id)
-        .single();
+        .maybeSingle();
 
-      if (!(tenant as any)?.onboarding_completed) { if (mounted) setState("needs-onboarding"); return; }
+      console.log("[AuthGuard] tenant row — id:", user.tenant_id, "onboarding_completed:", (tenant as any)?.onboarding_completed);
+
+      if (!(tenant as any)?.onboarding_completed) {
+        console.log("[AuthGuard] onboarding not completed — redirecting to onboarding");
+        if (mounted) setState("needs-onboarding");
+        return;
+      }
 
       if (mounted) {
         setChurchData({

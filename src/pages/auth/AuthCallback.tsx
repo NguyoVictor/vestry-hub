@@ -26,14 +26,14 @@ const AuthCallback = () => {
             .from("users")
             .select("tenant_id")
             .eq("id", data.session.user.id)
-            .single();
+            .maybeSingle();
 
           if (userData?.tenant_id) {
             const { data: tenant } = await supabase
               .from("tenants")
               .select("onboarding_completed")
               .eq("id", userData.tenant_id)
-              .single();
+              .maybeSingle();
 
             setTimeout(() => {
               if (tenant?.onboarding_completed) {
