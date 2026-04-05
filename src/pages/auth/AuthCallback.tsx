@@ -6,19 +6,22 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [message, setMessage] = useState("Verifying your email…");
+  const [message, setMessage] = useState("Signing you in…");
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        // Exchange the OAuth code in the URL for a session
+        const { data, error } = await supabase.auth.exchangeCodeForSession(
+          window.location.href
+        );
+
         if (error) throw error;
 
         if (data.session) {
           setStatus("success");
-          setMessage("Email verified successfully!");
+          setMessage("Signed in successfully!");
 
-          // Check if onboarding is completed
           const { data: userData } = await supabase
             .from("users")
             .select("tenant_id")
@@ -43,9 +46,7 @@ const AuthCallback = () => {
             setTimeout(() => navigate("/onboarding", { replace: true }), 2500);
           }
         } else {
-          setStatus("error");
-          setMessage("Verification failed. Please try again.");
-          setTimeout(() => navigate("/auth/signin", { replace: true }), 3000);
+          throw new Error("No session returned");
         }
       } catch {
         setStatus("error");
