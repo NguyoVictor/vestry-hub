@@ -90,33 +90,100 @@ const Onboarding = () => {
 
     setLoading(true);
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("Session expired. Please sign in again.");
+      navigate("/auth/signin", { replace: true });
+      return;
+    }
+
     const countryName = countries.find((c) => c.code === selectedCountry)?.name || selectedCountry;
     const currency = getCurrencyByCountry(countryName);
     const fullPhone = phoneNumber ? `${dialCode}${phoneNumber}` : null;
 
-    const { error } = await supabase
-      .from("tenants")
-      .update({
+    let resolvedTenantId = tenantId;
+
+    // If no tenantId, the trigger didn't run (e.g. Google OAuth before fix).
+    // Create tenant + user rows manually.
+    if (!resolvedTenantId) {
+      const newTenantId = crypto.randomUUID();
+      const churchCode = Math.random().toString(36).substring(2, 6).toUpperCase() +
+                         Math.random().toString(36).substring(2, 6).toUpperCase();
+
+      const { error: tenantError } = await supabase.from("tenants").insert({
+        id: newTenantId,
+        slug: churchCode.toLowerCase(),
         name: churchName.trim(),
+        church_code: churchCode,
         city: city.trim() || null,
         country: countryName || null,
         phone: fullPhone,
         currency,
+        subscription_plan: "free",
+        subscription_tier: "free",
+        subscription_status: "trial",
         onboarding_completed: true,
         onboarding_step: 1,
         tenant_metadata: { priority_needs: selectedNeeds },
-      })
-      .eq("id", tenantId);
+      });
+
+      if (tenantError) {
+        setLoading(false);
+        toast.error("Failed to create church. Please try again.");
+        console.error(tenantError);
+        return;
+      }
+
+      const fullName = session.user.user_metadata?.full_name || "";
+      const firstName = fullName.split(" ")[0] || "Admin";
+      const lastName = fullName.split(" ").slice(1).join(" ") || "User";
+
+      const { error: userError } = await supabase.from("users").upsert({
+        id: session.user.id,
+        tenant_id: newTenantId,
+        email: session.user.email,
+        first_name: firstName,
+        last_name: lastName,
+        role: "super_admin",
+        status: "active",
+        join_date: new Date().toISOString().split("T")[0],
+      });
+
+      if (userError) {
+        setLoading(false);
+        toast.error("Failed to link user to church. Please try again.");
+        console.error(userError);
+        return;
+      }
+
+      resolvedTenantId = newTenantId;
+    } else {
+      // Tenant already exists — just update it
+      const { error } = await supabase
+        .from("tenants")
+        .update({
+          name: churchName.trim(),
+          city: city.trim() || null,
+          country: countryName || null,
+          phone: fullPhone,
+          currency,
+          onboarding_completed: true,
+          onboarding_step: 1,
+          tenant_metadata: { priority_needs: selectedNeeds },
+        })
+        .eq("id", resolvedTenantId);
+
+      if (error) {
+        setLoading(false);
+        toast.error("Failed to save church details. Please try again.");
+        console.error(error);
+        return;
+      }
+    }
 
     setLoading(false);
-
-    if (error) {
-      toast.error("Failed to save church details. Please try again.");
-      console.error(error);
-    } else {
-      toast.success("Church created successfully! 🎉");
-      navigate("/dashboard", { replace: true });
-    }
+    toast.success("Church created successfully! 🎉");
+    navigate("/dashboard", { replace: true });
   };
 
   if (checkingAuth) {
