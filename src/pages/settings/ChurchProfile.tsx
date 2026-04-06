@@ -19,6 +19,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { toast } from "sonner";
 import { Loader2, Upload, X, Check } from "lucide-react";
 import { countries } from "@/lib/country-currency";
+import { TABLES } from "@/lib/schema";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const CURRENCIES = ["KES", "USD", "GBP", "EUR", "UGX", "TZS", "ZAR", "NGN", "GHS", "CAD", "AUD", "INR"];
@@ -58,7 +59,7 @@ const ChurchProfile = () => {
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["tenant", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("tenants").select("*").eq("id", church.tenantId).single();
+      const { data } = await supabase.from(TABLES.TENANTS).select("*").eq("id", church.tenantId).single();
       return data as any;
     },
   });

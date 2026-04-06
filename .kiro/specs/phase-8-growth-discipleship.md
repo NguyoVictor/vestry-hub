@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 # Phase 8: Growth & Discipleship
 
 ## CONTEXT — What already exists, do not rebuild:
@@ -82,7 +91,7 @@ All other placeholder pages remain untouched.
 - Pending Baptisms (count where `baptism_status = 'scheduled'`)
 - Average Days to Graduate (average of `graduated_at - conversion_date` for all graduated converts, formatted as "X days")
 
-All queried from `new_converts` table filtered by `church_id`.
+All queried from `new_converts` table filtered by `tenant_id`.
 
 ---
 
@@ -210,7 +219,7 @@ Fields:
   - PDF/Document: accepts PDF, DOCX, PPTX — max 50MB
   - Video: accepts MP4, MOV — max 500MB
   - Audio: accepts MP3, WAV — max 100MB
-  - Upload to Supabase Storage `discipleship-resources/{church_id}/{resource_id}/`
+  - Upload to Supabase Storage `discipleship-resources/{tenant_id}/{resource_id}/`
 - External URL (URL input) — shown if type = External Link
 - Thumbnail Image (image upload, optional)
 - Category (select: Bible Study / Prayer / Salvation / Christian Living / Giving / Service / Leadership / Evangelism / Other)
@@ -311,7 +320,7 @@ Fields:
 - Salvations (number input — number of people who gave their lives to Christ)
 - First-time Visitors Captured (number input — how many visitor cards were collected)
 - Materials Distributed (textarea — e.g. "200 tracts, 50 Bibles")
-- Photos (multi-image upload → Supabase Storage `outreach-photos/{church_id}/{activity_id}/`)
+- Photos (multi-image upload → Supabase Storage `outreach-photos/{tenant_id}/{activity_id}/`)
 - Status (select: Planned / Completed / Cancelled, default Completed)
 - Report / Notes (textarea — full outreach report)
 - Follow-up Required (toggle) — if on: show "Number requiring follow-up" (number input) + "Assign Follow-up To" (staff select) → auto-creates follow-up tasks in `follow_up_tasks` table
@@ -441,10 +450,10 @@ Fields:
 - Product Name (required, max 150 chars)
 - Category (select: Books / Audio / Video / Study Materials / Merchandise / Digital Download / Other)
 - Description (rich textarea using `<RichTextEditor>`)
-- Product Images (multi-image upload, up to 5 images — first is the main image — to Supabase Storage `store-products/{church_id}/{product_id}/`)
+- Product Images (multi-image upload, up to 5 images — first is the main image — to Supabase Storage `store-products/{tenant_id}/{product_id}/`)
 - Product Type (radio: Physical / Digital)
   - Physical: show Stock Quantity (number input) + Weight (optional, for delivery calculation)
-  - Digital: show File Upload (`<MediaUploadZone>` — the downloadable file — to Supabase Storage `store-downloads/{church_id}/{product_id}/`) + "Delivery method: automatic download after purchase"
+  - Digital: show File Upload (`<MediaUploadZone>` — the downloadable file — to Supabase Storage `store-downloads/{tenant_id}/{product_id}/`) + "Delivery method: automatic download after purchase"
 - Price (number input with currency prefix, required)
 - Compare at Price (number input — the original/crossed-out price for showing a sale, optional)
 - SKU (text input, optional)
@@ -646,7 +655,7 @@ Layout of the certificate:
 -- DISCIPLESHIP RESOURCES TABLE
 CREATE TABLE discipleship_resources (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN (
     'pdf','video','audio','document','external_link'
@@ -672,8 +681,8 @@ CREATE TABLE discipleship_resources (
 ALTER TABLE discipleship_resources ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage discipleship resources"
   ON discipleship_resources FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -682,7 +691,7 @@ CREATE TABLE resource_assignments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   resource_id UUID REFERENCES discipleship_resources(id) ON DELETE CASCADE NOT NULL,
   convert_id UUID REFERENCES new_converts(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   assigned_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   completion_status TEXT DEFAULT 'not_started' CHECK (completion_status IN (
     'not_started','in_progress','completed'
@@ -694,15 +703,15 @@ CREATE TABLE resource_assignments (
 ALTER TABLE resource_assignments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage resource assignments"
   ON resource_assignments FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- RESOURCE COLLECTIONS TABLE
 CREATE TABLE resource_collections (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
   recommended_stage INT CHECK (recommended_stage BETWEEN 1 AND 4),
@@ -714,8 +723,8 @@ CREATE TABLE resource_collections (
 ALTER TABLE resource_collections ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage collections"
   ON resource_collections FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -731,8 +740,8 @@ ALTER TABLE collection_resources ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage collection resources"
   ON collection_resources FOR ALL
   USING (collection_id IN (
-    SELECT id FROM resource_collections WHERE church_id IN (
-      SELECT church_id FROM church_members
+    SELECT id FROM resource_collections WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
     )
   ));
@@ -740,7 +749,7 @@ CREATE POLICY "Staff can manage collection resources"
 -- OUTREACH ACTIVITIES TABLE
 CREATE TABLE outreach_activities (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN (
     'street_evangelism','prison_ministry','hospital_visitation',
@@ -775,17 +784,17 @@ CREATE TABLE outreach_activities (
 ALTER TABLE outreach_activities ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage outreach activities"
   ON outreach_activities FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
-CREATE INDEX idx_outreach_church ON outreach_activities(church_id);
+CREATE INDEX idx_outreach_church ON outreach_activities(tenant_id);
 CREATE INDEX idx_outreach_date ON outreach_activities(activity_date);
 
 -- STORE PRODUCTS TABLE
 CREATE TABLE store_products (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   category TEXT DEFAULT 'other' CHECK (category IN (
     'books','audio','video','study_materials',
@@ -811,20 +820,20 @@ CREATE TABLE store_products (
 ALTER TABLE store_products ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage products"
   ON store_products FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Members can view active products"
   ON store_products FOR SELECT
-  USING (status = 'active' AND church_id IN (
-    SELECT church_id FROM church_members WHERE user_id = auth.uid()
+  USING (status = 'active' AND tenant_id IN (
+    SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()
   ));
 
 -- STORE ORDERS TABLE
 CREATE TABLE store_orders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   order_number TEXT UNIQUE NOT NULL,
   customer_member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   customer_name TEXT NOT NULL,
@@ -840,7 +849,7 @@ CREATE TABLE store_orders (
   total DECIMAL(12,2) NOT NULL,
   currency TEXT DEFAULT 'KES',
   payment_method TEXT CHECK (payment_method IN ('stripe','mpesa','cash','other')),
-  payment_reference TEXT,
+  pesapal_transaction_id TEXT,
   payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN (
     'pending','paid','failed','refunded'
   )),
@@ -854,8 +863,8 @@ CREATE TABLE store_orders (
 ALTER TABLE store_orders ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage orders"
   ON store_orders FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Customers can view their own orders"
@@ -896,8 +905,8 @@ ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage order items"
   ON order_items FOR ALL
   USING (order_id IN (
-    SELECT id FROM store_orders WHERE church_id IN (
-      SELECT church_id FROM church_members
+    SELECT id FROM store_orders WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
     )
   ));
@@ -905,7 +914,7 @@ CREATE POLICY "Admins can manage order items"
 -- TRAINING COURSES TABLE
 CREATE TABLE training_courses (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   category TEXT DEFAULT 'other' CHECK (category IN (
     'leadership','pastoral_care','administration','worship_ministry',
@@ -932,14 +941,14 @@ CREATE TABLE training_courses (
 ALTER TABLE training_courses ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage courses"
   ON training_courses FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "All church members can view published courses"
   ON training_courses FOR SELECT
-  USING (status = 'published' AND church_id IN (
-    SELECT church_id FROM church_members WHERE user_id = auth.uid()
+  USING (status = 'published' AND tenant_id IN (
+    SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()
   ));
 
 -- COURSE ENROLLMENTS TABLE
@@ -948,7 +957,7 @@ CREATE TABLE course_enrollments (
   course_id UUID REFERENCES training_courses(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE SET NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   enrolled_at TIMESTAMPTZ DEFAULT now(),
   completed_at TIMESTAMPTZ,
   certificate_url TEXT,
@@ -960,8 +969,8 @@ CREATE POLICY "Users can manage their own enrollments"
   USING (user_id = auth.uid());
 CREATE POLICY "Admins can view all enrollments"
   ON course_enrollments FOR SELECT
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 

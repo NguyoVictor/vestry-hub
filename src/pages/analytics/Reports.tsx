@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AnalyticsCard } from "@/components/analytics/AnalyticsCard";
 import { ChartCard, ChartEmpty } from "@/components/analytics/ChartCard";
@@ -131,9 +132,9 @@ function MembershipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["rpt-members", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("members")
+      const { data } = await (supabase as any).from(TABLES.MEMBERS)
         .select("id, status, gender, date_of_birth, marital_status, created_at")
-        .eq("church_id", tenantId);
+        .eq(COLS.TENANT_ID, tenantId);
       return data || [];
     },
     enabled: !!tenantId,
@@ -306,12 +307,12 @@ function AttendanceTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["rpt-attendance", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("events")
-        .select("id, title, event_type, start_date, attendance_count, rsvp_count, status")
-        .eq("church_id", tenantId)
-        .gte("start_date", fromStr)
-        .lte("start_date", toStr)
-        .eq("status", "published");
+      const { data } = await (supabase as any).from(TABLES.EVENTS)
+        .select("id, title, event_type, event_date, attendance_count, rsvp_count, is_published")
+        .eq(COLS.TENANT_ID, tenantId)
+        .gte(COLS.EVENT_DATE, fromStr)
+        .lte(COLS.EVENT_DATE, toStr)
+        .eq(COLS.EVENT_IS_PUBLISHED, true);
       return data || [];
     },
     enabled: !!tenantId,
@@ -321,7 +322,7 @@ function AttendanceTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
   const trendData = months.map(m => {
     const row: any = { month: fmtMonth(m) };
     SERVICE_TYPES.forEach(st => {
-      const evs = events.filter(e => e.event_type === st.key && e.start_date?.slice(0, 7) === m.slice(0, 7));
+      const evs = events.filter(e => e.event_type === st.key && e.event_date?.slice(0, 7) === m.slice(0, 7));
       row[st.key] = evs.length > 0 ? Math.round(evs.reduce((s, e) => s + (e.attendance_count || 0), 0) / evs.length) : 0;
     });
     return row;
@@ -432,11 +433,11 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
   const { data: donations = [], isLoading: loadDon } = useQuery({
     queryKey: ["rpt-donations", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("donations")
-        .select("id, amount, category, payment_method, donation_date, member_id, member_name")
-        .eq("church_id", tenantId)
-        .gte("donation_date", fromStr)
-        .lte("donation_date", toStr);
+      const { data } = await (supabase as any).from(TABLES.GIVING_RECORDS)
+        .select("id, amount, giving_type, payment_method, given_at, member_id")
+        .eq(COLS.TENANT_ID, tenantId)
+        .gte(COLS.GIVING_DATE, fromStr)
+        .lte(COLS.GIVING_DATE, toStr);
       return data || [];
     },
     enabled: !!tenantId,
@@ -445,9 +446,9 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
   const { data: expenses = [], isLoading: loadExp } = useQuery({
     queryKey: ["rpt-expenses", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("church_expenses")
+      const { data } = await (supabase as any).from(TABLES.EXPENSES)
         .select("id, amount, category, expense_date, status, description")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .eq("status", "approved")
         .gte("expense_date", fromStr)
         .lte("expense_date", toStr);
@@ -460,14 +461,14 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
   const months = monthsBack(12);
 
   const incomeExpData = months.map(m => {
-    const income = donations.filter(d => d.donation_date?.slice(0, 7) === m.slice(0, 7)).reduce((s: number, d: any) => s + (d.amount || 0), 0);
+    const income = donations.filter(d => d.given_at?.slice(0, 7) === m.slice(0, 7)).reduce((s: number, d: any) => s + (d.amount || 0), 0);
     const expense = expenses.filter(e => e.expense_date?.slice(0, 7) === m.slice(0, 7)).reduce((s: number, e: any) => s + (e.amount || 0), 0);
     return { month: fmtMonth(m), income, expense, net: income - expense };
   });
 
   const givingByCategory = GIVING_CATEGORIES.map(c => ({
     name: c,
-    value: donations.filter((d: any) => d.category === c).reduce((s: number, d: any) => s + (d.amount || 0), 0),
+    value: donations.filter((d: any) => d.giving_type === c.toLowerCase().replace(/ /g, "_")).reduce((s: number, d: any) => s + (d.amount || 0), 0),
   })).filter(d => d.value > 0);
 
   const givingByMethod = PAYMENT_METHODS.map(m => ({
@@ -480,11 +481,11 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
   // Top donors
   const donorMap: Record<string, { name: string; total: number; count: number; last: string }> = {};
   donations.forEach((d: any) => {
-    const key = d.member_id || d.member_name || "Anonymous";
-    if (!donorMap[key]) donorMap[key] = { name: d.member_name || "Anonymous", total: 0, count: 0, last: d.donation_date || "" };
+    const key = d.member_id || "Anonymous";
+    if (!donorMap[key]) donorMap[key] = { name: d.member_id || "Anonymous", total: 0, count: 0, last: d.given_at || "" };
     donorMap[key].total += d.amount || 0;
     donorMap[key].count += 1;
-    if (d.donation_date > donorMap[key].last) donorMap[key].last = d.donation_date;
+    if (d.given_at > donorMap[key].last) donorMap[key].last = d.given_at;
   });
   const topDonors = Object.values(donorMap)
     .sort((a, b) => b.total - a.total)
@@ -629,13 +630,13 @@ function EventsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["rpt-events", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("events")
-        .select("id, title, event_type, start_date, attendance_count, rsvp_count, status")
-        .eq("church_id", tenantId)
-        .gte("start_date", fromStr)
-        .lte("start_date", toStr)
-        .eq("status", "published")
-        .order("start_date", { ascending: false });
+      const { data } = await (supabase as any).from(TABLES.EVENTS)
+        .select("id, title, event_type, event_date, attendance_count, rsvp_count, is_published")
+        .eq(COLS.TENANT_ID, tenantId)
+        .gte(COLS.EVENT_DATE, fromStr)
+        .lte(COLS.EVENT_DATE, toStr)
+        .eq(COLS.EVENT_IS_PUBLISHED, true)
+        .order(COLS.EVENT_DATE, { ascending: false });
       return data || [];
     },
     enabled: !!tenantId,
@@ -645,12 +646,12 @@ function EventsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
   const stackedData = months.map(m => {
     const row: any = { month: fmtMonth(m) };
     EVENT_TYPES.forEach(t => {
-      row[t] = events.filter(e => e.event_type === t && e.start_date?.slice(0, 7) === m.slice(0, 7)).length;
+      row[t] = events.filter(e => e.event_type === t && e.event_date?.slice(0, 7) === m.slice(0, 7)).length;
     });
     return row;
   });
 
-  const last10 = [...events].sort((a, b) => (b.start_date || "").localeCompare(a.start_date || "")).slice(0, 10).reverse();
+  const last10 = [...events].sort((a, b) => (b.event_date || "").localeCompare(a.event_date || "")).slice(0, 10).reverse();
   const rsvpData = last10.map(e => ({
     name: e.title?.slice(0, 20) || "Event",
     rsvps: e.rsvp_count || 0,
@@ -663,7 +664,7 @@ function EventsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
     id: e.id,
     name: e.title || "—",
     type: e.event_type || "—",
-    date: e.start_date || "—",
+    date: e.event_date || "—",
     rsvps: e.rsvp_count || 0,
     attended: e.attendance_count || 0,
     rate: e.rsvp_count ? `${Math.round(((e.attendance_count || 0) / e.rsvp_count) * 100)}%` : "—",
@@ -743,9 +744,9 @@ function GroupsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ["rpt-groups", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("groups")
+      const { data } = await (supabase as any).from(TABLES.GROUPS)
         .select("id, name, group_type, leader_id, member_count, status, created_at")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .order("member_count", { ascending: false });
       return data || [];
     },
@@ -755,9 +756,9 @@ function GroupsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
   const { data: fellowships = [], isLoading: loadFell } = useQuery({
     queryKey: ["rpt-fellowships", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("house_fellowships")
+      const { data } = await (supabase as any).from(TABLES.HOUSE_FELLOWSHIPS)
         .select("id, name, zone, host_name, leader_name, member_count, capacity, status")
-        .eq("church_id", tenantId);
+        .eq(COLS.TENANT_ID, tenantId);
       return data || [];
     },
     enabled: !!tenantId,
@@ -849,9 +850,9 @@ function DiscipleshipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
   const { data: converts = [], isLoading: loadConv } = useQuery({
     queryKey: ["rpt-converts", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("new_converts")
+      const { data } = await (supabase as any).from(TABLES.NEW_CONVERTS)
         .select("id, discipleship_stage, follow_up_status, conversion_date")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .gte("conversion_date", fromStr)
         .lte("conversion_date", toStr);
       return data || [];
@@ -862,9 +863,9 @@ function DiscipleshipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
   const { data: outreach = [], isLoading: loadOut } = useQuery({
     queryKey: ["rpt-outreach", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("outreach_activities")
+      const { data } = await (supabase as any).from(TABLES.OUTREACH_ACTIVITIES)
         .select("id, name, activity_type, activity_date, volunteers_count, people_reached, salvations, impact_score")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .gte("activity_date", fromStr)
         .lte("activity_date", toStr)
         .order("activity_date", { ascending: false });
@@ -995,9 +996,9 @@ function CommunicationsTab({ tenantId, fromStr, toStr }: { tenantId: string; fro
   const { data: broadcasts = [], isLoading: loadBc } = useQuery({
     queryKey: ["rpt-broadcasts", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("announcements")
+      const { data } = await (supabase as any).from(TABLES.ANNOUNCEMENTS)
         .select("id, title, category, created_at, status, is_pinned, view_count")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .gte("created_at", fromStr)
         .lte("created_at", toStr)
         .order("created_at", { ascending: false });
@@ -1009,9 +1010,9 @@ function CommunicationsTab({ tenantId, fromStr, toStr }: { tenantId: string; fro
   const { data: surveys = [], isLoading: loadSurveys } = useQuery({
     queryKey: ["rpt-surveys", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("surveys")
+      const { data } = await (supabase as any).from(TABLES.SURVEYS)
         .select("id, title, response_count, target_count, status, created_at")
-        .eq("church_id", tenantId);
+        .eq(COLS.TENANT_ID, tenantId);
       return data || [];
     },
     enabled: !!tenantId,
@@ -1098,11 +1099,11 @@ type DataSource = typeof DATA_SOURCES[number];
 
 const SOURCE_COLUMNS: Record<DataSource, string[]> = {
   Members: ["id","first_name","last_name","email","phone","gender","status","marital_status","date_of_birth","created_at"],
-  Donations: ["id","member_name","amount","category","payment_method","donation_date","notes"],
-  Events: ["id","title","event_type","start_date","attendance_count","rsvp_count","status"],
+  Donations: ["id","amount","giving_type","payment_method","given_at","notes"],
+  Events: ["id","title","event_type","event_date","attendance_count","rsvp_count","is_published"],
   Expenses: ["id","description","amount","category","expense_date","status"],
   Groups: ["id","name","group_type","member_count","status","created_at"],
-  Attendance: ["id","event_id","member_id","attended","check_in_time"],
+  Attendance: ["id","event_id","member_id","is_present","check_in_time"],
   Outreach: ["id","name","activity_type","activity_date","volunteers_count","people_reached","salvations"],
   Volunteers: ["id","member_id","role","hours","event_id","status"],
   Surveys: ["id","title","response_count","target_count","status","created_at"],
@@ -1133,15 +1134,15 @@ const SOURCE_FILTERS: Record<DataSource, { key: string; label: string; type: "te
 };
 
 const TABLE_MAP: Record<DataSource, string> = {
-  Members: "members",
-  Donations: "donations",
-  Events: "events",
-  Expenses: "church_expenses",
-  Groups: "groups",
-  Attendance: "event_attendance",
-  Outreach: "outreach_activities",
-  Volunteers: "volunteers",
-  Surveys: "surveys",
+  Members: TABLES.MEMBERS,
+  Donations: TABLES.GIVING_RECORDS,
+  Events: TABLES.EVENTS,
+  Expenses: TABLES.EXPENSES,
+  Groups: TABLES.GROUPS,
+  Attendance: TABLES.ATTENDANCE_RECORDS,
+  Outreach: TABLES.OUTREACH_ACTIVITIES,
+  Volunteers: TABLES.VOLUNTEERS,
+  Surveys: TABLES.SURVEYS,
 };
 
 const UNTYPED_SOURCES: DataSource[] = ["Donations","Expenses","Outreach","Volunteers"];
@@ -1162,9 +1163,9 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
   const { data: savedReports = [], refetch: refetchSaved } = useQuery({
     queryKey: ["saved-reports", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("saved_reports")
+      const { data } = await (supabase as any).from(TABLES.SAVED_REPORTS)
         .select("*")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .order("created_at", { ascending: false });
       return data || [];
     },
@@ -1186,11 +1187,11 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
       const cols = selectedCols.join(",") || "*";
 
       let query = isUntyped
-        ? (supabase as any).from(table).select(cols).eq("church_id", tenantId)
-        : (supabase as any).from(table).select(cols).eq("church_id", tenantId);
+        ? (supabase as any).from(table).select(cols).eq(COLS.TENANT_ID, tenantId)
+        : (supabase as any).from(table).select(cols).eq(COLS.TENANT_ID, tenantId);
 
       // Apply date filter if table has date column
-      const dateCol = { Members: "created_at", Donations: "donation_date", Events: "start_date", Expenses: "expense_date", Outreach: "activity_date" }[dataSource];
+      const dateCol = { Members: "created_at", Donations: COLS.GIVING_DATE, Events: COLS.EVENT_DATE, Expenses: "expense_date", Outreach: "activity_date" }[dataSource];
       if (dateCol) {
         query = query.gte(dateCol, fromStr).lte(dateCol, toStr);
       }
@@ -1216,8 +1217,8 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
   const saveReport = async () => {
     setSaving(true);
     try {
-      await (supabase as any).from("saved_reports").insert({
-        church_id: tenantId,
+      await (supabase as any).from(TABLES.SAVED_REPORTS).insert({
+        tenant_id: tenantId,
         name: reportName,
         data_source: dataSource,
         config: { selectedCols, filters, groupBy, sortBy, sortDir, limit },
@@ -1457,7 +1458,7 @@ export default function Reports() {
   const { data: branches = [] } = useQuery({
     queryKey: ["branches-check", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("churches").select("id").eq("parent_church_id", tenantId).limit(1);
+      const { data } = await (supabase as any).from(TABLES.TENANTS).select("id").eq("parent_tenant_id", tenantId).limit(1);
       return data || [];
     },
     enabled: !!tenantId,
@@ -1469,11 +1470,11 @@ export default function Reports() {
     queryKey: ["rpt-overview", tenantId, fromStr, toStr],
     queryFn: async () => {
       const [membersRes, newMembersRes, donationsRes, expensesRes, eventsRes] = await Promise.all([
-        (supabase as any).from("members").select("id", { count: "exact", head: true }).eq("church_id", tenantId).eq("status", "active"),
-        (supabase as any).from("members").select("id", { count: "exact", head: true }).eq("church_id", tenantId).gte("created_at", fromStr).lte("created_at", toStr),
-        (supabase as any).from("donations").select("amount").eq("church_id", tenantId).gte("donation_date", fromStr).lte("donation_date", toStr),
-        (supabase as any).from("church_expenses").select("amount").eq("church_id", tenantId).eq("status", "approved").gte("expense_date", fromStr).lte("expense_date", toStr),
-        (supabase as any).from("events").select("id", { count: "exact", head: true }).eq("church_id", tenantId).eq("status", "published").gte("start_date", fromStr).lte("start_date", toStr),
+        (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq("status", "active"),
+        (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).gte("created_at", fromStr).lte("created_at", toStr),
+        (supabase as any).from(TABLES.GIVING_RECORDS).select("amount").eq(COLS.TENANT_ID, tenantId).gte(COLS.GIVING_DATE, fromStr).lte(COLS.GIVING_DATE, toStr),
+        (supabase as any).from(TABLES.EXPENSES).select("amount").eq(COLS.TENANT_ID, tenantId).eq("status", "approved").gte("expense_date", fromStr).lte("expense_date", toStr),
+        (supabase as any).from(TABLES.EVENTS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.EVENT_IS_PUBLISHED, true).gte(COLS.EVENT_DATE, fromStr).lte(COLS.EVENT_DATE, toStr),
       ]);
 
       const totalMembers = membersRes.count || 0;

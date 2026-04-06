@@ -34,8 +34,8 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
       if (!user) { setLoading(false); return; }
 
       const { data: membership } = await supabase
-        .from("church_members")
-        .select("church_id, role")
+        .from("role_permissions")
+        .select("tenant_id, role")
         .eq("user_id", user.id)
         .eq("status", "active")
         .limit(1)
@@ -44,8 +44,8 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
       if (!membership) { setLoading(false); return; }
 
       const [memberRes, churchRes] = await Promise.all([
-        supabase.from("members").select("*").eq("church_id", membership.church_id).eq("user_id", user.id).single(),
-        supabase.from("churches").select("id, name, logo_url").eq("id", membership.church_id).single(),
+        supabase.from("members").select("*").eq("tenant_id", membership.tenant_id).eq("user_id", user.id).single(),
+        supabase.from("tenants").select("id, name, logo").eq("id", membership.tenant_id).single(),
       ]);
 
       const member = memberRes.data;
@@ -61,7 +61,7 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
         userId: user.id,
         churchId: church.id,
         churchName: church.name,
-        churchLogoUrl: church.logo_url,
+        churchLogoUrl: church.logo,
         firstName: member.first_name || "",
         lastName: member.last_name || "",
         email: user.email || "",

@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 Here is your **Phase 5 prompt** — Events & Operations:
 
 ---
@@ -61,7 +70,7 @@ Create these reusable components before building individual pages:
 - Event pill click: opens event detail sheet
 
 **`<AttendanceChecklist>` component:**
-- Props: `members: Member[]`, `attendance: AttendanceRecord[]`, `onToggle: (memberId, present) => void`
+- Props: `members: Member[]`, `attendance_records: AttendanceRecord[]`, `onToggle: (memberId, present) => void`
 - Scrollable list of member rows: avatar + name + present/absent toggle (large checkbox)
 - Search input to filter the list by name
 - Stats bar at top: "X / Y present (Z%)"
@@ -97,7 +106,7 @@ Two sections:
 
 *Upcoming Services (top):*
 - Horizontal scrollable card row of next 5 upcoming services
-- Each card: service type color band at top, service name, date formatted as "Sun 23 Mar", time, location, expected attendance (number input inline), check-in QR button
+- Each card: service type color band at top, service name, date formatted as "Sun 23 Mar", time, location, expected attendance_records (number input inline), check-in QR button
 
 *All Services Table (below):*
 
@@ -108,8 +117,8 @@ Two sections:
 | Service | Service name + type badge | ✅ |
 | Date & Time | Formatted date + time | ✅ |
 | Location | Venue name | ✅ |
-| Expected | Expected attendance number | ❌ |
-| Actual | Actual attendance (or "—" if not recorded) | ✅ |
+| Expected | Expected attendance_records number | ❌ |
+| Actual | Actual attendance_records (or "—" if not recorded) | ✅ |
 | Attendance % | `(actual/expected)*100` as mini progress bar | ❌ |
 | Status | Upcoming / In Progress / Completed / Cancelled | ✅ |
 | Actions | View, Record Attendance, Edit, Cancel, Delete | — |
@@ -166,14 +175,14 @@ Fields:
 
 *Attendance card:*
 - If not yet recorded: "Attendance not yet recorded" empty state + "Record Attendance" CTA button
-- If recorded: attendance stats (present / absent / total, attendance %) + `<AttendanceChecklist>` in read-only mode showing who was present
+- If recorded: attendance_records stats (present / absent / total, attendance %) + `<AttendanceChecklist>` in read-only mode showing who was present
 - "Edit Attendance" button if already recorded
 
 *Check-in QR Code card:*
 - QR code generated using `qrcode.react` pointing to a public check-in URL: `vestry.app/checkin/{serviceId}`
 - "Download QR Code" button + "Print" button
 - Instructions: "Display this QR code at the entrance. Members scan it to self-check-in."
-- The public check-in page (`/checkin/:serviceId`) is a standalone page (no auth): shows service name + date, a phone number input, submit button. On submit: looks up member by phone number, marks them present in `attendance` table, shows "✅ Checked in successfully, {name}!"
+- The public check-in page (`/checkin/:serviceId`) is a standalone page (no auth): shows service name + date, a phone number input, submit button. On submit: looks up member by phone number, marks them present in `attendance_records` table, shows "✅ Checked in successfully, {name}!"
 
 **Right column (1/3):**
 
@@ -185,7 +194,7 @@ Fields:
 - "Assign Volunteer" button → links to volunteering module
 
 *Recent Attendance Trend (mini chart):*
-- `LineChart` (Recharts) showing attendance for the last 6 occurrences of this service type
+- `LineChart` (Recharts) showing attendance_records for the last 6 occurrences of this service type
 - X-axis: dates, Y-axis: count
 
 ---
@@ -194,7 +203,7 @@ Fields:
 
 - Service info at top (name, date, expected count)
 - `<AttendanceChecklist>` component with full member list
-- "Save Attendance" button — batch UPSERT into `attendance` table
+- "Save Attendance" button — batch UPSERT into `attendance_records` table
 - Show `toast.success("Attendance recorded — X members present")`
 
 ---
@@ -236,7 +245,7 @@ Fields:
 - Event Name (required, max 150 chars)
 - Event Type (select: Conference / Outreach / Youth / Women's / Men's / Children's / Prayer / Social / Fundraiser / Other)
 - Description (rich textarea, max 1000 chars)
-- Event Banner Image (image upload → Supabase Storage `event-banners/{church_id}/{event_id}/`)
+- Event Banner Image (image upload → Supabase Storage `event-banners/{tenant_id}/{event_id}/`)
 
 *Date & Time:*
 - `<TimeSlotPicker>` for start + end datetime
@@ -647,7 +656,7 @@ If conflict found: show a red banner "⚠️ This facility is already booked fro
 -- SERVICES TABLE
 CREATE TABLE services (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   type TEXT DEFAULT 'sunday_service' CHECK (type IN (
     'sunday_service','midweek_service','prayer_meeting',
@@ -677,17 +686,17 @@ CREATE TABLE services (
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage services"
   ON services FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
-CREATE INDEX idx_services_church_id ON services(church_id);
+CREATE INDEX idx_services_tenant_id ON services(tenant_id);
 CREATE INDEX idx_services_date ON services(service_date);
 
 -- ATTENDANCE TABLE (for both services and events)
-CREATE TABLE attendance (
+CREATE TABLE attendance_records (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   reference_type TEXT NOT NULL CHECK (reference_type IN ('service','event')),
   reference_id UUID NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE CASCADE,
@@ -699,19 +708,19 @@ CREATE TABLE attendance (
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(reference_type, reference_id, member_id)
 );
-ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Staff can manage attendance"
-  ON attendance FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Staff can manage attendance_records"
+  ON attendance_records FOR ALL
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
-CREATE INDEX idx_attendance_reference ON attendance(reference_type, reference_id);
+CREATE INDEX idx_attendance_reference ON attendance_records(reference_type, reference_id);
 
 -- EVENTS TABLE
 CREATE TABLE events (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   slug TEXT UNIQUE,
   type TEXT DEFAULT 'other' CHECK (type IN (
@@ -720,7 +729,7 @@ CREATE TABLE events (
   )),
   description TEXT,
   banner_image_url TEXT,
-  start_datetime TIMESTAMPTZ NOT NULL,
+  event_date TIMESTAMPTZ NOT NULL,
   end_datetime TIMESTAMPTZ,
   is_all_day BOOLEAN DEFAULT false,
   timezone TEXT DEFAULT 'Africa/Nairobi',
@@ -731,7 +740,7 @@ CREATE TABLE events (
   google_maps_link TEXT,
   capacity INT DEFAULT 0,
   allow_rsvp BOOLEAN DEFAULT true,
-  rsvp_deadline TIMESTAMPTZ,
+  registration_deadline TIMESTAMPTZ,
   require_rsvp_approval BOOLEAN DEFAULT false,
   organizer_id UUID REFERENCES members(id) ON DELETE SET NULL,
   tags TEXT[],
@@ -746,21 +755,21 @@ CREATE TABLE events (
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage events"
   ON events FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Public can view published events"
   ON events FOR SELECT
   USING (status = 'published' AND show_on_public_page = true);
-CREATE INDEX idx_events_church_id ON events(church_id);
-CREATE INDEX idx_events_start ON events(start_datetime);
+CREATE INDEX idx_events_tenant_id ON events(tenant_id);
+CREATE INDEX idx_events_start ON events(event_date);
 
 -- EVENT RSVPs TABLE
 CREATE TABLE event_rsvps (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   event_id UUID REFERENCES events(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   name TEXT,
   phone TEXT,
@@ -774,15 +783,15 @@ CREATE TABLE event_rsvps (
 ALTER TABLE event_rsvps ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage RSVPs"
   ON event_rsvps FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- VOLUNTEER ROLES TABLE
 CREATE TABLE volunteer_roles (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   department TEXT,
   description TEXT,
@@ -795,15 +804,15 @@ CREATE TABLE volunteer_roles (
 ALTER TABLE volunteer_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage volunteer roles"
   ON volunteer_roles FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- VOLUNTEERS TABLE (assignments)
 CREATE TABLE volunteers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE CASCADE NOT NULL,
   role_id UUID REFERENCES volunteer_roles(id) ON DELETE SET NULL,
   reference_type TEXT CHECK (reference_type IN ('event','service')),
@@ -818,15 +827,15 @@ CREATE TABLE volunteers (
 ALTER TABLE volunteers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage volunteers"
   ON volunteers FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- MEMBER REQUESTS TABLE
 CREATE TABLE member_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN (
     'prayer','counselling','visitation','financial_aid',
@@ -848,8 +857,8 @@ CREATE TABLE member_requests (
 ALTER TABLE member_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage member requests"
   ON member_requests FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -866,8 +875,8 @@ CREATE POLICY "Staff can manage request notes"
   ON member_request_notes FOR ALL
   USING (request_id IN (
     SELECT id FROM member_requests
-    WHERE church_id IN (
-      SELECT church_id FROM church_members
+    WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
     )
   ));
@@ -875,7 +884,7 @@ CREATE POLICY "Staff can manage request notes"
 -- BOARD MEETINGS TABLE
 CREATE TABLE board_meetings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   type TEXT DEFAULT 'board_meeting' CHECK (type IN (
     'board_meeting','elders_meeting','staff_meeting',
@@ -899,8 +908,8 @@ CREATE TABLE board_meetings (
 ALTER TABLE board_meetings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage board meetings"
   ON board_meetings FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
   ));
 
@@ -917,8 +926,8 @@ CREATE POLICY "Admins can manage meeting attendees"
   ON meeting_attendees FOR ALL
   USING (meeting_id IN (
     SELECT id FROM board_meetings
-    WHERE church_id IN (
-      SELECT church_id FROM church_members
+    WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
     )
   ));
@@ -939,8 +948,8 @@ CREATE POLICY "Admins can manage action items"
   ON meeting_action_items FOR ALL
   USING (meeting_id IN (
     SELECT id FROM board_meetings
-    WHERE church_id IN (
-      SELECT church_id FROM church_members
+    WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
     )
   ));
@@ -948,7 +957,7 @@ CREATE POLICY "Admins can manage action items"
 -- FACILITIES TABLE
 CREATE TABLE facilities (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   type TEXT DEFAULT 'other' CHECK (type IN (
     'main_hall','classroom','conference_room','outdoor','kitchen','other'
@@ -964,15 +973,15 @@ CREATE TABLE facilities (
 ALTER TABLE facilities ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage facilities"
   ON facilities FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- FACILITY BOOKINGS TABLE
 CREATE TABLE facility_bookings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   facility_id UUID REFERENCES facilities(id) ON DELETE CASCADE NOT NULL,
   booking_reference TEXT UNIQUE NOT NULL,
   purpose TEXT NOT NULL,
@@ -997,8 +1006,8 @@ CREATE TABLE facility_bookings (
 ALTER TABLE facility_bookings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage bookings"
   ON facility_bookings FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE INDEX idx_facility_bookings_facility ON facility_bookings(facility_id);

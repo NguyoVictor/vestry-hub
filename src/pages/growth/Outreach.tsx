@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export default function Outreach() {
   const { data: members = [] } = useQuery({
     queryKey: ["members-list", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("church_id", tenantId).order("first_name");
+      const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name").eq(COLS.TENANT_ID, tenantId).order("first_name");
       return data || [];
     },
     enabled: !!tenantId,
@@ -74,7 +75,7 @@ export default function Outreach() {
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ["outreach-activities", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("outreach_activities").select("*").eq("church_id", tenantId).order("activity_date", { ascending: false });
+      const { data, error } = await supabase.from(TABLES.OUTREACH_ACTIVITIES).select("*").eq(COLS.TENANT_ID, tenantId).order("activity_date", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -156,14 +157,14 @@ export default function Outreach() {
         report: form.report,
         follow_up_required: form.follow_up_required,
         follow_up_count: Number(form.follow_up_count) || 0,
-        church_id: tenantId,
+        tenant_id: tenantId,
         created_by: userId,
       };
       if (editId) {
-        const { error } = await supabase.from("outreach_activities").update(payload).eq("id", editId);
+        const { error } = await supabase.from(TABLES.OUTREACH_ACTIVITIES).update(payload).eq(COLS.ID, editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("outreach_activities").insert(payload);
+        const { error } = await supabase.from(TABLES.OUTREACH_ACTIVITIES).insert(payload);
         if (error) throw error;
       }
     },
@@ -179,7 +180,7 @@ export default function Outreach() {
 
   const deleteActivity = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("outreach_activities").delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.OUTREACH_ACTIVITIES).delete().eq(COLS.ID, id);
       if (error) throw error;
     },
     onSuccess: () => {

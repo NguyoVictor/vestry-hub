@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Loader2, Eye, EyeOff, Shield, Lock } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
+import { TABLES } from "@/lib/schema";
 
 const pwSchema = z.object({
   currentPassword: z.string().min(1, "Required"),
@@ -64,7 +65,7 @@ const Security = () => {
   const { data: loginEvents, isLoading: eventsLoading } = useQuery({
     queryKey: ["login-events", church.userId],
     queryFn: async () => {
-      const { data } = await supabase.from("login_events")
+      const { data } = await supabase.from(TABLES.LOGIN_EVENTS)
         .select("*")
         .eq("user_id", church.userId)
         .order("created_at", { ascending: false })

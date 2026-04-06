@@ -143,7 +143,7 @@ export default function TrainingCourseDetail() {
 
   const enroll = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("course_enrollments").insert({ course_id: courseId, user_id: userId, church_id: tenantId });
+      const { error } = await supabase.from("course_enrollments").insert({ course_id: courseId, user_id: userId, tenant_id: tenantId });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -168,7 +168,7 @@ export default function TrainingCourseDetail() {
       const newCount = completedCount + 1;
       if (newCount >= totalLessons) {
         await supabase.from("course_enrollments").update({ completed_at: new Date().toISOString() }).eq("id", enrollment.id);
-        await supabase.from("activity_log").insert({ church_id: tenantId, action_type: "course_completed", description: `${userName} completed ${course?.title}`, entity_id: courseId });
+        await supabase.from("activity_log").insert({ tenant_id: tenantId, action_type: "course_completed", description: `${userName} completed ${course?.title}`, entity_id: courseId });
         toast.success("🎉 Course completed! Your certificate is ready.");
         if (course?.has_certificate) setCertDialogOpen(true);
       }

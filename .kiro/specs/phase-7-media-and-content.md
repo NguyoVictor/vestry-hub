@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 Here is your **Phase 7 prompt** — Media & Content:
 
 ---
@@ -137,7 +146,7 @@ View toggle (grid / list) in top right.
 - Max file size: 10MB per file
 - Max files per upload: 20
 - Folder selector: where to place uploaded files (select from folder list)
-- On upload: INSERT into `media_assets` table + upload file to Supabase Storage `graphics-studio/{church_id}/{folder_id}/{filename}`
+- On upload: INSERT into `media_assets` table + upload file to Supabase Storage `graphics-studio/{tenant_id}/{folder_id}/{filename}`
 
 **Asset Detail — Sheet (on click):**
 - Large preview (image) or file icon
@@ -234,7 +243,7 @@ The Sheet is wide (`max-w-2xl`). Layout: input form on top, generated output bel
 - The Edge Function accepts: `{tool: string, inputs: Record<string, string>, churchId: string}`
 - It constructs an appropriate system prompt per tool type and calls `claude-sonnet-4-20250514` with `max_tokens: 2000`
 - The Edge Function returns the generated text
-- Store each usage in `ai_tool_usage` table: `{church_id, tool_name, input_summary, created_by, created_at}`
+- Store each usage in `ai_tool_usage` table: `{tenant_id, tool_name, input_summary, created_by, created_at}`
 - Show a loading spinner + "Generating with AI..." text while the Edge Function is running
 - On error: `toast.error("Generation failed. Please try again.")`
 - The API key is stored as a Supabase secret `ANTHROPIC_API_KEY` — never expose it to the frontend
@@ -302,7 +311,7 @@ Fields:
   - Audio: accepts MP3, WAV, M4A — max 500MB
   - Video: accepts MP4, MOV, WEBM — max 2GB
   - Shows upload progress bar (large, prominent — these are big files)
-  - Upload to Supabase Storage `church-studio/{church_id}/{media_id}/`
+  - Upload to Supabase Storage `church-studio/{tenant_id}/{media_id}/`
 - Thumbnail Image (image upload, optional — auto-generated from video if video type)
 - Speaker (searchable select from `members` or free text for guests)
 - Series (select from existing series or "Create New Series" option)
@@ -514,7 +523,7 @@ Each photo:
 - Caption (textarea, optional — applied to all uploaded files or individual captions toggle)
 - Linked Event (optional select from events)
 - Upload progress: grid of file thumbnails each with their own progress bar
-- Upload to Supabase Storage `church-media/{church_id}/{album_id}/{filename}`
+- Upload to Supabase Storage `church-media/{tenant_id}/{album_id}/{filename}`
 
 **Lightbox (from `<MediaLightbox>`):**
 - Full-screen overlay
@@ -565,7 +574,7 @@ Fields:
 - Asset Name (required)
 - Category (select: Audio Equipment / Furniture / Vehicle / IT Equipment / Kitchen / Musical Instruments / Building / Other)
 - Description (textarea)
-- Asset Photo (image upload → Supabase Storage `assets/{church_id}/{asset_id}/`)
+- Asset Photo (image upload → Supabase Storage `assets/{tenant_id}/{asset_id}/`)
 - Serial Number (text input)
 - Model / Brand (text input)
 - Location (text input — e.g. "Main Hall", "Sound Room", "Office")
@@ -663,7 +672,7 @@ Tabbed content:
 
 *Resources card:*
 - Upload reference documents (PDFs, images) for this sermon
-- Saved to Supabase Storage `sermon-resources/{church_id}/{sermon_id}/`
+- Saved to Supabase Storage `sermon-resources/{tenant_id}/{sermon_id}/`
 - List of uploaded files with download buttons
 
 *AI Assist card:*
@@ -787,7 +796,7 @@ After entering a stream URL, show a live preview of the `<ReactPlayer>` embed in
 -- MEDIA ASSETS TABLE (Graphics Studio)
 CREATE TABLE media_assets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   folder_id UUID REFERENCES media_folders(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   file_url TEXT NOT NULL,
@@ -803,15 +812,15 @@ CREATE TABLE media_assets (
 ALTER TABLE media_assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage media assets"
   ON media_assets FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- MEDIA FOLDERS TABLE
 CREATE TABLE media_folders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   parent_id UUID REFERENCES media_folders(id) ON DELETE CASCADE,
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
@@ -820,15 +829,15 @@ CREATE TABLE media_folders (
 ALTER TABLE media_folders ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage folders"
   ON media_folders FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- AI TOOL USAGE TABLE
 CREATE TABLE ai_tool_usage (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   tool_name TEXT NOT NULL,
   input_summary TEXT,
   output_length INT,
@@ -838,15 +847,15 @@ CREATE TABLE ai_tool_usage (
 ALTER TABLE ai_tool_usage ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage AI usage"
   ON ai_tool_usage FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- SERMON SERIES TABLE
 CREATE TABLE sermon_series (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
   cover_image_url TEXT,
@@ -859,15 +868,15 @@ CREATE TABLE sermon_series (
 ALTER TABLE sermon_series ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage sermon series"
   ON sermon_series FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- CHURCH STUDIO MEDIA TABLE
 CREATE TABLE studio_media (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   media_type TEXT NOT NULL CHECK (media_type IN ('audio','video')),
   file_url TEXT NOT NULL,
@@ -890,8 +899,8 @@ CREATE TABLE studio_media (
 ALTER TABLE studio_media ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage studio media"
   ON studio_media FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -899,7 +908,7 @@ CREATE POLICY "Staff can manage studio media"
 CREATE TABLE bible_notes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   book TEXT NOT NULL,
   chapter INT NOT NULL,
   verse INT NOT NULL,
@@ -947,7 +956,7 @@ CREATE POLICY "Users manage their own favorites"
 -- SONGS TABLE
 CREATE TABLE songs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   artist TEXT,
   genre TEXT DEFAULT 'other' CHECK (genre IN (
@@ -971,15 +980,15 @@ CREATE TABLE songs (
 ALTER TABLE songs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage songs"
   ON songs FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- SET LISTS TABLE
 CREATE TABLE set_lists (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   service_date DATE,
   service_id UUID REFERENCES services(id) ON DELETE SET NULL,
@@ -990,8 +999,8 @@ CREATE TABLE set_lists (
 ALTER TABLE set_lists ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage set lists"
   ON set_lists FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -1009,8 +1018,8 @@ ALTER TABLE set_list_songs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage set list songs"
   ON set_list_songs FOR ALL
   USING (set_list_id IN (
-    SELECT id FROM set_lists WHERE church_id IN (
-      SELECT church_id FROM church_members
+    SELECT id FROM set_lists WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
     )
   ));
@@ -1018,7 +1027,7 @@ CREATE POLICY "Staff can manage set list songs"
 -- CHURCH MEDIA ALBUMS TABLE
 CREATE TABLE media_albums (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   cover_photo_url TEXT,
   linked_event_id UUID REFERENCES events(id) ON DELETE SET NULL,
@@ -1029,15 +1038,15 @@ CREATE TABLE media_albums (
 ALTER TABLE media_albums ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage albums"
   ON media_albums FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- CHURCH MEDIA PHOTOS TABLE
 CREATE TABLE media_photos (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   album_id UUID REFERENCES media_albums(id) ON DELETE SET NULL,
   file_url TEXT NOT NULL,
   file_type TEXT DEFAULT 'image' CHECK (file_type IN ('image','video')),
@@ -1051,15 +1060,15 @@ CREATE TABLE media_photos (
 ALTER TABLE media_photos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage photos"
   ON media_photos FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- CHURCH ASSETS TABLE
 CREATE TABLE church_assets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   category TEXT DEFAULT 'other' CHECK (category IN (
     'audio_equipment','furniture','vehicle','it_equipment',
@@ -1088,8 +1097,8 @@ CREATE TABLE church_assets (
 ALTER TABLE church_assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage assets"
   ON church_assets FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -1109,8 +1118,8 @@ ALTER TABLE asset_maintenance ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage maintenance"
   ON asset_maintenance FOR ALL
   USING (asset_id IN (
-    SELECT id FROM church_assets WHERE church_id IN (
-      SELECT church_id FROM church_members
+    SELECT id FROM church_assets WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
     )
   ));
@@ -1118,7 +1127,7 @@ CREATE POLICY "Staff can manage maintenance"
 -- SERMONS TABLE (Sermon Preparation)
 CREATE TABLE sermons (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   scripture_reference TEXT,
   speaker TEXT,
@@ -1146,15 +1155,15 @@ CREATE TABLE sermons (
 ALTER TABLE sermons ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage sermons"
   ON sermons FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
 -- LIVESTREAMS TABLE
 CREATE TABLE livestreams (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   platform TEXT NOT NULL CHECK (platform IN (
     'youtube','zoom','facebook','rtmp','other'
@@ -1180,8 +1189,8 @@ CREATE TABLE livestreams (
 ALTER TABLE livestreams ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage livestreams"
   ON livestreams FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 ```

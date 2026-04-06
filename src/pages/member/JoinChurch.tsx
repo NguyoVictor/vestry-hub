@@ -18,7 +18,7 @@ export default function JoinChurch() {
   const lookupCode = async () => {
     if (!code.trim()) return;
     setLoading(true);
-    const { data } = await supabase.from("churches").select("id, name, logo_url, city, country").eq("access_code", code.trim().toUpperCase()).single();
+    const { data } = await supabase.from("tenants").select("id, name, logo, city, country").eq("access_code", code.trim().toUpperCase()).single();
     setLoading(false);
     if (!data) { toast.error("Invalid access code. Please check and try again."); return; }
     setChurch(data);
@@ -30,18 +30,18 @@ export default function JoinChurch() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate("/member/login"); return; }
 
-    const { data: existing } = await supabase.from("church_members").select("id").eq("church_id", church.id).eq("user_id", user.id).single();
+    const { data: existing } = await supabase.from("role_permissions").select("id").eq("tenant_id", church.id).eq("user_id", user.id).single();
     if (existing) { toast.info("You're already a member of this church"); navigate("/member"); return; }
 
-    const { error: memberError } = await supabase.from("church_members").insert({ church_id: church.id, user_id: user.id, role: "member", status: "active" });
+    const { error: memberError } = await supabase.from("role_permissions").insert({ tenant_id: church.id, user_id: user.id, role: "member", status: "active" });
     if (memberError) { toast.error("Failed to join church"); setJoining(false); return; }
 
-    const { data: existingMember } = await supabase.from("members").select("id").eq("church_id", church.id).eq("user_id", user.id).single();
+    const { data: existingMember } = await supabase.from("members").select("id").eq("tenant_id", church.id).eq("user_id", user.id).single();
     if (!existingMember) {
-      await supabase.from("members").insert({ church_id: church.id, user_id: user.id, first_name: user.email?.split("@")[0] || "Member", status: "active" });
+      await supabase.from("members").insert({ tenant_id: church.id, user_id: user.id, first_name: user.email?.split("@")[0] || "Member", status: "active" });
     }
 
-    await supabase.from("activity_log").insert({ church_id: church.id, action_type: "new_member", description: `New member joined via access code` });
+    await supabase.from("activity_log").insert({ tenant_id: church.id, action_type: "new_member", description: `New member joined via access code` });
     toast.success(`Welcome to ${church.name}!`);
     navigate("/member/profile-setup");
   };
@@ -79,8 +79,8 @@ export default function JoinChurch() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                  {church.logo_url ? (
-                    <img src={church.logo_url} alt={church.name} className="h-12 w-12 rounded-full object-cover" />
+                  {church.logo ? (
+                    <img src={church.logo} alt={church.name} className="h-12 w-12 rounded-full object-cover" />
                   ) : (
                     <div className="h-12 w-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">{church.name.charAt(0)}</div>
                   )}

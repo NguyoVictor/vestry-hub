@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,8 +31,8 @@ function EventCard({ event, memberId, churchId }: { event: any; memberId: string
       } else if (rsvp) {
         await supabase.from("event_rsvps").update({ status: "confirmed" }).eq("id", rsvp.id);
       } else {
-        await supabase.from("event_rsvps").insert({ event_id: event.id, church_id: churchId, member_id: memberId, status: "confirmed", rsvp_source: "self" });
-        await supabase.from("activity_log").insert({ church_id: churchId, action_type: "event_rsvp", description: `RSVP for ${event.title}`, entity_id: event.id });
+        await supabase.from(TABLES.EVENT_RSVPS).insert({ event_id: event.id, tenant_id: churchId, member_id: memberId, status: "confirmed", rsvp_source: "self" });
+        await supabase.from(TABLES.ACTIVITY_LOG).insert({ tenant_id: churchId, action_type: "event_rsvp", description: `RSVP for ${event.title}`, entity_id: event.id });
       }
     },
     onSuccess: () => {
@@ -80,7 +81,7 @@ export function MemberEvents() {
     queryKey: ["member-events", member.churchId, filter],
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
-      let q = supabase.from("events").select("*").eq("church_id", member.churchId).eq("status", "published");
+      let q = supabase.from(TABLES.EVENTS).select("*").eq(COLS.TENANT_ID, member.churchId).eq(COLS.EVENT_IS_PUBLISHED, true);
       if (filter === "upcoming") q = q.gte("event_date", today).order("event_date", { ascending: true });
       else q = q.lt("event_date", today).order("event_date", { ascending: false });
       const { data } = await q.limit(20);
@@ -142,7 +143,7 @@ export function MemberEventDetail() {
       } else if (rsvp) {
         await supabase.from("event_rsvps").update({ status: "confirmed" }).eq("id", rsvp.id);
       } else {
-        await supabase.from("event_rsvps").insert({ event_id: eventId, church_id: member.churchId, member_id: member.memberId, status: "confirmed", rsvp_source: "self" });
+        await supabase.from(TABLES.EVENT_RSVPS).insert({ event_id: eventId, tenant_id: member.churchId, member_id: member.memberId, status: "confirmed", rsvp_source: "self" });
       }
     },
     onSuccess: () => {

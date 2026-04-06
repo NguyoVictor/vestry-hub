@@ -13,7 +13,7 @@ export function MemberAuthGuard() {
       if (!user) { setStatus("no-session"); return; }
 
       const { data: membership } = await supabase
-        .from("church_members")
+        .from("role_permissions")
         .select("id")
         .eq("user_id", user.id)
         .eq("status", "active")

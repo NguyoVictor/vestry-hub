@@ -41,7 +41,7 @@ export default function MemberProfilePage() {
 
   const leaveChurch = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("church_members").update({ status: "inactive" }).eq("church_id", member.churchId).eq("user_id", member.userId);
+      const { error } = await supabase.from("role_permissions").update({ status: "inactive" }).eq("tenant_id", member.churchId).eq("user_id", member.userId);
       if (error) throw error;
     },
     onSuccess: () => {

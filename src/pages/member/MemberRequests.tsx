@@ -50,11 +50,11 @@ export default function MemberRequests() {
       const { error } = await supabase.from("member_requests").insert({
         ...form,
         member_id: member.memberId,
-        church_id: member.churchId,
+        tenant_id: member.churchId,
         status: "pending",
       });
       if (error) throw error;
-      await supabase.from("activity_log").insert({ church_id: member.churchId, action_type: "member_request", description: `New ${form.request_type} request submitted`, entity_id: member.memberId });
+      await supabase.from("activity_log").insert({ tenant_id: member.churchId, action_type: "member_request", description: `New ${form.request_type} request submitted`, entity_id: member.memberId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["member-requests", member.memberId] });

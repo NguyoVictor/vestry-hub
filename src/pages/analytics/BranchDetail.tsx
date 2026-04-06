@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { setActiveBranch } from "@/components/layout/AppLayout";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,19 +30,21 @@ export default function BranchDetail() {
   const { data: branch, isLoading } = useQuery({
     queryKey: ["branch", branchId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("churches").select("*").eq("id", branchId).single();
+      const { data } = await supabase.from(TABLES.BRANCHES).select("*").eq(COLS.ID, branchId).single();
       return data;
     },
     enabled: !!branchId,
+    staleTime: 300000,
   });
 
   const { data: branchMembers = [], isLoading: membersLoading } = useQuery({
     queryKey: ["branch-members", branchId],
     queryFn: async () => {
-      const { data } = await supabase.from("members").select("id, first_name, last_name, status, created_at").eq("church_id", branchId!).order("created_at", { ascending: false }).limit(10);
+      const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, status, created_at").eq("branch_id", branchId!).order("created_at", { ascending: false }).limit(10);
       return data || [];
     },
     enabled: !!branchId,
+    staleTime: 300000,
   });
 
   const { data: branchStats } = useQuery({
@@ -50,38 +53,40 @@ export default function BranchDetail() {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const [members, giving, services, groups] = await Promise.all([
-        supabase.from("members").select("id", { count: "exact", head: true }).eq("church_id", branchId!).eq("status", "active"),
-        supabase.from("donations").select("amount").eq("church_id", branchId!).gte("donation_date", monthStart),
-        supabase.from("services").select("id", { count: "exact", head: true }).eq("church_id", branchId!).gte("service_date", monthStart),
-        supabase.from("groups").select("id", { count: "exact", head: true }).eq("church_id", branchId!).eq("is_active", true),
+        supabase.from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq("branch_id", branchId!).eq(COLS.STATUS, "active"),
+        supabase.from(TABLES.GIVING_RECORDS).select(COLS.GIVING_AMOUNT).eq(COLS.TENANT_ID, branchId!).gte(COLS.GIVING_DATE, monthStart),
+        supabase.from(TABLES.SERVICES).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branchId!).gte("service_date", monthStart),
+        supabase.from(TABLES.GROUPS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branchId!).eq("is_active", true),
       ]);
       const totalGiving = (giving.data || []).reduce((s, r) => s + Number(r.amount), 0);
       return { members: members.count || 0, giving: totalGiving, services: services.count || 0, groups: groups.count || 0 };
     },
     enabled: !!branchId,
+    staleTime: 300000,
   });
 
   const { data: recentActivity = [] } = useQuery({
     queryKey: ["branch-activity", branchId],
     queryFn: async () => {
-      const { data } = await supabase.from("activity_log").select("*").eq("church_id", branchId!).order("created_at", { ascending: false }).limit(10);
+      const { data } = await supabase.from(TABLES.ACTIVITY_LOG).select("*").eq(COLS.TENANT_ID, branchId!).order("created_at", { ascending: false }).limit(10);
       return data || [];
     },
     enabled: !!branchId,
+    staleTime: 300000,
   });
 
   // All sibling branches for comparative stats
   const { data: allBranchStats = [] } = useQuery({
     queryKey: ["all-branch-stats", tenantId],
     queryFn: async () => {
-      const { data: siblings } = await (supabase as any).from("churches").select("id").eq("parent_church_id", tenantId);
+      const { data: siblings } = await supabase.from(TABLES.BRANCHES).select("id").eq(COLS.TENANT_ID, tenantId!);
       if (!siblings?.length) return [];
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       return Promise.all(siblings.map(async (s: any) => {
         const [m, g] = await Promise.all([
-          (supabase as any).from("members").select("id", { count: "exact", head: true }).eq("church_id", s.id).eq("status", "active"),
-          (supabase as any).from("donations").select("amount").eq("church_id", s.id).gte("donation_date", monthStart),
+          supabase.from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq("branch_id", s.id).eq(COLS.STATUS, "active"),
+          supabase.from(TABLES.GIVING_RECORDS).select(COLS.GIVING_AMOUNT).eq(COLS.TENANT_ID, s.id).gte(COLS.GIVING_DATE, monthStart),
         ]);
         return {
           id: s.id,
@@ -91,6 +96,7 @@ export default function BranchDetail() {
       }));
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const memberColumns: Column<any>[] = [

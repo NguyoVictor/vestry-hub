@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 # Phase 9: Analytics, Branches & Member Portal
 
 ## CONTEXT — What already exists, do not rebuild:
@@ -82,10 +91,10 @@ Six `<AnalyticsCard>` components in a `grid-cols-2 md:grid-cols-3 lg:grid-cols-6
 
 1. **Total Members** — count from `members` where `status = 'active'` — color: indigo — trend vs same period last year
 2. **New Members** — count added in selected date range — color: emerald — trend vs previous period
-3. **Total Giving** — sum of `donations.amount` in date range — color: violet — trend vs previous period
-4. **Total Expenses** — sum of `church_expenses.amount` where `approval_status = 'approved'` in date range — color: red — trend vs previous period
+3. **Total Giving** — sum of `giving_records.amount` in date range — color: violet — trend vs previous period
+4. **Total Expenses** — sum of `expenses.amount` where `approval_status = 'approved'` in date range — color: red — trend vs previous period
 5. **Net Surplus** — Total Giving − Total Expenses — color: cyan — positive = emerald text, negative = red text
-6. **Events Held** — count of `events` where `status = 'published'` and `start_datetime` in date range — color: amber — trend vs previous period
+6. **Events Held** — count of `events` where `status = 'published'` and `event_date` in date range — color: amber — trend vs previous period
 
 ---
 
@@ -135,7 +144,7 @@ Two-column layout below charts:
 - X-axis: service dates in selected range
 - Multiple lines (one per service type): Sunday Service (indigo), Midweek (emerald), Youth (violet), Prayer (amber)
 - Toggle checkboxes above chart to show/hide each service type line
-- Tooltip: date + attendance per service type
+- Tooltip: date + attendance_records per service type
 
 `<ChartCard title="Average Attendance by Service Type">` — horizontal `BarChart`:
 - Y-axis: service type names
@@ -317,7 +326,7 @@ A powerful custom report builder that lets admins create ad-hoc reports.
 **Top stats row (3 cards):**
 - Total Branches (count of all branches for this church)
 - Total Members Across All Branches (sum of member counts per branch)
-- Combined Monthly Giving (sum of donations across all branches this month)
+- Combined Monthly Giving (sum of giving_records across all branches this month)
 
 **Branch Cards Grid:** `grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4`
 
@@ -333,7 +342,7 @@ Each branch card:
 - Three-dot menu: Edit, Switch to Branch, Deactivate, Delete
 
 **"Switch to Branch" behavior:**
-When an admin clicks "Switch to Branch", store the selected `branch_id` in the `useChurch()` context. All data in the app then filters to that branch's `church_id`. A prominent banner appears at the top of the AppLayout: "Viewing: {Branch Name}" with a gold background + "Back to Main Church" button to restore the original context. This allows the super admin to manage any branch from a single login.
+When an admin clicks "Switch to Branch", store the selected `branch_id` in the `useChurch()` context. All data in the app then filters to that branch's `tenant_id`. A prominent banner appears at the top of the AppLayout: "Viewing: {Branch Name}" with a gold background + "Back to Main Church" button to restore the original context. This allows the super admin to manage any branch from a single login.
 
 ---
 
@@ -342,7 +351,7 @@ When an admin clicks "Switch to Branch", store the selected `branch_id` in the `
 Fields:
 - Branch Name (required, max 100 chars)
 - Branch Code (auto-generated short code, e.g. "NBI-01" — editable, must be unique within the church group)
-- Branch Logo (image upload → Supabase Storage `branch-logos/{parent_church_id}/{branch_id}/`)
+- Branch Logo (image upload → Supabase Storage `branch-logos/{parent_tenant_id}/{branch_id}/`)
 - Branch Banner Image (image upload)
 - Physical Address (textarea)
 - City (text input)
@@ -357,8 +366,8 @@ Fields:
 - Notes (textarea)
 
 **On create:**
-- INSERT into `churches` table with `parent_church_id = currentChurchId` (branches are just child church records)
-- INSERT into `church_members` table for the assigned branch admin with `role = 'super_admin'` for that branch's church_id
+- INSERT into `tenants` ~~(spec said `tenants`)~~ table with `parent_tenant_id = currentChurchId` (branches are just child church records)
+- INSERT into `role_permissions` ~~(spec said `role_permissions`)~~ table for the assigned branch admin with `role = 'super_admin'` for that branch's tenant_id
 - INSERT into `activity_log`
 - Show `toast.success("{Branch Name} branch created successfully")`
 - The new branch admin receives an in-app notification that they have been assigned as branch admin
@@ -378,11 +387,11 @@ Fields:
   - Members, Giving This Month, Services This Month, Groups
 
 *Members table (last 10 members, "View All" link):*
-- Same columns as the main Members `<DataTable>` but filtered to this branch's church_id
+- Same columns as the main Members `<DataTable>` but filtered to this branch's tenant_id
 - "Add Member to Branch" button
 
 *Recent Activity feed:*
-- Last 10 `activity_log` entries for this branch's church_id
+- Last 10 `activity_log` entries for this branch's tenant_id
 
 *Right (1/3):*
 
@@ -443,7 +452,7 @@ The Member Portal is a completely separate authenticated experience for church m
 - Large input field for the church access code (the one generated during onboarding)
 - OR "Scan QR Code" button (opens camera — on mobile devices — to scan the church QR code)
 - On valid code: shows church name + logo + "Join {Church Name}" confirmation button
-- On confirm: INSERT into `church_members` table with `role = 'member'` + INSERT into `members` table (basic profile) + INSERT into `activity_log` type `new_member`
+- On confirm: INSERT into `role_permissions` ~~(spec said `role_permissions`)~~ table with `role = 'member'` + INSERT into `members` table (basic profile) + INSERT into `activity_log` type `new_member`
 - Redirects to `/member/profile-setup` to complete their profile
 
 **Profile Setup (`/member/profile-setup`):**
@@ -542,7 +551,7 @@ Full-width giving form (no sidebars — centered, max-w-md, card style):
 - **"Give {amount}" button** (indigo, full width, large)
 
 **On successful giving:**
-- INSERT into `donations` table with `member_id` of the current member
+- INSERT into `giving_records` ~~(spec said `giving_records`)~~ table with `member_id` of the current member
 - Show a full-screen success state:
   - Green checkmark animation (CSS keyframe)
   - "Thank you for your generosity! 🙏"
@@ -551,15 +560,15 @@ Full-width giving form (no sidebars — centered, max-w-md, card style):
   - "Give Again" button
 
 **My Giving History (below the form):**
-- Last 5 donations table: Date / Category / Amount / Payment Method / Receipt icon
+- Last 5 giving_records table: Date / Category / Amount / Payment Method / Receipt icon
 - "View All Giving History" link → `/member/giving-history`
 
 **Giving History Page (`/member/giving-history`):**
-- Full `<DataTable>` of member's own donations:
+- Full `<DataTable>` of member's own giving_records:
   - Columns: Date, Category, Amount, Payment Method, Receipt
   - Filter: date range, category
 - Annual Giving Summary: total given per year (last 3 years) in stat cards
-- "Download Annual Giving Statement" button → generates PDF receipt showing all donations for the year
+- "Download Annual Giving Statement" button → generates PDF receipt showing all giving_records for the year
 
 ---
 
@@ -668,7 +677,7 @@ Group Detail (`/member/groups/:groupId`):
 Two-section layout:
 
 *Profile section:*
-- Large avatar (96px) with "Change Photo" overlay on hover → opens file picker → uploads to Supabase Storage `member-avatars/{church_id}/{member_id}/`
+- Large avatar (96px) with "Change Photo" overlay on hover → opens file picker → uploads to Supabase Storage `member-avatars/{tenant_id}/{member_id}/`
 - Name in `text-2xl font-bold`
 - Member since date + Church name + access code display
 - QR code of member's unique member ID (for check-in at services)
@@ -680,7 +689,7 @@ Two-section layout:
 
 *My Church section:*
 - Church name + logo + access code (read-only)
-- "Leave Church" button (red outline, bottom of section) → confirmation dialog "Are you sure you want to leave {church name}? You will lose access to all church content." → on confirm: UPDATE `church_members.status = 'inactive'` + redirect to `/member/join`
+- "Leave Church" button (red outline, bottom of section) → confirmation dialog "Are you sure you want to leave {church name}? You will lose access to all church content." → on confirm: UPDATE `role_permissions.status = 'inactive'` + redirect to `/member/join`
 
 ---
 
@@ -704,7 +713,7 @@ Fields:
 - Is Confidential (toggle)
 - Attachments (file upload, optional)
 
-On submit: INSERT into `member_requests` table with `member_id = currentMember.id` + `church_id = currentChurchId` + INSERT into `activity_log` + send in-app notification to all staff admins
+On submit: INSERT into `member_requests` table with `member_id = currentMember.id` + `tenant_id = currentChurchId` + INSERT into `activity_log` + send in-app notification to all staff admins
 
 ---
 
@@ -750,28 +759,28 @@ Simple settings page with two sections:
 
 *Church section:*
 - Current church display
-- "Switch Church" button (if member belongs to multiple churches) → shows list of all their churches + "Make Active" button per church
+- "Switch Church" button (if member belongs to multiple tenants) → shows list of all their tenants + "Make Active" button per church
 - "Join Another Church" button → links to `/member/join`
 
 ---
 
 ## PART 5 — DATABASE MIGRATIONS FOR PHASE 9
 ```sql
--- BRANCHES TABLE (branches are child churches)
--- No new table needed — branches use the existing `churches` table
--- Add parent_church_id column to churches table:
-ALTER TABLE churches
-  ADD COLUMN IF NOT EXISTS parent_church_id UUID REFERENCES churches(id) ON DELETE SET NULL,
+-- BRANCHES TABLE (branches are child tenants)
+-- No new table needed — branches use the existing `tenants` ~~(spec said `tenants`)~~ table
+-- Add parent_tenant_id column to tenants table:
+ALTER TABLE tenants
+  ADD COLUMN IF NOT EXISTS parent_tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS branch_code TEXT,
   ADD COLUMN IF NOT EXISTS branch_banner_url TEXT,
   ADD COLUMN IF NOT EXISTS is_branch BOOLEAN DEFAULT false;
 
-CREATE INDEX idx_churches_parent ON churches(parent_church_id);
+CREATE INDEX idx_churches_parent ON tenants(parent_tenant_id);
 
 -- SAVED REPORTS TABLE
 CREATE TABLE saved_reports (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   data_source TEXT NOT NULL,
   config JSONB NOT NULL DEFAULT '{}',
@@ -783,8 +792,8 @@ CREATE TABLE saved_reports (
 ALTER TABLE saved_reports ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage saved reports"
   ON saved_reports FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
   ));
 
@@ -795,7 +804,7 @@ CREATE POLICY "Admins can manage saved reports"
 -- PRAYER REQUESTS TABLE (for the quick "Pray" action on member portal home)
 CREATE TABLE prayer_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE CASCADE NOT NULL,
   request TEXT NOT NULL,
   is_anonymous BOOLEAN DEFAULT false,
@@ -813,8 +822,8 @@ CREATE POLICY "Members can manage their own prayer requests"
   ));
 CREATE POLICY "Staff can view all prayer requests"
   ON prayer_requests FOR SELECT
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -830,39 +839,39 @@ ALTER TABLE notification_preferences
 CREATE OR REPLACE VIEW member_annual_giving AS
   SELECT
     d.member_id,
-    d.church_id,
-    EXTRACT(YEAR FROM d.donation_date) AS year,
+    d.tenant_id,
+    EXTRACT(YEAR FROM d.given_at) AS year,
     SUM(d.amount) AS total_given,
     COUNT(*) AS donation_count,
-    MIN(d.donation_date) AS first_donation,
-    MAX(d.donation_date) AS last_donation
-  FROM donations d
+    MIN(d.given_at) AS first_donation,
+    MAX(d.given_at) AS last_donation
+  FROM giving_records d
   WHERE d.member_id IS NOT NULL
-  GROUP BY d.member_id, d.church_id, EXTRACT(YEAR FROM d.donation_date);
+  GROUP BY d.member_id, d.tenant_id, EXTRACT(YEAR FROM d.given_at);
 
 -- BRANCH COMPARATIVE STATS VIEW
 CREATE OR REPLACE VIEW branch_stats AS
   SELECT
-    c.id AS church_id,
+    c.id AS tenant_id,
     c.name AS church_name,
-    c.parent_church_id,
+    c.parent_tenant_id,
     c.is_branch,
     c.branch_code,
-    (SELECT COUNT(*) FROM members m WHERE m.church_id = c.id AND m.status = 'active') AS active_members,
-    (SELECT COALESCE(SUM(d.amount), 0) FROM donations d
-     WHERE d.church_id = c.id
-     AND date_trunc('month', d.donation_date) = date_trunc('month', now())) AS giving_this_month,
+    (SELECT COUNT(*) FROM members m WHERE m.tenant_id = c.id AND m.status = 'active') AS active_members,
+    (SELECT COALESCE(SUM(d.amount), 0) FROM giving_records d
+     WHERE d.tenant_id = c.id
+     AND date_trunc('month', d.given_at) = date_trunc('month', now())) AS giving_this_month,
     (SELECT COUNT(*) FROM services s
-     WHERE s.church_id = c.id
+     WHERE s.tenant_id = c.id
      AND date_trunc('month', s.service_date::TIMESTAMPTZ) = date_trunc('month', now())) AS services_this_month,
-    (SELECT COUNT(*) FROM groups g WHERE g.church_id = c.id AND g.is_active = true) AS active_groups
-  FROM churches c;
+    (SELECT COUNT(*) FROM groups g WHERE g.tenant_id = c.id AND g.is_active = true) AS active_groups
+  FROM tenants c;
 
 -- MEMBER RSVP HELPER FUNCTION
 CREATE OR REPLACE FUNCTION toggle_event_rsvp(
   p_event_id UUID,
   p_member_id UUID,
-  p_church_id UUID,
+  p_tenant_id UUID,
   p_user_id UUID
 ) RETURNS JSONB AS $$
 DECLARE
@@ -874,8 +883,8 @@ BEGIN
   WHERE event_id = p_event_id AND member_id = p_member_id;
 
   IF existing_rsvp.id IS NULL THEN
-    INSERT INTO event_rsvps (event_id, church_id, member_id, status, rsvp_source)
-    VALUES (p_event_id, p_church_id, p_member_id, 'confirmed', 'self')
+    INSERT INTO event_rsvps (event_id, tenant_id, member_id, status, rsvp_source)
+    VALUES (p_event_id, p_tenant_id, p_member_id, 'confirmed', 'self')
     RETURNING to_jsonb(event_rsvps.*) INTO result;
     RETURN jsonb_build_object('action', 'rsvped', 'rsvp', result);
   ELSE
@@ -904,15 +913,15 @@ BEGIN
 
   SELECT * INTO found_member
   FROM members
-  WHERE phone = p_phone AND church_id = found_service.church_id
+  WHERE phone = p_phone AND tenant_id = found_service.tenant_id
   LIMIT 1;
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'message', 'No member found with this phone number');
   END IF;
 
-  INSERT INTO attendance (church_id, reference_type, reference_id, member_id, member_name, member_phone, is_present, check_in_method)
-  VALUES (found_service.church_id, 'service', p_service_id, found_member.id, found_member.first_name || ' ' || found_member.last_name, p_phone, true, 'self_checkin')
+  INSERT INTO attendance_records (tenant_id, reference_type, reference_id, member_id, member_name, member_phone, is_present, check_in_method)
+  VALUES (found_service.tenant_id, 'service', p_service_id, found_member.id, found_member.first_name || ' ' || found_member.last_name, p_phone, true, 'self_checkin')
   ON CONFLICT (reference_type, reference_id, member_id) DO NOTHING;
 
   RETURN jsonb_build_object(
@@ -928,4 +937,4 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 ## PART 6 — ROUTING ADDITIONS FOR PHASE 9
 
-Add these routes to the React Router v6 configuration. Member Portal routes use `MemberPortalLayout` instead of `AppLayout`. They are protected by a `MemberAuthGuard` that checks for a valid session AND that the user has at least one `church_members` row (i.e. they have joined a church).
+Add these routes to the React Router v6 configuration. Member Portal routes use `MemberPortalLayout` instead of `AppLayout`. They are protected by a `MemberAuthGuard` that checks for a valid session AND that the user has at least one `role_permissions` ~~(spec said `role_permissions`)~~ row (i.e. they have joined a church).

@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ export default function ResourcesStore() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["store-products", tenantId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("store_products").select("*").eq("church_id", tenantId).eq("status", "active").order("created_at", { ascending: false });
+      const { data, error } = await (supabase as any).from(TABLES.STORE_PRODUCTS).select("*").eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "active").order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as Product[];
     },
@@ -67,7 +68,7 @@ export default function ResourcesStore() {
   const { data: allProducts = [] } = useQuery({
     queryKey: ["store-products-admin", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("store_products").select("*").eq("church_id", tenantId).order("created_at", { ascending: false });
+      const { data } = await (supabase as any).from(TABLES.STORE_PRODUCTS).select("*").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
       return (data || []) as Product[];
     },
     enabled: !!tenantId,
@@ -76,7 +77,7 @@ export default function ResourcesStore() {
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ["store-orders", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("store_orders").select("*, order_items(*)").eq("church_id", tenantId).order("created_at", { ascending: false });
+      const { data } = await (supabase as any).from(TABLES.STORE_ORDERS).select("*, order_items(*)").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
       return data || [];
     },
     enabled: !!tenantId,
@@ -159,8 +160,8 @@ export default function ResourcesStore() {
 
   const placeOrder = useMutation({
     mutationFn: async () => {
-      const { data: order, error } = await (supabase as any).from("store_orders").insert({
-        church_id: tenantId, order_number: null,
+      const { data: order, error } = await (supabase as any).from(TABLES.STORE_ORDERS).insert({
+        tenant_id: tenantId, order_number: null,
         customer_name: customerInfo.name, customer_email: customerInfo.email, customer_phone: customerInfo.phone,
         delivery_method: customerInfo.delivery_method, delivery_address: customerInfo.delivery_address,
         subtotal: cartTotal, total: cartTotal, currency: currency || "KES",
@@ -183,9 +184,9 @@ export default function ResourcesStore() {
 
   const saveProduct = useMutation({
     mutationFn: async () => {
-      const payload = { ...productForm, church_id: tenantId, created_by: userId, price: Number(productForm.price), compare_at_price: productForm.compare_at_price ? Number(productForm.compare_at_price) : null, stock_quantity: Number(productForm.stock_quantity), currency: currency || "KES" };
-      if (editProductId) { const { error } = await (supabase as any).from("store_products").update(payload).eq("id", editProductId); if (error) throw error; }
-      else { const { error } = await (supabase as any).from("store_products").insert(payload); if (error) throw error; }
+      const payload = { ...productForm, tenant_id: tenantId, created_by: userId, price: Number(productForm.price), compare_at_price: productForm.compare_at_price ? Number(productForm.compare_at_price) : null, stock_quantity: Number(productForm.stock_quantity), currency: currency || "KES" };
+      if (editProductId) { const { error } = await (supabase as any).from(TABLES.STORE_PRODUCTS).update(payload).eq(COLS.ID, editProductId); if (error) throw error; }
+      else { const { error } = await (supabase as any).from(TABLES.STORE_PRODUCTS).insert(payload); if (error) throw error; }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["store-products", tenantId] });
@@ -198,7 +199,7 @@ export default function ResourcesStore() {
 
   const updateOrderStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await (supabase as any).from("store_orders").update({ order_status: status }).eq("id", id);
+      const { error } = await (supabase as any).from(TABLES.STORE_ORDERS).update({ order_status: status }).eq(COLS.ID, id);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["store-orders", tenantId] }); toast.success("Order status updated"); },

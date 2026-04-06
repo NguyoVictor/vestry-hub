@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 Noted — the app is **Vestry** from here on. All previous prompts should mentally replace "Church Central Cloud" with **Vestry** and the domain with `vestry.app` (or whatever your actual domain is).
 
 Here is your **Phase 3 prompt** — People Management:
@@ -12,7 +21,7 @@ Here is your **Phase 3 prompt** — People Management:
 
 This is **Vestry**, a multi-tenant Church SaaS platform. The following phases are already complete:
 - Phase 0: Supabase Auth (OAuth + email/password), onboarding, church access code + QR code generation
-- Phase 1: Full `AppLayout` (collapsible sidebar, top navbar, dark mode), `AuthGuard`, Dashboard Overview (KPI cards, charts, activity feed, events widget, donations table), all routes scaffolded as placeholders
+- Phase 1: Full `AppLayout` (collapsible sidebar, top navbar, dark mode), `AuthGuard`, Dashboard Overview (KPI cards, charts, activity feed, events widget, giving_records table), all routes scaffolded as placeholders
 - Phase 2: Full Settings page with all 8 sub-sections (Church Profile, Services & Modules, Roles & Permissions, Notifications, Billing, Security, Integrations, SEO & Public Page), public church page at `/church/:slug`, all SEO infrastructure, all database migrations from Phases 1–2
 
 **Do not touch any of the above. This phase replaces the placeholder pages for the People section only:**
@@ -141,7 +150,7 @@ Triggered by "Add Member" button. Opens a shadcn `Sheet` from the right (not a m
 **Form sections:**
 
 *Personal Information:*
-- Profile Photo — upload component (circular preview, upload to Supabase Storage `member-avatars/{church_id}/{member_id}`)
+- Profile Photo — upload component (circular preview, upload to Supabase Storage `member-avatars/{tenant_id}/{member_id}`)
 - First Name (required), Last Name (required)
 - Date of Birth (date picker) — auto-calculates age display
 - Gender (select: Male / Female / Other / Prefer not to say)
@@ -231,7 +240,7 @@ Clicking "View Profile" from the members table navigates to this full page (not 
 *Documents tab:*
 - Upload and store member documents (ID copy, baptism certificate, membership form)
 - Each document: filename, upload date, download button, delete button
-- Upload to Supabase Storage `member-documents/{church_id}/{member_id}/`
+- Upload to Supabase Storage `member-documents/{tenant_id}/{member_id}/`
 
 ---
 
@@ -406,7 +415,7 @@ Fields:
 - Visit Source (select: Friend Referral / Social Media / Walk-in / Church Event / Online Search / Other)
 - Service Attended (select from recent services if Services module enabled, otherwise text input)
 - Notes (textarea — first impressions, prayer requests, etc.)
-- Assign Follow-up To (select from church staff members — from `church_members` where role = admin or staff)
+- Assign Follow-up To (select from church staff members — from `role_permissions` ~~(spec said `role_permissions`)~~ where role = admin or staff)
 - Follow-up Due Date (date picker)
 
 **"Convert to Member" action:**
@@ -558,7 +567,7 @@ Run these Supabase migrations:
 -- MEMBERS TABLE
 CREATE TABLE members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
@@ -587,17 +596,17 @@ CREATE TABLE members (
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Church members can view their church's members"
   ON members FOR SELECT
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()));
 CREATE POLICY "Admins and staff can manage members"
   ON members FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
-CREATE INDEX idx_members_church_id ON members(church_id);
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
+CREATE INDEX idx_members_tenant_id ON members(tenant_id);
 CREATE INDEX idx_members_status ON members(status);
 
 -- GROUPS TABLE
 CREATE TABLE groups (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   type TEXT DEFAULT 'other' CHECK (type IN ('ministry', 'cell_group', 'department', 'choir', 'youth', 'children', 'other')),
   description TEXT,
@@ -613,17 +622,17 @@ CREATE TABLE groups (
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Church members can view groups"
   ON groups FOR SELECT
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()));
 CREATE POLICY "Admins and staff can manage groups"
   ON groups FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
 
 -- GROUP MEMBERS TABLE
 CREATE TABLE group_members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   group_id UUID REFERENCES groups(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   role TEXT DEFAULT 'member' CHECK (role IN ('member', 'leader')),
   joined_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(group_id, member_id)
@@ -631,12 +640,12 @@ CREATE TABLE group_members (
 ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Church members can view group members"
   ON group_members FOR SELECT
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()));
 
 -- HOUSE FELLOWSHIPS TABLE
 CREATE TABLE house_fellowships (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   zone TEXT,
   host_name TEXT,
@@ -653,26 +662,26 @@ CREATE TABLE house_fellowships (
 ALTER TABLE house_fellowships ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Church members can view fellowships"
   ON house_fellowships FOR SELECT
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()));
 
 -- FELLOWSHIP MEMBERS TABLE
 CREATE TABLE fellowship_members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   fellowship_id UUID REFERENCES house_fellowships(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   joined_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(fellowship_id, member_id)
 );
 ALTER TABLE fellowship_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Church members can view fellowship members"
   ON fellowship_members FOR SELECT
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()));
 
 -- FAMILIES TABLE
 CREATE TABLE families (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   head_member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -681,7 +690,7 @@ CREATE TABLE families (
 ALTER TABLE families ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Church members can view families"
   ON families FOR SELECT
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()));
 
 -- FAMILY MEMBERS TABLE
 CREATE TABLE family_members (
@@ -694,12 +703,12 @@ CREATE TABLE family_members (
 ALTER TABLE family_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Church members can view family members"
   ON family_members FOR SELECT
-  USING (family_id IN (SELECT id FROM families WHERE church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid())));
+  USING (family_id IN (SELECT id FROM families WHERE tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid())));
 
 -- VISITORS TABLE
 CREATE TABLE visitors (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   phone TEXT NOT NULL,
@@ -718,7 +727,7 @@ CREATE TABLE visitors (
 ALTER TABLE visitors ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins and staff can manage visitors"
   ON visitors FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
 
 -- VISITOR FOLLOW-UP NOTES
 CREATE TABLE visitor_followup_notes (
@@ -732,12 +741,12 @@ CREATE TABLE visitor_followup_notes (
 ALTER TABLE visitor_followup_notes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage follow-up notes"
   ON visitor_followup_notes FOR ALL
-  USING (visitor_id IN (SELECT id FROM visitors WHERE church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff'))));
+  USING (visitor_id IN (SELECT id FROM visitors WHERE tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff'))));
 
 -- FOLLOW-UP TASKS TABLE
 CREATE TABLE follow_up_tasks (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
   linked_type TEXT CHECK (linked_type IN ('member', 'visitor')),
@@ -757,12 +766,12 @@ CREATE TABLE follow_up_tasks (
 ALTER TABLE follow_up_tasks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage follow-up tasks"
   ON follow_up_tasks FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
 
 -- NEW CONVERTS TABLE
 CREATE TABLE new_converts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE CASCADE,
   first_name TEXT,
   last_name TEXT,
@@ -780,7 +789,7 @@ CREATE TABLE new_converts (
 ALTER TABLE new_converts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage new converts"
   ON new_converts FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff')));
 
 -- CONVERT CHECK-INS TABLE
 CREATE TABLE convert_checkins (
@@ -794,7 +803,7 @@ CREATE TABLE convert_checkins (
 ALTER TABLE convert_checkins ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage check-ins"
   ON convert_checkins FOR ALL
-  USING (convert_id IN (SELECT id FROM new_converts WHERE church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff'))));
+  USING (convert_id IN (SELECT id FROM new_converts WHERE tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin', 'staff'))));
 
 -- CONVERT STAGE HISTORY
 CREATE TABLE convert_stage_history (
@@ -809,7 +818,7 @@ CREATE TABLE convert_stage_history (
 ALTER TABLE convert_stage_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can view stage history"
   ON convert_stage_history FOR SELECT
-  USING (convert_id IN (SELECT id FROM new_converts WHERE church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid())));
+  USING (convert_id IN (SELECT id FROM new_converts WHERE tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid())));
 ```
 
 ---

@@ -32,20 +32,20 @@ export default function MemberGive() {
   const { data: givingHistory = [], isLoading } = useQuery({
     queryKey: ["member-giving", member.memberId],
     queryFn: async () => {
-      const { data } = await supabase.from("donations").select("*").eq("member_id", member.memberId).order("donation_date", { ascending: false }).limit(5);
+      const { data } = await supabase.from("giving_records").select("*").eq("member_id", member.memberId).order("given_at", { ascending: false }).limit(5);
       return data || [];
     },
   });
 
   const give = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.from("donations").insert({
-        church_id: member.churchId,
+      const { data, error } = await supabase.from("giving_records").insert({
+        tenant_id: member.churchId,
         member_id: member.memberId,
         amount: Number(amount),
         giving_type: category,
         payment_method: paymentMethod,
-        donation_date: new Date().toISOString().split("T")[0],
+        given_at: new Date().toISOString().split("T")[0],
         notes: dedication || null,
         currency: "KES",
       }).select().single();

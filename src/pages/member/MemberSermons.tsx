@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,10 +23,10 @@ export function MemberSermons() {
     queryKey: ["member-sermons", member.churchId],
     queryFn: async () => {
       const { data } = await (supabase as any)
-        .from("studio_media")
+        .from(TABLES.STUDIO_MEDIA)
         .select("*")
-        .eq("church_id", member.churchId)
-        .eq("status", "published")
+        .eq(COLS.TENANT_ID, member.churchId)
+        .eq(COLS.STATUS, "published")
         .order("published_at", { ascending: false });
       return data || [];
     },

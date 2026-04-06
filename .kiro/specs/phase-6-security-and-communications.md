@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 Here is your **Phase 6 prompt** — Security & Communications:
 
 ---
@@ -102,7 +111,7 @@ Card with header "Recent Access Log" + "View All" toggle (shows last 20 by defau
 | Date & Time | Formatted full datetime | ✅ |
 | Status | Success (emerald) / Failed (red) / Warning (amber) | ✅ |
 
-Data source: `login_events` table (created in Phase 2) filtered by `user_id IN (SELECT user_id FROM church_members WHERE church_id = :churchId)`
+Data source: `login_events` table (created in Phase 2) filtered by `user_id IN (SELECT user_id FROM role_permissions WHERE tenant_id = :churchId)`
 
 Filter bar above table: user select, event type, status, date range
 
@@ -221,7 +230,7 @@ Fields:
 - Witnesses (textarea — names + contact info)
 - Immediate Action Taken (textarea — what was done at the time)
 - Assign Investigator (select from staff/admin)
-- Evidence / Attachments (multi-file upload — photos, documents — to Supabase Storage `incident-files/{church_id}/{incident_id}/`)
+- Evidence / Attachments (multi-file upload — photos, documents — to Supabase Storage `incident-files/{tenant_id}/{incident_id}/`)
 - Notify Super Admin (toggle, default on for High/Critical)
 - Is Confidential (toggle)
 
@@ -391,7 +400,7 @@ Fields:
 - Category (select: General / Service / Event / Finance / Urgent)
 - Visibility (select: All Members / Specific Groups / Staff Only)
   - If Specific Groups: multi-select groups
-- Attachments (multi-file upload — PDFs, images — to Supabase Storage `announcements/{church_id}/{announcement_id}/`)
+- Attachments (multi-file upload — PDFs, images — to Supabase Storage `announcements/{tenant_id}/{announcement_id}/`)
 - Pin this announcement (toggle) — pinned announcements appear at top of feed always
 - Schedule for later (toggle) — shows datetime picker if on
 - Notify Members (toggle) — if on: sends an in-app notification to all targeted members when posted
@@ -451,7 +460,7 @@ On mobile: full-screen list view → tap conversation → full-screen chat view 
 - Virtualized list for performance (use `react-virtual` or `@tanstack/react-virtual` if message count is high)
 
 **Input area (sticky bottom):**
-- Attachment button (paperclip icon) → file/image picker → uploads to Supabase Storage `messages/{church_id}/{conversation_id}/` → sends as image message
+- Attachment button (paperclip icon) → file/image picker → uploads to Supabase Storage `messages/{tenant_id}/{conversation_id}/` → sends as image message
 - Text input (auto-expanding textarea, max 4 lines before scroll)
 - Emoji button (opens a simple emoji picker — use `emoji-mart` library)
 - Send button (indigo, arrow icon) — disabled when input is empty
@@ -537,7 +546,7 @@ Fields:
 - Category (select: Healing / Financial Breakthrough / Salvation / Marriage / Career / Other)
 - Testimony Body (rich textarea, min 50 chars, max 3000 chars)
 - Date of Testimony (date picker, default today)
-- Media Attachments (image upload, max 3 images — to Supabase Storage `testimonies/{church_id}/{testimony_id}/`)
+- Media Attachments (image upload, max 3 images — to Supabase Storage `testimonies/{tenant_id}/{testimony_id}/`)
 - Status (select: Published / Pending — default Pending for self-submitted, Published for admin-added)
 - Feature on Public Church Page (toggle) — if on: testimony appears on `/church/:slug` public page
 
@@ -664,7 +673,7 @@ For each question, show a summary visualization:
 -- SECURITY ALERTS TABLE
 CREATE TABLE security_alerts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   severity TEXT NOT NULL CHECK (severity IN ('low','medium','high','critical')),
   alert_type TEXT NOT NULL CHECK (alert_type IN (
     'failed_logins','unusual_location','brute_force',
@@ -687,15 +696,15 @@ CREATE TABLE security_alerts (
 ALTER TABLE security_alerts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage security alerts"
   ON security_alerts FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
   ));
 
 -- INCIDENTS TABLE
 CREATE TABLE incidents (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN (
     'theft','vandalism','trespassing','physical_altercation',
@@ -725,8 +734,8 @@ CREATE TABLE incidents (
 ALTER TABLE incidents ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage incidents"
   ON incidents FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
   ));
 
@@ -744,8 +753,8 @@ ALTER TABLE incident_files ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage incident files"
   ON incident_files FOR ALL
   USING (incident_id IN (
-    SELECT id FROM incidents WHERE church_id IN (
-      SELECT church_id FROM church_members
+    SELECT id FROM incidents WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
     )
   ));
@@ -763,8 +772,8 @@ ALTER TABLE incident_updates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage incident updates"
   ON incident_updates FOR ALL
   USING (incident_id IN (
-    SELECT id FROM incidents WHERE church_id IN (
-      SELECT church_id FROM church_members
+    SELECT id FROM incidents WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin')
     )
   ));
@@ -772,7 +781,7 @@ CREATE POLICY "Admins can manage incident updates"
 -- BROADCASTS TABLE
 CREATE TABLE broadcasts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   subject TEXT NOT NULL,
   body TEXT NOT NULL,
   channels TEXT[] NOT NULL DEFAULT '{in_app}',
@@ -794,8 +803,8 @@ CREATE TABLE broadcasts (
 ALTER TABLE broadcasts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage broadcasts"
   ON broadcasts FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 
@@ -803,7 +812,7 @@ CREATE POLICY "Staff can manage broadcasts"
 CREATE TABLE notifications (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN (
     'broadcast','announcement','member_request','follow_up_task',
     'event_reminder','system','security_alert','booking_update',
@@ -823,8 +832,8 @@ CREATE POLICY "Users can view their own notifications"
   USING (user_id = auth.uid());
 CREATE POLICY "Staff can insert notifications"
   ON notifications FOR INSERT
-  WITH CHECK (church_id IN (
-    SELECT church_id FROM church_members
+  WITH CHECK (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Users can update their own notifications"
@@ -838,7 +847,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 -- ANNOUNCEMENTS TABLE
 CREATE TABLE announcements (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
   category TEXT DEFAULT 'general' CHECK (category IN (
@@ -861,23 +870,23 @@ CREATE TABLE announcements (
 ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage announcements"
   ON announcements FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Members can view active announcements"
   ON announcements FOR SELECT
   USING (
     status = 'active'
-    AND church_id IN (
-      SELECT church_id FROM church_members WHERE user_id = auth.uid()
+    AND tenant_id IN (
+      SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid()
     )
   );
 
 -- CONVERSATIONS TABLE
 CREATE TABLE conversations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   type TEXT DEFAULT 'direct' CHECK (type IN ('direct','group')),
   name TEXT,
   last_message_preview TEXT,
@@ -944,7 +953,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 -- TESTIMONIES TABLE
 CREATE TABLE testimonies (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   is_anonymous BOOLEAN DEFAULT false,
   title TEXT NOT NULL,
@@ -966,8 +975,8 @@ CREATE TABLE testimonies (
 ALTER TABLE testimonies ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage testimonies"
   ON testimonies FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Public can view published testimonies on public page"
@@ -977,7 +986,7 @@ CREATE POLICY "Public can view published testimonies on public page"
 -- SURVEYS TABLE
 CREATE TABLE surveys (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   slug TEXT UNIQUE,
   description TEXT,
@@ -1002,8 +1011,8 @@ CREATE TABLE surveys (
 ALTER TABLE surveys ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage surveys"
   ON surveys FOR ALL
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Public can view active surveys"
@@ -1014,7 +1023,7 @@ CREATE POLICY "Public can view active surveys"
 CREATE TABLE survey_responses (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   survey_id UUID REFERENCES surveys(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   respondent_name TEXT,
   respondent_email TEXT,
@@ -1026,8 +1035,8 @@ CREATE TABLE survey_responses (
 ALTER TABLE survey_responses ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can view survey responses"
   ON survey_responses FOR SELECT
-  USING (church_id IN (
-    SELECT church_id FROM church_members
+  USING (tenant_id IN (
+    SELECT tenant_id FROM role_permissions
     WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
   ));
 CREATE POLICY "Anyone can insert survey responses"
@@ -1049,8 +1058,8 @@ ALTER TABLE survey_answers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can view survey answers"
   ON survey_answers FOR SELECT
   USING (response_id IN (
-    SELECT id FROM survey_responses WHERE church_id IN (
-      SELECT church_id FROM church_members
+    SELECT id FROM survey_responses WHERE tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')
     )
   ));

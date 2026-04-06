@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +42,7 @@ export default function MemberHome() {
   const { data: announcements = [], isLoading: annLoading } = useQuery({
     queryKey: ["member-announcements", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase.from("announcements").select("*").eq("church_id", member.churchId).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }).limit(5);
+      const { data } = await supabase.from(TABLES.ANNOUNCEMENTS).select("*").eq(COLS.TENANT_ID, member.churchId).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }).limit(5);
       return data || [];
     },
   });
@@ -50,7 +51,7 @@ export default function MemberHome() {
     queryKey: ["member-upcoming-events", member.churchId],
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
-      const { data } = await supabase.from("events").select("*").eq("church_id", member.churchId).gte("event_date", today).order("event_date", { ascending: true }).limit(3);
+      const { data } = await supabase.from(TABLES.EVENTS).select("*").eq(COLS.TENANT_ID, member.churchId).gte(COLS.EVENT_DATE, today).order(COLS.EVENT_DATE, { ascending: true }).limit(3);
       return data || [];
     },
   });
@@ -58,7 +59,7 @@ export default function MemberHome() {
   const { data: myGroups = [] } = useQuery({
     queryKey: ["member-groups", member.memberId],
     queryFn: async () => {
-      const { data } = await supabase.from("group_members").select("groups(id, name, group_type)").eq("member_id", member.memberId).limit(5);
+      const { data } = await supabase.from(TABLES.GROUP_MEMBERS).select("groups(id, name, group_type)").eq("member_id", member.memberId).limit(5);
       return (data || []).map((gm: any) => gm.groups).filter(Boolean);
     },
   });
@@ -67,10 +68,10 @@ export default function MemberHome() {
     queryKey: ["member-latest-sermon", member.churchId],
     queryFn: async () => {
       const { data } = await (supabase as any)
-        .from("studio_media")
+        .from(TABLES.STUDIO_MEDIA)
         .select("id, title, speaker, duration, thumbnail_url, media_url")
-        .eq("church_id", member.churchId)
-        .eq("status", "published")
+        .eq(COLS.TENANT_ID, member.churchId)
+        .eq(COLS.STATUS, "published")
         .order("published_at", { ascending: false })
         .limit(1)
         .single();

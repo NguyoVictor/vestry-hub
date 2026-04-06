@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
@@ -23,7 +24,7 @@ export default function MemberAnnouncements() {
   const { data: announcements = [], isLoading } = useQuery({
     queryKey: ["member-announcements-full", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase.from("announcements").select("*").eq("church_id", member.churchId).order("is_pinned", { ascending: false }).order("created_at", { ascending: false });
+      const { data } = await supabase.from(TABLES.ANNOUNCEMENTS).select("*").eq(COLS.TENANT_ID, member.churchId).order("is_pinned", { ascending: false }).order("created_at", { ascending: false });
       return data || [];
     },
   });
@@ -34,7 +35,7 @@ export default function MemberAnnouncements() {
     // Increment view_count by 1 using a raw update
     const ann = announcements.find((a: any) => a.id === id);
     if (ann) {
-      await supabase.from("announcements").update({ view_count: (ann.view_count || 0) + 1 } as any).eq("id", id);
+      await supabase.from(TABLES.ANNOUNCEMENTS).update({ view_count: (ann.view_count || 0) + 1 } as any).eq(COLS.ID, id);
     }
   };
 

@@ -2,6 +2,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,13 +22,13 @@ export default function MemberGivingHistory() {
   const { data: donations = [], isLoading } = useQuery({
     queryKey: ["member-all-giving", member.memberId],
     queryFn: async () => {
-      const { data } = await supabase.from("donations").select("*").eq("member_id", member.memberId).order("donation_date", { ascending: false });
+      const { data } = await supabase.from(TABLES.GIVING_RECORDS).select("*").eq("member_id", member.memberId).order(COLS.GIVING_DATE, { ascending: false });
       return data || [];
     },
   });
 
   const yearlyTotals = donations.reduce((acc: Record<number, number>, d: any) => {
-    const year = new Date(d.donation_date).getFullYear();
+    const year = new Date(d.given_at).getFullYear();
     acc[year] = (acc[year] || 0) + Number(d.amount);
     return acc;
   }, {});
@@ -41,7 +42,7 @@ export default function MemberGivingHistory() {
   };
 
   const downloadStatement = async (year: number) => {
-    const yearDonations = donations.filter((d: any) => new Date(d.donation_date).getFullYear() === year);
+    const yearDonations = donations.filter((d: any) => new Date(d.given_at).getFullYear() === year);
     const total = yearDonations.reduce((s: number, d: any) => s + Number(d.amount), 0);
 
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -66,7 +67,7 @@ export default function MemberGivingHistory() {
 
     yearDonations.forEach((d: any) => {
       if (y > 270) { pdf.addPage(); y = 20; }
-      pdf.text(d.donation_date || "—", 20, y);
+      pdf.text(d.given_at || "—", 20, y);
       pdf.text((d.giving_type || "—").replace(/_/g, " "), 60, y);
       pdf.text((d.payment_method || "—").replace(/_/g, " "), 110, y);
       pdf.text(formatCurrencyFull(Number(d.amount), d.currency || "KES"), 160, y);
@@ -84,7 +85,7 @@ export default function MemberGivingHistory() {
   };
 
   const columns: Column<any>[] = [
-    { key: "donation_date", header: "Date", render: r => <span className="text-sm">{format(new Date(r.donation_date), "dd MMM yyyy")}</span> },
+    { key: "given_at", header: "Date", render: r => <span className="text-sm">{format(new Date(r.given_at), "dd MMM yyyy")}</span> },
     { key: "giving_type", header: "Category", render: r => <Badge variant="secondary" className="text-xs capitalize">{r.giving_type?.replace(/_/g, " ")}</Badge> },
     { key: "amount", header: "Amount", render: r => <span className="font-semibold text-emerald-600">{formatCurrencyFull(Number(r.amount), r.currency || "KES")}</span> },
     { key: "payment_method", header: "Method", render: r => <span className="text-sm capitalize text-muted-foreground">{r.payment_method?.replace(/_/g, " ")}</span> },

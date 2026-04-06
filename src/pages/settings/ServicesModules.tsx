@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { navigationGroups } from "@/config/navigation";
+import { TABLES } from "@/lib/schema";
 
 const CORE_PATHS = ["/dashboard", "/settings"];
 
@@ -69,7 +70,7 @@ const ServicesModules = () => {
   const { data: enabledModules, isLoading } = useQuery({
     queryKey: ["tenant-modules", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("tenants").select("enabled_modules").eq("id", church.tenantId).single();
+      const { data } = await supabase.from(TABLES.TENANTS).select("enabled_modules").eq("id", church.tenantId).single();
       const mods = (data as any)?.enabled_modules;
       return Array.isArray(mods) && mods.length > 0 ? mods as string[] : null; // null means all enabled
     },
@@ -78,7 +79,7 @@ const ServicesModules = () => {
   const toggleMutation = useMutation({
     mutationFn: async ({ path, enabled }: { path: string; enabled: boolean }) => {
       // Get current modules
-      const { data: current } = await supabase.from("tenants").select("enabled_modules").eq("id", church.tenantId).single();
+      const { data: current } = await supabase.from(TABLES.TENANTS).select("enabled_modules").eq("id", church.tenantId).single();
       let mods: string[] = (current as any)?.enabled_modules || [];
       
       // If empty (all enabled), populate with all paths
@@ -92,7 +93,7 @@ const ServicesModules = () => {
         mods = mods.filter(m => m !== path);
       }
 
-      const { error } = await supabase.from("tenants").update({ enabled_modules: mods } as any).eq("id", church.tenantId);
+      const { error } = await supabase.from(TABLES.TENANTS).update({ enabled_modules: mods } as any).eq("id", church.tenantId);
       if (error) throw error;
     },
     onSuccess: () => {

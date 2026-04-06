@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ export default function Training() {
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ["training-courses", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("training_courses").select("*").eq("church_id", tenantId).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from(TABLES.TRAINING_COURSES).select("*").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
       if (error) throw error;
       return data as Course[];
     },
@@ -79,9 +80,9 @@ export default function Training() {
 
   const enroll = useMutation({
     mutationFn: async (courseId: string) => {
-      const { error } = await supabase.from("course_enrollments").insert({ course_id: courseId, user_id: userId, church_id: tenantId });
+      const { error } = await supabase.from(TABLES.COURSE_ENROLLMENTS).insert({ course_id: courseId, user_id: userId, tenant_id: tenantId });
       if (error) throw error;
-      await supabase.from("training_courses").update({ enrollment_count: (courses.find(c => c.id === courseId)?.enrollment_count || 0) + 1 }).eq("id", courseId);
+      await supabase.from(TABLES.TRAINING_COURSES).update({ enrollment_count: (courses.find(c => c.id === courseId)?.enrollment_count || 0) + 1 }).eq(COLS.ID, courseId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-enrollments", userId] });
@@ -93,12 +94,12 @@ export default function Training() {
 
   const saveCourse = useMutation({
     mutationFn: async () => {
-      const payload = { ...courseForm, church_id: tenantId, created_by: userId };
+      const payload = { ...courseForm, tenant_id: tenantId, created_by: userId };
       if (editCourseId) {
-        const { error } = await supabase.from("training_courses").update(payload).eq("id", editCourseId);
+        const { error } = await supabase.from(TABLES.TRAINING_COURSES).update(payload).eq(COLS.ID, editCourseId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("training_courses").insert(payload);
+        const { error } = await supabase.from(TABLES.TRAINING_COURSES).insert(payload);
         if (error) throw error;
       }
     },

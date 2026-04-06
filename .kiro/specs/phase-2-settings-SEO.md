@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 Here is your **Phase 2 prompt** — Settings + SEO, fully detailed for Lovable:
 
 ---
@@ -10,7 +19,7 @@ Here is your **Phase 2 prompt** — Settings + SEO, fully detailed for Lovable:
 
 This is **Church Central Cloud**, a multi-tenant Church SaaS platform. The following phases are already complete and working:
 - Phase 0: Supabase Auth (OAuth + email/password), onboarding flow, church access code + QR generation
-- Phase 1: Full `AppLayout` (collapsible sidebar, top navbar, dark mode toggle), `AuthGuard`, Dashboard Overview page with KPI cards, charts, activity feed, upcoming events, recent donations table, and all placeholder routes scaffolded
+- Phase 1: Full `AppLayout` (collapsible sidebar, top navbar, dark mode toggle), `AuthGuard`, Dashboard Overview page with KPI cards, charts, activity feed, upcoming events, recent giving_records table, and all placeholder routes scaffolded
 
 **Do not touch any of the above. This phase builds only the `/settings` route and all its sub-routes, plus the public church SEO page at `/church/:slug`.**
 
@@ -68,12 +77,12 @@ Each sub-section renders inside the right content panel with its own `PageHeader
 
 **PageHeader:** "Church Profile" / "Update your church's public information"
 
-Build a form using React Hook Form + Zod. All fields read from and write to the `churches` table in Supabase, filtered by the current `church_id` from `useChurch()` context.
+Build a form using React Hook Form + Zod. All fields read from and write to the `tenants` ~~(spec said `tenants`)~~ table in Supabase, filtered by the current `tenant_id` from `useChurch()` context.
 
 **Form fields:**
 
 *Church Identity section:*
-- **Church Logo** — image upload component: shows current logo in a `96px` circular preview (or indigo initials avatar if none). Below it: "Upload Logo" button that opens a file picker (accepts `.jpg`, `.png`, `.webp`, max 2MB). On select, upload to Supabase Storage bucket `church-logos` at path `{church_id}/logo.{ext}`, get public URL, update `churches.logo_url`. Show upload progress indicator. "Remove Logo" link appears if a logo exists.
+- **Church Logo** — image upload component: shows current logo in a `96px` circular preview (or indigo initials avatar if none). Below it: "Upload Logo" button that opens a file picker (accepts `.jpg`, `.png`, `.webp`, max 2MB). On select, upload to Supabase Storage bucket `church-logos` at path `{tenant_id}/logo.{ext}`, get public URL, update `tenants.logo`. Show upload progress indicator. "Remove Logo" link appears if a logo exists.
 - **Church Name** — text input, required, min 2 chars, max 100 chars
 - **Church Slug** — text input, auto-generated from church name (lowercase, hyphens, alphanumeric only), editable, must be unique (validate against Supabase on blur with a debounced query), shows preview: `churchcentralcloud.com/church/{slug}` below the input in `text-xs text-slate-500`. Green checkmark if available, red X if taken.
 - **Tagline / Mission Statement** — textarea, max 200 chars, optional
@@ -91,13 +100,13 @@ Build a form using React Hook Form + Zod. All fields read from and write to the 
 - **Denomination** — text input (free text, e.g. "Pentecostal", "Anglican", "Baptist")
 - **Weekly Service Day** — multi-select checkboxes: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
 - **Service Time** — time input (24hr format)
-- **Average Attendance** — number input (approximate weekly attendance)
-- **Currency** — select: KES (Kenyan Shilling), USD, GBP, EUR, UGX, TZS, ZAR, NGN — stored in `churches.currency`, used app-wide for formatting
+- **Average Attendance** — number input (approximate weekly attendance_records)
+- **Currency** — select: KES (Kenyan Shilling), USD, GBP, EUR, UGX, TZS, ZAR, NGN — stored in `tenants.currency`, used app-wide for formatting
 
 *Social Links section:*
 - Facebook URL, Instagram URL, YouTube URL, Twitter/X URL, WhatsApp number — all optional URL inputs
 
-**Save button:** full-width at bottom, `variant="default"` (indigo), label "Save Changes". On submit: PATCH `churches` row via Supabase, invalidate `['church', churchId]` query key, show `toast.success("Church profile updated successfully")`. On error: `toast.error("Failed to save. Please try again.")`.
+**Save button:** full-width at bottom, `variant="default"` (indigo), label "Save Changes". On submit: PATCH `tenants` ~~(spec said `tenants`)~~ row via Supabase, invalidate `['church', churchId]` query key, show `toast.success("Church profile updated successfully")`. On error: `toast.error("Failed to save. Please try again.")`.
 
 **Unsaved changes warning:** if the user navigates away from the form with unsaved changes, show a shadcn `AlertDialog` confirming they want to leave.
 
@@ -192,7 +201,7 @@ This screen controls which modules are visible in the sidebar navigation.
 **Invite Staff section (top):**
 - Card with "Invite a Team Member" heading
 - Form: Email input + Role select (Super Admin / Admin / Staff / Viewer) + "Send Invite" button
-- On submit: call a Supabase Edge Function `invite-staff` that sends a Supabase auth invite email to the address, creating a pending `church_members` row with `status = 'invited'`
+- On submit: call a Supabase Edge Function `invite-staff` that sends a Supabase auth invite email to the address, creating a pending `role_permissions` ~~(spec said `role_permissions`)~~ row with `status = 'invited'`
 - Role descriptions shown as helper text below the role select:
   - Super Admin: Full access, can delete church account
   - Admin: Full access except billing and account deletion
@@ -202,10 +211,10 @@ This screen controls which modules are visible in the sidebar navigation.
 **Current Team Members table (below invite form):**
 - shadcn `Table`
 - Columns: Member (avatar + name + email), Role (editable badge/select), Status (Active / Invited — badge), Joined Date, Actions
-- Role column: clicking the badge opens an inline shadcn `Select` to change the role — fires a mutation on change to PATCH `church_members.role`
+- Role column: clicking the badge opens an inline shadcn `Select` to change the role — fires a mutation on change to PATCH `role_permissions.role`
 - Actions column: "Remove" button (red, `variant="destructive"` outline) — opens a confirmation `AlertDialog` before deleting. Cannot remove yourself or the last Super Admin (show disabled state with tooltip explaining why)
 - Pending invites show a "Resend Invite" action instead of "Remove" + show `status = 'Invited'` badge in amber
-- Query: `SELECT * FROM church_members JOIN profiles ON church_members.user_id = profiles.id WHERE church_members.church_id = :churchId ORDER BY church_members.created_at ASC`
+- Query: `SELECT * FROM role_permissions JOIN profiles ON role_permissions.user_id = profiles.id WHERE role_permissions.tenant_id = :churchId ORDER BY role_permissions.created_at ASC`
 
 ---
 
@@ -246,7 +255,7 @@ Each section is a card with a list of toggle rows. Each row: icon + label + desc
 
 **Usage Meters section:**
 - Three progress bars using shadcn `Progress` component:
-  - Members: `{current} / {limit} members used` — query count from `church_members`, limit from plan config
+  - Members: `{current} / {limit} members used` — query count from `role_permissions` ~~(spec said `role_permissions`)~~, limit from plan config
   - Storage: `{usedGB} GB / {limitGB} GB used` — placeholder values for now (0.2 GB / 1 GB for free plan)
   - Staff Accounts: `{current} / {limit} staff accounts`
 - Each bar: label on left, value on right, progress bar below, color changes to amber at 80% and red at 95%
@@ -304,7 +313,7 @@ Each integration is a card with:
 **Integrations to show:**
 
 *Payments*
-- **Stripe** — "Accept online donations and process payouts" — Status: Not Connected — Connect button opens a modal with Stripe API Key input (publishable key + secret key) — saves to `church_integrations` table encrypted
+- **Stripe** — "Accept online giving_records and process payouts" — Status: Not Connected — Connect button opens a modal with Stripe API Key input (publishable key + secret key) — saves to `church_integrations` table encrypted
 - **M-Pesa (Daraja API)** — "Accept mobile money payments via M-Pesa" — Status: Not Connected — Connect button opens modal with Consumer Key, Consumer Secret, Shortcode, Passkey inputs
 
 *Communication*
@@ -327,7 +336,7 @@ Each integration is a card with:
 
 **`church_integrations` table (create via migration):**
 - `id` UUID PK
-- `church_id` UUID FK → `churches.id`
+- `tenant_id` UUID FK → `tenants.id`
 - `service_name` TEXT
 - `status` TEXT (connected / disconnected)
 - `config` JSONB (encrypted sensitive keys — use Supabase Vault or store as encrypted text)
@@ -353,7 +362,7 @@ This is the most complex settings sub-section. It is split into three panels:
 *Open Graph / Social Sharing section:*
 - **OG Title** — text input (defaults to Page Title if empty), max 60 chars with counter
 - **OG Description** — textarea (defaults to Meta Description if empty), max 160 chars with counter
-- **OG Image** — image upload component. Recommended size shown: "1200 × 630px recommended". Upload to Supabase Storage bucket `church-og-images` at path `{church_id}/og.jpg`. Shows current image preview (16:9 ratio box, `object-cover`). "Upload Image" button + "Remove" link.
+- **OG Image** — image upload component. Recommended size shown: "1200 × 630px recommended". Upload to Supabase Storage bucket `church-og-images` at path `{tenant_id}/og.jpg`. Shows current image preview (16:9 ratio box, `object-cover`). "Upload Image" button + "Remove" link.
 - **Twitter Card Type** — shadcn `Select`: Summary (`summary`) / Summary with Large Image (`summary_large_image`). Default: `summary_large_image`
 
 *Analytics & Tracking section:*
@@ -400,13 +409,13 @@ This is the most complex settings sub-section. It is split into three panels:
   - OG Description in `text-sm text-slate-500`
 - Tab switcher above the card: "Facebook / WhatsApp" | "Twitter / X" — switching shows slightly different preview dimensions
 
-**Save behavior:** "Save SEO Settings" button (full width, indigo). On submit via React Hook Form + Zod: UPSERT to `church_seo_settings` table. Show `toast.success("SEO settings saved")`.
+**Save behavior:** "Save SEO Settings" button (full width, indigo). On submit via React Hook Form + Zod: UPSERT to `tenant_seo_settings` ~~(spec said `tenant_seo_settings`)~~ table. Show `toast.success("SEO settings saved")`.
 
-**`church_seo_settings` table (create via Supabase migration):**
+**`tenant_seo_settings` ~~(spec said `tenant_seo_settings`)~~ table (create via Supabase migration):**
 ```sql
-CREATE TABLE church_seo_settings (
+CREATE TABLE tenant_seo_settings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE UNIQUE,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE UNIQUE,
   page_title TEXT,
   meta_description TEXT,
   keywords TEXT[],
@@ -424,14 +433,14 @@ CREATE TABLE church_seo_settings (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-ALTER TABLE church_seo_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_seo_settings ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Church admins can manage their SEO settings"
-  ON church_seo_settings
+  ON tenant_seo_settings
   FOR ALL
   USING (
-    church_id IN (
-      SELECT church_id FROM church_members
+    tenant_id IN (
+      SELECT tenant_id FROM role_permissions
       WHERE user_id = auth.uid() AND role IN ('super_admin', 'admin')
     )
   );
@@ -445,7 +454,7 @@ This is a **fully public, unauthenticated page** accessible to anyone with the U
 
 **Route:** `/church/:slug` — no `AuthGuard`, no `AppLayout`. Has its own standalone layout.
 
-**Head tags (injected via `react-helmet-async` using data from `church_seo_settings` + `churches`):**
+**Head tags (injected via `react-helmet-async` using data from `tenant_seo_settings` ~~(spec said `tenant_seo_settings`)~~ + `tenants` ~~(spec said `tenants`)~~):**
 ```html
 <title>{seo.page_title || church.name + " — Church Central Cloud"}</title>
 <meta name="description" content="{seo.meta_description}" />
@@ -495,7 +504,7 @@ This is a **fully public, unauthenticated page** accessible to anyone with the U
 
 *About section:*
 - "About Us" heading
-- Church description / mission statement (from `churches.about` field — add this field to the `churches` table if not present, `TEXT`)
+- Church description / mission statement (from `tenants.about` field — add this field to the `tenants` ~~(spec said `tenants`)~~ table if not present, `TEXT`)
 - Grid of facts: Founded Year, Denomination, Average Attendance, Location — each as an icon + label + value card
 
 *Service Times section:*
@@ -552,7 +561,7 @@ Sitemap: https://churchcentralcloud.com/sitemap.xml
 ```
 
 **`sitemap.xml` (Supabase Edge Function `generate-sitemap`):**
-- Queries all churches where `public_page_visible = true`
+- Queries all tenants where `public_page_visible = true`
 - Returns an XML sitemap listing:
   - `https://churchcentralcloud.com/` (homepage)
   - `https://churchcentralcloud.com/church/{slug}` for each public church
@@ -565,9 +574,9 @@ Sitemap: https://churchcentralcloud.com/sitemap.xml
 
 Run these Supabase migrations:
 
-1. **Add fields to `churches` table:**
+1. **Add fields to `tenants` ~~(spec said `tenants`)~~ table:**
 ```sql
-ALTER TABLE churches
+ALTER TABLE tenants
   ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE,
   ADD COLUMN IF NOT EXISTS tagline TEXT,
   ADD COLUMN IF NOT EXISTS about TEXT,
@@ -589,7 +598,7 @@ ALTER TABLE churches
   ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 ```
 
-2. **Create `church_seo_settings` table** — as defined in Part 2H above
+2. **Create `tenant_seo_settings` ~~(spec said `tenant_seo_settings`)~~ table** — as defined in Part 2H above
 
 3. **Create `church_integrations` table** — as defined in Part 2G above
 
@@ -615,7 +624,7 @@ CREATE POLICY "Users can view their own login events"
 CREATE TABLE notification_preferences (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
   email_new_member BOOLEAN DEFAULT true,
   email_new_donation BOOLEAN DEFAULT true,
   email_weekly_summary BOOLEAN DEFAULT true,
@@ -630,7 +639,7 @@ CREATE TABLE notification_preferences (
   inapp_member_request BOOLEAN DEFAULT true,
   inapp_new_visitor BOOLEAN DEFAULT true,
   inapp_weekly_digest BOOLEAN DEFAULT false,
-  UNIQUE(user_id, church_id)
+  UNIQUE(user_id, tenant_id)
 );
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users manage their own preferences"

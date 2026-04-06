@@ -77,6 +77,59 @@ export type Database = {
           },
         ]
       }
+      activity_log: {
+        Row: {
+          action_type: string
+          actor_avatar_url: string | null
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string | null
+          description: string
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          action_type: string
+          actor_avatar_url?: string | null
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string | null
+          description: string
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          action_type?: string
+          actor_avatar_url?: string | null
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string | null
+          description?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_tool_usage: {
         Row: {
           created_at: string | null
@@ -118,48 +171,60 @@ export type Database = {
       announcements: {
         Row: {
           body: string
+          category: string | null
           created_at: string | null
           created_by: string | null
           expires_at: string | null
           id: string
           is_pinned: boolean | null
           publish_at: string | null
+          status: string | null
           target_audience:
             | Database["public"]["Enums"]["announcement_audience_enum"]
             | null
           target_id: string | null
           tenant_id: string
           title: string
+          updated_at: string | null
+          view_count: number | null
         }
         Insert: {
           body: string
+          category?: string | null
           created_at?: string | null
           created_by?: string | null
           expires_at?: string | null
           id?: string
           is_pinned?: boolean | null
           publish_at?: string | null
+          status?: string | null
           target_audience?:
             | Database["public"]["Enums"]["announcement_audience_enum"]
             | null
           target_id?: string | null
           tenant_id: string
           title: string
+          updated_at?: string | null
+          view_count?: number | null
         }
         Update: {
           body?: string
+          category?: string | null
           created_at?: string | null
           created_by?: string | null
           expires_at?: string | null
           id?: string
           is_pinned?: boolean | null
           publish_at?: string | null
+          status?: string | null
           target_audience?:
             | Database["public"]["Enums"]["announcement_audience_enum"]
             | null
           target_id?: string | null
           tenant_id?: string
           title?: string
+          updated_at?: string | null
+          view_count?: number | null
         }
         Relationships: [
           {
@@ -789,6 +854,42 @@ export type Database = {
           },
         ]
       }
+      collection_resources: {
+        Row: {
+          collection_id: string
+          id: string
+          position: number
+          resource_id: string
+        }
+        Insert: {
+          collection_id: string
+          id?: string
+          position?: number
+          resource_id: string
+        }
+        Update: {
+          collection_id?: string
+          id?: string
+          position?: number
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_resources_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "resource_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_resources_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "discipleship_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communications: {
         Row: {
           body: string
@@ -950,7 +1051,10 @@ export type Database = {
           convert_id: string
           created_at: string | null
           id: string
+          next_checkin_date: string | null
           notes: string | null
+          tenant_id: string | null
+          updated_at: string | null
         }
         Insert: {
           checkin_date?: string | null
@@ -958,7 +1062,10 @@ export type Database = {
           convert_id: string
           created_at?: string | null
           id?: string
+          next_checkin_date?: string | null
           notes?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           checkin_date?: string | null
@@ -966,7 +1073,10 @@ export type Database = {
           convert_id?: string
           created_at?: string | null
           id?: string
+          next_checkin_date?: string | null
           notes?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -986,7 +1096,10 @@ export type Database = {
           from_stage: number | null
           id: string
           notes: string | null
+          stage: number | null
+          tenant_id: string | null
           to_stage: number
+          updated_at: string | null
         }
         Insert: {
           advanced_at?: string | null
@@ -995,7 +1108,10 @@ export type Database = {
           from_stage?: number | null
           id?: string
           notes?: string | null
+          stage?: number | null
+          tenant_id?: string | null
           to_stage: number
+          updated_at?: string | null
         }
         Update: {
           advanced_at?: string | null
@@ -1004,7 +1120,10 @@ export type Database = {
           from_stage?: number | null
           id?: string
           notes?: string | null
+          stage?: number | null
+          tenant_id?: string | null
           to_stage?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -1012,6 +1131,97 @@ export type Database = {
             columns: ["convert_id"]
             isOneToOne: false
             referencedRelation: "new_converts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_comments: {
+        Row: {
+          comment: string
+          course_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          course_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          course_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_comments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "training_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_enrollments: {
+        Row: {
+          certificate_url: string | null
+          completed_at: string | null
+          course_id: string
+          enrolled_at: string | null
+          id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          certificate_url?: string | null
+          completed_at?: string | null
+          course_id: string
+          enrolled_at?: string | null
+          id?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          certificate_url?: string | null
+          completed_at?: string | null
+          course_id?: string
+          enrolled_at?: string | null
+          id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "training_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1041,6 +1251,84 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "discipleship_pathways_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discipleship_resources: {
+        Row: {
+          assignment_count: number | null
+          author: string | null
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          duration_label: string | null
+          external_url: string | null
+          file_url: string | null
+          id: string
+          is_downloadable: boolean | null
+          recommended_stages: number[] | null
+          tags: string[] | null
+          tenant_id: string
+          thumbnail_url: string | null
+          title: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          assignment_count?: number | null
+          author?: string | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_label?: string | null
+          external_url?: string | null
+          file_url?: string | null
+          id?: string
+          is_downloadable?: boolean | null
+          recommended_stages?: number[] | null
+          tags?: string[] | null
+          tenant_id: string
+          thumbnail_url?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          assignment_count?: number | null
+          author?: string | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_label?: string | null
+          external_url?: string | null
+          file_url?: string | null
+          id?: string
+          is_downloadable?: boolean | null
+          recommended_stages?: number[] | null
+          tags?: string[] | null
+          tenant_id?: string
+          thumbnail_url?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discipleship_resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discipleship_resources_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1284,42 +1572,84 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          budget_category_id: string | null
           category: string | null
           created_at: string | null
           currency: string | null
           description: string
           expense_date: string
           id: string
+          is_recurring: boolean | null
+          notes: string | null
           payment_method: string | null
+          payment_reference: string | null
           receipt_url: string | null
           recorded_by: string | null
+          recurrence_frequency: string | null
+          rejection_reason: string | null
           tenant_id: string
+          title: string | null
+          updated_at: string | null
+          vendor: string | null
+          vendor_email: string | null
+          vendor_phone: string | null
         }
         Insert: {
           amount: number
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          budget_category_id?: string | null
           category?: string | null
           created_at?: string | null
           currency?: string | null
           description: string
           expense_date?: string
           id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
+          recurrence_frequency?: string | null
+          rejection_reason?: string | null
           tenant_id: string
+          title?: string | null
+          updated_at?: string | null
+          vendor?: string | null
+          vendor_email?: string | null
+          vendor_phone?: string | null
         }
         Update: {
           amount?: number
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          budget_category_id?: string | null
           category?: string | null
           created_at?: string | null
           currency?: string | null
           description?: string
           expense_date?: string
           id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
+          recurrence_frequency?: string | null
+          rejection_reason?: string | null
           tenant_id?: string
+          title?: string | null
+          updated_at?: string | null
+          vendor?: string | null
+          vendor_email?: string | null
+          vendor_phone?: string | null
         }
         Relationships: [
           {
@@ -1813,18 +2143,25 @@ export type Database = {
       giving_records: {
         Row: {
           amount: number
+          campaign_id: string | null
+          category: string | null
           created_at: string | null
           currency: string | null
+          donor_name: string | null
+          fund_id: string | null
           given_at: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id: string
+          is_anonymous: boolean | null
           member_id: string | null
+          notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id: string | null
           pledge_id: string | null
+          receipt_number: string | null
           receipt_url: string | null
           recorded_by: string | null
           tenant_id: string
@@ -1833,18 +2170,25 @@ export type Database = {
         }
         Insert: {
           amount: number
+          campaign_id?: string | null
+          category?: string | null
           created_at?: string | null
           currency?: string | null
+          donor_name?: string | null
+          fund_id?: string | null
           given_at?: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          is_anonymous?: boolean | null
           member_id?: string | null
+          notes?: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id?: string | null
           pledge_id?: string | null
+          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id: string
@@ -1853,18 +2197,25 @@ export type Database = {
         }
         Update: {
           amount?: number
+          campaign_id?: string | null
+          category?: string | null
           created_at?: string | null
           currency?: string | null
+          donor_name?: string | null
+          fund_id?: string | null
           given_at?: string
           giving_type?: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          is_anonymous?: boolean | null
           member_id?: string | null
+          notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id?: string | null
           pledge_id?: string | null
+          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id?: string
@@ -1907,16 +2258,22 @@ export type Database = {
           group_id: string
           joined_at: string | null
           member_id: string
+          role: string | null
+          tenant_id: string | null
         }
         Insert: {
           group_id: string
           joined_at?: string | null
           member_id: string
+          role?: string | null
+          tenant_id?: string | null
         }
         Update: {
           group_id?: string
           joined_at?: string | null
           member_id?: string
+          role?: string | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -1940,6 +2297,7 @@ export type Database = {
           color: string | null
           created_at: string | null
           description: string | null
+          group_type: string | null
           id: string
           is_active: boolean | null
           last_meeting_date: string | null
@@ -1956,6 +2314,7 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           description?: string | null
+          group_type?: string | null
           id?: string
           is_active?: boolean | null
           last_meeting_date?: string | null
@@ -1972,6 +2331,7 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           description?: string | null
+          group_type?: string | null
           id?: string
           is_active?: boolean | null
           last_meeting_date?: string | null
@@ -2404,6 +2764,48 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_completions: {
+        Row: {
+          completed_at: string | null
+          course_id: string
+          enrollment_id: string
+          id: string
+          lesson_index: number
+          module_index: number
+        }
+        Insert: {
+          completed_at?: string | null
+          course_id: string
+          enrollment_id: string
+          id?: string
+          lesson_index: number
+          module_index: number
+        }
+        Update: {
+          completed_at?: string | null
+          course_id?: string
+          enrollment_id?: string
+          id?: string
+          lesson_index?: number
+          module_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_completions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "training_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "course_enrollments"
             referencedColumns: ["id"]
           },
         ]
@@ -2877,20 +3279,27 @@ export type Database = {
       }
       members: {
         Row: {
+          avatar_url: string | null
           baptism_date: string | null
           baptized: boolean | null
           city: string | null
           country: string | null
           created_at: string
           custom_fields: Json | null
+          date_of_birth: string | null
           department: string | null
           discipleship_stage: string | null
+          email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
           family_id: string | null
+          first_name: string | null
+          gender: string | null
           id: string
           id_number: string | null
+          join_date: string | null
+          last_name: string | null
           marital_status:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
@@ -2898,30 +3307,39 @@ export type Database = {
           nationality: string | null
           notes: string | null
           occupation: string | null
+          phone: string | null
           postal_code: string | null
           salvation_date: string | null
           secondary_phone: string | null
           skills: string[] | null
           state: string | null
+          status: string | null
           street: string | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           baptism_date?: string | null
           baptized?: boolean | null
           city?: string | null
           country?: string | null
           created_at: string
           custom_fields?: Json | null
+          date_of_birth?: string | null
           department?: string | null
           discipleship_stage?: string | null
+          email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           family_id?: string | null
+          first_name?: string | null
+          gender?: string | null
           id: string
           id_number?: string | null
+          join_date?: string | null
+          last_name?: string | null
           marital_status?:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
@@ -2929,30 +3347,39 @@ export type Database = {
           nationality?: string | null
           notes?: string | null
           occupation?: string | null
+          phone?: string | null
           postal_code?: string | null
           salvation_date?: string | null
           secondary_phone?: string | null
           skills?: string[] | null
           state?: string | null
+          status?: string | null
           street?: string | null
           tenant_id: string
           updated_at: string
         }
         Update: {
+          avatar_url?: string | null
           baptism_date?: string | null
           baptized?: boolean | null
           city?: string | null
           country?: string | null
           created_at?: string
           custom_fields?: Json | null
+          date_of_birth?: string | null
           department?: string | null
           discipleship_stage?: string | null
+          email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           family_id?: string | null
+          first_name?: string | null
+          gender?: string | null
           id?: string
           id_number?: string | null
+          join_date?: string | null
+          last_name?: string | null
           marital_status?:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
@@ -2960,11 +3387,13 @@ export type Database = {
           nationality?: string | null
           notes?: string | null
           occupation?: string | null
+          phone?: string | null
           postal_code?: string | null
           salvation_date?: string | null
           secondary_phone?: string | null
           skills?: string[] | null
           state?: string | null
+          status?: string | null
           street?: string | null
           tenant_id?: string
           updated_at?: string
@@ -3059,46 +3488,64 @@ export type Database = {
         Row: {
           baptism_date: string | null
           baptism_status: string | null
+          conversion_date: string | null
           counsellor_id: string | null
           created_at: string | null
           discipleship_stage: string | null
+          email: string | null
+          first_name: string | null
           graduated_at: string | null
           id: string
+          last_name: string | null
           member_id: string | null
           mentor_id: string | null
           notes: string | null
+          phone: string | null
           salvation_date: string | null
           tenant_id: string
+          updated_at: string | null
           visitor_id: string | null
         }
         Insert: {
           baptism_date?: string | null
           baptism_status?: string | null
+          conversion_date?: string | null
           counsellor_id?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
+          email?: string | null
+          first_name?: string | null
           graduated_at?: string | null
           id?: string
+          last_name?: string | null
           member_id?: string | null
           mentor_id?: string | null
           notes?: string | null
+          phone?: string | null
           salvation_date?: string | null
           tenant_id: string
+          updated_at?: string | null
           visitor_id?: string | null
         }
         Update: {
           baptism_date?: string | null
           baptism_status?: string | null
+          conversion_date?: string | null
           counsellor_id?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
+          email?: string | null
+          first_name?: string | null
           graduated_at?: string | null
           id?: string
+          last_name?: string | null
           member_id?: string | null
           mentor_id?: string | null
           notes?: string | null
+          phone?: string | null
           salvation_date?: string | null
           tenant_id?: string
+          updated_at?: string | null
           visitor_id?: string | null
         }
         Relationships: [
@@ -3283,42 +3730,150 @@ export type Database = {
           },
         ]
       }
+      order_items: {
+        Row: {
+          created_at: string | null
+          digital_file_url: string | null
+          id: string
+          order_id: string
+          product_id: string | null
+          product_name: string
+          product_type: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          digital_file_url?: string | null
+          id?: string
+          order_id: string
+          product_id?: string | null
+          product_name: string
+          product_type: string
+          quantity?: number
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string | null
+          digital_file_url?: string | null
+          id?: string
+          order_id?: string
+          product_id?: string | null
+          product_name?: string
+          product_type?: string
+          quantity?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "store_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outreach_activities: {
         Row: {
           activity_date: string
           beneficiary_count: number | null
           created_at: string | null
+          created_by: string | null
           description: string | null
+          end_time: string | null
+          follow_up_count: number | null
+          follow_up_required: boolean | null
           id: string
           led_by: string | null
           location: string | null
+          materials_distributed: string | null
+          name: string | null
           outcomes: string | null
+          people_reached: number | null
+          photo_urls: Json | null
+          report: string | null
+          salvations: number | null
+          start_time: string | null
+          status: string | null
+          target_community: string | null
+          team_leader_id: string | null
           tenant_id: string
           title: string
+          type: string | null
+          updated_at: string | null
+          visitors_captured: number | null
+          volunteer_ids: Json | null
         }
         Insert: {
           activity_date: string
           beneficiary_count?: number | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
+          end_time?: string | null
+          follow_up_count?: number | null
+          follow_up_required?: boolean | null
           id?: string
           led_by?: string | null
           location?: string | null
+          materials_distributed?: string | null
+          name?: string | null
           outcomes?: string | null
+          people_reached?: number | null
+          photo_urls?: Json | null
+          report?: string | null
+          salvations?: number | null
+          start_time?: string | null
+          status?: string | null
+          target_community?: string | null
+          team_leader_id?: string | null
           tenant_id: string
           title: string
+          type?: string | null
+          updated_at?: string | null
+          visitors_captured?: number | null
+          volunteer_ids?: Json | null
         }
         Update: {
           activity_date?: string
           beneficiary_count?: number | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
+          end_time?: string | null
+          follow_up_count?: number | null
+          follow_up_required?: boolean | null
           id?: string
           led_by?: string | null
           location?: string | null
+          materials_distributed?: string | null
+          name?: string | null
           outcomes?: string | null
+          people_reached?: number | null
+          photo_urls?: Json | null
+          report?: string | null
+          salvations?: number | null
+          start_time?: string | null
+          status?: string | null
+          target_community?: string | null
+          team_leader_id?: string | null
           tenant_id?: string
           title?: string
+          type?: string | null
+          updated_at?: string | null
+          visitors_captured?: number | null
+          volunteer_ids?: Json | null
         }
         Relationships: [
           {
@@ -3653,40 +4208,55 @@ export type Database = {
       }
       pledge_campaigns: {
         Row: {
+          allow_anonymous: boolean | null
+          category: string | null
           created_at: string | null
           created_by: string | null
           currency: string | null
           description: string | null
           end_date: string | null
           id: string
+          image_url: string | null
           name: string
           start_date: string | null
+          status: string | null
           target_amount: number | null
           tenant_id: string
+          updated_at: string | null
         }
         Insert: {
+          allow_anonymous?: boolean | null
+          category?: string | null
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
+          image_url?: string | null
           name: string
           start_date?: string | null
+          status?: string | null
           target_amount?: number | null
           tenant_id: string
+          updated_at?: string | null
         }
         Update: {
+          allow_anonymous?: boolean | null
+          category?: string | null
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           start_date?: string | null
+          status?: string | null
           target_amount?: number | null
           tenant_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -3710,40 +4280,55 @@ export type Database = {
           campaign_id: string
           committed_amount: number
           created_at: string | null
+          donor_name: string | null
           fulfilled_amount: number | null
           id: string
+          is_anonymous: boolean | null
           member_id: string
+          notes: string | null
           payment_schedule:
             | Database["public"]["Enums"]["payment_schedule_enum"]
             | null
+          pledge_date: string | null
           status: Database["public"]["Enums"]["pledge_status_enum"] | null
           tenant_id: string
+          updated_at: string | null
         }
         Insert: {
           campaign_id: string
           committed_amount: number
           created_at?: string | null
+          donor_name?: string | null
           fulfilled_amount?: number | null
           id?: string
+          is_anonymous?: boolean | null
           member_id: string
+          notes?: string | null
           payment_schedule?:
             | Database["public"]["Enums"]["payment_schedule_enum"]
             | null
+          pledge_date?: string | null
           status?: Database["public"]["Enums"]["pledge_status_enum"] | null
           tenant_id: string
+          updated_at?: string | null
         }
         Update: {
           campaign_id?: string
           committed_amount?: number
           created_at?: string | null
+          donor_name?: string | null
           fulfilled_amount?: number | null
           id?: string
+          is_anonymous?: boolean | null
           member_id?: string
+          notes?: string | null
           payment_schedule?:
             | Database["public"]["Enums"]["payment_schedule_enum"]
             | null
+          pledge_date?: string | null
           status?: Database["public"]["Enums"]["pledge_status_enum"] | null
           tenant_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -3762,6 +4347,173 @@ export type Database = {
           },
           {
             foreignKeyName: "pledges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prayer_requests: {
+        Row: {
+          answered_notes: string | null
+          created_at: string | null
+          id: string
+          is_anonymous: boolean | null
+          is_answered: boolean | null
+          member_id: string
+          request: string
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          answered_notes?: string | null
+          created_at?: string | null
+          id?: string
+          is_anonymous?: boolean | null
+          is_answered?: boolean | null
+          member_id: string
+          request: string
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          answered_notes?: string | null
+          created_at?: string | null
+          id?: string
+          is_anonymous?: boolean | null
+          is_answered?: boolean | null
+          member_id?: string
+          request?: string
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prayer_requests_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prayer_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          completed_at: string | null
+          completion_status: string | null
+          convert_id: string
+          id: string
+          resource_id: string
+          tenant_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          completed_at?: string | null
+          completion_status?: string | null
+          convert_id: string
+          id?: string
+          resource_id: string
+          tenant_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          completed_at?: string | null
+          completion_status?: string | null
+          convert_id?: string
+          id?: string
+          resource_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_convert_id_fkey"
+            columns: ["convert_id"]
+            isOneToOne: false
+            referencedRelation: "new_converts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "discipleship_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_collections: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          recommended_stage: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          recommended_stage?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          recommended_stage?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_collections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_collections_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3851,6 +4603,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "role_permissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_reports: {
+        Row: {
+          config: Json
+          created_at: string | null
+          created_by: string | null
+          data_source: string
+          id: string
+          last_run: string | null
+          name: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          data_source: string
+          id?: string
+          last_run?: string | null
+          name: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          created_by?: string | null
+          data_source?: string
+          id?: string
+          last_run?: string | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_reports_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4032,55 +4835,88 @@ export type Database = {
       }
       services: {
         Row: {
+          actual_attendance: number | null
           branch_id: string | null
+          color: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           end_time: string | null
+          expected_attendance: number | null
           id: string
           is_recurring: boolean | null
           location: string | null
+          name: string | null
+          notes: string | null
+          order_of_service: Json | null
           parent_service_id: string | null
+          preacher: string | null
           recurrence_rule: string | null
           service_date: string
+          service_leader_id: string | null
           service_type: Database["public"]["Enums"]["service_type_enum"] | null
           start_time: string | null
+          status: string | null
           tenant_id: string
           title: string
+          updated_at: string | null
+          worship_leader_id: string | null
         }
         Insert: {
+          actual_attendance?: number | null
           branch_id?: string | null
+          color?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           end_time?: string | null
+          expected_attendance?: number | null
           id?: string
           is_recurring?: boolean | null
           location?: string | null
+          name?: string | null
+          notes?: string | null
+          order_of_service?: Json | null
           parent_service_id?: string | null
+          preacher?: string | null
           recurrence_rule?: string | null
           service_date: string
+          service_leader_id?: string | null
           service_type?: Database["public"]["Enums"]["service_type_enum"] | null
           start_time?: string | null
+          status?: string | null
           tenant_id: string
           title: string
+          updated_at?: string | null
+          worship_leader_id?: string | null
         }
         Update: {
+          actual_attendance?: number | null
           branch_id?: string | null
+          color?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           end_time?: string | null
+          expected_attendance?: number | null
           id?: string
           is_recurring?: boolean | null
           location?: string | null
+          name?: string | null
+          notes?: string | null
+          order_of_service?: Json | null
           parent_service_id?: string | null
+          preacher?: string | null
           recurrence_rule?: string | null
           service_date?: string
+          service_leader_id?: string | null
           service_type?: Database["public"]["Enums"]["service_type_enum"] | null
           start_time?: string | null
+          status?: string | null
           tenant_id?: string
           title?: string
+          updated_at?: string | null
+          worship_leader_id?: string | null
         }
         Relationships: [
           {
@@ -4243,19 +5079,194 @@ export type Database = {
           },
         ]
       }
+      store_orders: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          customer_user_id: string | null
+          delivery_address: string | null
+          delivery_fee: number | null
+          delivery_method: string | null
+          discount_amount: number | null
+          id: string
+          notes: string | null
+          order_number: string
+          order_status: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string | null
+          subtotal: number
+          tenant_id: string
+          total: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          customer_user_id?: string | null
+          delivery_address?: string | null
+          delivery_fee?: number | null
+          delivery_method?: string | null
+          discount_amount?: number | null
+          id?: string
+          notes?: string | null
+          order_number?: string
+          order_status?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          subtotal: number
+          tenant_id: string
+          total: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          customer_user_id?: string | null
+          delivery_address?: string | null
+          delivery_fee?: number | null
+          delivery_method?: string | null
+          discount_amount?: number | null
+          id?: string
+          notes?: string | null
+          order_number?: string
+          order_status?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          subtotal?: number
+          tenant_id?: string
+          total?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_orders_customer_user_id_fkey"
+            columns: ["customer_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_products: {
+        Row: {
+          category: string | null
+          compare_at_price: number | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          digital_file_url: string | null
+          id: string
+          image_urls: Json | null
+          name: string
+          price: number
+          product_type: string | null
+          sales_count: number | null
+          sku: string | null
+          status: string | null
+          stock_quantity: number | null
+          tags: string[] | null
+          tenant_id: string
+          updated_at: string | null
+          weight_kg: number | null
+        }
+        Insert: {
+          category?: string | null
+          compare_at_price?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          digital_file_url?: string | null
+          id?: string
+          image_urls?: Json | null
+          name: string
+          price: number
+          product_type?: string | null
+          sales_count?: number | null
+          sku?: string | null
+          status?: string | null
+          stock_quantity?: number | null
+          tags?: string[] | null
+          tenant_id: string
+          updated_at?: string | null
+          weight_kg?: number | null
+        }
+        Update: {
+          category?: string | null
+          compare_at_price?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          digital_file_url?: string | null
+          id?: string
+          image_urls?: Json | null
+          name?: string
+          price?: number
+          product_type?: string | null
+          sales_count?: number | null
+          sku?: string | null
+          status?: string | null
+          stock_quantity?: number | null
+          tags?: string[] | null
+          tenant_id?: string
+          updated_at?: string | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_products_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_products_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       studio_media: {
         Row: {
           created_at: string | null
           created_by: string | null
           description: string | null
+          duration: string | null
           duration_seconds: number | null
           file_size: number | null
           file_url: string
           id: string
           linked_sermon_id: string | null
           media_type: string
+          media_url: string | null
+          published_at: string | null
           recording_date: string | null
           scripture_reference: string | null
+          series: string | null
           series_id: string | null
           speaker: string | null
           speaker_member_id: string | null
@@ -4270,14 +5281,18 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          duration?: string | null
           duration_seconds?: number | null
           file_size?: number | null
           file_url: string
           id?: string
           linked_sermon_id?: string | null
           media_type: string
+          media_url?: string | null
+          published_at?: string | null
           recording_date?: string | null
           scripture_reference?: string | null
+          series?: string | null
           series_id?: string | null
           speaker?: string | null
           speaker_member_id?: string | null
@@ -4292,14 +5307,18 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          duration?: string | null
           duration_seconds?: number | null
           file_size?: number | null
           file_url?: string
           id?: string
           linked_sermon_id?: string | null
           media_type?: string
+          media_url?: string | null
+          published_at?: string | null
           recording_date?: string | null
           scripture_reference?: string | null
+          series?: string | null
           series_id?: string | null
           speaker?: string | null
           speaker_member_id?: string | null
@@ -4655,33 +5674,51 @@ export type Database = {
       testimonies: {
         Row: {
           approved_by: string | null
+          author_name: string | null
           body: string
+          category: string | null
           created_at: string | null
           id: string
+          is_anonymous: boolean | null
           is_approved: boolean | null
           member_id: string
+          status: string | null
           tenant_id: string
+          testimony_date: string | null
           title: string
+          updated_at: string | null
         }
         Insert: {
           approved_by?: string | null
+          author_name?: string | null
           body: string
+          category?: string | null
           created_at?: string | null
           id?: string
+          is_anonymous?: boolean | null
           is_approved?: boolean | null
           member_id: string
+          status?: string | null
           tenant_id: string
+          testimony_date?: string | null
           title: string
+          updated_at?: string | null
         }
         Update: {
           approved_by?: string | null
+          author_name?: string | null
           body?: string
+          category?: string | null
           created_at?: string | null
           id?: string
+          is_anonymous?: boolean | null
           is_approved?: boolean | null
           member_id?: string
+          status?: string | null
           tenant_id?: string
+          testimony_date?: string | null
           title?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -4709,31 +5746,64 @@ export type Database = {
       }
       training_courses: {
         Row: {
+          category: string | null
+          certificate_title: string | null
+          cover_image_url: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
+          difficulty: string | null
+          enrollment_count: number | null
+          has_certificate: boolean | null
           id: string
+          instructor_member_id: string | null
           modules: Json | null
+          status: string | null
+          target_audience: string | null
           tenant_id: string
           title: string
+          total_duration_minutes: number | null
+          updated_at: string | null
         }
         Insert: {
+          category?: string | null
+          certificate_title?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          difficulty?: string | null
+          enrollment_count?: number | null
+          has_certificate?: boolean | null
           id?: string
+          instructor_member_id?: string | null
           modules?: Json | null
+          status?: string | null
+          target_audience?: string | null
           tenant_id: string
           title: string
+          total_duration_minutes?: number | null
+          updated_at?: string | null
         }
         Update: {
+          category?: string | null
+          certificate_title?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          difficulty?: string | null
+          enrollment_count?: number | null
+          has_certificate?: boolean | null
           id?: string
+          instructor_member_id?: string | null
           modules?: Json | null
+          status?: string | null
+          target_audience?: string | null
           tenant_id?: string
           title?: string
+          total_duration_minutes?: number | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -4801,18 +5871,18 @@ export type Database = {
           created_at: string
           date_of_birth: string | null
           email: string
-          email_verified: boolean
+          email_verified: boolean | null
           first_name: string
           gender: string | null
           id: string
           join_date: string
           last_login_at: string | null
           last_name: string
-          mfa_enabled: boolean
+          mfa_enabled: boolean | null
           mfa_secret: string | null
-          password_hash: string
+          password_hash: string | null
           phone: string | null
-          phone_verified: boolean
+          phone_verified: boolean | null
           role: Database["public"]["Enums"]["user_role_enum"]
           status: Database["public"]["Enums"]["user_status_enum"]
           tenant_id: string
@@ -4822,25 +5892,25 @@ export type Database = {
         Insert: {
           avatar?: string | null
           avatar_url?: string | null
-          created_at: string
+          created_at?: string
           date_of_birth?: string | null
           email: string
-          email_verified: boolean
+          email_verified?: boolean | null
           first_name: string
           gender?: string | null
           id: string
           join_date: string
           last_login_at?: string | null
           last_name: string
-          mfa_enabled: boolean
+          mfa_enabled?: boolean | null
           mfa_secret?: string | null
-          password_hash: string
+          password_hash?: string | null
           phone?: string | null
-          phone_verified: boolean
+          phone_verified?: boolean | null
           role: Database["public"]["Enums"]["user_role_enum"]
           status: Database["public"]["Enums"]["user_status_enum"]
           tenant_id: string
-          updated_at: string
+          updated_at?: string
           user_metadata?: Json | null
         }
         Update: {
@@ -4849,18 +5919,18 @@ export type Database = {
           created_at?: string
           date_of_birth?: string | null
           email?: string
-          email_verified?: boolean
+          email_verified?: boolean | null
           first_name?: string
           gender?: string | null
           id?: string
           join_date?: string
           last_login_at?: string | null
           last_name?: string
-          mfa_enabled?: boolean
+          mfa_enabled?: boolean | null
           mfa_secret?: string | null
-          password_hash?: string
+          password_hash?: string | null
           phone?: string | null
-          phone_verified?: boolean
+          phone_verified?: boolean | null
           role?: Database["public"]["Enums"]["user_role_enum"]
           status?: Database["public"]["Enums"]["user_status_enum"]
           tenant_id?: string
@@ -5155,6 +6225,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_dashboard_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_my_tenant_id: { Args: never; Returns: string }
       seed_chart_of_accounts: {
         Args: { p_tenant_id: string }

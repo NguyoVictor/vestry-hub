@@ -20,6 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { toast } from "sonner";
 import { Loader2, Upload, X, ChevronDown, Globe, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TABLES } from "@/lib/schema";
 
 const seoSchema = z.object({
   page_title: z.string().max(60).optional().or(z.literal("")),
@@ -48,7 +49,7 @@ const SeoPublicPage = () => {
   const { data: seoData, isLoading } = useQuery({
     queryKey: ["seo-settings", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("tenant_seo_settings")
+      const { data } = await supabase.from(TABLES.TENANT_SEO_SETTINGS)
         .select("*").eq("tenant_id", church.tenantId).single();
       return data as any;
     },
@@ -57,7 +58,7 @@ const SeoPublicPage = () => {
   const { data: tenant } = useQuery({
     queryKey: ["tenant", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("tenants").select("name, slug, tagline, city, country, phone, logo").eq("id", church.tenantId).single();
+      const { data } = await supabase.from(TABLES.TENANTS).select("name, slug, tagline, city, country, phone, logo").eq("id", church.tenantId).single();
       return data as any;
     },
   });
@@ -102,7 +103,7 @@ const SeoPublicPage = () => {
         show_in_directory: values.show_in_directory ?? true,
         updated_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from("tenant_seo_settings").upsert(payload as any, { onConflict: "tenant_id" });
+      const { error } = await supabase.from(TABLES.TENANT_SEO_SETTINGS).upsert(payload as any, { onConflict: "tenant_id" });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -123,7 +124,7 @@ const SeoPublicPage = () => {
     if (error) { toast.error("Upload failed"); setUploading(false); return; }
     const { data: urlData } = supabase.storage.from("church-media").getPublicUrl(path);
     // Save immediately
-    await supabase.from("tenant_seo_settings").upsert({
+    await supabase.from(TABLES.TENANT_SEO_SETTINGS).upsert({
       tenant_id: church.tenantId, og_image_url: urlData.publicUrl
     } as any, { onConflict: "tenant_id" });
     qc.invalidateQueries({ queryKey: ["seo-settings", church.tenantId] });

@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ export default function MemberTestimonies() {
   const { data: published = [], isLoading: pubLoading } = useQuery({
     queryKey: ["member-testimonies-published", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase.from("testimonies").select("*").eq("church_id", member.churchId).eq("status", "published").order("created_at", { ascending: false });
+      const { data } = await supabase.from(TABLES.TESTIMONIES).select("*").eq(COLS.TENANT_ID, member.churchId).eq(COLS.STATUS, "published").order("created_at", { ascending: false });
       return data || [];
     },
   });
@@ -49,15 +50,15 @@ export default function MemberTestimonies() {
 
   const submit = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("testimonies").insert({
+      const { error } = await supabase.from(TABLES.TESTIMONIES).insert({
         ...form,
         member_id: member.memberId,
-        church_id: member.churchId,
+        tenant_id: member.churchId,
         status: "pending",
         author_name: form.is_anonymous ? "Anonymous" : `${member.firstName} ${member.lastName}`,
       });
       if (error) throw error;
-      await supabase.from("activity_log").insert({ church_id: member.churchId, action_type: "testimony_submitted", description: `New testimony submitted`, entity_id: member.memberId });
+      await supabase.from(TABLES.ACTIVITY_LOG).insert({ tenant_id: member.churchId, action_type: "testimony_submitted", description: `New testimony submitted`, entity_id: member.memberId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["member-testimonies-mine", member.memberId] });

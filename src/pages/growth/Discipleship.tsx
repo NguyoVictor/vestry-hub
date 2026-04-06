@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,9 +56,9 @@ export default function Discipleship() {
     queryKey: ["discipleship-stats", tenantId],
     queryFn: async () => {
       const { data: converts } = await supabase
-        .from("new_converts")
+        .from(TABLES.NEW_CONVERTS)
         .select("id, discipleship_stage, graduated_at, conversion_date, baptism_status")
-        .eq("church_id", tenantId);
+        .eq(COLS.TENANT_ID, tenantId);
       const all = converts || [];
       const thisYear = new Date().getFullYear();
       const active = all.filter(c => !c.graduated_at).length;
@@ -80,9 +81,9 @@ export default function Discipleship() {
     queryKey: ["discipleship-stages", tenantId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("new_converts")
+        .from(TABLES.NEW_CONVERTS)
         .select("id, discipleship_stage, first_name, last_name, updated_at, conversion_date")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .is("graduated_at", null);
       const converts = data || [];
       const total = converts.length;
@@ -107,9 +108,9 @@ export default function Discipleship() {
     queryKey: ["discipleship-attention", tenantId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("new_converts")
+        .from(TABLES.NEW_CONVERTS)
         .select("id, first_name, last_name, discipleship_stage, mentor_id, baptism_status, baptism_date, updated_at, conversion_date")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .is("graduated_at", null);
       const now = new Date();
       return (data || []).filter(c => {
@@ -126,9 +127,9 @@ export default function Discipleship() {
     queryKey: ["upcoming-baptisms", tenantId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("new_converts")
+        .from(TABLES.NEW_CONVERTS)
         .select("id, first_name, last_name, baptism_date, mentor_id")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .eq("baptism_status", "scheduled")
         .order("baptism_date", { ascending: true });
       return data || [];
@@ -144,7 +145,7 @@ export default function Discipleship() {
         const d = subMonths(new Date(), 11 - i);
         return { month: format(d, "MMM"), start: startOfMonth(d).toISOString(), end: new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString() };
       });
-      const { data } = await supabase.from("new_converts").select("conversion_date, graduated_at, baptism_status, baptism_date").eq("church_id", tenantId);
+      const { data } = await supabase.from(TABLES.NEW_CONVERTS).select("conversion_date, graduated_at, baptism_status, baptism_date").eq(COLS.TENANT_ID, tenantId);
       const converts = data || [];
       return months.map(m => ({
         month: m.month,
@@ -161,9 +162,9 @@ export default function Discipleship() {
     queryKey: ["discipleship-activity", tenantId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("activity_log")
+        .from(TABLES.ACTIVITY_LOG)
         .select("*")
-        .eq("church_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .in("action_type", ["new_convert", "stage_advanced", "convert_graduated", "baptism_completed", "checkin_logged"])
         .order("created_at", { ascending: false })
         .limit(15);
@@ -187,17 +188,17 @@ export default function Discipleship() {
 
   const logCheckin = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("convert_checkins").insert({
+      const { error } = await supabase.from(TABLES.CONVERT_CHECKINS).insert({
         convert_id: checkinSheet.convertId,
-        church_id: tenantId,
+        tenant_id: tenantId,
         checkin_date: checkinForm.checkin_date,
         notes: checkinForm.notes,
         next_checkin_date: checkinForm.next_checkin_date || null,
       });
       if (error) throw error;
-      await supabase.from("new_converts").update({ updated_at: new Date().toISOString() }).eq("id", checkinSheet.convertId);
-      await supabase.from("activity_log").insert({
-        church_id: tenantId,
+      await supabase.from(TABLES.NEW_CONVERTS).update({ updated_at: new Date().toISOString() }).eq(COLS.ID, checkinSheet.convertId);
+      await supabase.from(TABLES.ACTIVITY_LOG).insert({
+        tenant_id: tenantId,
         action_type: "checkin_logged",
         description: `${checkinSheet.convertName} had a check-in`,
         entity_id: checkinSheet.convertId,
@@ -214,19 +215,19 @@ export default function Discipleship() {
   const advanceStage = useMutation({
     mutationFn: async () => {
       const nextStage = (advanceSheet.currentStage || 1) + 1;
-      const { error } = await supabase.from("new_converts").update({
+      const { error } = await supabase.from(TABLES.NEW_CONVERTS).update({
         discipleship_stage: nextStage,
         ...(advanceForm.baptism_status ? { baptism_status: advanceForm.baptism_status } : {}),
-      }).eq("id", advanceSheet.convertId);
+      }).eq(COLS.ID, advanceSheet.convertId);
       if (error) throw error;
-      await supabase.from("convert_stage_history").insert({
+      await supabase.from(TABLES.CONVERT_STAGE_HISTORY).insert({
         convert_id: advanceSheet.convertId,
-        church_id: tenantId,
+        tenant_id: tenantId,
         stage: nextStage,
         notes: advanceForm.notes,
       });
-      await supabase.from("activity_log").insert({
-        church_id: tenantId,
+      await supabase.from(TABLES.ACTIVITY_LOG).insert({
+        tenant_id: tenantId,
         action_type: "stage_advanced",
         description: `${advanceSheet.convertName} advanced to Stage ${nextStage} (${STAGES[nextStage - 1]?.label})`,
         entity_id: advanceSheet.convertId,

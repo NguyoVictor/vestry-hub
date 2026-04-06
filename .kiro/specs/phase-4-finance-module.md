@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 Here is your **Phase 4 prompt** — Finance Module:
 
 ---
@@ -94,7 +103,7 @@ This page has two views depending on who is accessing it — **Admin View** (the
 - Total Giving This Year
 - Average Gift Amount (this month)
 
-All queried from `donations` table filtered by `church_id` and relevant date ranges.
+All queried from `giving_records` ~~(spec said `giving_records`)~~ table filtered by `tenant_id` and relevant date ranges.
 
 **Quick Record Giving panel (card, right side on desktop):**
 A compact form for admins to record a manual/offline donation immediately:
@@ -106,10 +115,10 @@ A compact form for admins to record a manual/offline donation immediately:
 - Date (date picker, default today)
 - Notes (text input, optional)
 - "Record Giving" button (indigo, full width)
-- On submit: INSERT into `donations` table, INSERT into `activity_log`, invalidate giving queries, show `toast.success("Giving recorded successfully")`
+- On submit: INSERT into `giving_records` ~~(spec said `giving_records`)~~ table, INSERT into `activity_log`, invalidate giving queries, show `toast.success("Giving recorded successfully")`
 
 **Recent Donations table (below stats, left side on desktop):**
-- Last 10 donations for this church
+- Last 10 giving_records for this church
 - Columns: Donor (avatar + name or "Anonymous"), Amount (`<CurrencyDisplay>`), Category (`<TransactionBadge>`), Method (`<PaymentMethodIcon>` + label), Date, Actions (View Receipt, Edit, Delete with confirmation)
 - "View All Donations" link → `/giving-records`
 
@@ -139,7 +148,7 @@ A compact form for admins to record a manual/offline donation immediately:
 
 **Summary bar (between filter bar and table):**
 A slim `bg-slate-50 dark:bg-slate-800 rounded-lg p-3` bar showing:
-- Total records matching current filter: "Showing 142 donations"
+- Total records matching current filter: "Showing 142 giving_records"
 - Total amount for filtered results: `Total: KSh 2,450,000`
 - Average gift: `Avg: KSh 17,253`
 
@@ -176,16 +185,16 @@ Opens a styled receipt preview when "View Receipt" is clicked:
 - "Print" button — triggers `window.print()` on the receipt content
 
 **Edit Donation — Sheet:**
-Same fields as Record Giving form, pre-filled. PATCHes the `donations` row on submit.
+Same fields as Record Giving form, pre-filled. PATCHes the `giving_records` ~~(spec said `giving_records`)~~ row on submit.
 
 **Export CSV:**
-Exports all filtered donations (not just current page) as CSV using `papaparse`. Filename: `vestry-giving-records-{date}.csv`
+Exports all filtered giving_records (not just current page) as CSV using `papaparse`. Filename: `vestry-giving-records-{date}.csv`
 
 **Export PDF:**
 Generates a formatted PDF report using `@react-pdf/renderer`:
 - Header: church logo + name + "Giving Report" + date range
 - Summary table: total by category
-- Full donations table
+- Full giving_records table
 - Footer: generated date + "Powered by Vestry"
 
 ---
@@ -243,7 +252,7 @@ Fields:
 - "Record Pledge" button above table
 
 *Payments against this campaign:*
-- List of donations linked to this campaign (from `donations` where `campaign_id = :id`)
+- List of giving_records linked to this campaign (from `giving_records` ~~(spec said `giving_records`)~~ where `campaign_id = :id`)
 
 **Right column (1/3 width):**
 
@@ -268,7 +277,7 @@ Fields:
 - Payment Method (select)
 - Pledge Date (date picker, default today)
 - Notes (text input)
-- On submit: INSERT into `pledges` table + if initial payment > 0, INSERT into `pledge_payments` table + INSERT into `donations` table linked to campaign
+- On submit: INSERT into `pledges` table + if initial payment > 0, INSERT into `pledge_payments` table + INSERT into `giving_records` ~~(spec said `giving_records`)~~ table linked to campaign
 
 ---
 
@@ -321,7 +330,7 @@ Fields:
 - Vendor Phone / Email (text inputs, optional)
 - Expense Date (date picker, default today)
 - Budget Line (select from active budget categories if Budget module enabled)
-- Receipt Upload (file upload — accepts PDF, JPG, PNG — uploads to Supabase Storage `expense-receipts/{church_id}/{expense_id}/`)
+- Receipt Upload (file upload — accepts PDF, JPG, PNG — uploads to Supabase Storage `expense-receipts/{tenant_id}/{expense_id}/`)
 - Notes (textarea, optional)
 - Recurring expense toggle — if on: show frequency select (Weekly / Monthly / Quarterly / Annually) + end date
 
@@ -377,7 +386,7 @@ Fields:
   - Each row: Category (select from expense categories) + Allocated Amount
   - "Add Line" button at bottom of list
 - Total at bottom of dialog: sum of all allocated amounts
-- "Save Budget" — INSERTs a `budgets` row + multiple `budget_lines` rows
+- "Save Budget" — INSERTs a `budgets` row + multiple `budget_categories` ~~(spec said `budget_categories`)~~ rows
 
 **Edit Budget Line — inline editing:**
 Click the amount in the Budget Lines table to edit it inline (contenteditable-style input that saves on blur/enter).
@@ -447,7 +456,7 @@ Step 2 — Confirm:
 - Summary: "You are about to process payroll for X staff members totaling {amount} for {period}"
 - Checklist confirmation: "I confirm the amounts are correct" (checkbox, required)
 - "Process Payroll" button (indigo)
-- On confirm: INSERT into `payroll_runs` table + INSERT into `payroll_payments` (one per staff) + INSERT into `donations` (expense type) for each payment + INSERT into `activity_log`
+- On confirm: INSERT into `payroll_runs` table + INSERT into `payroll_payments` (one per staff) + INSERT into `giving_records` ~~(spec said `giving_records`)~~ (expense type) for each payment + INSERT into `activity_log`
 - Show `toast.success("Payroll processed successfully for {period}")`
 
 Step 3 — Complete:
@@ -502,7 +511,7 @@ Fields:
 
 **Fund Detail Page (`/fund-accounting/:fundId`):**
 - Fund header card (balance, type, description)
-- Transactions table (all donations and expenses linked to this fund):
+- Transactions table (all giving_records and expenses linked to this fund):
   - Columns: Date, Description, Type (Credit/Debit), Amount, Running Balance, Reference
   - Credits (incoming) in emerald, Debits (outgoing) in red
 - "Transfer Funds" button — opens Dialog to transfer an amount to another fund:
@@ -556,7 +565,7 @@ Fields:
 - Notes (textarea)
 
 **Mark as Paid — Dialog:**
-Fields: Payment Date (date picker, default today), Payment Method, Reference, Notes. On confirm: UPDATE `invoices.status = 'paid'`, INSERT into `church_expenses` table linked to this invoice.
+Fields: Payment Date (date picker, default today), Payment Method, Reference, Notes. On confirm: UPDATE `invoices.status = 'paid'`, INSERT into `expenses` ~~(spec said `expenses`)~~ table linked to this invoice.
 
 **Invoice PDF (view/download):**
 Formatted invoice document using `@react-pdf/renderer` — church letterhead, line items table, totals, payment instructions.
@@ -668,9 +677,9 @@ Fields:
 
 ```sql
 -- DONATIONS TABLE
-CREATE TABLE donations (
+CREATE TABLE giving_records (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   donor_name TEXT,
   is_anonymous BOOLEAN DEFAULT false,
@@ -678,22 +687,22 @@ CREATE TABLE donations (
   currency TEXT DEFAULT 'KES',
   category TEXT DEFAULT 'offering' CHECK (category IN ('tithe','offering','building_fund','welfare','missions','special','other')),
   payment_method TEXT DEFAULT 'cash' CHECK (payment_method IN ('cash','mpesa','bank_transfer','card','cheque','other')),
-  payment_reference TEXT,
+  pesapal_transaction_id TEXT,
   campaign_id UUID REFERENCES pledge_campaigns(id) ON DELETE SET NULL,
   fund_id UUID REFERENCES funds(id) ON DELETE SET NULL,
   notes TEXT,
-  donation_date DATE DEFAULT CURRENT_DATE,
+  given_at DATE DEFAULT CURRENT_DATE,
   recorded_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   receipt_number TEXT UNIQUE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Staff can manage donations"
-  ON donations FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
-CREATE INDEX idx_donations_church_id ON donations(church_id);
-CREATE INDEX idx_donations_date ON donations(donation_date);
+ALTER TABLE giving_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Staff can manage giving_records"
+  ON giving_records FOR ALL
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+CREATE INDEX idx_donations_tenant_id ON giving_records(tenant_id);
+CREATE INDEX idx_donations_date ON giving_records(given_at);
 
 -- AUTO-INCREMENT RECEIPT NUMBERS via Supabase Function
 CREATE SEQUENCE receipt_number_seq START 1000;
@@ -705,7 +714,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 CREATE TRIGGER set_receipt_number
-  BEFORE INSERT ON donations
+  BEFORE INSERT ON giving_records
   FOR EACH ROW
   WHEN (NEW.receipt_number IS NULL)
   EXECUTE FUNCTION generate_receipt_number();
@@ -713,7 +722,7 @@ CREATE TRIGGER set_receipt_number
 -- PLEDGE CAMPAIGNS TABLE
 CREATE TABLE pledge_campaigns (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
   category TEXT DEFAULT 'other' CHECK (category IN ('building_fund','missions','equipment','welfare','community','other')),
@@ -731,13 +740,13 @@ CREATE TABLE pledge_campaigns (
 ALTER TABLE pledge_campaigns ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage campaigns"
   ON pledge_campaigns FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- PLEDGES TABLE
 CREATE TABLE pledges (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   campaign_id UUID REFERENCES pledge_campaigns(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   pledger_name TEXT,
   is_anonymous BOOLEAN DEFAULT false,
@@ -752,23 +761,23 @@ CREATE TABLE pledges (
 ALTER TABLE pledges ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage pledges"
   ON pledges FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- CHURCH EXPENSES TABLE
-CREATE TABLE church_expenses (
+CREATE TABLE expenses (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
   currency TEXT DEFAULT 'KES',
   category TEXT NOT NULL CHECK (category IN ('salaries','utilities','rent','equipment','maintenance','events','outreach','supplies','transport','other')),
   payment_method TEXT CHECK (payment_method IN ('cash','mpesa','bank_transfer','card','cheque')),
-  payment_reference TEXT,
+  pesapal_transaction_id TEXT,
   vendor_name TEXT,
   vendor_phone TEXT,
   vendor_email TEXT,
   expense_date DATE DEFAULT CURRENT_DATE,
-  budget_line_id UUID REFERENCES budget_lines(id) ON DELETE SET NULL,
+  budget_line_id UUID REFERENCES budget_categories(id) ON DELETE SET NULL,
   receipt_url TEXT,
   notes TEXT,
   approval_status TEXT DEFAULT 'pending' CHECK (approval_status IN ('pending','approved','rejected')),
@@ -783,45 +792,45 @@ CREATE TABLE church_expenses (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE church_expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage expenses"
-  ON church_expenses FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  ON expenses FOR ALL
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- BUDGETS TABLE
 CREATE TABLE budgets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   year INT NOT NULL,
   total_amount DECIMAL(12,2) DEFAULT 0,
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(church_id, year)
+  UNIQUE(tenant_id, year)
 );
 ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage budgets"
   ON budgets FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- BUDGET LINES TABLE
-CREATE TABLE budget_lines (
+CREATE TABLE budget_categories (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   budget_id UUID REFERENCES budgets(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   category TEXT NOT NULL,
   allocated_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-ALTER TABLE budget_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budget_categories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage budget lines"
-  ON budget_lines FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  ON budget_categories FOR ALL
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- PAYROLL STAFF TABLE
 CREATE TABLE payroll_staff (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   member_id UUID REFERENCES members(id) ON DELETE SET NULL,
   job_title TEXT,
   employment_type TEXT CHECK (employment_type IN ('full_time','part_time','contract','volunteer_stipend')),
@@ -842,12 +851,12 @@ CREATE TABLE payroll_staff (
 ALTER TABLE payroll_staff ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage payroll"
   ON payroll_staff FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
 
 -- PAYROLL RUNS TABLE
 CREATE TABLE payroll_runs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   period_month INT NOT NULL CHECK (period_month BETWEEN 1 AND 12),
   period_year INT NOT NULL,
   total_gross DECIMAL(12,2) NOT NULL,
@@ -856,35 +865,35 @@ CREATE TABLE payroll_runs (
   staff_count INT NOT NULL,
   processed_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   processed_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(church_id, period_month, period_year)
+  UNIQUE(tenant_id, period_month, period_year)
 );
 ALTER TABLE payroll_runs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can view payroll runs"
   ON payroll_runs FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
 
 -- PAYROLL PAYMENTS TABLE
 CREATE TABLE payroll_payments (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   payroll_run_id UUID REFERENCES payroll_runs(id) ON DELETE CASCADE NOT NULL,
   payroll_staff_id UUID REFERENCES payroll_staff(id) ON DELETE SET NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   gross_amount DECIMAL(12,2) NOT NULL,
   deductions_breakdown JSONB NOT NULL,
   net_amount DECIMAL(12,2) NOT NULL,
   payment_method TEXT,
-  payment_reference TEXT,
+  pesapal_transaction_id TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE payroll_payments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can view payroll payments"
   ON payroll_payments FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
 
 -- FUNDS TABLE
 CREATE TABLE funds (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   type TEXT DEFAULT 'unrestricted' CHECK (type IN ('restricted','unrestricted','temporarily_restricted')),
   description TEXT,
@@ -898,13 +907,13 @@ CREATE TABLE funds (
 ALTER TABLE funds ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage funds"
   ON funds FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- FUND TRANSACTIONS TABLE
 CREATE TABLE fund_transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   fund_id UUID REFERENCES funds(id) ON DELETE CASCADE NOT NULL,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('credit','debit','transfer_in','transfer_out')),
   amount DECIMAL(12,2) NOT NULL,
   description TEXT,
@@ -918,12 +927,12 @@ CREATE TABLE fund_transactions (
 ALTER TABLE fund_transactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can view fund transactions"
   ON fund_transactions FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- INVOICES TABLE
 CREATE TABLE invoices (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   invoice_number TEXT UNIQUE NOT NULL,
   vendor_name TEXT NOT NULL,
   vendor_email TEXT,
@@ -943,7 +952,7 @@ CREATE TABLE invoices (
   notes TEXT,
   paid_at DATE,
   payment_method TEXT,
-  payment_reference TEXT,
+  pesapal_transaction_id TEXT,
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -951,7 +960,7 @@ CREATE TABLE invoices (
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage invoices"
   ON invoices FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
 
 -- AUTO-INCREMENT INVOICE NUMBERS
 CREATE SEQUENCE invoice_number_seq START 1000;
@@ -971,7 +980,7 @@ CREATE TRIGGER set_invoice_number
 -- CHART OF ACCOUNTS TABLE
 CREATE TABLE chart_of_accounts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   account_name TEXT NOT NULL,
   account_type TEXT NOT NULL CHECK (account_type IN ('asset','liability','income','expense','equity')),
   account_code TEXT,
@@ -981,12 +990,12 @@ CREATE TABLE chart_of_accounts (
 ALTER TABLE chart_of_accounts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can view chart of accounts"
   ON chart_of_accounts FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin','staff')));
 
 -- JOURNAL ENTRIES TABLE
 CREATE TABLE journal_entries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   journal_number TEXT UNIQUE NOT NULL,
   description TEXT NOT NULL,
   reference TEXT,
@@ -997,7 +1006,7 @@ CREATE TABLE journal_entries (
 ALTER TABLE journal_entries ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage journal entries"
   ON journal_entries FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
 
 -- JOURNAL LINES TABLE
 CREATE TABLE journal_lines (
@@ -1016,12 +1025,12 @@ CREATE TABLE journal_lines (
 ALTER TABLE journal_lines ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage journal lines"
   ON journal_lines FOR ALL
-  USING (journal_entry_id IN (SELECT id FROM journal_entries WHERE church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin'))));
+  USING (journal_entry_id IN (SELECT id FROM journal_entries WHERE tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin'))));
 
 -- PAYOUTS TABLE
 CREATE TABLE payouts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  church_id UUID REFERENCES churches(id) ON DELETE CASCADE NOT NULL,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE NOT NULL,
   recipient_type TEXT CHECK (recipient_type IN ('staff','vendor','member','external')),
   recipient_name TEXT NOT NULL,
   recipient_id UUID,
@@ -1044,41 +1053,41 @@ CREATE TABLE payouts (
 ALTER TABLE payouts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage payouts"
   ON payouts FOR ALL
-  USING (church_id IN (SELECT church_id FROM church_members WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
+  USING (tenant_id IN (SELECT tenant_id FROM role_permissions WHERE user_id = auth.uid() AND role IN ('super_admin','admin')));
 
--- Seed default chart of accounts for new churches via a Supabase Function
+-- Seed default chart of accounts for new tenants via a Supabase Function
 -- Call this function after a new church is created in the onboarding flow
-CREATE OR REPLACE FUNCTION seed_chart_of_accounts(p_church_id UUID)
+CREATE OR REPLACE FUNCTION seed_chart_of_accounts(p_tenant_id UUID)
 RETURNS VOID AS $$
 BEGIN
-  INSERT INTO chart_of_accounts (church_id, account_name, account_type, account_code, is_default) VALUES
-    (p_church_id, 'Cash on Hand', 'asset', '1001', true),
-    (p_church_id, 'Bank Account (General)', 'asset', '1002', true),
-    (p_church_id, 'Bank Account (Savings)', 'asset', '1003', true),
-    (p_church_id, 'Accounts Receivable', 'asset', '1100', true),
-    (p_church_id, 'Prepaid Expenses', 'asset', '1200', true),
-    (p_church_id, 'Property & Equipment', 'asset', '1500', true),
-    (p_church_id, 'Accounts Payable', 'liability', '2001', true),
-    (p_church_id, 'Accrued Expenses', 'liability', '2100', true),
-    (p_church_id, 'Deferred Revenue', 'liability', '2200', true),
-    (p_church_id, 'Tithes', 'income', '4001', true),
-    (p_church_id, 'Offerings', 'income', '4002', true),
-    (p_church_id, 'Building Fund', 'income', '4003', true),
-    (p_church_id, 'Donations', 'income', '4004', true),
-    (p_church_id, 'Event Income', 'income', '4005', true),
-    (p_church_id, 'Other Income', 'income', '4999', true),
-    (p_church_id, 'Salaries & Wages', 'expense', '5001', true),
-    (p_church_id, 'Utilities', 'expense', '5002', true),
-    (p_church_id, 'Rent', 'expense', '5003', true),
-    (p_church_id, 'Equipment', 'expense', '5004', true),
-    (p_church_id, 'Maintenance', 'expense', '5005', true),
-    (p_church_id, 'Events', 'expense', '5006', true),
-    (p_church_id, 'Outreach', 'expense', '5007', true),
-    (p_church_id, 'Supplies', 'expense', '5008', true),
-    (p_church_id, 'Transport', 'expense', '5009', true),
-    (p_church_id, 'Other Expenses', 'expense', '5999', true),
-    (p_church_id, 'Retained Surplus', 'equity', '3001', true),
-    (p_church_id, 'Opening Balance Equity', 'equity', '3002', true);
+  INSERT INTO chart_of_accounts (tenant_id, account_name, account_type, account_code, is_default) VALUES
+    (p_tenant_id, 'Cash on Hand', 'asset', '1001', true),
+    (p_tenant_id, 'Bank Account (General)', 'asset', '1002', true),
+    (p_tenant_id, 'Bank Account (Savings)', 'asset', '1003', true),
+    (p_tenant_id, 'Accounts Receivable', 'asset', '1100', true),
+    (p_tenant_id, 'Prepaid Expenses', 'asset', '1200', true),
+    (p_tenant_id, 'Property & Equipment', 'asset', '1500', true),
+    (p_tenant_id, 'Accounts Payable', 'liability', '2001', true),
+    (p_tenant_id, 'Accrued Expenses', 'liability', '2100', true),
+    (p_tenant_id, 'Deferred Revenue', 'liability', '2200', true),
+    (p_tenant_id, 'Tithes', 'income', '4001', true),
+    (p_tenant_id, 'Offerings', 'income', '4002', true),
+    (p_tenant_id, 'Building Fund', 'income', '4003', true),
+    (p_tenant_id, 'Donations', 'income', '4004', true),
+    (p_tenant_id, 'Event Income', 'income', '4005', true),
+    (p_tenant_id, 'Other Income', 'income', '4999', true),
+    (p_tenant_id, 'Salaries & Wages', 'expense', '5001', true),
+    (p_tenant_id, 'Utilities', 'expense', '5002', true),
+    (p_tenant_id, 'Rent', 'expense', '5003', true),
+    (p_tenant_id, 'Equipment', 'expense', '5004', true),
+    (p_tenant_id, 'Maintenance', 'expense', '5005', true),
+    (p_tenant_id, 'Events', 'expense', '5006', true),
+    (p_tenant_id, 'Outreach', 'expense', '5007', true),
+    (p_tenant_id, 'Supplies', 'expense', '5008', true),
+    (p_tenant_id, 'Transport', 'expense', '5009', true),
+    (p_tenant_id, 'Other Expenses', 'expense', '5999', true),
+    (p_tenant_id, 'Retained Surplus', 'equity', '3001', true),
+    (p_tenant_id, 'Opening Balance Equity', 'equity', '3002', true);
 END;
 $$ LANGUAGE plpgsql;
 ```

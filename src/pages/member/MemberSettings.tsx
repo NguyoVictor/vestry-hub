@@ -38,7 +38,7 @@ export default function MemberSettings() {
 
   const deleteAccount = useMutation({
     mutationFn: async () => {
-      await supabase.from("church_members").update({ status: "inactive" }).eq("user_id", member.userId);
+      await supabase.from("role_permissions").update({ status: "inactive" }).eq("user_id", member.userId);
       await supabase.auth.signOut();
     },
     onSuccess: () => navigate("/member/login"),

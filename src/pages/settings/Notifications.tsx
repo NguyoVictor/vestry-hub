@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Loader2, Mail, Bell, UserPlus, DollarSign, BarChart3, CalendarDays, MessageSquare, Eye, Shield } from "lucide-react";
+import { TABLES } from "@/lib/schema";
 import { useState, useEffect } from "react";
 
 const EMAIL_PREFS = [
@@ -41,7 +42,7 @@ const Notifications = () => {
   const { data, isLoading } = useQuery({
     queryKey: ["notification-prefs", church.userId, church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("notification_preferences")
+      const { data } = await supabase.from(TABLES.NOTIFICATION_PREFERENCES)
         .select("*")
         .eq("user_id", church.userId)
         .eq("tenant_id", church.tenantId)
@@ -66,7 +67,7 @@ const Notifications = () => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = { user_id: church.userId, tenant_id: church.tenantId, ...prefs };
-      const { error } = await supabase.from("notification_preferences").upsert(payload as any, { onConflict: "user_id,tenant_id" });
+      const { error } = await supabase.from(TABLES.NOTIFICATION_PREFERENCES).upsert(payload as any, { onConflict: "user_id,tenant_id" });
       if (error) throw error;
     },
     onSuccess: () => {

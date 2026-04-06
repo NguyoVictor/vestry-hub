@@ -1,3 +1,12 @@
+> ⚠️ **SCHEMA CORRECTION NOTICE** — The table/column names written in this spec are the ORIGINAL spec names and DO NOT match the actual database. Always use `src/lib/schema.ts` TABLES/COLS constants. See `.kiro/specs/schema-correction-notice.md` for the full override list. Quick reference:
+> - spec `churches` = actual **tenants** | spec `donations` = actual **giving_records** | spec `church_expenses` = actual **expenses**
+> - spec `budget_lines` = actual **budget_categories** | spec `church_seo_settings` = actual **tenant_seo_settings**
+> - spec `church_members` = actual **role_permissions** | spec `attendance` = actual **attendance_records**
+> - spec `church_id` col = actual **tenant_id** | spec `logo_url` = actual **logo** | spec `donation_date` = actual **given_at**
+> - spec `payment_reference` = actual **pesapal_transaction_id** | spec `rsvp_deadline` = actual **registration_deadline**
+> - spec `start_datetime` = actual **event_date** | spec `events.status=published` = actual **events.is_published=true**
+> - spec `events.capacity` = actual **capacity_limit** | spec `onboarding_complete` = actual **onboarding_completed**
+
 You're right, my bad! The first prompt I gave you already included the Dashboard, but let me rewrite **Phase 1** as its own clean, standalone, ultra-detailed Lovable prompt — properly focused on just the **App Shell + Dashboard Overview** as the first thing to build after OAuth/Onboarding. Here it is:
 
 ---
@@ -13,7 +22,7 @@ This is a Church SaaS platform called **Church Central Cloud**. The following is
 - Email OTP verification flow
 - Onboarding flow: admin inputs church name, selects desired modules/services, receives a unique church access code and a QR code
 - A post-onboarding demo video modal
-- A `churches` table, `profiles` table, and `church_members` table already exist in Supabase with RLS policies applied
+- A `tenants` ~~(spec said `tenants`)~~ table, `profiles` table, and `role_permissions` ~~(spec said `role_permissions`)~~ table already exist in Supabase with RLS policies applied
 - A `church_settings` table with a JSONB `enabled_modules` column exists
 
 **Do not touch any of the above. Pick up from where the user lands after completing onboarding — which redirects to `/dashboard`.**
@@ -49,7 +58,7 @@ Create a persistent layout component `AppLayout.tsx` that wraps every authentica
 - Background: `bg-white dark:bg-slate-900`, right border: `border-r border-slate-200 dark:border-slate-800`
 
 **Top of sidebar:**
-- Church logo (circular avatar, 36px, pulled from Supabase Storage URL stored in `churches.logo_url`)
+- Church logo (circular avatar, 36px, pulled from Supabase Storage URL stored in `tenants.logo`)
 - Church name in `font-semibold text-sm` next to the logo (hidden when collapsed)
 - If no logo uploaded, show initials avatar (first 2 letters of church name, indigo background)
 
@@ -148,7 +157,7 @@ Group the nav items exactly as follows:
   - **Dark mode toggle** (icon: `Sun` / `Moon`) — toggles `dark` class on `<html>`, persists to `localStorage`
   - **User avatar dropdown** (shadcn `DropdownMenu`):
     - Trigger: circular avatar (36px) with user's profile photo or initials fallback
-    - Menu items: Profile (`/settings/profile`), Settings (`/settings`), Switch Church (if user belongs to multiple churches — show submenu), Logout
+    - Menu items: Profile (`/settings/profile`), Settings (`/settings`), Switch Church (if user belongs to multiple tenants — show submenu), Logout
     - Shows user name + email at the top of the dropdown in a non-clickable header section
 
 ---
@@ -170,7 +179,7 @@ Group the nav items exactly as follows:
 Create an `AuthGuard.tsx` component that:
 - Subscribes to `supabase.auth.onAuthStateChange`
 - If no session, redirects to `/login`
-- If session exists but `onboarding_complete` is `false` on the user's `profiles` row, redirects to `/onboarding`
+- If session exists but `onboarding_completedddd` is `false` on the user's `profiles` row, redirects to `/onboarding`
 - Otherwise, renders the `AppLayout` with children
 - Shows a full-screen centered spinner while the session check is resolving
 
@@ -190,13 +199,13 @@ A responsive grid: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4`
 
 Four stat cards:
 
-1. **Total Members** — query `SELECT COUNT(*) FROM church_members WHERE church_id = :churchId AND status = 'active'`. Compare to last month's count for trend. Icon: `Users`. Color accent: indigo.
+1. **Total Members** — query `SELECT COUNT(*) FROM role_permissions WHERE tenant_id = :churchId AND status = 'active'`. Compare to last month's count for trend. Icon: `Users`. Color accent: indigo.
 
-2. **Total Giving This Month** — query `SELECT SUM(amount) FROM donations WHERE church_id = :churchId AND created_at >= date_trunc('month', now())`. Format as currency (use church's currency setting, default KES). Icon: `TrendingUp`. Color accent: emerald.
+2. **Total Giving This Month** — query `SELECT SUM(amount) FROM giving_records WHERE tenant_id = :churchId AND created_at >= date_trunc('month', now())`. Format as currency (use church's currency setting, default KES). Icon: `TrendingUp`. Color accent: emerald.
 
-3. **Upcoming Events** — query `SELECT COUNT(*) FROM events WHERE church_id = :churchId AND event_date >= now() AND event_date <= now() + interval '7 days'`. Icon: `CalendarDays`. Color accent: violet.
+3. **Upcoming Events** — query `SELECT COUNT(*) FROM events WHERE tenant_id = :churchId AND event_date >= now() AND event_date <= now() + interval '7 days'`. Icon: `CalendarDays`. Color accent: violet.
 
-4. **Active Groups** — query `SELECT COUNT(DISTINCT group_id) FROM group_members WHERE church_id = :churchId`. Icon: `UsersRound`. Color accent: amber.
+4. **Active Groups** — query `SELECT COUNT(DISTINCT group_id) FROM group_members WHERE tenant_id = :churchId`. Icon: `UsersRound`. Color accent: amber.
 
 Each card structure:
 - `bg-white dark:bg-slate-800` rounded-lg, border, shadow-sm, p-5
@@ -220,14 +229,14 @@ Each card structure:
 - Y-axis: currency amounts, formatted with `K` suffix for thousands
 - Area fill: indigo gradient (top `#6366F1`, bottom transparent)
 - Tooltip: custom styled showing month + total amount
-- Data: query `SELECT date_trunc('month', created_at) as month, SUM(amount) as total FROM donations WHERE church_id = :churchId GROUP BY month ORDER BY month ASC LIMIT 6`
+- Data: query `SELECT date_trunc('month', created_at) as month, SUM(amount) as total FROM giving_records WHERE tenant_id = :churchId GROUP BY month ORDER BY month ASC LIMIT 6`
 - Skeleton loader while fetching
 
 *Attendance Trend Chart* (below giving chart)
 - `BarChart` from Recharts, height 220px
 - Shows attendance count per service for the last 8 services
 - Bar color: emerald `#10B981`
-- Data: query `SELECT service_name, service_date, attendance_count FROM services WHERE church_id = :churchId ORDER BY service_date DESC LIMIT 8`
+- Data: query `SELECT service_name, service_date, attendance_count FROM services WHERE tenant_id = :churchId ORDER BY service_date DESC LIMIT 8`
 
 **Right column (spans 1 of 3 cols):**
 
@@ -274,10 +283,10 @@ Each card structure:
 - Card with header "Recent Donations" + "View All" link to `/giving-records`
 - shadcn `Table` component
 - Columns: Donor Name (with avatar), Amount (formatted currency, `font-semibold text-emerald-600`), Category (badge: Tithe / Offering / Building Fund / etc.), Payment Method (icon: card/bank/cash), Date
-- Shows last 8 donations from `donations` table joined with `profiles`
+- Shows last 8 giving_records from `giving_records` ~~(spec said `giving_records`)~~ table joined with `profiles`
 - Row hover: `hover:bg-slate-50 dark:hover:bg-slate-800/50`
 - Skeleton table (8 rows) while loading
-- Empty state if no donations yet
+- Empty state if no giving_records yet
 
 ---
 
@@ -324,8 +333,8 @@ No route should return a 404. Every single route must render its placeholder pag
 - Use the typed Supabase client generated via `supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/supabase.ts`
 - All queries go through TanStack Query `useQuery` hooks — never raw `useEffect` + `useState` for data fetching
 - All mutations use `useMutation` with `onSuccess` calling `queryClient.invalidateQueries`
-- The current church ID is stored in a `useChurch()` context hook (reads from the user's active church in `church_members` table)
-- All Supabase queries must filter by `church_id` — never fetch data across churches
+- The current church ID is stored in a `useChurch()` context hook (reads from the user's active church in `role_permissions` ~~(spec said `role_permissions`)~~ table)
+- All Supabase queries must filter by `tenant_id` — never fetch data across tenants
 - Enable Supabase Realtime on the `activity_log` table and subscribe to it inside the dashboard's activity feed component
 
 ---

@@ -248,7 +248,7 @@ export default function TrainingCourseBuilder() {
       const payload = {
         ...courseInfo,
         status: publish ? "published" : courseInfo.status,
-        church_id: tenantId,
+        tenant_id: tenantId,
         created_by: userId,
         modules: modules.map(m => ({ id: m.id, title: m.title, lessons: m.lessons })),
         total_duration_minutes: totalDuration,

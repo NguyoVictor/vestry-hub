@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
 import { Loader2, UserPlus, Trash2 } from "lucide-react";
+import { TABLES } from "@/lib/schema";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -43,7 +44,7 @@ const RolesPermissions = () => {
   const { data: teamMembers, isLoading } = useQuery({
     queryKey: ["team-members", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("users")
+      const { data } = await supabase.from(TABLES.USERS)
         .select("id, first_name, last_name, email, role, status, avatar_url, created_at")
         .eq("tenant_id", church.tenantId)
         .order("created_at", { ascending: true });

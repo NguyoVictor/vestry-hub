@@ -48,8 +48,8 @@ Vestry is a multi-tenant Church SaaS platform. It is comparable to ChurchSuite a
 - Phase 5 (Events & Operations): COMPLETE — do not rebuild
 - Phase 6 (Security & Communications): COMPLETE — do not rebuild
 - Phase 7 (Media & Content): COMPLETE — do not rebuild
-- Phase 8 (Growth & Discipleship): COMPLETE — IN PROGRESS
-- Phase 9 (Analytics, Branches & Member Portal): IN PROGRESS
+- Phase 8 (Growth & Discipleship): COMPLETE
+- Phase 9 (Analytics, Branches & Member Portal): COMPLETE
 
 ## Naming Conventions
 - Components: PascalCase (e.g. MemberProfile.tsx)
@@ -70,3 +70,65 @@ Vestry is a multi-tenant Church SaaS platform. It is comparable to ChurchSuite a
 
 ## database migrations
 everytime we have any supabase database migrations kindly run it 
+## ⚠️ CRITICAL — ACTUAL DATABASE SCHEMA (OVERRIDES ALL PHASE SPECS)
+
+The phase spec files (phase-1 through phase-9) were written before the
+database was built. Kiro built the database with different names than
+the specs defined. The actual database is the source of truth.
+ALWAYS use the actual database names below — NEVER use the spec names.
+
+### Table Name Overrides
+| Spec said | ACTUAL table name | 
+|-----------|------------------|
+| `churches` | `tenants` |
+| `donations` | `giving_records` |
+| `church_expenses` | `expenses` |
+| `budget_lines` | `budget_categories` |
+| `church_seo_settings` | `tenant_seo_settings` |
+| `training_courses` | `resources` |
+| `attendance` | `attendance_records` |
+| `church_members` | `role_permissions` |
+
+### Column Name Overrides
+| Spec said | ACTUAL column name |
+|-----------|-------------------|
+| `church_id` (on all tables) | `tenant_id` |
+| `name` (on events) | `title` |
+| `start_datetime` (on events) | `event_date` + `start_time` |
+| `status = 'published'` (events) | `is_published = true` |
+| `capacity` (events) | `capacity_limit` |
+| `rsvp_deadline` (events) | `registration_deadline` |
+| `logo_url` (tenants) | `logo` |
+| `email` (tenants) | `contact_email` |
+| `onboarding_complete` | `onboarding_completed` |
+| `donation_date` | `given_at` |
+| `category` (giving) | `giving_type` |
+| `payment_reference` (giving) | `pesapal_transaction_id` |
+
+### ID Type Override
+All IDs in the database are VARCHAR not UUID.
+Never use gen_random_uuid() — use the existing ID generation pattern.
+
+### The TABLES and COLS Constants Are Mandatory
+Every single Supabase query MUST use the constants from `src/lib/schema.ts`.
+Never hardcode table names or column names as strings in any component,
+hook, or utility. Always import from schema.ts:
+```typescript
+import { TABLES, COLS } from '../lib/schema'
+
+// correct
+supabase.from(TABLES.DONATIONS).eq(COLS.CHURCH_ID, tenantId)
+
+// WRONG — never do this
+supabase.from('donations').eq('church_id', churchId)
+```
+
+### Members Table — Added Columns
+These columns were added via migration and now exist on the members table:
+`first_name`, `last_name`, `email`, `phone`, `status`, `join_date`,
+`avatar_url`, `gender`, `date_of_birth`
+
+### Giving Records — Added Columns  
+These columns were added via migration and now exist on giving_records:
+`is_anonymous`, `notes`, `receipt_number`, `fund_id`, `campaign_id`,
+`donor_name`, `category` (generated from giving_type)

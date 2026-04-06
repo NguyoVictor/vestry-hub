@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ export default function DiscipleshipResources() {
   const { data: resources = [], isLoading } = useQuery({
     queryKey: ["discipleship-resources", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("discipleship_resources").select("*").eq("church_id", tenantId).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from(TABLES.DISCIPLESHIP_RESOURCES).select("*").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
       if (error) throw error;
       return data as DiscipleshipResource[];
     },
@@ -83,7 +84,7 @@ export default function DiscipleshipResources() {
   const { data: collections = [], isLoading: colLoading } = useQuery({
     queryKey: ["resource-collections", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("resource_collections").select("*, collection_resources(count)").eq("church_id", tenantId).order("created_at", { ascending: false });
+      const { data } = await supabase.from(TABLES.RESOURCE_COLLECTIONS).select("*, collection_resources(count)").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
       return data || [];
     },
     enabled: !!tenantId,
@@ -92,7 +93,7 @@ export default function DiscipleshipResources() {
   const { data: converts = [] } = useQuery({
     queryKey: ["converts-list", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("new_converts").select("id, first_name, last_name, discipleship_stage").eq("church_id", tenantId).is("graduated_at", null);
+      const { data } = await supabase.from(TABLES.NEW_CONVERTS).select("id, first_name, last_name, discipleship_stage").eq(COLS.TENANT_ID, tenantId).is("graduated_at", null);
       return data || [];
     },
     enabled: !!tenantId,
@@ -141,9 +142,9 @@ export default function DiscipleshipResources() {
 
   const createResource = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("discipleship_resources").insert({
+      const { error } = await supabase.from(TABLES.DISCIPLESHIP_RESOURCES).insert({
         ...form,
-        church_id: tenantId,
+        tenant_id: tenantId,
         created_by: userId,
         tags: form.tags ? form.tags.split(",").map(t => t.trim()) : [],
       });
@@ -160,14 +161,14 @@ export default function DiscipleshipResources() {
 
   const assignResource = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("resource_assignments").insert({
+      const { error } = await supabase.from(TABLES.RESOURCE_ASSIGNMENTS).insert({
         resource_id: assignDialog.resourceId,
         convert_id: assignConvertId,
-        church_id: tenantId,
+        tenant_id: tenantId,
         assigned_by: userId,
       });
       if (error) throw error;
-      await supabase.from("discipleship_resources").update({ assignment_count: (resources.find(r => r.id === assignDialog.resourceId)?.assignment_count || 0) + 1 }).eq("id", assignDialog.resourceId);
+      await supabase.from(TABLES.DISCIPLESHIP_RESOURCES).update({ assignment_count: (resources.find(r => r.id === assignDialog.resourceId)?.assignment_count || 0) + 1 }).eq(COLS.ID, assignDialog.resourceId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["discipleship-resources", tenantId] });
@@ -185,12 +186,12 @@ export default function DiscipleshipResources() {
       const inserts = stageConverts.map((c: any) => ({
         resource_id: resourceId,
         convert_id: c.id,
-        church_id: tenantId,
+        tenant_id: tenantId,
         assigned_by: userId,
       }));
-      const { error } = await supabase.from("resource_assignments").upsert(inserts, { onConflict: "resource_id,convert_id", ignoreDuplicates: true });
+      const { error } = await supabase.from(TABLES.RESOURCE_ASSIGNMENTS).upsert(inserts, { onConflict: "resource_id,convert_id", ignoreDuplicates: true });
       if (error) throw error;
-      await supabase.from("discipleship_resources").update({ assignment_count: (resources.find(r => r.id === resourceId)?.assignment_count || 0) + stageConverts.length }).eq("id", resourceId);
+      await supabase.from(TABLES.DISCIPLESHIP_RESOURCES).update({ assignment_count: (resources.find(r => r.id === resourceId)?.assignment_count || 0) + stageConverts.length }).eq(COLS.ID, resourceId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["discipleship-resources", tenantId] });
@@ -206,10 +207,10 @@ export default function DiscipleshipResources() {
       const inserts = colResources.map(cr => ({
         resource_id: cr.resource_id,
         convert_id: convertId,
-        church_id: tenantId,
+        tenant_id: tenantId,
         assigned_by: userId,
       }));
-      const { error } = await supabase.from("resource_assignments").upsert(inserts, { onConflict: "resource_id,convert_id", ignoreDuplicates: true });
+      const { error } = await supabase.from(TABLES.RESOURCE_ASSIGNMENTS).upsert(inserts, { onConflict: "resource_id,convert_id", ignoreDuplicates: true });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -227,10 +228,10 @@ export default function DiscipleshipResources() {
       const inserts = colResources.flatMap(cr => stageConverts.map((c: any) => ({
         resource_id: cr.resource_id,
         convert_id: c.id,
-        church_id: tenantId,
+        tenant_id: tenantId,
         assigned_by: userId,
       })));
-      const { error } = await supabase.from("resource_assignments").upsert(inserts, { onConflict: "resource_id,convert_id", ignoreDuplicates: true });
+      const { error } = await supabase.from(TABLES.RESOURCE_ASSIGNMENTS).upsert(inserts, { onConflict: "resource_id,convert_id", ignoreDuplicates: true });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -272,11 +273,11 @@ export default function DiscipleshipResources() {
 
   const createCollection = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.from("resource_collections").insert({
+      const { data, error } = await supabase.from(TABLES.RESOURCE_COLLECTIONS).insert({
         name: colForm.name,
         description: colForm.description,
         recommended_stage: colForm.recommended_stage,
-        church_id: tenantId,
+        tenant_id: tenantId,
         created_by: userId,
       }).select().single();
       if (error) throw error;

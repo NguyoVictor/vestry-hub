@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { setActiveBranch } from "@/components/layout/AppLayout";
+import { TABLES, COLS } from "@/lib/schema";
+import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +46,7 @@ export default function Branches() {
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from("churches").select("*").eq("parent_church_id", tenantId);
+      const { data } = await (supabase as any).from(TABLES.TENANTS).select("*").eq("parent_tenant_id", tenantId);
       return data || [];
     },
     enabled: !!tenantId,
@@ -53,7 +55,7 @@ export default function Branches() {
   const { data: members = [] } = useQuery({
     queryKey: ["members-list", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("church_id", tenantId).order("first_name");
+      const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name").eq(COLS.TENANT_ID, tenantId).order("first_name");
       return data || [];
     },
     enabled: !!tenantId,
@@ -67,10 +69,10 @@ export default function Branches() {
       const stats: Record<string, any> = {};
       for (const branch of branches) {
         const [members, giving, services, groups] = await Promise.all([
-          (supabase as any).from("members").select("id", { count: "exact", head: true }).eq("church_id", branch.id).eq("status", "active"),
-          (supabase as any).from("donations").select("amount").eq("church_id", branch.id).gte("donation_date", monthStart),
-          (supabase as any).from("services").select("id", { count: "exact", head: true }).eq("church_id", branch.id).gte("service_date", monthStart),
-          (supabase as any).from("groups").select("id", { count: "exact", head: true }).eq("church_id", branch.id).eq("is_active", true),
+          (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branch.id).eq("status", "active"),
+          (supabase as any).from(TABLES.GIVING_RECORDS).select("amount").eq(COLS.TENANT_ID, branch.id).gte(COLS.GIVING_DATE, monthStart),
+          (supabase as any).from(TABLES.SERVICES).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branch.id).gte("service_date", monthStart),
+          (supabase as any).from(TABLES.GROUPS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branch.id).eq("is_active", true),
         ]);
         stats[branch.id] = {
           members: members.count || 0,
@@ -88,20 +90,20 @@ export default function Branches() {
     mutationFn: async () => {
       const payload = {
         ...form,
-        parent_church_id: tenantId,
+        parent_tenant_id: tenantId,
         is_branch: true,
         branch_code: form.branch_code || `${form.city?.slice(0, 3).toUpperCase()}-${String(branches.length + 1).padStart(2, "0")}`,
       };
       if (editBranch) {
-        const { error } = await (supabase as any).from("churches").update(payload).eq("id", editBranch.id);
+        const { error } = await (supabase as any).from(TABLES.TENANTS).update(payload).eq("id", editBranch.id);
         if (error) throw error;
       } else {
-        const { data, error } = await (supabase as any).from("churches").insert(payload).select().single();
+        const { data, error } = await (supabase as any).from(TABLES.TENANTS).insert(payload).select().single();
         if (error) throw error;
         if (form.branch_admin_id && data) {
-          await supabase.from("church_members").insert({ church_id: data.id, user_id: form.branch_admin_id, role: "super_admin" });
+          await supabase.from(TABLES.ROLE_PERMISSIONS).insert({ tenant_id: data.id, user_id: form.branch_admin_id, role: "super_admin" });
         }
-        await supabase.from("activity_log").insert({ church_id: tenantId, action_type: "branch_created", description: `${form.name} branch created` });
+        await (supabase as any).from(TABLES.ACTIVITY_LOG).insert({ tenant_id: tenantId, action_type: "branch_created", description: `${form.name} branch created` });
       }
     },
     onSuccess: () => {
