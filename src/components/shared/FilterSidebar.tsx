@@ -61,19 +61,19 @@ export const FilterSidebar = ({ fields, values, onChange, onClear }: FilterSideb
                 </label>
               ))}
               {field.type === "select" && (
-                <Select value={values[field.key] || ""} onValueChange={v => updateField(field.key, v)}>
+                <Select value={values[field.key] || "__all__"} onValueChange={v => updateField(field.key, v === "__all__" ? "" : v)}>
                   <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All</SelectItem>
+                    <SelectItem value="__all__">All</SelectItem>
                     {field.options?.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               )}
               {field.type === "toggle" && (
-                <Select value={values[field.key] || ""} onValueChange={v => updateField(field.key, v)}>
+                <Select value={values[field.key] || "__any__"} onValueChange={v => updateField(field.key, v === "__any__" ? "" : v)}>
                   <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any</SelectItem>
+                    <SelectItem value="__any__">Any</SelectItem>
                     <SelectItem value="yes">Yes</SelectItem>
                     <SelectItem value="no">No</SelectItem>
                   </SelectContent>

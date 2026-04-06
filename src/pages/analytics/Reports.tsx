@@ -1294,10 +1294,10 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
                   <div key={f.key} className="space-y-1">
                     <Label className="text-xs text-muted-foreground">{f.label}</Label>
                     {f.type === "select" ? (
-                      <Select value={filters[f.key] || ""} onValueChange={v => setFilters(prev => ({ ...prev, [f.key]: v }))}>
+                      <Select value={filters[f.key] || "__any__"} onValueChange={v => setFilters(prev => ({ ...prev, [f.key]: v === "__any__" ? "" : v }))}>
                         <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Any" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Any</SelectItem>
+                          <SelectItem value="__any__">Any</SelectItem>
                           {f.options?.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                         </SelectContent>
                       </Select>
@@ -1323,10 +1323,10 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
 
             <div className="space-y-1.5">
               <Label className="text-xs">Group By</Label>
-              <Select value={groupBy} onValueChange={setGroupBy}>
+              <Select value={groupBy || "__none__"} onValueChange={v => setGroupBy(v === "__none__" ? "" : v)}>
                 <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {selectedCols.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -1335,10 +1335,10 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Sort By</Label>
-                <Select value={sortBy} onValueChange={setSortBy}>
+                <Select value={sortBy || "__none__"} onValueChange={v => setSortBy(v === "__none__" ? "" : v)}>
                   <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="None" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {selectedCols.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
