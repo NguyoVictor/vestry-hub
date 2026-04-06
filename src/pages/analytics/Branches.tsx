@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { setActiveBranch } from "@/components/layout/AppLayout";
 import { TABLES, COLS } from "@/lib/schema";
-import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,10 +45,11 @@ export default function Branches() {
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from(TABLES.TENANTS).select("*").eq("parent_tenant_id", tenantId);
+      const { data } = await supabase.from(TABLES.BRANCHES).select("*").eq(COLS.TENANT_ID, tenantId);
       return data || [];
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const { data: members = [] } = useQuery({
@@ -89,21 +89,21 @@ export default function Branches() {
   const saveBranch = useMutation({
     mutationFn: async () => {
       const payload = {
-        ...form,
-        parent_tenant_id: tenantId,
-        is_branch: true,
-        branch_code: form.branch_code || `${form.city?.slice(0, 3).toUpperCase()}-${String(branches.length + 1).padStart(2, "0")}`,
+        name: form.name,
+        tenant_id: tenantId,
+        location: [form.physical_address, form.city, form.country].filter(Boolean).join(", "),
+        contact_email: form.email || null,
+        contact_phone: form.phone || null,
+        is_active: form.status === "active",
+        pastor_id: form.branch_admin_id || null,
       };
       if (editBranch) {
-        const { error } = await (supabase as any).from(TABLES.TENANTS).update(payload).eq("id", editBranch.id);
+        const { error } = await supabase.from(TABLES.BRANCHES).update(payload).eq(COLS.ID, editBranch.id);
         if (error) throw error;
       } else {
-        const { data, error } = await (supabase as any).from(TABLES.TENANTS).insert(payload).select().single();
+        const { data, error } = await supabase.from(TABLES.BRANCHES).insert(payload).select().single();
         if (error) throw error;
-        if (form.branch_admin_id && data) {
-          await supabase.from(TABLES.ROLE_PERMISSIONS).insert({ tenant_id: data.id, user_id: form.branch_admin_id, role: "super_admin" });
-        }
-        await (supabase as any).from(TABLES.ACTIVITY_LOG).insert({ tenant_id: tenantId, action_type: "branch_created", description: `${form.name} branch created` });
+        await supabase.from(TABLES.ACTIVITY_LOG).insert({ tenant_id: tenantId, action_type: "branch_created", description: `${form.name} branch created` });
       }
     },
     onSuccess: () => {

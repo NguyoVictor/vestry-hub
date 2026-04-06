@@ -447,9 +447,9 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
     queryKey: ["rpt-expenses", tenantId, fromStr, toStr],
     queryFn: async () => {
       const { data } = await (supabase as any).from(TABLES.EXPENSES)
-        .select("id, amount, category, expense_date, status, description")
+        .select("id, amount, category, expense_date, approval_status, description")
         .eq(COLS.TENANT_ID, tenantId)
-        .eq("status", "approved")
+        .eq("approval_status", "approved")
         .gte("expense_date", fromStr)
         .lte("expense_date", toStr);
       return data || [];
@@ -1458,10 +1458,11 @@ export default function Reports() {
   const { data: branches = [] } = useQuery({
     queryKey: ["branches-check", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any).from(TABLES.TENANTS).select("id").eq("parent_tenant_id", tenantId).limit(1);
+      const { data } = await supabase.from(TABLES.BRANCHES).select("id").eq(COLS.TENANT_ID, tenantId).limit(1);
       return data || [];
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
   const hasBranches = branches.length > 0;
 
@@ -1473,7 +1474,7 @@ export default function Reports() {
         (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq("status", "active"),
         (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).gte("created_at", fromStr).lte("created_at", toStr),
         (supabase as any).from(TABLES.GIVING_RECORDS).select("amount").eq(COLS.TENANT_ID, tenantId).gte(COLS.GIVING_DATE, fromStr).lte(COLS.GIVING_DATE, toStr),
-        (supabase as any).from(TABLES.EXPENSES).select("amount").eq(COLS.TENANT_ID, tenantId).eq("status", "approved").gte("expense_date", fromStr).lte("expense_date", toStr),
+        (supabase as any).from(TABLES.EXPENSES).select("amount").eq(COLS.TENANT_ID, tenantId).eq("approval_status", "approved").gte("expense_date", fromStr).lte("expense_date", toStr),
         (supabase as any).from(TABLES.EVENTS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.EVENT_IS_PUBLISHED, true).gte(COLS.EVENT_DATE, fromStr).lte(COLS.EVENT_DATE, toStr),
       ]);
 
