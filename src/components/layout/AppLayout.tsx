@@ -7,10 +7,22 @@ import { TopNavbar } from "./TopNavbar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut, GitBranch, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+// ─── Branch switching helpers (sessionStorage-based) ─────────────────────────
+function getActiveBranch(): { id: string; name: string } | null {
+  try { return JSON.parse(sessionStorage.getItem("active_branch") || "null"); } catch { return null; }
+}
+
+export function setActiveBranch(branch: { id: string; name: string } | null) {
+  if (branch) sessionStorage.setItem("active_branch", JSON.stringify(branch));
+  else sessionStorage.removeItem("active_branch");
+  window.dispatchEvent(new Event("branch_changed"));
+}
+
+// ─── AppLayout ────────────────────────────────────────────────────────────────
 export const AppLayout = () => {
   const church = useChurch();
   const navigate = useNavigate();
@@ -18,6 +30,20 @@ export const AppLayout = () => {
     localStorage.getItem("sidebar_collapsed") === "true"
   );
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeBranch, setActiveBranchState] = useState<{ id: string; name: string } | null>(getActiveBranch);
+
+  // Listen for branch changes dispatched by Branches/BranchDetail pages
+  useState(() => {
+    const handler = () => setActiveBranchState(getActiveBranch());
+    window.addEventListener("branch_changed", handler);
+    return () => window.removeEventListener("branch_changed", handler);
+  });
+
+  const clearBranch = () => {
+    setActiveBranch(null);
+    setActiveBranchState(null);
+    toast.success("Returned to main church");
+  };
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -129,6 +155,23 @@ export const AppLayout = () => {
       </Sheet>
 
       <div className={cn("flex flex-col transition-all duration-300", collapsed ? "lg:ml-16" : "lg:ml-60")}>
+        {/* Branch viewing banner */}
+        {activeBranch && (
+          <div className="sticky top-0 z-50 flex items-center justify-between bg-amber-400 dark:bg-amber-500 px-4 py-2 text-amber-900 dark:text-amber-950">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <GitBranch className="h-4 w-4" />
+              Viewing branch: <strong>{activeBranch.name}</strong>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1.5 text-amber-900 hover:bg-amber-500 dark:hover:bg-amber-600"
+              onClick={clearBranch}
+            >
+              <X className="h-3.5 w-3.5" />Back to Main Church
+            </Button>
+          </div>
+        )}
         <TopNavbar onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />

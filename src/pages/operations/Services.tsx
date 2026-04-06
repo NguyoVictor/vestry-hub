@@ -19,6 +19,7 @@ import { CalendarView } from "@/components/events/CalendarView";
 import { TimeSlotPicker } from "@/components/events/TimeSlotPicker";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
 import { Plus, Church, CalendarDays, Users, List, LayoutGrid, Clock, MapPin } from "lucide-react";
 
@@ -70,6 +71,7 @@ export default function ServicesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services", tenantId] });
       toast.success("Service scheduled successfully");
+      logActivity({ churchId: tenantId!, actionType: "new_service", description: `A new service was scheduled for ${formData.date}`, entityType: "service" });
       setSheetOpen(false);
       resetForm();
     },

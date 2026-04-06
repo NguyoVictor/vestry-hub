@@ -21,6 +21,8 @@ import { Receipt, MoreHorizontal, Plus, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrencyFull } from "@/lib/format";
 
+import { logActivity } from "@/lib/activityLogger";
+
 interface GivingRow { id: string; member_id: string | null; amount: number; giving_type: string; payment_method: string; given_at: string; recorded_by: string | null; created_at: string; }
 
 const GIVING_CATEGORIES = ["tithe", "offering", "building_fund", "welfare", "missions", "special", "other"];
@@ -82,6 +84,9 @@ const GivingRecords = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["giving-records"] });
       toast.success(editingId ? "Record updated" : "Giving recorded");
+      if (!editingId) {
+        logActivity({ churchId: tenantId!, actionType: "new_donation", description: `A ${form.giving_type.replace(/_/g, " ")} of ${form.amount} was recorded`, entityType: "donation" });
+      }
       closeSheet();
     },
     onError: () => toast.error("Failed to save"),

@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Send, Plus, Mail, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/activityLogger";
 
 const channelIcons: Record<string, typeof Mail> = { email: Mail, sms: MessageSquare, in_app: Send };
 const statusColors: Record<string, string> = {
@@ -62,6 +63,7 @@ export default function Communications() {
       queryClient.invalidateQueries({ queryKey: ["broadcasts"] });
       toast.success("Message sent successfully");
       setShowCompose(false);
+      logActivity({ churchId: tenantId!, actionType: "new_broadcast", description: `Broadcast "${form.subject}" was sent via ${form.channel}`, entityType: "broadcast", entityName: form.subject });
       setForm({ subject: "", body: "", recipient_type: "all_members", channel: "in_app" });
     },
     onError: () => toast.error("Failed to send message"),

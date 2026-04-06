@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/activityLogger";
 import { Plus, UsersRound, MoreHorizontal, Trash2, Eye, Clock } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,8 +72,15 @@ const Groups = () => {
     mutationFn: async (values: z.infer<typeof groupSchema>) => {
       const { error } = await supabase.from("groups").insert({ ...values, tenant_id: tenantId! } as any);
       if (error) throw error;
+      return values;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["groups"] }); toast.success("Group created"); setSheetOpen(false); form.reset(); },
+    onSuccess: (values) => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      toast.success("Group created");
+      setSheetOpen(false);
+      form.reset();
+      logActivity({ churchId: tenantId!, actionType: "new_group", description: `"${values.name}" group was created`, entityType: "group", entityName: values.name });
+    },
     onError: (err: any) => toast.error(err.message),
   });
 

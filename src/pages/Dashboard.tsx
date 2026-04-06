@@ -10,19 +10,47 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { formatCurrencyFull } from "@/lib/format";
+import { useActivityLog } from "@/hooks/useActivityLog";
 import {
   Users, TrendingUp, CalendarDays, UsersRound, UserPlus, CreditCard,
   Megaphone, ArrowUpRight, ArrowDownRight, Minus, MapPin, Clock,
+  Activity, Sparkles, CheckCircle2, MessageSquare, Send,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import type { LucideIcon } from "lucide-react";
 
-const COLOR_MAP: Record<string, { bg: string; text: string }> = {
+// ─── Activity icon + colour map ──────────────────────────────────────────────
+const ACTIVITY_META: Record<string, { icon: LucideIcon; color: string; bg: string }> = {
+  new_member:          { icon: Users,        color: "text-indigo-600",  bg: "bg-indigo-100 dark:bg-indigo-900/30" },
+  member_updated:      { icon: Users,        color: "text-indigo-600",  bg: "bg-indigo-100 dark:bg-indigo-900/30" },
+  member_removed:      { icon: Users,        color: "text-slate-500",   bg: "bg-slate-100 dark:bg-slate-800" },
+  new_donation:        { icon: CreditCard,   color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
+  new_event:           { icon: CalendarDays, color: "text-violet-600",  bg: "bg-violet-100 dark:bg-violet-900/30" },
+  event_updated:       { icon: CalendarDays, color: "text-violet-600",  bg: "bg-violet-100 dark:bg-violet-900/30" },
+  event_cancelled:     { icon: CalendarDays, color: "text-red-500",     bg: "bg-red-100 dark:bg-red-900/30" },
+  new_announcement:    { icon: Megaphone,    color: "text-amber-600",   bg: "bg-amber-100 dark:bg-amber-900/30" },
+  announcement_published: { icon: Megaphone, color: "text-amber-600",  bg: "bg-amber-100 dark:bg-amber-900/30" },
+  new_visitor:         { icon: UserPlus,     color: "text-cyan-600",    bg: "bg-cyan-100 dark:bg-cyan-900/30" },
+  visitor_converted:   { icon: UserPlus,     color: "text-cyan-600",    bg: "bg-cyan-100 dark:bg-cyan-900/30" },
+  new_convert:         { icon: Sparkles,     color: "text-indigo-600",  bg: "bg-indigo-100 dark:bg-indigo-900/30" },
+  stage_advanced:      { icon: Sparkles,     color: "text-indigo-600",  bg: "bg-indigo-100 dark:bg-indigo-900/30" },
+  convert_graduated:   { icon: Sparkles,     color: "text-indigo-600",  bg: "bg-indigo-100 dark:bg-indigo-900/30" },
+  baptism_completed:   { icon: Sparkles,     color: "text-indigo-600",  bg: "bg-indigo-100 dark:bg-indigo-900/30" },
+  attendance_recorded: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
+  new_request:         { icon: MessageSquare, color: "text-orange-500", bg: "bg-orange-100 dark:bg-orange-900/30" },
+  request_resolved:    { icon: MessageSquare, color: "text-orange-500", bg: "bg-orange-100 dark:bg-orange-900/30" },
+  new_broadcast:       { icon: Send,         color: "text-blue-600",    bg: "bg-blue-100 dark:bg-blue-900/30" },
+};
+
+function getActivityMeta(actionType: string) {
+  return ACTIVITY_META[actionType] ?? { icon: Activity, color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-800" };
+}
   indigo: { bg: "bg-indigo-100 dark:bg-indigo-950", text: "text-indigo-600" },
   emerald: { bg: "bg-emerald-100 dark:bg-emerald-950", text: "text-emerald-600" },
   violet: { bg: "bg-violet-100 dark:bg-violet-950", text: "text-violet-600" },
@@ -74,44 +102,29 @@ const Dashboard = () => {
   const church = useChurch();
   const [chartMonths, setChartMonths] = useState(6);
 
-  const { data: memberCount, isLoading: membersLoading } = useQuery({
-    queryKey: ["stats", "members"],
+  // Single RPC call replaces 4 separate stat queries — per vestry-project.md performance rules
+  const { data: dashStats, isLoading: statsLoading } = useQuery({
+    queryKey: ["dashboard-stats", church.tenantId],
+    staleTime: 300_000,
     queryFn: async () => {
-      const { count } = await supabase.from("members").select("*", { count: "exact", head: true });
-      return count || 0;
+      const { data, error } = await supabase.rpc("get_dashboard_stats", { p_tenant_id: church.tenantId });
+      if (error) throw error;
+      return data as { member_count: number; giving_month: number; events_week: number; group_count: number };
     },
   });
 
-  const { data: givingTotal, isLoading: givingLoading } = useQuery({
-    queryKey: ["stats", "giving-month"],
-    queryFn: async () => {
-      const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0];
-      const { data } = await supabase.from("giving_records").select("amount").gte("given_at", start);
-      return data?.reduce((s, r) => s + Number(r.amount), 0) || 0;
-    },
-  });
-
-  const { data: eventsCount, isLoading: eventsLoading } = useQuery({
-    queryKey: ["stats", "upcoming-events-count"],
-    queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const week = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
-      const { count } = await supabase.from("events").select("*", { count: "exact", head: true })
-        .gte("event_date", today).lte("event_date", week);
-      return count || 0;
-    },
-  });
-
-  const { data: groupCount, isLoading: groupsLoading } = useQuery({
-    queryKey: ["stats", "groups"],
-    queryFn: async () => {
-      const { count } = await supabase.from("groups").select("*", { count: "exact", head: true }).eq("is_active", true);
-      return count || 0;
-    },
-  });
+  const membersLoading = statsLoading;
+  const givingLoading = statsLoading;
+  const eventsLoading = statsLoading;
+  const groupsLoading = statsLoading;
+  const memberCount = dashStats?.member_count ?? 0;
+  const givingTotal = dashStats?.giving_month ?? 0;
+  const eventsCount = dashStats?.events_week ?? 0;
+  const groupCount = dashStats?.group_count ?? 0;
 
   const { data: givingTrend, isLoading: trendLoading } = useQuery({
     queryKey: ["dashboard", "giving-trend", chartMonths],
+    staleTime: 300_000,
     queryFn: async () => {
       const start = new Date();
       start.setMonth(start.getMonth() - chartMonths);
@@ -131,6 +144,7 @@ const Dashboard = () => {
 
   const { data: groupDistribution, isLoading: distLoading } = useQuery({
     queryKey: ["dashboard", "group-distribution"],
+    staleTime: 300_000,
     queryFn: async () => {
       const { data: groups } = await supabase.from("groups").select("id, name").eq("is_active", true);
       if (!groups?.length) return [];
@@ -144,6 +158,7 @@ const Dashboard = () => {
 
   const { data: upcomingEvents, isLoading: upEventsLoading } = useQuery({
     queryKey: ["dashboard", "upcoming-events-list"],
+    staleTime: 300_000,
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase.from("events").select("id, title, event_date, start_time, location")
@@ -154,6 +169,7 @@ const Dashboard = () => {
 
   const { data: recentDonations, isLoading: donationsLoading } = useQuery({
     queryKey: ["dashboard", "recent-donations"],
+    staleTime: 300_000,
     queryFn: async () => {
       const { data } = await supabase.from("giving_records")
         .select("id, amount, giving_type, payment_method, given_at, currency")
@@ -163,6 +179,9 @@ const Dashboard = () => {
   });
 
   const totalGroupMembers = groupDistribution?.reduce((s, g) => s + g.value, 0) || 0;
+
+  // Recent Activity — live feed with Realtime
+  const { data: activityEntries = [], isLoading: activityLoading } = useActivityLog(church.tenantId, 10);
 
   return (
     <>
@@ -329,11 +348,46 @@ const Dashboard = () => {
             <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center py-8 text-center">
-              <Clock className="mb-2 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">Activity tracking coming soon</p>
-              <p className="mt-1 text-xs text-muted-foreground">Actions across your church will appear here</p>
-            </div>
+            {activityLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-3/4" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : activityEntries.length === 0 ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <Activity className="mb-2 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">No recent activity</p>
+                <p className="mt-1 text-xs text-muted-foreground">Actions across your church will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activityEntries.map(entry => {
+                  const meta = getActivityMeta(entry.action_type);
+                  const Icon = meta.icon;
+                  return (
+                    <div key={entry.id} className="flex items-start gap-3">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.bg}`}>
+                        <Icon className={`h-4 w-4 ${meta.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground leading-snug">{entry.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {entry.actor_name && <span className="font-medium">{entry.actor_name} · </span>}
+                          {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

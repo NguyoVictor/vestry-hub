@@ -1,0 +1,33 @@
+// Re-export recharts through a single module so tree-shaking works properly
+// and pages that don't use charts don't pay the bundle cost.
+// Import from this file instead of directly from "recharts" in page components.
+export {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ComposedChart,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Scatter,
+  ScatterChart,
+  FunnelChart,
+  Funnel,
+  LabelList,
+  ReferenceLine,
+  ReferenceArea,
+} from "recharts";

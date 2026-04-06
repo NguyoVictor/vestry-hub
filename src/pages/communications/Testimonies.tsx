@@ -18,6 +18,7 @@ import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { Quote, Plus, Check, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/activityLogger";
 
 const categoryColors: Record<string, string> = {
   healing: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -71,6 +72,7 @@ export default function Testimonies() {
       toast.success("Testimony added");
       setShowCreate(false);
       setForm({ title: "", body: "", category: "other", is_anonymous: false });
+      logActivity({ churchId: tenantId!, actionType: "new_testimony", description: `A new testimony "${form.title}" was submitted`, entityType: "testimony", entityName: form.title });
     },
     onError: () => toast.error("Failed to add testimony"),
   });
@@ -83,9 +85,12 @@ export default function Testimonies() {
       }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, { id, approved }) => {
       queryClient.invalidateQueries({ queryKey: ["testimonies"] });
       toast.success("Testimony updated");
+      if (approved) {
+        logActivity({ churchId: tenantId!, actionType: "testimony_published", description: "A testimony was approved and published", entityType: "testimony", entityId: id });
+      }
     },
   });
 

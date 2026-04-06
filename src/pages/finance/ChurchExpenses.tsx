@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/activityLogger";
 import { Wallet, Plus, MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, TrendingDown, AlertTriangle } from "lucide-react";
 import { format, startOfMonth, startOfYear } from "date-fns";
 import { formatCurrencyFull } from "@/lib/format";
@@ -68,7 +69,13 @@ const ChurchExpenses = () => {
       const { error } = await supabase.from("expenses").update({ approval_status: status, approved_by: userId, approved_at: new Date().toISOString() } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: (_, { status }) => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); toast.success(`Expense ${status}`); },
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      toast.success(`Expense ${status}`);
+      if (status === "approved") {
+        logActivity({ churchId: tenantId!, actionType: "expense_approved", description: `An expense was approved`, entityType: "expense" });
+      }
+    },
   });
 
   const deleteMutation = useMutation({

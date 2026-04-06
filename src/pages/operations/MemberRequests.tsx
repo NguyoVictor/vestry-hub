@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/activityLogger";
 import { formatDistanceToNow, format } from "date-fns";
 import { Plus, MessageSquare, Clock, CheckCircle2, AlertTriangle, List, LayoutGrid } from "lucide-react";
 
@@ -92,6 +93,7 @@ export default function MemberRequestsPage() {
       queryClient.invalidateQueries({ queryKey: ["member_requests", tenantId] });
       toast.success("Request created");
       setSheetOpen(false);
+      logActivity({ churchId: tenantId!, actionType: "new_request", description: `A new ${formData.request_type.replace(/_/g, " ")} request was submitted`, entityType: "member_request", entityName: formData.title });
     },
     onError: () => toast.error("Failed to create request"),
   });
@@ -106,9 +108,12 @@ export default function MemberRequestsPage() {
       const { error } = await supabase.from("member_requests").update(updates).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, { id, status }) => {
       queryClient.invalidateQueries({ queryKey: ["member_requests", tenantId] });
       toast.success("Status updated");
+      if (status === "closed") {
+        logActivity({ churchId: tenantId!, actionType: "request_resolved", description: "A member request was resolved", entityType: "member_request", entityId: id });
+      }
     },
   });
 

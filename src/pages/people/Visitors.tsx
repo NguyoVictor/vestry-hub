@@ -22,6 +22,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
+import { logActivity } from "@/lib/activityLogger";
+
 const visitorSchema = z.object({
   first_name: z.string().min(1, "Required"),
   last_name: z.string().min(1, "Required"),
@@ -70,7 +72,13 @@ const Visitors = () => {
       } as any);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["visitors"] }); toast.success("Visitor logged"); setSheetOpen(false); form.reset(); },
+    onSuccess: (_, values) => {
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      toast.success("Visitor logged");
+      logActivity({ churchId: tenantId!, actionType: "new_visitor", description: `${values.first_name} ${values.last_name} was logged as a visitor`, entityType: "visitor", entityName: `${values.first_name} ${values.last_name}` });
+      setSheetOpen(false);
+      form.reset();
+    },
     onError: (err: any) => toast.error(err.message),
   });
 
@@ -85,7 +93,12 @@ const Visitors = () => {
       } as any);
       await supabase.from("visitors").update({ follow_up_status: "converted", converted_to_member_id: userId } as any).eq("id", visitor.id);
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["visitors"] }); queryClient.invalidateQueries({ queryKey: ["members"] }); toast.success("Visitor converted to member!"); },
+    onSuccess: (_, visitor) => {
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Visitor converted to member!");
+      logActivity({ churchId: tenantId!, actionType: "visitor_converted", description: `${visitor.first_name} ${visitor.last_name} was converted from visitor to member`, entityType: "member", entityName: `${visitor.first_name} ${visitor.last_name}` });
+    },
     onError: (err: any) => toast.error(err.message),
   });
 

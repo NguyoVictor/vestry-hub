@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/activityLogger";
 import { Banknote, Plus, Users, Calendar } from "lucide-react";
 import { formatCurrencyFull } from "@/lib/format";
 
@@ -66,7 +67,14 @@ const Payroll = () => {
         if (error) throw error;
       }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payroll-staff"] }); toast.success(editingId ? "Staff updated" : "Staff added to payroll"); closeSheet(); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-staff"] });
+      toast.success(editingId ? "Staff updated" : "Staff added to payroll");
+      if (!editingId) {
+        logActivity({ churchId: tenantId!, actionType: "payroll_processed", description: `${form.job_title || "Staff"} was added to payroll`, entityType: "payroll" });
+      }
+      closeSheet();
+    },
     onError: () => toast.error("Failed to save"),
   });
 

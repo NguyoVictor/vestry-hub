@@ -61,6 +61,8 @@ interface UserRow {
   role: string;
 }
 
+import { logActivity } from "@/lib/activityLogger";
+
 const Members = () => {
   const { tenantId } = useChurch();
   const navigate = useNavigate();
@@ -133,6 +135,7 @@ const Members = () => {
       toast.success(`${values.first_name} ${values.last_name} added to Vestry`);
       setSheetOpen(false);
       form.reset();
+      logActivity({ churchId: tenantId!, actionType: "new_member", description: `${values.first_name} ${values.last_name} was added as a new member`, entityType: "member", entityName: `${values.first_name} ${values.last_name}` });
     },
     onError: (err: any) => toast.error(err.message || "Failed to add member"),
   });
@@ -142,7 +145,11 @@ const Members = () => {
       const { error } = await supabase.from("users").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["members"] }); toast.success("Member removed"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Member removed");
+      logActivity({ churchId: tenantId!, actionType: "member_removed", description: "A member was removed" });
+    },
   });
 
   const filteredMembers = members.filter(m => {

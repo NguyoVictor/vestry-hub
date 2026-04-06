@@ -11,15 +11,55 @@ import SignUp from "./pages/auth/SignUp";
 import MemberLogin from "./pages/auth/MemberLogin";
 import AuthCallback from "./pages/auth/AuthCallback";
 import Onboarding from "./pages/Onboarding";
-import Dashboard from "./pages/Dashboard";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ChurchPublicPage from "./pages/ChurchPublicPage";
 import { AuthGuard } from "./components/layout/AuthGuard";
 import { AppLayout } from "./components/layout/AppLayout";
+import { MemberAuthGuard } from "./components/layout/MemberAuthGuard";
+import { MemberPortalLayout } from "./components/layout/MemberPortalLayout";
 import { SettingsLayout } from "./components/settings/SettingsLayout";
 import { allNavItems } from "./config/navigation";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
+
+// Dashboard — lazy loaded
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+
+// Analytics & Branches pages
+const Reports = lazy(() => import("./pages/analytics/Reports"));
+const Branches = lazy(() => import("./pages/analytics/Branches"));
+const BranchDetail = lazy(() => import("./pages/analytics/BranchDetail"));
+
+// Member Portal pages
+const MemberLoginPage = lazy(() => import("./pages/member/MemberLogin"));
+const JoinChurch = lazy(() => import("./pages/member/JoinChurch"));
+const ProfileSetup = lazy(() => import("./pages/member/ProfileSetup"));
+const MemberHome = lazy(() => import("./pages/member/MemberHome"));
+const MemberGive = lazy(() => import("./pages/member/MemberGive"));
+const MemberGivingHistory = lazy(() => import("./pages/member/MemberGivingHistory"));
+const MemberAnnouncements = lazy(() => import("./pages/member/MemberAnnouncements"));
+const MemberRequests = lazy(() => import("./pages/member/MemberRequests"));
+const MemberTestimonies = lazy(() => import("./pages/member/MemberTestimonies"));
+const MemberProfilePage = lazy(() => import("./pages/member/MemberProfile"));
+const MemberSettingsPage = lazy(() => import("./pages/member/MemberSettings"));
+const MemberEventsPage = lazy(() => import("./pages/member/MemberEvents").then(m => ({ default: m.MemberEvents })));
+const MemberEventDetailPage = lazy(() => import("./pages/member/MemberEvents").then(m => ({ default: m.MemberEventDetail })));
+const MemberGroupsPage = lazy(() => import("./pages/member/MemberGroups").then(m => ({ default: m.MemberGroups })));
+const MemberGroupDetailPage = lazy(() => import("./pages/member/MemberGroups").then(m => ({ default: m.MemberGroupDetail })));
+const MemberSermonsPage = lazy(() => import("./pages/member/MemberSermons").then(m => ({ default: m.MemberSermons })));
+const MemberSermonDetailPage = lazy(() => import("./pages/member/MemberSermons").then(m => ({ default: m.MemberSermonDetail })));
+const MemberBiblePage = lazy(() => import("./pages/member/MemberBible"));
+const MemberMessagesPage = lazy(() => import("./pages/member/MemberMessages"));
+
+// Growth & Discipleship pages
+const Discipleship = lazy(() => import("./pages/growth/Discipleship"));
+const DiscipleshipResources = lazy(() => import("./pages/growth/DiscipleshipResources"));
+const Outreach = lazy(() => import("./pages/growth/Outreach"));
+const OutreachDetail = lazy(() => import("./pages/growth/OutreachDetail"));
+const ResourcesStore = lazy(() => import("./pages/growth/ResourcesStore"));
+const Training = lazy(() => import("./pages/growth/Training"));
+const TrainingCourseBuilder = lazy(() => import("./pages/growth/TrainingCourseBuilder"));
+const TrainingCourseDetail = lazy(() => import("./pages/growth/TrainingCourseDetail"));
 
 // Settings pages
 const ChurchProfile = lazy(() => import("./pages/settings/ChurchProfile"));
@@ -73,7 +113,16 @@ const MemberMessaging = lazy(() => import("./pages/communications/MemberMessagin
 const TestimoniesPage = lazy(() => import("./pages/communications/Testimonies"));
 const SurveysPage = lazy(() => import("./pages/communications/Surveys"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 300_000,        // 5 minutes — data stays fresh, no unnecessary refetches
+      gcTime: 600_000,           // 10 minutes cache retention
+      refetchOnWindowFocus: false, // never refetch just because user switches tabs
+      retry: 1,                  // only retry once on failure
+    },
+  },
+});
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
@@ -81,6 +130,8 @@ const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", 
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
 const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
+const GROWTH_PATHS = ["/discipleship", "/discipleship-resources", "/outreach", "/resources-store", "/training"];
+const ADMIN_PATHS = ["/reports", "/branches"];
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
@@ -136,6 +187,20 @@ const App = () => (
                 <Route path="/member-messaging" element={<Suspense fallback={<Fallback />}><MemberMessaging /></Suspense>} />
                 <Route path="/testimonies" element={<Suspense fallback={<Fallback />}><TestimoniesPage /></Suspense>} />
                 <Route path="/surveys" element={<Suspense fallback={<Fallback />}><SurveysPage /></Suspense>} />
+                {/* Growth & Discipleship routes */}
+                <Route path="/discipleship" element={<Suspense fallback={<Fallback />}><Discipleship /></Suspense>} />
+                <Route path="/discipleship-resources" element={<Suspense fallback={<Fallback />}><DiscipleshipResources /></Suspense>} />
+                <Route path="/outreach" element={<Suspense fallback={<Fallback />}><Outreach /></Suspense>} />
+                <Route path="/outreach/:activityId" element={<Suspense fallback={<Fallback />}><OutreachDetail /></Suspense>} />
+                <Route path="/resources-store" element={<Suspense fallback={<Fallback />}><ResourcesStore /></Suspense>} />
+                <Route path="/training" element={<Suspense fallback={<Fallback />}><Training /></Suspense>} />
+                <Route path="/training/new" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
+                <Route path="/training/:courseId/edit" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
+                <Route path="/training/:courseId" element={<Suspense fallback={<Fallback />}><TrainingCourseDetail /></Suspense>} />
+                {/* Analytics & Branches routes */}
+                <Route path="/reports" element={<Suspense fallback={<Fallback />}><Reports /></Suspense>} />
+                <Route path="/branches" element={<Suspense fallback={<Fallback />}><Branches /></Suspense>} />
+                <Route path="/branches/:branchId" element={<Suspense fallback={<Fallback />}><BranchDetail /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
@@ -150,13 +215,38 @@ const App = () => (
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems
-                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path) && !OPS_PATHS.includes(i.path) && !SEC_COMM_PATHS.includes(i.path))
+                  .filter(i => i.path !== "/dashboard" && i.path !== "/settings" && !PEOPLE_PATHS.includes(i.path) && !FINANCE_PATHS.includes(i.path) && !OPS_PATHS.includes(i.path) && !SEC_COMM_PATHS.includes(i.path) && !GROWTH_PATHS.includes(i.path) && !ADMIN_PATHS.includes(i.path))
                   .map(item => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
+            {/* Member Portal — standalone auth pages */}
+            <Route path="/member/login" element={<Suspense fallback={<Fallback />}><MemberLoginPage /></Suspense>} />
+            <Route path="/member/join" element={<Suspense fallback={<Fallback />}><JoinChurch /></Suspense>} />
+            {/* Member Portal — authenticated pages */}
+            <Route element={<MemberAuthGuard />}>
+              <Route path="/member/profile-setup" element={<Suspense fallback={<Fallback />}><ProfileSetup /></Suspense>} />
+              <Route element={<MemberPortalLayout />}>
+                <Route path="/member" element={<Suspense fallback={<Fallback />}><MemberHome /></Suspense>} />
+                <Route path="/member/give" element={<Suspense fallback={<Fallback />}><MemberGive /></Suspense>} />
+                <Route path="/member/giving-history" element={<Suspense fallback={<Fallback />}><MemberGivingHistory /></Suspense>} />
+                <Route path="/member/events" element={<Suspense fallback={<Fallback />}><MemberEventsPage /></Suspense>} />
+                <Route path="/member/events/:eventId" element={<Suspense fallback={<Fallback />}><MemberEventDetailPage /></Suspense>} />
+                <Route path="/member/announcements" element={<Suspense fallback={<Fallback />}><MemberAnnouncements /></Suspense>} />
+                <Route path="/member/groups" element={<Suspense fallback={<Fallback />}><MemberGroupsPage /></Suspense>} />
+                <Route path="/member/groups/:groupId" element={<Suspense fallback={<Fallback />}><MemberGroupDetailPage /></Suspense>} />
+                <Route path="/member/requests" element={<Suspense fallback={<Fallback />}><MemberRequests /></Suspense>} />
+                <Route path="/member/testimonies" element={<Suspense fallback={<Fallback />}><MemberTestimonies /></Suspense>} />
+                <Route path="/member/profile" element={<Suspense fallback={<Fallback />}><MemberProfilePage /></Suspense>} />
+                <Route path="/member/settings" element={<Suspense fallback={<Fallback />}><MemberSettingsPage /></Suspense>} />
+                <Route path="/member/messages" element={<Suspense fallback={<Fallback />}><MemberMessagesPage /></Suspense>} />
+                <Route path="/member/sermons" element={<Suspense fallback={<Fallback />}><MemberSermonsPage /></Suspense>} />
+                <Route path="/member/sermons/:sermonId" element={<Suspense fallback={<Fallback />}><MemberSermonDetailPage /></Suspense>} />
+                <Route path="/member/bible" element={<Suspense fallback={<Fallback />}><MemberBiblePage /></Suspense>} />
+              </Route>
+            </Route>
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

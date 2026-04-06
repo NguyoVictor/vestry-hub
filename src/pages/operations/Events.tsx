@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Plus, CalendarDays, Users, BarChart3, List, LayoutGrid, Calendar } from "lucide-react";
 
+import { logActivity } from "@/lib/activityLogger";
+
 const EVENT_TYPES = [
   { value: "conference", label: "Conference" },
   { value: "outreach", label: "Outreach" },
@@ -82,6 +84,7 @@ export default function EventsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events", tenantId] });
       toast.success("Event created successfully");
+      logActivity({ churchId: tenantId!, actionType: "new_event", description: `"${formData.title}" event was created`, entityType: "event", entityName: formData.title });
       setSheetOpen(false);
     },
     onError: () => toast.error("Failed to create event"),

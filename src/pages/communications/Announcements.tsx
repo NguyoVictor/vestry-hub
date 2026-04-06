@@ -19,6 +19,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
+import { logActivity } from "@/lib/activityLogger";
+
 const categoryColors: Record<string, string> = {
   general: "bg-muted text-muted-foreground",
   service: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
@@ -62,6 +64,7 @@ export default function Announcements() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["announcements"] });
       toast.success("Announcement posted");
+      logActivity({ churchId: tenantId!, actionType: "new_announcement", description: `"${form.title}" was posted as an announcement`, actorName: userName, entityType: "announcement", entityName: form.title });
       setShowCreate(false);
       setForm({ title: "", body: "", is_pinned: false, target_audience: "all" });
     },
