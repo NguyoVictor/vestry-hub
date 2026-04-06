@@ -1,4 +1,114 @@
 {
   "mcpServers": {
+
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--project-ref",
+        "${SUPABASE_PROJECT_REF}"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_tables",
+        "apply_migration",
+        "execute_sql",
+        "get_project",
+        "search_docs"
+      ]
+    },
+
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "get_file_contents",
+        "create_or_update_file",
+        "push_files",
+        "list_branches",
+        "create_pull_request",
+        "list_pull_requests"
+      ]
+    },
+
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "."],
+      "env": {
+        "GIT_PYTHON_GIT_EXECUTABLE": "C:\\Program Files\\Git\\mingw64\\bin\\git.exe",
+        "GIT_AUTHOR_NAME": "NguyoVictor",
+        "GIT_AUTHOR_EMAIL": "${GITHUB_EMAIL}",
+        "GIT_COMMITTER_NAME": "NguyoVictor",
+        "GIT_COMMITTER_EMAIL": "${GITHUB_EMAIL}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "git_status",
+        "git_add",
+        "git_diff",
+        "git_commit"
+      ]
+    },
+
+    "web-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": ["brave_web_search"]
+    },
+
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "disabled": false,
+      "autoApprove": [
+        "resolve-library-id",
+        "get-library-docs"
+      ]
+    },
+
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "disabled": false,
+      "autoApprove": [
+        "create_entities",
+        "add_observations",
+        "read_graph",
+        "search_nodes"
+      ]
+    },
+
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "disabled": false,
+      "autoApprove": ["sequentialthinking"]
+    },
+
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"],
+      "disabled": false,
+      "autoApprove": ["fetch"]
+    }
+
   }
 }

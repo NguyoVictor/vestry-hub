@@ -51,6 +51,8 @@ const ACTIVITY_META: Record<string, { icon: LucideIcon; color: string; bg: strin
 function getActivityMeta(actionType: string) {
   return ACTIVITY_META[actionType] ?? { icon: Activity, color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-800" };
 }
+
+const COLOR_MAP: Record<string, { bg: string; text: string }> = {
   indigo: { bg: "bg-indigo-100 dark:bg-indigo-950", text: "text-indigo-600" },
   emerald: { bg: "bg-emerald-100 dark:bg-emerald-950", text: "text-emerald-600" },
   violet: { bg: "bg-violet-100 dark:bg-violet-950", text: "text-violet-600" },

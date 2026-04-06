@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useChurch } from "@/contexts/ChurchContext";
 import { navigationGroups } from "@/config/navigation";
 import { supabase } from "@/integrations/supabase/client";
 import { TopNavbar } from "./TopNavbar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ChevronLeft, ChevronRight, LogOut, GitBranch, X } from "lucide-react";
@@ -31,6 +30,25 @@ export const AppLayout = () => {
   );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeBranch, setActiveBranchState] = useState<{ id: string; name: string } | null>(getActiveBranch);
+
+  // Persist sidebar scroll position across navigation
+  const sidebarScrollRef = useRef<HTMLDivElement>(null);
+  const scrollPosRef = useRef(0);
+  const location = useLocation();
+
+  // Save scroll position before navigation
+  useEffect(() => {
+    const el = sidebarScrollRef.current;
+    if (!el) return;
+    // Restore saved position after route change
+    el.scrollTop = scrollPosRef.current;
+  }, [location.pathname]);
+
+  const handleSidebarScroll = () => {
+    if (sidebarScrollRef.current) {
+      scrollPosRef.current = sidebarScrollRef.current.scrollTop;
+    }
+  };
 
   // Listen for branch changes dispatched by Branches/BranchDetail pages
   useState(() => {
@@ -75,7 +93,11 @@ export const AppLayout = () => {
         )}
       </div>
 
-      <ScrollArea className="flex-1 py-2">
+      <div
+          ref={mobile ? undefined : sidebarScrollRef}
+          onScroll={mobile ? undefined : handleSidebarScroll}
+          className="flex-1 overflow-y-auto py-2"
+        >
         {navigationGroups.map(group => (
           <div key={group.label} className="mb-1">
             {(mobile || !collapsed) && (
@@ -106,7 +128,7 @@ export const AppLayout = () => {
             ))}
           </div>
         ))}
-      </ScrollArea>
+      </div>
 
       <div className="border-t border-border p-3">
         {!mobile && (
