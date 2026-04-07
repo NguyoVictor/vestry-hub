@@ -153,6 +153,11 @@ const MemberProfile = () => {
         {/* Left profile card */}
         <Card className="lg:col-span-1">
           <CardContent className="pt-6 text-center space-y-4">
+            {member.membership_status === "Pending Approval" && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-400 font-medium">
+                ⏳ Pending Approval — registered via QR code
+              </div>
+            )}
             <MemberAvatar name={name} avatarUrl={member.avatar_url} size="lg" className="mx-auto" />
             <div>
               <h2 className="text-xl font-bold">{name}</h2>
@@ -175,6 +180,19 @@ const MemberProfile = () => {
                 <Mail className="h-4 w-4 mr-1" />Message
               </Button>
             </div>
+            {member.membership_status === "Pending Approval" && (
+              <Button
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                size="sm"
+                onClick={async () => {
+                  await supabase.from("members").update({ membership_status: "Member", status: "active" } as any).eq("id", memberId!);
+                  queryClient.invalidateQueries({ queryKey: ["member", memberId] });
+                  toast.success("Member approved");
+                }}
+              >
+                ✓ Approve Member
+              </Button>
+            )}
           </CardContent>
         </Card>
 

@@ -74,6 +74,7 @@ Deno.serve(async (req: Request) => {
         marital_status: maritalStatus || null,
         status: type === "visitor" ? "visitor" : "active",
         member_type: type,
+        membership_status: "Pending Approval",
         registration_source: "qr_scan",
         join_date: new Date().toISOString().split("T")[0],
         created_at: new Date().toISOString(),
