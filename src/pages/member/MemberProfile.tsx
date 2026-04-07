@@ -41,18 +41,19 @@ export default function MemberProfilePage() {
 
   const leaveChurch = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("role_permissions").update({ status: "inactive" }).eq("tenant_id", member.churchId).eq("user_id", member.userId);
+      const { error } = await supabase.from("members").update({ status: "inactive" }).eq("id", member.memberId);
       if (error) throw error;
     },
     onSuccess: () => {
+      localStorage.removeItem("member_session");
       toast.success("You have left the church");
-      navigate("/member/join");
+      navigate("/member/login");
     },
     onError: () => toast.error("Failed to leave church"),
   });
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = () => {
+    localStorage.removeItem("member_session");
     navigate("/member/login");
   };
 

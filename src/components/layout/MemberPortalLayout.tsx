@@ -1,6 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Home, Heart, CalendarDays, MessageCircle, User, BookOpen, Megaphone, Users, Bell, LogOut, HandHeart, ShoppingBag, BookCheck, Quote } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,7 @@ export function MemberPortalLayout() {
   const navigate = useNavigate();
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem("member_session");
     navigate("/member/login");
   };
 

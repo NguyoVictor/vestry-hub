@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Navigate, useLocation } from "react-router-dom";
-import { Building2, LayoutGrid, ShieldCheck, Bell, CreditCard, Lock, Plug, Globe } from "lucide-react";
+import { Building2, LayoutGrid, ShieldCheck, Bell, CreditCard, Lock, Plug, Globe, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -12,6 +12,7 @@ const settingsNav = [
   { label: "Security", icon: Lock, path: "/settings/security" },
   { label: "Integrations", icon: Plug, path: "/settings/integrations" },
   { label: "SEO & Public Page", icon: Globe, path: "/settings/seo" },
+  { label: "Member App", icon: Smartphone, path: "/settings/member-app" },
 ];
 
 export const SettingsLayout = () => {

@@ -142,7 +142,7 @@ const SignIn = () => {
 
         <div className="mt-4 flex flex-col items-center gap-2">
           <Link
-            to="/member-login"
+            to="/member/login"
             className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
           >
             <LinkIcon className="h-4 w-4" />

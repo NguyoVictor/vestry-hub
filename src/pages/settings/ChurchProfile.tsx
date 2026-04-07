@@ -17,9 +17,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { Loader2, Upload, X, Check } from "lucide-react";
+import { Loader2, Upload, X, Check, QrCode } from "lucide-react";
 import { countries } from "@/lib/country-currency";
 import { TABLES } from "@/lib/schema";
+import { ChurchQRModal } from "@/components/shared/ChurchQRModal";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const CURRENCIES = ["KES", "USD", "GBP", "EUR", "UGX", "TZS", "ZAR", "NGN", "GHS", "CAD", "AUD", "INR"];
@@ -55,6 +56,7 @@ const ChurchProfile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["tenant", church.tenantId],
@@ -66,6 +68,13 @@ const ChurchProfile = () => {
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      name: "", slug: "", tagline: "", address: "", city: "", country: "",
+      phone: "", contact_email: "", website_url: "", founded_year: "",
+      denomination: "", service_days: [], service_time: "", average_attendance: "",
+      currency: "KES", facebook_url: "", instagram_url: "", youtube_url: "",
+      twitter_url: "", whatsapp_number: "",
+    },
     values: tenant ? {
       name: tenant.name || "",
       slug: tenant.slug || "",
@@ -159,7 +168,25 @@ const ChurchProfile = () => {
   return (
     <>
       <Helmet><title>Church Profile — Vestry</title></Helmet>
-      <PageHeader title="Church Profile" subtitle="Update your church's public information" />
+      <PageHeader
+        title="Church Profile"
+        subtitle="Update your church's public information"
+        action={
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setQrOpen(true)}>
+            <QrCode className="h-4 w-4" />QR Codes
+          </Button>
+        }
+      />
+
+      {tenant && (
+        <ChurchQRModal
+          open={qrOpen}
+          onClose={() => setQrOpen(false)}
+          churchName={tenant.name || ""}
+          churchCode={tenant.church_code || ""}
+          churchSlug={tenant.slug || ""}
+        />
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit((v) => saveMutation.mutate(v))} className="space-y-6 max-w-3xl">

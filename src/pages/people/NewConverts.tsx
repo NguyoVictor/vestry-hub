@@ -53,23 +53,19 @@ const NewConverts = () => {
 
   const createMut = useMutation({
     mutationFn: async (values: z.infer<typeof convertSchema>) => {
-      // Create a user record for the convert
-      const userId = crypto.randomUUID();
-      await supabase.from("users").insert({
-        id: userId, tenant_id: tenantId!, first_name: values.first_name, last_name: values.last_name,
-        email: `${userId}@placeholder.vestry`, phone: values.phone || null, role: "member" as any, status: "active" as any,
-        join_date: values.conversion_date, password_hash: "INVITED", mfa_enabled: false, email_verified: false, phone_verified: false,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      } as any);
-
+      // Insert directly into new_converts with first_name/last_name (Option B — no users FK needed)
       const { error } = await supabase.from("new_converts").insert({
         tenant_id: tenantId!,
-        member_id: userId,
+        first_name: values.first_name,
+        last_name: values.last_name,
+        phone: values.phone || null,
         salvation_date: values.conversion_date,
+        conversion_date: values.conversion_date,
         notes: values.notes || null,
         discipleship_stage: values.discipleship_stage,
         baptism_status: values.baptism_status,
         baptism_date: values.baptism_date || null,
+        member_type: "member",
       } as any);
       if (error) throw error;
     },

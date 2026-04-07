@@ -14,17 +14,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { UserPlus, Users, MoreHorizontal, Upload, Eye, Pencil, Mail, Trash2 } from "lucide-react";
+import { UserPlus, Users, MoreHorizontal, Eye, Trash2, Mail, MessageSquare, Copy, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { logActivity } from "@/lib/activityLogger";
 
 const addMemberSchema = z.object({
   first_name: z.string().min(2, "Min 2 chars"),
@@ -58,10 +60,8 @@ interface UserRow {
   avatar_url: string | null;
   gender: string | null;
   date_of_birth: string | null;
-  role: string;
+  member_type: string | null;
 }
-
-import { logActivity } from "@/lib/activityLogger";
 
 const Members = () => {
   const { tenantId } = useChurch();
@@ -70,53 +70,49 @@ const Members = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Record<string, any>>({});
+  const [welcomeDialog, setWelcomeDialog] = useState<{
+    open: boolean; memberId: string; memberName: string; email: string; tenantId: string;
+  } | null>(null);
+  const [sendingWelcome, setSendingWelcome] = useState<string | null>(null);
+  const [copiedWelcome, setCopiedWelcome] = useState(false);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["members", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("users")
-        .select("id, first_name, last_name, email, phone, status, join_date, avatar_url, gender, date_of_birth, role")
+        .from("members")
+        .select("id, first_name, last_name, email, phone, status, join_date, avatar_url, gender, date_of_birth, member_type")
+        .eq("tenant_id", tenantId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as UserRow[];
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const form = useForm<MemberForm>({
     resolver: zodResolver(addMemberSchema),
-    defaultValues: { first_name: "", last_name: "", email: "", phone: "", status: "active", join_date: new Date().toISOString().split("T")[0], baptized: false },
+    defaultValues: {
+      first_name: "", last_name: "", email: "", phone: "",
+      status: "active", join_date: new Date().toISOString().split("T")[0],
+      baptized: false, baptism_date: "", gender: "", marital_status: "",
+      nationality: "", city: "", country: "", department: "", notes: "",
+    },
   });
 
   const addMutation = useMutation({
     mutationFn: async (values: MemberForm) => {
-      const userId = crypto.randomUUID();
-      const { error: userErr } = await supabase.from("users").insert({
-        id: userId,
+      const memberId = crypto.randomUUID();
+
+      const { error: memErr } = await supabase.from("members").insert({
+        id: memberId,
         tenant_id: tenantId!,
         first_name: values.first_name,
         last_name: values.last_name,
-        email: values.email || `${userId}@placeholder.vestry`,
+        email: values.email || null,
         phone: values.phone,
-        status: values.status as any,
-        join_date: values.join_date,
-        gender: values.gender || null,
-        date_of_birth: values.date_of_birth || null,
-        role: "member" as any,
-        password_hash: "INVITED",
-        mfa_enabled: false,
-        email_verified: false,
-        phone_verified: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any);
-      if (userErr) throw userErr;
-
-      const { error: memErr } = await supabase.from("members").insert({
-        id: userId,
-        tenant_id: tenantId!,
-        membership_number: `MEM-${Date.now().toString(36).toUpperCase()}`,
+        membership_number: `MEM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
         baptism_date: values.baptized && values.baptism_date ? values.baptism_date : null,
         baptized: values.baptized,
         department: values.department || null,
@@ -124,25 +120,37 @@ const Members = () => {
         notes: values.notes || null,
         city: values.city || null,
         country: values.country || null,
+        status: values.status,
+        join_date: values.join_date,
+        gender: values.gender || null,
+        date_of_birth: values.date_of_birth || null,
+        marital_status: values.marital_status || null,
+        registration_source: "admin",
+        member_type: "member",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       } as any);
       if (memErr) throw memErr;
-      return values;
+      return { values, memberId };
     },
-    onSuccess: (values) => {
+    onSuccess: (result: any) => {
+      const { values, memberId } = result;
       queryClient.invalidateQueries({ queryKey: ["members"] });
       toast.success(`${values.first_name} ${values.last_name} added to Vestry`);
       setSheetOpen(false);
       form.reset();
       logActivity({ churchId: tenantId!, actionType: "new_member", description: `${values.first_name} ${values.last_name} was added as a new member`, entityType: "member", entityName: `${values.first_name} ${values.last_name}` });
+      // Show portal access dialog if member has email
+      if (values.email && memberId) {
+        setWelcomeDialog({ open: true, memberId, memberName: `${values.first_name} ${values.last_name}`, email: values.email, tenantId: tenantId! });
+      }
     },
     onError: (err: any) => toast.error(err.message || "Failed to add member"),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("users").delete().eq("id", id);
+      const { error } = await supabase.from("members").update({ status: "inactive" }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -170,7 +178,7 @@ const Members = () => {
       exportValue: (row) => `${row.first_name} ${row.last_name}`,
     },
     { key: "phone", header: "Phone", render: (row) => <span className="text-sm">{row.phone || "—"}</span> },
-    { key: "role", header: "Role", sortable: true, render: (row) => <StatusBadge status={row.role} /> },
+    { key: "member_type", header: "Type", sortable: true, render: (row) => <StatusBadge status={row.member_type || "member"} /> },
     { key: "status", header: "Status", sortable: true, render: (row) => <StatusBadge status={row.status} /> },
     {
       key: "join_date", header: "Join Date", sortable: true,
@@ -253,7 +261,7 @@ const Members = () => {
               <div className="grid grid-cols-2 gap-3">
                 <FormField control={form.control} name="gender" render={({ field }) => (
                   <FormItem><FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}><FormControl><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                       <SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent>
                     </Select><FormMessage /></FormItem>
                 )} />
@@ -264,7 +272,7 @@ const Members = () => {
               <div className="grid grid-cols-2 gap-3">
                 <FormField control={form.control} name="marital_status" render={({ field }) => (
                   <FormItem><FormLabel>Marital Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}><FormControl><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                       <SelectContent><SelectItem value="single">Single</SelectItem><SelectItem value="married">Married</SelectItem><SelectItem value="divorced">Divorced</SelectItem><SelectItem value="widowed">Widowed</SelectItem></SelectContent>
                     </Select><FormMessage /></FormItem>
                 )} />
@@ -301,6 +309,95 @@ const Members = () => {
           </Form>
         </SheetContent>
       </Sheet>
+
+      {/* Portal Access Welcome Dialog */}
+      {welcomeDialog && (
+        <Dialog open={welcomeDialog.open} onOpenChange={() => setWelcomeDialog(null)}>
+          <DialogContent className="max-w-sm" aria-describedby="welcome-dialog-desc">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                Member Added Successfully
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <p id="welcome-dialog-desc" className="text-sm text-muted-foreground">
+                Send <strong>{welcomeDialog.memberName}</strong> their portal access details?
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="w-full gap-2"
+                  disabled={sendingWelcome === "email"}
+                  onClick={async () => {
+                    setSendingWelcome("email");
+                    const { data, error } = await supabase.functions.invoke("send-member-welcome", {
+                      body: { memberId: welcomeDialog.memberId, tenantId: welcomeDialog.tenantId, channel: "email" },
+                    });
+                    setSendingWelcome(null);
+                    if (error) {
+                      toast.error("Failed to send email");
+                    } else if (data?.no_provider) {
+                      // No email provider — show the code to copy manually
+                      toast.info(`Email not configured. Share this code manually: ${data.details?.churchCode}`);
+                      navigator.clipboard.writeText(
+                        `Church: ${welcomeDialog.memberName} | Email: ${welcomeDialog.email} | Code: ${data.details?.churchCode} | Login: ${data.details?.loginUrl}`
+                      );
+                    } else {
+                      toast.success("Welcome email sent!");
+                    }
+                  }}
+                >
+                  <Mail className="h-4 w-4" />
+                  {sendingWelcome === "email" ? "Sending..." : "Send via Email"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  disabled={sendingWelcome === "sms"}
+                  onClick={async () => {
+                    setSendingWelcome("sms");
+                    const { data, error } = await supabase.functions.invoke("send-member-welcome", {
+                      body: { memberId: welcomeDialog.memberId, tenantId: welcomeDialog.tenantId, channel: "sms" },
+                    });
+                    setSendingWelcome(null);
+                    if (error) {
+                      toast.error("Failed to send SMS");
+                    } else if (data?.no_provider) {
+                      toast.info("SMS not configured. Use 'Copy Details' to share manually.");
+                    } else {
+                      toast.success("Welcome SMS sent!");
+                    }
+                  }}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  {sendingWelcome === "sms" ? "Sending..." : "Send via SMS"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `Name: ${welcomeDialog.memberName} | Email: ${welcomeDialog.email}`
+                    );
+                    setCopiedWelcome(true);
+                    setTimeout(() => setCopiedWelcome(false), 2000);
+                    toast.success("Details copied");
+                  }}
+                >
+                  {copiedWelcome ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                  Copy Details
+                </Button>
+              </div>
+              <button
+                className="w-full text-xs text-muted-foreground hover:text-foreground text-center"
+                onClick={() => setWelcomeDialog(null)}
+              >
+                Skip for now
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };

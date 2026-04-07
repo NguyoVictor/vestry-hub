@@ -1,17 +1,22 @@
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
 import { TABLES, COLS } from "@/lib/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
-import { Heart, HandHeart, CalendarDays, MessageCircle, BookOpen, Share2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Heart, HandHeart, CalendarDays, MessageCircle, BookOpen, Share2,
+  Receipt, Megaphone, MessageSquare, Quote, DollarSign, Wrench,
+  Lightbulb, Users, Video, PlayCircle, Image, Globe, UserCheck,
+  Home, BarChart2, BookCheck, PenLine, Building2, ShoppingBag,
+  Target, Stethoscope, Clock, Tv, ChevronRight,
+} from "lucide-react";
 
 const VERSES = [
   { text: "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.", ref: "Jeremiah 29:11" },
@@ -35,34 +40,42 @@ function getVerseOfDay() {
   return VERSES[dayOfYear % VERSES.length];
 }
 
+// All portal service modules — key matches enabled_modules.member_portal
+const ALL_MODULES = [
+  { key: "give_online", label: "Give Online", desc: "Tithes, offerings, and donations", icon: Heart, color: "bg-red-500", path: "/member/give" },
+  { key: "pledge_campaigns", label: "Pledge Campaigns", desc: "View and commit to pledges", icon: Target, color: "bg-orange-500", path: "/member/give" },
+  { key: "my_giving_history", label: "My Giving History", desc: "View complete giving records and tax receipts", icon: Receipt, color: "bg-amber-500", path: "/member/giving-history" },
+  { key: "announcements", label: "Announcements", desc: "Latest church news and updates", icon: Megaphone, color: "bg-yellow-500", path: "/member/announcements" },
+  { key: "messages", label: "Messages", desc: "Direct messages from church staff", icon: MessageCircle, color: "bg-blue-500", path: "/member/messages" },
+  { key: "chat_on_whatsapp", label: "Chat on WhatsApp", desc: "WhatsApp not yet configured for your church", icon: MessageSquare, color: "bg-green-500", path: "#" },
+  { key: "testimonies", label: "Testimonies", desc: "Read inspiring testimonies from members", icon: Quote, color: "bg-purple-500", path: "/member/testimonies" },
+  { key: "share_your_testimony", label: "Share Your Testimony", desc: "Share what God has done for you", icon: Share2, color: "bg-pink-500", path: "/member/testimonies" },
+  { key: "service_request", label: "Service Request", desc: "Submit a request to the church", icon: Wrench, color: "bg-slate-500", path: "/member/requests" },
+  { key: "expense_request", label: "Expense Request", desc: "Submit an expense requisition for approval", icon: DollarSign, color: "bg-emerald-500", path: "/member/requests" },
+  { key: "opinion_box", label: "Opinion Box", desc: "Give suggestions and church awareness", icon: Lightbulb, color: "bg-yellow-400", path: "/member/requests" },
+  { key: "counselling", label: "Counselling", desc: "Request a pastoral session", icon: Stethoscope, color: "bg-teal-500", path: "/member/requests" },
+  { key: "my_appointments", label: "My Appointments", desc: "View scheduled counselling meetings", icon: Clock, color: "bg-indigo-400", path: "/member/requests" },
+  { key: "upcoming_events", label: "Upcoming Events & Services", desc: "Church services and programs", icon: CalendarDays, color: "bg-violet-500", path: "/member/events" },
+  { key: "watch_live", label: "Watch Live", desc: "Join our live stream services", icon: Tv, color: "bg-red-600", path: "/member/sermons" },
+  { key: "sermons", label: "Sermons & Messages", desc: "Watch and listen to teachings", icon: PlayCircle, color: "bg-indigo-500", path: "/member/sermons" },
+  { key: "church_media", label: "Church Media", desc: "Photos, videos, and audio photos", icon: Image, color: "bg-cyan-500", path: "/member/sermons" },
+  { key: "outreach_impact", label: "Outreach Impact", desc: "Statistics & data from our outreach", icon: Globe, color: "bg-green-600", path: "#" },
+  { key: "volunteer", label: "Volunteer", desc: "View current service and sign up to serve", icon: HandHeart, color: "bg-orange-400", path: "#" },
+  { key: "join_volunteer_groups", label: "Join Volunteer Groups", desc: "Browse and join ministry teams", icon: Users, color: "bg-blue-400", path: "#" },
+  { key: "house_fellowships", label: "House Fellowships", desc: "Join and view home cell groups", icon: Home, color: "bg-amber-600", path: "/member/groups" },
+  { key: "surveys", label: "Surveys", desc: "Participate in church surveys", icon: BarChart2, color: "bg-purple-400", path: "#" },
+  { key: "bible_explorer", label: "Bible Explorer", desc: "Access the built-in Bible reading tool", icon: BookOpen, color: "bg-emerald-600", path: "/member/bible" },
+  { key: "daily_devotionals", label: "Daily Devotionals", desc: "Access daily Bible readings", icon: BookCheck, color: "bg-teal-600", path: "/member/bible" },
+  { key: "training_courses", label: "Training & Courses", desc: "Enroll in discipleship training programs", icon: Video, color: "bg-indigo-600", path: "#" },
+  { key: "my_discipleship_journey", label: "My Discipleship Journey", desc: "Track your discipleship, maturity & milestones", icon: UserCheck, color: "bg-violet-600", path: "#" },
+  { key: "my_sermon_notes", label: "My Sermon Notes", desc: "View and edit your sermon notes", icon: PenLine, color: "bg-slate-600", path: "#" },
+  { key: "facility_booking", label: "Facility Booking", desc: "Book church spaces for personal events", icon: Building2, color: "bg-gray-500", path: "#" },
+  { key: "resource_store", label: "Resource Store", desc: "Books, courses, and resources", icon: ShoppingBag, color: "bg-orange-600", path: "#" },
+];
+
 export default function MemberHome() {
   const member = useMemberPortal();
   const verse = getVerseOfDay();
-
-  const { data: announcements = [], isLoading: annLoading } = useQuery({
-    queryKey: ["member-announcements", member.churchId],
-    queryFn: async () => {
-      const { data } = await supabase.from(TABLES.ANNOUNCEMENTS).select("*").eq(COLS.TENANT_ID, member.churchId).order("is_pinned", { ascending: false }).order("created_at", { ascending: false }).limit(5);
-      return data || [];
-    },
-  });
-
-  const { data: events = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ["member-upcoming-events", member.churchId],
-    queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const { data } = await supabase.from(TABLES.EVENTS).select("*").eq(COLS.TENANT_ID, member.churchId).gte(COLS.EVENT_DATE, today).order(COLS.EVENT_DATE, { ascending: true }).limit(3);
-      return data || [];
-    },
-  });
-
-  const { data: myGroups = [] } = useQuery({
-    queryKey: ["member-groups", member.memberId],
-    queryFn: async () => {
-      const { data } = await supabase.from(TABLES.GROUP_MEMBERS).select("groups(id, name, group_type)").eq("member_id", member.memberId).limit(5);
-      return (data || []).map((gm: any) => gm.groups).filter(Boolean);
-    },
-  });
 
   const { data: latestSermon } = useQuery({
     queryKey: ["member-latest-sermon", member.churchId],
@@ -77,167 +90,133 @@ export default function MemberHome() {
         .single();
       return data;
     },
+    staleTime: 300000,
+  });
+
+  const { data: volunteerRoles = [] } = useQuery({
+    queryKey: ["member-volunteer-roles", member.memberId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.VOLUNTEERS)
+        .select("role_id, volunteer_roles(name)")
+        .eq("member_id", member.memberId)
+        .eq(COLS.TENANT_ID, member.churchId);
+      return data || [];
+    },
+    staleTime: 300000,
   });
 
   const shareVerse = () => {
     const text = `"${verse.text}" — ${verse.ref}`;
-    if (navigator.share) { navigator.share({ text }); }
+    if (navigator.share) navigator.share({ text });
     else { navigator.clipboard.writeText(text); toast.success("Verse copied to clipboard"); }
   };
+
+  // Filter modules by enabled_modules.member_portal
+  const visibleModules = ALL_MODULES.filter(m => member.enabledModules[m.key] !== false);
 
   return (
     <>
       <Helmet><title>Home — Vestry</title></Helmet>
-      <div className="space-y-5 max-w-2xl mx-auto">
-        {/* Welcome */}
-        <div>
-          <h1 className="text-2xl font-bold">{getGreeting()}, {member.firstName} 👋</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{member.churchName} · Member since {format(new Date(member.memberSince), "MMM yyyy")}</p>
-        </div>
+      <div className="space-y-5 max-w-2xl mx-auto pb-6">
 
-        {/* Profile completion */}
+        {/* Profile completion banner */}
         {member.profileComplete < 100 && (
-          <Card className="border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">Complete your profile</p>
-                <span className="text-sm font-bold text-indigo-600">{member.profileComplete}%</span>
+          <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+            <CardContent className="p-3 flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Update Your Profile</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">Please update your profile to get the most out of church services.</p>
               </div>
-              <Progress value={member.profileComplete} className="h-2 mb-2" />
-              <Button size="sm" variant="outline" asChild className="border-indigo-300 text-indigo-700 hover:bg-indigo-100">
-                <Link to="/member/profile">Complete Profile</Link>
+              <Button size="sm" variant="outline" asChild className="shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100">
+                <Link to="/member/profile">Complete</Link>
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Verse of the Day */}
-        <Card className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white border-0">
-          <CardContent className="p-5">
-            <p className="text-xs font-medium opacity-80 mb-2 uppercase tracking-wide">Verse of the Day</p>
-            <p className="text-base italic leading-relaxed mb-3">"{verse.text}"</p>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-indigo-200">{verse.ref}</span>
-              <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 gap-1.5 h-8" onClick={shareVerse}>
-                <Share2 className="h-3.5 w-3.5" />Share
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: "Give", icon: Heart, path: "/member/give", color: "bg-indigo-100 text-indigo-600" },
-            { label: "Pray", icon: HandHeart, path: "/member/requests", color: "bg-violet-100 text-violet-600" },
-            { label: "Events", icon: CalendarDays, path: "/member/events", color: "bg-amber-100 text-amber-600" },
-            { label: "Messages", icon: MessageCircle, path: "/member/messages", color: "bg-emerald-100 text-emerald-600" },
-          ].map(({ label, icon: Icon, path, color }) => (
-            <Link key={label} to={path} className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-sm transition-shadow">
-              <div className={`h-11 w-11 rounded-full flex items-center justify-center ${color}`}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <span className="text-xs font-medium">{label}</span>
-            </Link>
-          ))}
+        {/* Welcome */}
+        <div className="text-center py-2">
+          <h1 className="text-2xl font-bold">Welcome! 👋</h1>
+          <p className="text-sm text-muted-foreground mt-1">Access all church services and resources from this place.</p>
         </div>
 
-        {/* Announcements */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Announcements</h2>
-            <Link to="/member/announcements" className="text-sm text-indigo-600">See all</Link>
-          </div>
-          {annLoading ? (
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 w-56 shrink-0 rounded-2xl" />)}
-            </div>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {announcements.map((a: any) => (
-                <Link key={a.id} to="/member/announcements" className="shrink-0 w-56 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 hover:shadow-sm transition-shadow">
-                  <Badge variant="secondary" className="text-xs mb-2 capitalize">{a.target_audience || "general"}</Badge>
-                  <p className="font-medium text-sm line-clamp-2">{a.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{format(new Date(a.created_at), "dd MMM")}</p>
-                </Link>
-              ))}
-            </div>
-          )}
+        {/* Services grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {visibleModules.map(mod => {
+            const Icon = mod.icon;
+            return (
+              <Link
+                key={mod.key}
+                to={mod.path}
+                className="flex items-center gap-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 hover:shadow-sm transition-shadow group"
+              >
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${mod.color}`}>
+                  <Icon className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm leading-tight">{mod.label}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{mod.desc}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300 shrink-0 group-hover:text-slate-500 transition-colors" />
+              </Link>
+            );
+          })}
         </div>
 
-        {/* Upcoming Events */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Upcoming Events</h2>
-            <Link to="/member/events" className="text-sm text-indigo-600">See all</Link>
-          </div>
-          {eventsLoading ? (
-            <div className="space-y-3">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
-          ) : events.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No upcoming events</p>
-          ) : (
-            <div className="space-y-3">
-              {events.map((e: any) => (
-                <Link key={e.id} to={`/member/events/${e.id}`} className="flex items-center gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 hover:shadow-sm transition-shadow">
-                  <div className="text-center bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-2 w-14 shrink-0">
-                    <p className="text-xs text-indigo-600 font-medium uppercase">{format(new Date(e.event_date), "MMM")}</p>
-                    <p className="text-xl font-bold text-indigo-700">{format(new Date(e.event_date), "d")}</p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{e.title}</p>
-                    <p className="text-xs text-muted-foreground">{e.location || "Church"}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Latest Sermon */}
-        {latestSermon && (
-          <div>
+        {/* My Service Roles */}
+        {volunteerRoles.length > 0 && (
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Latest Sermon</h2>
-              <Link to="/member/sermons" className="text-sm text-indigo-600">See all</Link>
+              <p className="font-semibold text-sm">My Service Roles</p>
+              <Link to="#" className="text-xs text-indigo-600">View details →</Link>
             </div>
-            <Link to={`/member/sermons/${latestSermon.id}`} className="flex items-center gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 hover:shadow-sm transition-shadow">
-              <div className="h-16 w-16 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 overflow-hidden">
-                {latestSermon.thumbnail_url ? (
-                  <img src={latestSermon.thumbnail_url} alt={latestSermon.title} className="w-full h-full object-cover rounded-xl" />
-                ) : (
-                  <BookOpen className="h-6 w-6 text-indigo-600" />
-                )}
+            <div className="space-y-2">
+              {volunteerRoles.map((r: any) => (
+                <div key={r.role_id} className="flex items-center gap-2 text-sm">
+                  <UserCheck className="h-4 w-4 text-indigo-500" />
+                  <span>{(r.volunteer_roles as any)?.name || "Volunteer"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Your Dashboard */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-semibold text-sm">Your Dashboard</p>
+            <ChevronRight className="h-4 w-4 text-slate-400" />
+          </div>
+          {latestSermon ? (
+            <Link to={`/member/sermons/${latestSermon.id}`} className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 overflow-hidden">
+                {latestSermon.thumbnail_url
+                  ? <img src={latestSermon.thumbnail_url} className="w-full h-full object-cover" alt="" />
+                  : <BookOpen className="h-5 w-5 text-indigo-600" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate">{latestSermon.title}</p>
-                {latestSermon.speaker && <p className="text-xs text-muted-foreground mt-0.5">{latestSermon.speaker}</p>}
-                {latestSermon.duration && <p className="text-xs text-muted-foreground">{latestSermon.duration}</p>}
-              </div>
-              <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
-                <Heart className="h-4 w-4 text-white fill-white" />
+                <p className="text-sm font-medium truncate">{latestSermon.title}</p>
+                {latestSermon.speaker && <p className="text-xs text-muted-foreground">{latestSermon.speaker}</p>}
               </div>
             </Link>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              <BookOpen className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+              <p className="text-sm">No assignments found</p>
+              <p className="text-xs mt-1">You don't have any service roles assigned for this period.</p>
+            </div>
+          )}
+        </div>
 
-        {/* My Groups */}
-        {myGroups.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">My Groups</h2>
-              <Link to="/member/groups" className="text-sm text-indigo-600">See all</Link>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {myGroups.map((g: any) => (
-                <Link key={g.id} to={`/member/groups/${g.id}`} className="shrink-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 w-44 hover:shadow-sm transition-shadow">
-                  <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold mb-2">{g.name?.charAt(0)}</div>
-                  <p className="font-medium text-sm truncate">{g.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{g.group_type?.replace(/_/g, " ")}</p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Need Help */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 text-center">
+          <BookOpen className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+          <p className="font-semibold text-sm">Need Help?</p>
+          <p className="text-xs text-muted-foreground mt-1">Contact your church office or visit the church page for more information.</p>
+          <Button variant="link" size="sm" asChild className="mt-2 text-indigo-600">
+            <Link to={`/church/${member.churchId}`}>Visit Church Page</Link>
+          </Button>
+        </div>
       </div>
     </>
   );

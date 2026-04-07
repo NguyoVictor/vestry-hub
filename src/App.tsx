@@ -70,6 +70,7 @@ const Billing = lazy(() => import("./pages/settings/Billing"));
 const Security = lazy(() => import("./pages/settings/Security"));
 const Integrations = lazy(() => import("./pages/settings/Integrations"));
 const SeoPublicPage = lazy(() => import("./pages/settings/SeoPublicPage"));
+const MemberAppSettings = lazy(() => import("./pages/settings/MemberApp"));
 
 // People pages
 const Members = lazy(() => import("./pages/people/Members"));
@@ -139,13 +140,13 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth/signin" element={<SignIn />} />
             <Route path="/auth/signup" element={<SignUp />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/member-login" element={<MemberLogin />} />
+            <Route path="/member-login" element={<Navigate to="/member/login" replace />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/church/:slug" element={<ChurchPublicPage />} />
             <Route element={<AuthGuard />}>
@@ -212,6 +213,7 @@ const App = () => (
                   <Route path="security" element={<Suspense fallback={<Fallback />}><Security /></Suspense>} />
                   <Route path="integrations" element={<Suspense fallback={<Fallback />}><Integrations /></Suspense>} />
                   <Route path="seo" element={<Suspense fallback={<Fallback />}><SeoPublicPage /></Suspense>} />
+                  <Route path="member-app" element={<Suspense fallback={<Fallback />}><MemberAppSettings /></Suspense>} />
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems

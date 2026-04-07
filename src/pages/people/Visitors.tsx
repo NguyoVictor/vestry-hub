@@ -84,14 +84,25 @@ const Visitors = () => {
 
   const convertMut = useMutation({
     mutationFn: async (visitor: any) => {
-      const userId = crypto.randomUUID();
-      await supabase.from("users").insert({
-        id: userId, tenant_id: tenantId!, first_name: visitor.first_name, last_name: visitor.last_name,
-        email: visitor.email || `${userId}@placeholder.vestry`, phone: visitor.phone, role: "member" as any, status: "active" as any,
-        join_date: new Date().toISOString().split("T")[0], password_hash: "INVITED", mfa_enabled: false, email_verified: false, phone_verified: false,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      // Create a member record directly (no users table insert)
+      const memberId = crypto.randomUUID();
+      const { error: memErr } = await supabase.from("members").insert({
+        id: memberId,
+        tenant_id: tenantId!,
+        first_name: visitor.first_name,
+        last_name: visitor.last_name,
+        email: visitor.email || null,
+        phone: visitor.phone,
+        status: "active",
+        member_type: "member",
+        registration_source: "admin",
+        join_date: new Date().toISOString().split("T")[0],
+        membership_number: `MEM-${Date.now().toString(36).toUpperCase()}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       } as any);
-      await supabase.from("visitors").update({ follow_up_status: "converted", converted_to_member_id: userId } as any).eq("id", visitor.id);
+      if (memErr) throw memErr;
+      await supabase.from("visitors").update({ follow_up_status: "converted", converted_to_member_id: memberId } as any).eq("id", visitor.id);
     },
     onSuccess: (_, visitor) => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });

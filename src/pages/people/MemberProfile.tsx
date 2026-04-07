@@ -20,11 +20,15 @@ const MemberProfile = () => {
   const { data: member, isLoading } = useQuery({
     queryKey: ["member", memberId],
     queryFn: async () => {
+      // Try members table first (new flow), fall back to users for legacy staff accounts
+      const { data: memberData } = await supabase.from("members").select("id, tenant_id, email, first_name, last_name, phone, date_of_birth, join_date, status, gender, avatar_url, member_type, created_at, updated_at").eq("id", memberId!).maybeSingle();
+      if (memberData) return { ...memberData, role: memberData.member_type || "member" };
       const { data, error } = await supabase.from("users").select("id, tenant_id, email, role, first_name, last_name, phone, avatar, date_of_birth, join_date, last_login_at, mfa_enabled, email_verified, phone_verified, user_metadata, status, created_at, updated_at, gender, avatar_url").eq("id", memberId!).single();
       if (error) throw error;
       return data;
     },
     enabled: !!memberId,
+    staleTime: 300000,
   });
 
   const { data: memberExtra } = useQuery({

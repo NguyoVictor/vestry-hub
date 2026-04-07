@@ -1,28 +1,27 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { MemberPortalProvider } from "@/contexts/MemberPortalContext";
 
 export function MemberAuthGuard() {
-  const [status, setStatus] = useState<"loading" | "authed" | "no-session" | "no-church">("loading");
+  const [status, setStatus] = useState<"loading" | "authed" | "no-session">("loading");
 
   useEffect(() => {
-    const check = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setStatus("no-session"); return; }
+    const raw = localStorage.getItem("member_session");
+    if (!raw) { setStatus("no-session"); return; }
 
-      const { data: membership } = await supabase
-        .from("role_permissions")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .limit(1)
-        .single();
-
-      setStatus(membership ? "authed" : "no-church");
-    };
-    check();
+    try {
+      const session = JSON.parse(raw);
+      if (!session.expiresAt || new Date(session.expiresAt) < new Date()) {
+        localStorage.removeItem("member_session");
+        setStatus("no-session");
+        return;
+      }
+      setStatus("authed");
+    } catch {
+      localStorage.removeItem("member_session");
+      setStatus("no-session");
+    }
   }, []);
 
   if (status === "loading") return (
@@ -31,7 +30,6 @@ export function MemberAuthGuard() {
     </div>
   );
   if (status === "no-session") return <Navigate to="/member/login" replace />;
-  if (status === "no-church") return <Navigate to="/member/join" replace />;
 
   return (
     <MemberPortalProvider>
