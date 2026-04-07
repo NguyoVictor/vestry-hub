@@ -13,7 +13,7 @@ Deno.serve(async (req: Request) => {
     const {
       churchCode, firstName, lastName, email, phone,
       gender, dateOfBirth, address, city, occupation,
-      maritalStatus, memberType,
+      maritalStatus, memberType, howHeard,
     } = await req.json();
 
     if (!churchCode || !firstName || !lastName || !phone) {
@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Look up tenant by church_code
+    // Look up tenant by church_code
     const { data: tenant } = await supabase
       .from("tenants")
       .select("id, name, logo, church_code, slug")
@@ -40,7 +40,50 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 2. Check if already registered (by email if provided, or phone)
+    const today = new Date().toISOString().split("T")[0];
+
+    // ── VISITOR FLOW ──────────────────────────────────────────────────────────
+    if (memberType === "visitor") {
+      const { data: visitor, error: visitorErr } = await supabase
+        .from("visitors")
+        .insert({
+          tenant_id: tenant.id,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          email: email ? email.trim().toLowerCase() : null,
+          phone: phone.trim(),
+          visit_date: today,
+          how_heard: howHeard || null,
+          follow_up_status: "not_contacted",
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (visitorErr) throw visitorErr;
+
+      await supabase.from("activity_log").insert({
+        tenant_id: tenant.id,
+        action_type: "new_visitor",
+        description: `${firstName} ${lastName} visited via QR code`,
+        entity_id: visitor.id,
+        entity_type: "visitor",
+      });
+
+      return new Response(
+        JSON.stringify({
+          type: "visitor",
+          visitor,
+          churchCode: tenant.church_code,
+          churchName: tenant.name,
+          churchLogo: tenant.logo,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── MEMBER FLOW ───────────────────────────────────────────────────────────
+    // Check for duplicate email
     if (email) {
       const { data: existing } = await supabase
         .from("members")
@@ -48,7 +91,6 @@ Deno.serve(async (req: Request) => {
         .eq("tenant_id", tenant.id)
         .eq("email", email.trim().toLowerCase())
         .single();
-
       if (existing) {
         return new Response(JSON.stringify({ error: "already_registered" }), {
           status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -56,8 +98,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 3. Insert member
-    const type = memberType === "visitor" ? "visitor" : "member";
     const { data: member, error: insertError } = await supabase
       .from("members")
       .insert({
@@ -72,11 +112,11 @@ Deno.serve(async (req: Request) => {
         city: city || null,
         occupation: occupation || null,
         marital_status: maritalStatus || null,
-        status: type === "visitor" ? "visitor" : "active",
-        member_type: type,
+        status: "active",
+        member_type: "member",
         membership_status: "Pending Approval",
         registration_source: "qr_scan",
-        join_date: new Date().toISOString().split("T")[0],
+        join_date: today,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         membership_number: `M-${Date.now()}`,
@@ -86,17 +126,17 @@ Deno.serve(async (req: Request) => {
 
     if (insertError) throw insertError;
 
-    // 4. Log activity
     await supabase.from("activity_log").insert({
       tenant_id: tenant.id,
-      action_type: type === "visitor" ? "new_visitor" : "new_member",
-      description: `${firstName} ${lastName} registered via QR code`,
+      action_type: "new_member",
+      description: `${firstName} ${lastName} registered via QR code (Pending Approval)`,
       entity_id: member.id,
       entity_type: "member",
     });
 
     return new Response(
       JSON.stringify({
+        type: "member",
         member,
         churchCode: tenant.church_code,
         churchName: tenant.name,

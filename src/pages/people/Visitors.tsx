@@ -84,7 +84,7 @@ const Visitors = () => {
 
   const convertMut = useMutation({
     mutationFn: async (visitor: any) => {
-      // Create a member record directly (no users table insert)
+      // Create a member record with Pending Approval status
       const memberId = crypto.randomUUID();
       const { error: memErr } = await supabase.from("members").insert({
         id: memberId,
@@ -95,6 +95,7 @@ const Visitors = () => {
         phone: visitor.phone,
         status: "active",
         member_type: "member",
+        membership_status: "Pending Approval",
         registration_source: "admin",
         join_date: new Date().toISOString().split("T")[0],
         membership_number: `MEM-${Date.now().toString(36).toUpperCase()}`,

@@ -9,10 +9,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2, Church, Copy, CheckCircle2 } from "lucide-react";
 
+const HOW_HEARD_OPTIONS = [
+  "Friend or Family",
+  "Social Media",
+  "Walk-in",
+  "Church Event",
+  "Online Search",
+  "Billboard / Poster",
+  "Radio / TV",
+  "WhatsApp",
+  "Other",
+];
+
 interface SuccessData {
-  memberName: string;
+  type: "member" | "visitor";
+  name: string;
   churchName: string;
-  churchCode: string;
+  churchCode?: string;
   churchLogo: string | null;
 }
 
@@ -21,15 +34,19 @@ export default function JoinChurch() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<SuccessData | null>(null);
   const [copied, setCopied] = useState(false);
-
-  // Church lookup for branding
   const [church, setChurch] = useState<{ name: string; logo: string | null } | null>(null);
   const [churchCode, setChurchCode] = useState("");
 
+  // Routing question — shown first
+  const [memberType, setMemberType] = useState<"member" | "visitor" | null>(null);
+
+  // Shared fields
   const [form, setForm] = useState({
-    memberType: "member" as "member" | "visitor",
-    firstName: "", lastName: "", gender: "", dateOfBirth: "",
-    phone: "", email: "", address: "", city: "", occupation: "", maritalStatus: "",
+    firstName: "", lastName: "", phone: "", email: "",
+    // Member-only
+    gender: "", dateOfBirth: "", address: "", city: "", occupation: "", maritalStatus: "",
+    // Visitor-only
+    howHeard: "",
   });
 
   useEffect(() => {
@@ -47,7 +64,7 @@ export default function JoinChurch() {
   };
 
   const copyCode = () => {
-    navigator.clipboard.writeText(success!.churchCode);
+    navigator.clipboard.writeText(success!.churchCode!);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -55,6 +72,7 @@ export default function JoinChurch() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!churchCode) { toast.error("Church code is required"); return; }
+    if (!memberType) { toast.error("Please select if you are a Visitor or Member"); return; }
     setLoading(true);
 
     const { data, error } = await supabase.functions.invoke("member-register", {
@@ -64,13 +82,17 @@ export default function JoinChurch() {
         lastName: form.lastName,
         email: form.email || undefined,
         phone: form.phone,
-        gender: form.gender || undefined,
-        dateOfBirth: form.dateOfBirth || undefined,
-        address: form.address || undefined,
-        city: form.city || undefined,
-        occupation: form.occupation || undefined,
-        maritalStatus: form.maritalStatus || undefined,
-        memberType: form.memberType,
+        memberType,
+        howHeard: form.howHeard || undefined,
+        // Member-only fields
+        ...(memberType === "member" ? {
+          gender: form.gender || undefined,
+          dateOfBirth: form.dateOfBirth || undefined,
+          address: form.address || undefined,
+          city: form.city || undefined,
+          occupation: form.occupation || undefined,
+          maritalStatus: form.maritalStatus || undefined,
+        } : {}),
       },
     });
 
@@ -79,20 +101,21 @@ export default function JoinChurch() {
     if (error || data?.error) {
       const err = data?.error;
       if (err === "invalid_code") toast.error("Invalid church code. Please check and try again.");
-      else if (err === "already_registered") toast.error("You are already registered with this church. Please sign in.");
+      else if (err === "already_registered") toast.error("You are already registered. Please sign in.");
       else toast.error("Registration failed. Please try again.");
       return;
     }
 
     setSuccess({
-      memberName: `${form.firstName} ${form.lastName}`,
+      type: data.type,
+      name: `${form.firstName} ${form.lastName}`,
       churchName: data.churchName,
       churchCode: data.churchCode,
       churchLogo: data.churchLogo,
     });
   };
 
-  // Success screen
+  // ── Success screen ──────────────────────────────────────────────────────────
   if (success) {
     return (
       <>
@@ -110,37 +133,107 @@ export default function JoinChurch() {
             <div>
               <div className="flex items-center justify-center gap-2 mb-2">
                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Welcome to {success.churchName}! 🎉</h1>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {success.type === "visitor" ? `Welcome, ${success.name.split(" ")[0]}! 👋` : `Welcome to ${success.churchName}! 🎉`}
+                </h1>
               </div>
-              <p className="text-slate-500">Your registration is complete, {success.memberName.split(" ")[0]}.</p>
+              {success.type === "visitor" ? (
+                <p className="text-slate-500">Your visit has been recorded. We're glad you came!</p>
+              ) : (
+                <p className="text-slate-500">Your registration is complete. An admin will review and approve your membership.</p>
+              )}
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Your Church Access Code</p>
-              <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4">
-                <span className="flex-1 text-2xl font-bold font-mono tracking-widest text-indigo-600 text-center">
-                  {success.churchCode}
-                </span>
-                <Button size="icon" variant="ghost" onClick={copyCode} className="shrink-0">
-                  {copied ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            {/* Member gets church code to sign in later */}
+            {success.type === "member" && success.churchCode && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Your Church Access Code</p>
+                <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4">
+                  <span className="flex-1 text-2xl font-bold font-mono tracking-widest text-indigo-600 text-center">
+                    {success.churchCode}
+                  </span>
+                  <Button size="icon" variant="ghost" onClick={copyCode} className="shrink-0">
+                    {copied ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Save this code — you'll need it to sign in once your membership is approved.
+                </p>
+                <Button asChild className="w-full h-11 rounded-full">
+                  <Link to={`/member/login?code=${success.churchCode}`}>Sign In</Link>
                 </Button>
               </div>
-              <p className="text-xs text-slate-500">
-                Save this code — you will need it every time you sign in to the <strong>{success.churchName}</strong> member portal.
-              </p>
-              <Button asChild className="w-full h-11 rounded-full">
-                <Link to={`/member/login?code=${success.churchCode}`}>Sign In Now</Link>
-              </Button>
-            </div>
+            )}
+
+            {success.type === "visitor" && (
+              <p className="text-sm text-slate-400">The church team will be in touch with you soon.</p>
+            )}
           </div>
         </div>
       </>
     );
   }
 
+  // ── Step 1: Routing question ────────────────────────────────────────────────
+  if (!memberType) {
+    return (
+      <>
+        <Helmet><title>Join Us — Vestry</title></Helmet>
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+          <div className="w-full max-w-md space-y-6">
+            <div className="text-center">
+              {church?.logo ? (
+                <img src={church.logo} className="w-16 h-16 rounded-full mx-auto mb-3 object-cover" alt={church.name} />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mx-auto mb-3">
+                  <Church className="text-indigo-600" size={28} />
+                </div>
+              )}
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">{church?.name ?? "Welcome!"}</h1>
+              <p className="text-sm text-slate-500 mt-1">Are you joining us for the first time or are you a member?</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setMemberType("visitor")}
+                className="flex flex-col items-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all group"
+              >
+                <div className="h-14 w-14 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  👋
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-800 dark:text-white">Visitor</p>
+                  <p className="text-xs text-slate-500 mt-0.5">First time here</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setMemberType("member")}
+                className="flex flex-col items-center gap-3 p-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+              >
+                <div className="h-14 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  ✝️
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-800 dark:text-white">Member</p>
+                  <p className="text-xs text-slate-500 mt-0.5">I want to join</p>
+                </div>
+              </button>
+            </div>
+
+            <p className="text-center text-sm text-slate-400">
+              Already registered? <Link to="/member/login" className="text-indigo-600 font-medium">Sign In</Link>
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ── Step 2: Registration form (conditional on type) ─────────────────────────
   return (
     <>
-      <Helmet><title>Member Registration — Vestry</title></Helmet>
+      <Helmet><title>{memberType === "visitor" ? "Visitor Registration" : "Member Registration"} — Vestry</title></Helmet>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-6">
@@ -152,29 +245,18 @@ export default function JoinChurch() {
               </div>
             )}
             <h1 className="text-xl font-bold text-slate-900 dark:text-white">{church?.name ?? "Join Our Church Family"}</h1>
-            <p className="text-sm text-slate-500 mt-1">Please fill out this form to register as a member. We're excited to welcome you!</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {memberType === "visitor" ? "Welcome! Please fill in your details." : "Please fill out this form to register as a member."}
+            </p>
+            <button onClick={() => setMemberType(null)} className="text-xs text-indigo-500 mt-1 hover:underline">
+              ← Change selection
+            </button>
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
             <form onSubmit={submit} className="space-y-4">
 
-              {/* Member type — required, at top */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">I am a: *</Label>
-                <div className="flex gap-4">
-                  {(["member", "visitor"] as const).map(type => (
-                    <label key={type} className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-colors ${form.memberType === type ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20" : "border-slate-200 dark:border-slate-700"}`}>
-                      <input type="radio" name="memberType" value={type} checked={form.memberType === type} onChange={() => setForm(f => ({ ...f, memberType: type }))} className="sr-only" />
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${form.memberType === type ? "border-indigo-500" : "border-slate-300"}`}>
-                        {form.memberType === type && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
-                      </div>
-                      <span className="capitalize font-medium text-sm">{type}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Church code (if not pre-filled from URL) */}
+              {/* Church code if not pre-filled */}
               {!searchParams.get("code") && (
                 <div className="space-y-1.5">
                   <Label>Church Access Code *</Label>
@@ -201,25 +283,6 @@ export default function JoinChurch() {
                 </div>
               </div>
 
-              {/* Gender + DOB */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Gender *</Label>
-                  <Select value={form.gender} onValueChange={v => setForm(f => ({ ...f, gender: v }))}>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Date of Birth</Label>
-                  <Input type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} className="h-10" />
-                </div>
-              </div>
-
               {/* Phone */}
               <div className="space-y-1.5">
                 <Label>Phone Number *</Label>
@@ -228,44 +291,81 @@ export default function JoinChurch() {
 
               {/* Email */}
               <div className="space-y-1.5">
-                <Label>Email *</Label>
-                <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Your email address" required className="h-10" />
+                <Label>Email {memberType === "member" ? "*" : ""}</Label>
+                <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Your email address" required={memberType === "member"} className="h-10" />
               </div>
 
-              {/* Address */}
-              <div className="space-y-1.5">
-                <Label>Address</Label>
-                <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Your home address" className="h-10" />
-              </div>
-
-              {/* City + Occupation */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* VISITOR-ONLY: How did you hear about us */}
+              {memberType === "visitor" && (
                 <div className="space-y-1.5">
-                  <Label>City</Label>
-                  <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Your city" className="h-10" />
+                  <Label>How did you hear about us?</Label>
+                  <Select value={form.howHeard || undefined} onValueChange={v => setForm(f => ({ ...f, howHeard: v }))}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Select an option" /></SelectTrigger>
+                    <SelectContent>
+                      {HOW_HEARD_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Occupation</Label>
-                  <Input value={form.occupation} onChange={e => setForm(f => ({ ...f, occupation: e.target.value }))} placeholder="Your occupation" className="h-10" />
-                </div>
-              </div>
+              )}
 
-              {/* Marital Status */}
-              <div className="space-y-1.5">
-                <Label>Marital Status</Label>
-                <Select value={form.maritalStatus} onValueChange={v => setForm(f => ({ ...f, maritalStatus: v }))}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single">Single</SelectItem>
-                    <SelectItem value="married">Married</SelectItem>
-                    <SelectItem value="divorced">Divorced</SelectItem>
-                    <SelectItem value="widowed">Widowed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* MEMBER-ONLY: Additional fields */}
+              {memberType === "member" && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Gender</Label>
+                      <Select value={form.gender || undefined} onValueChange={v => setForm(f => ({ ...f, gender: v }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Date of Birth</Label>
+                      <Input type="date" value={form.dateOfBirth} onChange={e => setForm(f => ({ ...f, dateOfBirth: e.target.value }))} className="h-10" />
+                    </div>
+                  </div>
 
-              <Button type="submit" className="w-full h-11 rounded-full bg-orange-500 hover:bg-orange-600 text-white" disabled={loading || !form.firstName || !form.lastName || !form.phone || !form.email}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Registration"}
+                  <div className="space-y-1.5">
+                    <Label>Address</Label>
+                    <Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Your home address" className="h-10" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>City</Label>
+                      <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Your city" className="h-10" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Occupation</Label>
+                      <Input value={form.occupation} onChange={e => setForm(f => ({ ...f, occupation: e.target.value }))} placeholder="Your occupation" className="h-10" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Marital Status</Label>
+                    <Select value={form.maritalStatus || undefined} onValueChange={v => setForm(f => ({ ...f, maritalStatus: v }))}>
+                      <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">Single</SelectItem>
+                        <SelectItem value="married">Married</SelectItem>
+                        <SelectItem value="divorced">Divorced</SelectItem>
+                        <SelectItem value="widowed">Widowed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full h-11 rounded-full bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={loading || !form.firstName || !form.lastName || !form.phone || (memberType === "member" && !form.email)}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : memberType === "visitor" ? "Submit Visit" : "Submit Registration"}
               </Button>
 
               <p className="text-xs text-center text-slate-400">Your information is kept private and secure.</p>
