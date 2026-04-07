@@ -42,7 +42,7 @@ const FollowUpTasks = () => {
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["follow-up-tasks", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("follow_up_tasks").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("follow_up_tasks").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },

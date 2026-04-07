@@ -42,7 +42,7 @@ const NewConverts = () => {
   const { data: converts = [], isLoading } = useQuery({
     queryKey: ["new-converts", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("new_converts").select("*, member:member_id(id, first_name, last_name, avatar_url)").order("created_at", { ascending: false }) as any;
+      const { data, error } = await supabase.from("new_converts").select("*, member:member_id(id, first_name, last_name, avatar_url)").eq("tenant_id", tenantId!).order("created_at", { ascending: false }) as any;
       if (error) throw error;
       return data || [];
     },

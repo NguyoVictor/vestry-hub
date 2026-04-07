@@ -39,7 +39,7 @@ const SermonPreparation = () => {
 
   const { data: sermons = [], isLoading } = useQuery({
     queryKey: ["sermons", church.tenantId],
-    queryFn: async () => { const { data, error } = await supabase.from("sermons").select("*").order("created_at", { ascending: false }); if (error) throw error; return data || []; },
+    queryFn: async () => { const { data, error } = await supabase.from("sermons").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false }); if (error) throw error; return data || []; },
   });
 
   const saveSermon = useMutation({

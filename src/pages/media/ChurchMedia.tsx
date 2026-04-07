@@ -25,13 +25,13 @@ const ChurchMedia = () => {
 
   const { data: albums = [] } = useQuery({
     queryKey: ["media_albums", church.tenantId],
-    queryFn: async () => { const { data } = await supabase.from("media_albums").select("*").order("created_at", { ascending: false }); return data || []; },
+    queryFn: async () => { const { data } = await supabase.from("media_albums").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false }); return data || []; },
   });
 
   const { data: photos = [], isLoading } = useQuery({
     queryKey: ["media_photos", church.tenantId, selectedAlbum],
     queryFn: async () => {
-      let q = supabase.from("media_photos").select("*").order("created_at", { ascending: false });
+      let q = supabase.from("media_photos").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false });
       if (selectedAlbum) q = q.eq("album_id", selectedAlbum);
       const { data } = await q;
       return data || [];

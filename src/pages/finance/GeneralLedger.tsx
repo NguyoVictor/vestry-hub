@@ -26,7 +26,7 @@ const GeneralLedger = () => {
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["ledger-entries", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ledger_entries").select("*").order("entry_date", { ascending: false });
+      const { data, error } = await supabase.from("ledger_entries").select("*").eq("tenant_id", tenantId!).order("entry_date", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -36,7 +36,7 @@ const GeneralLedger = () => {
   const { data: accounts = [] } = useQuery({
     queryKey: ["chart-of-accounts", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("chart_of_accounts").select("*").order("account_code");
+      const { data, error } = await supabase.from("chart_of_accounts").select("*").eq("tenant_id", tenantId!).order("account_code");
       if (error) throw error;
       return data || [];
     },

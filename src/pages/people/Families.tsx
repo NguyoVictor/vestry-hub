@@ -32,7 +32,7 @@ const Families = () => {
   const { data: families = [], isLoading } = useQuery({
     queryKey: ["families", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("families").select("*, head:head_of_household_id(id, first_name, last_name, avatar_url)").order("created_at", { ascending: false }) as any;
+      const { data, error } = await supabase.from("families").select("*, head:head_of_household_id(id, first_name, last_name, avatar_url)").eq("tenant_id", tenantId!).order("created_at", { ascending: false }) as any;
       if (error) throw error;
       return data || [];
     },
@@ -42,7 +42,7 @@ const Families = () => {
   const { data: members = [] } = useQuery({
     queryKey: ["all-users", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("users").select("id, first_name, last_name");
+      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("tenant_id", tenantId!);
       return data || [];
     },
     enabled: !!tenantId,
@@ -51,12 +51,17 @@ const Families = () => {
   const { data: familyMemberCounts = {} } = useQuery({
     queryKey: ["family-member-counts", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("family_members").select("family_id");
+      // family_members has no tenant_id — scope via families that belong to this tenant
+      const { data: tenantFamilies } = await supabase.from("families").select("id").eq("tenant_id", tenantId!);
+      if (!tenantFamilies?.length) return {};
+      const familyIds = tenantFamilies.map(f => f.id);
+      const { data } = await supabase.from("family_members").select("family_id").in("family_id", familyIds);
       const counts: Record<string, number> = {};
       (data || []).forEach((fm: any) => { counts[fm.family_id] = (counts[fm.family_id] || 0) + 1; });
       return counts;
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const form = useForm<z.infer<typeof familySchema>>({ resolver: zodResolver(familySchema), defaultValues: { name: "" } });

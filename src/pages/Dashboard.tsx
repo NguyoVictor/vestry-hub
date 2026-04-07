@@ -125,12 +125,13 @@ const Dashboard = () => {
   const groupCount = dashStats?.group_count ?? 0;
 
   const { data: givingTrend, isLoading: trendLoading } = useQuery({
-    queryKey: ["dashboard", "giving-trend", chartMonths],
+    queryKey: ["dashboard", "giving-trend", chartMonths, church.tenantId],
     staleTime: 300_000,
     queryFn: async () => {
       const start = new Date();
       start.setMonth(start.getMonth() - chartMonths);
       const { data } = await supabase.from("giving_records").select("amount, given_at")
+        .eq("tenant_id", church.tenantId)
         .gte("given_at", start.toISOString().split("T")[0]).order("given_at", { ascending: true });
       const monthly: Record<string, number> = {};
       data?.forEach(r => {
@@ -145,12 +146,12 @@ const Dashboard = () => {
   });
 
   const { data: groupDistribution, isLoading: distLoading } = useQuery({
-    queryKey: ["dashboard", "group-distribution"],
+    queryKey: ["dashboard", "group-distribution", church.tenantId],
     staleTime: 300_000,
     queryFn: async () => {
-      const { data: groups } = await supabase.from("groups").select("id, name").eq("is_active", true);
+      const { data: groups } = await supabase.from("groups").select("id, name").eq("tenant_id", church.tenantId).eq("is_active", true);
       if (!groups?.length) return [];
-      const { data: gm } = await supabase.from("group_members").select("group_id");
+      const { data: gm } = await supabase.from("group_members").select("group_id").eq("tenant_id", church.tenantId);
       const counts: Record<string, number> = {};
       gm?.forEach(m => { counts[m.group_id] = (counts[m.group_id] || 0) + 1; });
       return groups.map(g => ({ name: g.name, value: counts[g.id] || 0 }))
@@ -159,22 +160,24 @@ const Dashboard = () => {
   });
 
   const { data: upcomingEvents, isLoading: upEventsLoading } = useQuery({
-    queryKey: ["dashboard", "upcoming-events-list"],
+    queryKey: ["dashboard", "upcoming-events-list", church.tenantId],
     staleTime: 300_000,
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase.from("events").select("id, title, event_date, start_time, location")
+        .eq("tenant_id", church.tenantId)
         .gte("event_date", today).order("event_date", { ascending: true }).limit(5);
       return data || [];
     },
   });
 
   const { data: recentDonations, isLoading: donationsLoading } = useQuery({
-    queryKey: ["dashboard", "recent-donations"],
+    queryKey: ["dashboard", "recent-donations", church.tenantId],
     staleTime: 300_000,
     queryFn: async () => {
       const { data } = await supabase.from("giving_records")
         .select("id, amount, giving_type, payment_method, given_at, currency")
+        .eq("tenant_id", church.tenantId)
         .order("given_at", { ascending: false }).limit(8);
       return data || [];
     },

@@ -39,7 +39,7 @@ const GivingRecords = () => {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["giving-records", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("giving_records").select("*").order("given_at", { ascending: false });
+      const { data, error } = await supabase.from("giving_records").select("*").eq("tenant_id", tenantId!).order("given_at", { ascending: false });
       if (error) throw error;
       return (data || []) as GivingRow[];
     },
@@ -49,7 +49,7 @@ const GivingRecords = () => {
   const { data: members = [] } = useQuery({
     queryKey: ["members-list", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("users").select("id, first_name, last_name");
+      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("tenant_id", tenantId!);
       return data || [];
     },
     enabled: !!tenantId,

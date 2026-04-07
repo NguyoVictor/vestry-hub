@@ -32,7 +32,7 @@ const PledgeCampaigns = () => {
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["pledge-campaigns", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("pledge_campaigns").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("pledge_campaigns").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -42,13 +42,13 @@ const PledgeCampaigns = () => {
   const { data: pledgesBycamp = {} } = useQuery({
     queryKey: ["pledges-summary", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("pledges").select("campaign_id, pledge_amount, amount_paid");
+      const { data } = await supabase.from("pledges").select("campaign_id, committed_amount, fulfilled_amount").eq("tenant_id", tenantId!);
       const map: Record<string, { count: number; pledged: number; paid: number }> = {};
       (data || []).forEach((p: any) => {
         if (!map[p.campaign_id]) map[p.campaign_id] = { count: 0, pledged: 0, paid: 0 };
         map[p.campaign_id].count++;
-        map[p.campaign_id].pledged += Number(p.pledge_amount);
-        map[p.campaign_id].paid += Number(p.amount_paid);
+        map[p.campaign_id].pledged += Number(p.committed_amount);
+        map[p.campaign_id].paid += Number(p.fulfilled_amount);
       });
       return map;
     },

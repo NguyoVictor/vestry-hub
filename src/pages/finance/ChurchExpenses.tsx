@@ -36,7 +36,7 @@ const ChurchExpenses = () => {
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["expenses", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("expenses").select("*").order("expense_date", { ascending: false });
+      const { data, error } = await supabase.from("expenses").select("*").eq("tenant_id", tenantId!).order("expense_date", { ascending: false });
       if (error) throw error;
       return data || [];
     },

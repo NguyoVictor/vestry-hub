@@ -39,7 +39,7 @@ const HouseFellowships = () => {
   const { data: fellowships = [], isLoading } = useQuery({
     queryKey: ["fellowships", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("house_fellowships").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("house_fellowships").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },

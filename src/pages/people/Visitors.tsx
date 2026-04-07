@@ -54,7 +54,7 @@ const Visitors = () => {
   const { data: visitors = [], isLoading } = useQuery({
     queryKey: ["visitors", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("visitors").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("visitors").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },

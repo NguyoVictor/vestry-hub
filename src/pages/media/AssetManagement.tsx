@@ -32,7 +32,7 @@ const AssetManagement = () => {
 
   const { data: assets = [], isLoading } = useQuery({
     queryKey: ["church_assets", church.tenantId],
-    queryFn: async () => { const { data, error } = await supabase.from("church_assets").select("*").order("name"); if (error) throw error; return data || []; },
+    queryFn: async () => { const { data, error } = await supabase.from("church_assets").select("*").eq("tenant_id", church.tenantId!).order("name"); if (error) throw error; return data || []; },
   });
 
   const saveAsset = useMutation({

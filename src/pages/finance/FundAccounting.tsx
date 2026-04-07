@@ -29,7 +29,7 @@ const FundAccounting = () => {
   const { data: funds = [], isLoading } = useQuery({
     queryKey: ["funds", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("funds").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("funds").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },

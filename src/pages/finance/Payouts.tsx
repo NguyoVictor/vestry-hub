@@ -28,7 +28,7 @@ const Payouts = () => {
   const { data: payouts = [], isLoading } = useQuery({
     queryKey: ["payouts", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("payouts").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("payouts").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },

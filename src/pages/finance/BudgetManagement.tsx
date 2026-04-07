@@ -27,7 +27,7 @@ const BudgetManagement = () => {
   const { data: budgets = [], isLoading } = useQuery({
     queryKey: ["budgets", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("budgets").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("budgets").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -37,7 +37,11 @@ const BudgetManagement = () => {
   const { data: categories = [] } = useQuery({
     queryKey: ["budget-categories", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("budget_categories").select("*");
+      // Get budget IDs for this tenant first, then get their categories
+      const { data: tenantBudgets } = await supabase.from("budgets").select("id").eq("tenant_id", tenantId!);
+      if (!tenantBudgets?.length) return [];
+      const budgetIds = tenantBudgets.map(b => b.id);
+      const { data } = await supabase.from("budget_categories").select("*").in("budget_id", budgetIds);
       return data || [];
     },
     enabled: !!tenantId,
@@ -46,7 +50,7 @@ const BudgetManagement = () => {
   const { data: expenses = [] } = useQuery({
     queryKey: ["expenses-for-budget", tenantId],
     queryFn: async () => {
-      const { data } = await (supabase.from("expenses").select("category, amount") as any).eq("approval_status", "approved");
+      const { data } = await (supabase.from("expenses").select("category, amount") as any).eq("tenant_id", tenantId!).eq("approval_status", "approved");
       return data || [];
     },
     enabled: !!tenantId,

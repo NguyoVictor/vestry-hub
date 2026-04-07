@@ -42,7 +42,7 @@ const GraphicsStudio = () => {
   const { data: assets = [], isLoading: assetsLoading } = useQuery({
     queryKey: ["media_assets", church.tenantId, selectedFolder],
     queryFn: async () => {
-      let q = supabase.from("media_assets").select("*").order("created_at", { ascending: false });
+      let q = supabase.from("media_assets").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false });
       if (selectedFolder) q = q.eq("folder_id", selectedFolder);
       const { data, error } = await q;
       if (error) throw error;

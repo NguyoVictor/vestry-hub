@@ -30,7 +30,7 @@ const ChurchStudio = () => {
   const { data: media = [], isLoading } = useQuery({
     queryKey: ["studio_media", church.tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("studio_media").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("studio_media").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -39,7 +39,7 @@ const ChurchStudio = () => {
   const { data: series = [] } = useQuery({
     queryKey: ["sermon_series", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("sermon_series").select("*").order("created_at", { ascending: false });
+      const { data } = await supabase.from("sermon_series").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false });
       return data || [];
     },
   });

@@ -35,7 +35,7 @@ const SongLibrary = () => {
   const { data: songs = [], isLoading } = useQuery({
     queryKey: ["songs", church.tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("songs").select("*").order("title");
+      const { data, error } = await supabase.from("songs").select("*").eq("tenant_id", church.tenantId!).order("title");
       if (error) throw error;
       return data || [];
     },

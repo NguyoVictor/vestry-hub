@@ -20,7 +20,7 @@ const Sermons = () => {
   const { data: media = [], isLoading } = useQuery({
     queryKey: ["published_sermons", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("studio_media").select("*").eq("status", "published").order("recording_date", { ascending: false }) as { data: any[] | null };
+      const { data } = await supabase.from("studio_media").select("*").eq("tenant_id", church.tenantId).eq("status", "published").order("recording_date", { ascending: false }) as { data: any[] | null };
       return data || [];
     },
   });
@@ -29,7 +29,7 @@ const Sermons = () => {
     queryKey: ["published_sermon_preps", church.tenantId],
     queryFn: async (): Promise<any[]> => {
       // @ts-ignore - deep type instantiation from sermons table
-      const res = await supabase.from("sermons").select("*").eq("status", "published").order("date_to_preach", { ascending: false });
+      const res = await supabase.from("sermons").select("*").eq("tenant_id", church.tenantId).eq("is_published", true).order("created_at", { ascending: false });
       return (res as any).data || [];
     },
   });

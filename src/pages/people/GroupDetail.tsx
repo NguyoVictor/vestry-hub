@@ -35,19 +35,21 @@ const GroupDetail = () => {
   const { data: groupMembers = [] } = useQuery({
     queryKey: ["group-members", groupId],
     queryFn: async () => {
-      const { data } = await supabase.from("group_members").select("*, users:member_id(id, first_name, last_name, email, avatar_url)").eq("group_id", groupId!) as any;
+      const { data } = await supabase.from("group_members").select("*, members:member_id(id, first_name, last_name, email, avatar_url)").eq("group_id", groupId!) as any;
       return data || [];
     },
     enabled: !!groupId,
+    staleTime: 300000,
   });
 
   const { data: allMembers = [] } = useQuery({
-    queryKey: ["all-users", tenantId],
+    queryKey: ["all-members", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("users").select("id, first_name, last_name");
+      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("tenant_id", tenantId!).eq("status", "active");
       return data || [];
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const existingIds = new Set(groupMembers.map((gm: any) => gm.member_id));
@@ -76,7 +78,7 @@ const GroupDetail = () => {
     {
       key: "member_id", header: "Member",
       render: (row) => {
-        const u = row.users;
+        const u = row.members;
         return u ? (
           <div className="flex items-center gap-3">
             <MemberAvatar name={`${u.first_name} ${u.last_name}`} avatarUrl={u.avatar_url} />

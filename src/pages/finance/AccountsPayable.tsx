@@ -29,7 +29,7 @@ const AccountsPayable = () => {
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["accounts-payable", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("accounts_payable").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("accounts_payable").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },

@@ -37,7 +37,7 @@ const AITools = () => {
   const { data: usageCounts = {} } = useQuery({
     queryKey: ["ai_tool_usage", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("ai_tool_usage").select("tool_name");
+      const { data } = await supabase.from("ai_tool_usage").select("tool_name").eq("tenant_id", church.tenantId!);
       const counts: Record<string, number> = {};
       data?.forEach((r: any) => { counts[r.tool_name] = (counts[r.tool_name] || 0) + 1; });
       return counts;

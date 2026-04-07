@@ -48,22 +48,24 @@ const Groups = () => {
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ["groups", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("groups").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("groups").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const { data: memberCounts = {} } = useQuery({
     queryKey: ["group-member-counts", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("group_members").select("group_id");
+      const { data } = await supabase.from("group_members").select("group_id").eq("tenant_id", tenantId!);
       const counts: Record<string, number> = {};
       (data || []).forEach((gm: any) => { counts[gm.group_id] = (counts[gm.group_id] || 0) + 1; });
       return counts;
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const form = useForm<z.infer<typeof groupSchema>>({ resolver: zodResolver(groupSchema), defaultValues: { name: "", type: "other", color: "#4F46E5", is_active: true } });
