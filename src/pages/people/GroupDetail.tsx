@@ -57,8 +57,11 @@ const GroupDetail = () => {
 
   const addMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
-      const { error } = await supabase.from("group_members").insert({ group_id: groupId!, member_id: memberId } as any);
-      if (error) throw error;
+      const { error } = await supabase.from("group_members").insert({ group_id: groupId!, member_id: memberId, tenant_id: tenantId } as any);
+      if (error) {
+        if (error.code === "23505") throw new Error("This member is already in the group");
+        throw error;
+      }
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["group-members", groupId] }); toast.success("Member added to group"); setSelectedMember(""); },
     onError: (err: any) => toast.error(err.message),
