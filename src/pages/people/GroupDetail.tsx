@@ -35,8 +35,14 @@ const GroupDetail = () => {
   const { data: groupMembers = [] } = useQuery({
     queryKey: ["group-members", groupId],
     queryFn: async () => {
-      const { data } = await supabase.from("group_members").select("*, members:member_id(id, first_name, last_name, email, avatar_url)").eq("group_id", groupId!) as any;
-      return data || [];
+      // Fetch group_members rows
+      const { data: gm } = await supabase.from("group_members").select("member_id, joined_at, role").eq("group_id", groupId!);
+      if (!gm?.length) return [];
+      // Fetch member details separately (FK was dropped)
+      const memberIds = gm.map(r => r.member_id);
+      const { data: memberDetails } = await supabase.from("members").select("id, first_name, last_name, email, avatar_url").in("id", memberIds);
+      const memberMap = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
+      return gm.map(r => ({ ...r, members: memberMap[r.member_id] || null }));
     },
     enabled: !!groupId,
     staleTime: 300000,
