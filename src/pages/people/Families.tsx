@@ -32,11 +32,20 @@ const Families = () => {
   const { data: families = [], isLoading } = useQuery({
     queryKey: ["families", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("families").select("*, head:head_of_household_id(id, first_name, last_name, avatar_url)").eq("tenant_id", tenantId!).order("created_at", { ascending: false }) as any;
+      const { data, error } = await supabase.from("families").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false }) as any;
       if (error) throw error;
-      return data || [];
+      if (!data?.length) return [];
+      // Fetch head member details separately (FK was dropped)
+      const headIds = [...new Set(data.map((f: any) => f.head_of_household_id).filter(Boolean))];
+      let headMap: Record<string, any> = {};
+      if (headIds.length) {
+        const { data: heads } = await supabase.from("members").select("id, first_name, last_name, avatar_url").in("id", headIds as string[]);
+        headMap = Object.fromEntries((heads || []).map(h => [h.id, h]));
+      }
+      return data.map((f: any) => ({ ...f, head: headMap[f.head_of_household_id] || null }));
     },
     enabled: !!tenantId,
+    staleTime: 300000,
   });
 
   const { data: members = [] } = useQuery({
@@ -120,7 +129,7 @@ const Families = () => {
               <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Family Name *</FormLabel><FormControl><Input {...field} placeholder='e.g. "The Kamau Family"' /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="head_of_household_id" render={({ field }) => (
                 <FormItem><FormLabel>Family Head</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger></FormControl>
+                  <Select onValueChange={field.onChange} value={field.value || undefined}><FormControl><SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger></FormControl>
                     <SelectContent>{members.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.first_name} {m.last_name}</SelectItem>)}</SelectContent>
                   </Select><FormMessage /></FormItem>
               )} />

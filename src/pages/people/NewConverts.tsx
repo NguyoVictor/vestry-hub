@@ -42,9 +42,17 @@ const NewConverts = () => {
   const { data: converts = [], isLoading } = useQuery({
     queryKey: ["new-converts", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("new_converts").select("*, member:member_id(id, first_name, last_name, avatar_url)").eq("tenant_id", tenantId!).order("created_at", { ascending: false }) as any;
+      const { data, error } = await supabase.from("new_converts").select("*").eq("tenant_id", tenantId!).order("created_at", { ascending: false }) as any;
       if (error) throw error;
-      return data || [];
+      if (!data?.length) return [];
+      // Fetch member details separately (FK was dropped)
+      const memberIds = [...new Set(data.map((c: any) => c.member_id).filter(Boolean))];
+      let memberMap: Record<string, any> = {};
+      if (memberIds.length) {
+        const { data: members } = await supabase.from("members").select("id, first_name, last_name, avatar_url").in("id", memberIds as string[]);
+        memberMap = Object.fromEntries((members || []).map(m => [m.id, m]));
+      }
+      return data.map((c: any) => ({ ...c, member: memberMap[c.member_id] || null }));
     },
     enabled: !!tenantId,
   });
