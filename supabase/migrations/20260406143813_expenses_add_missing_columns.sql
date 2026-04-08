@@ -1,0 +1,18 @@
+ALTER TABLE expenses
+  ADD COLUMN IF NOT EXISTS title VARCHAR,
+  ADD COLUMN IF NOT EXISTS approval_status VARCHAR DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS approved_by VARCHAR,
+  ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
+  ADD COLUMN IF NOT EXISTS vendor VARCHAR,
+  ADD COLUMN IF NOT EXISTS vendor_phone VARCHAR,
+  ADD COLUMN IF NOT EXISTS vendor_email VARCHAR,
+  ADD COLUMN IF NOT EXISTS payment_reference VARCHAR,
+  ADD COLUMN IF NOT EXISTS budget_category_id VARCHAR,
+  ADD COLUMN IF NOT EXISTS notes TEXT,
+  ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS recurrence_frequency VARCHAR,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+
+CREATE INDEX IF NOT EXISTS idx_expenses_tenant_id ON expenses(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_approval_status ON expenses(approval_status);;

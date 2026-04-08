@@ -31,13 +31,14 @@ interface DataTableProps<T> {
   showCardView?: boolean;
   cardRenderer?: (row: T) => React.ReactNode;
   toolbarActions?: React.ReactNode;
+  hideExport?: boolean;
 }
 
 type SortDir = "asc" | "desc" | null;
 
 export function DataTable<T>({
   data, columns, loading, searchPlaceholder = "Search...", emptyIcon, emptyTitle = "No data found",
-  emptyDescription, emptyCta, bulkActions, getRowId, onRowClick, showCardView, cardRenderer, toolbarActions,
+  emptyDescription, emptyCta, bulkActions, getRowId, onRowClick, showCardView, cardRenderer, toolbarActions, hideExport,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -132,14 +133,12 @@ export function DataTable<T>({
         </div>
         <div className="flex gap-2 items-center">
           {toolbarActions}
-          {showCardView && (
-            <div className="flex border rounded-md">
+          {showCardView && (            <div className="flex border rounded-md">
               <Button variant={viewMode === "table" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("table")}><LayoutList className="h-4 w-4" /></Button>
               <Button variant={viewMode === "card" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("card")}><LayoutGrid className="h-4 w-4" /></Button>
             </div>
           )}
-          <Button variant="outline" size="sm" onClick={exportCsv}><Download className="h-4 w-4 mr-1" />Export</Button>
-        </div>
+          {!hideExport && <Button variant="outline" size="sm" onClick={exportCsv}><Download className="h-4 w-4 mr-1" />Export</Button>}        </div>
       </div>
 
       {/* Bulk actions */}

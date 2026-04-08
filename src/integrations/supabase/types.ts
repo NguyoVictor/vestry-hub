@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       accounts_payable: {
@@ -228,13 +253,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "announcements_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "announcements_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -319,13 +337,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["attendance_status_enum"] | null
         }
         Relationships: [
-          {
-            foreignKeyName: "attendance_records_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "attendance_records_session_id_fkey"
             columns: ["session_id"]
@@ -613,13 +624,6 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "branches_pastor_id_fkey"
-            columns: ["pastor_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "branches_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1398,13 +1402,6 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "event_registrations_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       event_rsvps: {
@@ -1551,13 +1548,6 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "events_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -1844,13 +1834,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "families_head_of_household_id_fkey"
-            columns: ["head_of_household_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "families_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1861,22 +1844,52 @@ export type Database = {
       }
       family_members: {
         Row: {
+          birth_day: number | null
+          birth_month: number | null
+          birth_year: number | null
+          classification: string | null
           family_id: string
+          first_name: string | null
+          gender: string | null
           id: string
-          member_id: string
+          last_name: string | null
+          member_id: string | null
+          middle_name: string | null
           relationship: string
+          role: string | null
+          suffix: string | null
         }
         Insert: {
+          birth_day?: number | null
+          birth_month?: number | null
+          birth_year?: number | null
+          classification?: string | null
           family_id: string
+          first_name?: string | null
+          gender?: string | null
           id?: string
-          member_id: string
+          last_name?: string | null
+          member_id?: string | null
+          middle_name?: string | null
           relationship?: string
+          role?: string | null
+          suffix?: string | null
         }
         Update: {
+          birth_day?: number | null
+          birth_month?: number | null
+          birth_year?: number | null
+          classification?: string | null
           family_id?: string
+          first_name?: string | null
+          gender?: string | null
           id?: string
-          member_id?: string
+          last_name?: string | null
+          member_id?: string | null
+          middle_name?: string | null
           relationship?: string
+          role?: string | null
+          suffix?: string | null
         }
         Relationships: [
           {
@@ -1967,27 +1980,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "follow_up_tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "follow_up_tasks_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "follow_up_tasks_related_member_id_fkey"
-            columns: ["related_member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "follow_up_tasks_related_visitor_id_fkey"
             columns: ["related_visitor_id"]
@@ -2283,13 +2275,6 @@ export type Database = {
             referencedRelation: "groups"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "group_members_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       groups: {
@@ -2345,13 +2330,6 @@ export type Database = {
           type?: Database["public"]["Enums"]["group_type_enum"] | null
         }
         Relationships: [
-          {
-            foreignKeyName: "groups_leader_id_fkey"
-            columns: ["leader_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "groups_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -3255,20 +3233,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "member_requests_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "member_requests_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "member_requests_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -3277,12 +3241,40 @@ export type Database = {
           },
         ]
       }
+      member_sessions: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          member_id: string
+          session_token: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          member_id: string
+          session_token: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          member_id?: string
+          session_token?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       members: {
         Row: {
           avatar_url: string | null
           baptism_date: string | null
           baptized: boolean | null
           city: string | null
+          communication_prefs: Json | null
           country: string | null
           created_at: string
           custom_fields: Json | null
@@ -3298,17 +3290,23 @@ export type Database = {
           gender: string | null
           id: string
           id_number: string | null
+          is_counselor: boolean | null
           join_date: string | null
           last_name: string | null
           marital_status:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
+          member_type: string | null
           membership_number: string
+          membership_status: string | null
           nationality: string | null
           notes: string | null
           occupation: string | null
+          pastoral_notes: string | null
           phone: string | null
+          portal_last_seen: string | null
           postal_code: string | null
+          registration_source: string | null
           salvation_date: string | null
           secondary_phone: string | null
           skills: string[] | null
@@ -3323,6 +3321,7 @@ export type Database = {
           baptism_date?: string | null
           baptized?: boolean | null
           city?: string | null
+          communication_prefs?: Json | null
           country?: string | null
           created_at: string
           custom_fields?: Json | null
@@ -3338,17 +3337,23 @@ export type Database = {
           gender?: string | null
           id: string
           id_number?: string | null
+          is_counselor?: boolean | null
           join_date?: string | null
           last_name?: string | null
           marital_status?:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
+          member_type?: string | null
           membership_number: string
+          membership_status?: string | null
           nationality?: string | null
           notes?: string | null
           occupation?: string | null
+          pastoral_notes?: string | null
           phone?: string | null
+          portal_last_seen?: string | null
           postal_code?: string | null
+          registration_source?: string | null
           salvation_date?: string | null
           secondary_phone?: string | null
           skills?: string[] | null
@@ -3363,6 +3368,7 @@ export type Database = {
           baptism_date?: string | null
           baptized?: boolean | null
           city?: string | null
+          communication_prefs?: Json | null
           country?: string | null
           created_at?: string
           custom_fields?: Json | null
@@ -3378,17 +3384,23 @@ export type Database = {
           gender?: string | null
           id?: string
           id_number?: string | null
+          is_counselor?: boolean | null
           join_date?: string | null
           last_name?: string | null
           marital_status?:
             | Database["public"]["Enums"]["marital_status_enum"]
             | null
+          member_type?: string | null
           membership_number?: string
+          membership_status?: string | null
           nationality?: string | null
           notes?: string | null
           occupation?: string | null
+          pastoral_notes?: string | null
           phone?: string | null
+          portal_last_seen?: string | null
           postal_code?: string | null
+          registration_source?: string | null
           salvation_date?: string | null
           secondary_phone?: string | null
           skills?: string[] | null
@@ -3404,13 +3416,6 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "members_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -3549,20 +3554,6 @@ export type Database = {
           visitor_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "new_converts_counsellor_id_fkey"
-            columns: ["counsellor_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "new_converts_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "new_converts_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -4927,13 +4918,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "services_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "services_parent_service_id_fkey"
             columns: ["parent_service_id"]
             isOneToOne: false
@@ -5992,6 +5976,7 @@ export type Database = {
           follow_up_due_date: string | null
           follow_up_status: string | null
           how_heard: string | null
+          how_heard_detail: string | null
           id: string
           last_name: string
           notes: string | null
@@ -6009,6 +5994,7 @@ export type Database = {
           follow_up_due_date?: string | null
           follow_up_status?: string | null
           how_heard?: string | null
+          how_heard_detail?: string | null
           id?: string
           last_name: string
           notes?: string | null
@@ -6026,6 +6012,7 @@ export type Database = {
           follow_up_due_date?: string | null
           follow_up_status?: string | null
           how_heard?: string | null
+          how_heard_detail?: string | null
           id?: string
           last_name?: string
           notes?: string | null
@@ -6035,13 +6022,6 @@ export type Database = {
           visit_date?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "visitors_converted_to_member_id_fkey"
-            columns: ["converted_to_member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "visitors_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -6088,13 +6068,6 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "volunteer_assignments_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -6225,6 +6198,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_church_code: { Args: { church_name: string }; Returns: string }
       get_dashboard_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_my_tenant_id: { Args: never; Returns: string }
       seed_chart_of_accounts: {
@@ -6252,6 +6226,13 @@ export type Database = {
         | "youth"
         | "house_fellowship"
         | "other"
+        | "department"
+        | "children"
+        | "women"
+        | "men"
+        | "prayer"
+        | "outreach"
+        | "bible_study"
       incident_status_enum: "open" | "investigating" | "resolved"
       integration_provider_enum:
         | "pesapal"
@@ -6397,6 +6378,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       announcement_audience_enum: ["all", "group", "branch"],
@@ -6419,6 +6403,13 @@ export const Constants = {
         "youth",
         "house_fellowship",
         "other",
+        "department",
+        "children",
+        "women",
+        "men",
+        "prayer",
+        "outreach",
+        "bible_study",
       ],
       incident_status_enum: ["open", "investigating", "resolved"],
       integration_provider_enum: [
@@ -6444,3 +6435,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.84.2 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
