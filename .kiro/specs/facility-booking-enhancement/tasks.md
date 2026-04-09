@@ -77,12 +77,12 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
 - [x] 11. Checkpoint — Ensure confirmation dispatch works for all paths
   - Verify email and SMS paths in the Edge Function, all three booking form buttons, and both card-level send actions. Ask the user if questions arise.
 
-- [ ] 12. `receive-booking-response` Edge Function
-  - [ ] 12.1 Create `supabase/functions/receive-booking-response/index.ts`
-  - [ ] 12.2 Handle inbound AT SMS webhook: parse `from`, `text`, `linkId` fields; insert into `facility_booking_responses` with `channel = 'sms'`, `is_read = false`
-  - [ ] 12.3 Handle inbound Resend email reply webhook: parse sender and body; insert into `facility_booking_responses` with `channel = 'email'`, `is_read = false`
-  - [ ] 12.4 After inserting a response, insert a notification into `notifications` table with `type = 'facility_response'` for the relevant tenant's admin users
-  - [ ] 12.5 Return HTTP 400 for malformed payloads without inserting any records
+- [x] 12. `receive-booking-response` Edge Function
+  - [x] 12.1 Create `supabase/functions/receive-booking-response/index.ts`
+  - [x] 12.2 Handle inbound AT SMS webhook: parse `from`, `text`, `linkId` fields; insert into `facility_booking_responses` with `channel = 'sms'`, `is_read = false`
+  - [x] 12.3 Handle inbound Resend email reply webhook: parse sender and body; insert into `facility_booking_responses` with `channel = 'email'`, `is_read = false`
+  - [x] 12.4 After inserting a response, insert a notification into `notifications` table with `type = 'facility_response'` for the relevant tenant's admin users
+  - [x] 12.5 Return HTTP 400 for malformed payloads without inserting any records
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
 - [ ] 13. Responses tab UI
