@@ -173,7 +173,7 @@ async function insertNotifications(
     .from("users")
     .select("id")
     .eq("tenant_id", tenantId)
-    .in("role", ["admin", "super_admin"]);
+    .in("role", ["super_admin", "church_admin"]);
 
   if (!adminUsers?.length) return;
 

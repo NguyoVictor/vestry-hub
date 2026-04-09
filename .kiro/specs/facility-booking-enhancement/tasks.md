@@ -101,7 +101,7 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 14.4 Ensure marking the notification as read sets `is_read = true` on the `notifications` record via the existing notification read mutation
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
-- [ ] 15. Final checkpoint — Ensure all tests pass
+- [x] 15. Final checkpoint — Ensure all tests pass
   - Verify the full flow: create facility with quotation → create booking with booker identity → send confirmation → receive response (simulate webhook) → Responses tab shows entry with unread badge → navbar bell shows notification → click navigates to Responses tab. Ask the user if questions arise.
 
 ## Notes
