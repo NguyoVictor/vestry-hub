@@ -57,7 +57,7 @@ const NewConverts = () => {
     enabled: !!tenantId,
   });
 
-  const form = useForm<z.infer<typeof convertSchema>>({ resolver: zodResolver(convertSchema), defaultValues: { discipleship_stage: "1", baptism_status: "not_baptized", conversion_date: new Date().toISOString().split("T")[0] } });
+  const form = useForm<z.infer<typeof convertSchema>>({ resolver: zodResolver(convertSchema), defaultValues: { first_name: "", last_name: "", phone: "", notes: "", baptism_date: "", discipleship_stage: "1", baptism_status: "not_baptized", conversion_date: new Date().toISOString().split("T")[0] } });
 
   const createMut = useMutation({
     mutationFn: async (values: z.infer<typeof convertSchema>) => {
@@ -73,7 +73,6 @@ const NewConverts = () => {
         discipleship_stage: values.discipleship_stage,
         baptism_status: values.baptism_status,
         baptism_date: values.baptism_date || null,
-        member_type: "member",
       } as any);
       if (error) throw error;
     },
@@ -99,10 +98,11 @@ const NewConverts = () => {
     {
       key: "member_id", header: "Convert", sortable: true,
       render: (r) => {
-        const name = r.member ? `${r.member.first_name} ${r.member.last_name}` : "Unknown";
+        const name = r.first_name ? `${r.first_name} ${r.last_name || ""}`.trim() : (r.member ? `${r.member.first_name} ${r.member.last_name}` : "Unknown");
+        const avatarUrl = r.member?.avatar_url || null;
         return (
           <div className="flex items-center gap-3">
-            <MemberAvatar name={name} avatarUrl={r.member?.avatar_url} />
+            <MemberAvatar name={name} avatarUrl={avatarUrl} />
             <span className="font-medium">{name}</span>
           </div>
         );
