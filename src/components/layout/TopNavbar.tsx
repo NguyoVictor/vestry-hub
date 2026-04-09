@@ -103,6 +103,7 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
   const handleNotificationClick = (n: any) => {
     if (!n.is_read) markRead.mutate(n.id);
     if (n.type === "task_deadline") navigate("/follow-up-tasks");
+    else if (n.type === "meeting_reminder") navigate("/board-meetings");
   };
 
   const handleLogout = async () => {
