@@ -65,6 +65,7 @@ export default function FacilityBookingPage() {
   const [bookingSheetMode, setBookingSheetMode] = useState<'create' | 'edit'>('create');
   const [editingBooking, setEditingBooking] = useState<any>(null);
   const [bookingToDelete, setBookingToDelete] = useState<string | null>(null);
+  const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
 
   const [facilityForm, setFacilityForm] = useState(EMPTY_FACILITY_FORM);
   const [bookingForm, setBookingForm] = useState({
@@ -187,6 +188,12 @@ export default function FacilityBookingPage() {
         setup_required: bookingForm.setup_required,
         setup_notes: bookingForm.setup_notes || null,
         notes: bookingForm.notes || null,
+        booker_type: bookingForm.booker_type || null,
+        booker_name: bookingForm.booker_name || null,
+        booker_org_name: bookingForm.booker_org_name || null,
+        booker_contact_person: bookingForm.booker_contact_person || null,
+        booker_phone: bookingForm.booker_phone || null,
+        booker_email: bookingForm.booker_email || null,
       } as any);
       if (error) throw error;
     },
@@ -302,6 +309,17 @@ export default function FacilityBookingPage() {
   }
 
   function handleBookingSubmit() {
+    // Validate booker identity
+    const errors: Record<string, string> = {};
+    if (!bookingForm.booker_type) errors.booker_type = "Booker type is required";
+    if (bookingForm.booker_type === "Individual" && !bookingForm.booker_name)
+      errors.booker_name = "Name is required";
+    if (bookingForm.booker_type === "Organisation" && !bookingForm.booker_org_name)
+      errors.booker_org_name = "Organisation name is required";
+    if (!bookingForm.booker_phone && !bookingForm.booker_email)
+      errors.booker_contact = "Phone or email is required";
+    if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
+    setBookingErrors({});
     if (bookingSheetMode === "edit") {
       updateBookingMutation.mutate(bookingForm);
     } else {
@@ -626,6 +644,7 @@ export default function FacilityBookingPage() {
         if (!open) {
           setEditingBooking(null);
           setBookingSheetMode("create");
+          setBookingErrors({});
         }
       }}>
         <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
@@ -702,6 +721,92 @@ export default function FacilityBookingPage() {
                 onChange={e => setBookingForm(p => ({ ...p, notes: e.target.value }))}
                 rows={2}
               />
+            </div>
+
+            {/* ── Booker Identity ── */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium text-foreground mb-3">Booker Identity</p>
+              <div className="space-y-3">
+                <div>
+                  <Label>Booker Type</Label>
+                  <Select
+                    value={bookingForm.booker_type}
+                    onValueChange={v => setBookingForm(p => ({ ...p, booker_type: v, booker_name: "", booker_org_name: "", booker_contact_person: "" }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Individual">Individual</SelectItem>
+                      <SelectItem value="Organisation">Organisation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {bookingErrors.booker_type && (
+                    <p className="text-xs text-destructive mt-1">{bookingErrors.booker_type}</p>
+                  )}
+                </div>
+
+                {bookingForm.booker_type === "Individual" && (
+                  <div>
+                    <Label>Full Name</Label>
+                    <Input
+                      value={bookingForm.booker_name}
+                      onChange={e => setBookingForm(p => ({ ...p, booker_name: e.target.value }))}
+                      placeholder="John Doe"
+                    />
+                    {bookingErrors.booker_name && (
+                      <p className="text-xs text-destructive mt-1">{bookingErrors.booker_name}</p>
+                    )}
+                  </div>
+                )}
+
+                {bookingForm.booker_type === "Organisation" && (
+                  <>
+                    <div>
+                      <Label>Organisation Name</Label>
+                      <Input
+                        value={bookingForm.booker_org_name}
+                        onChange={e => setBookingForm(p => ({ ...p, booker_org_name: e.target.value }))}
+                        placeholder="Acme Ltd"
+                      />
+                      {bookingErrors.booker_org_name && (
+                        <p className="text-xs text-destructive mt-1">{bookingErrors.booker_org_name}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Contact Person</Label>
+                      <Input
+                        value={bookingForm.booker_contact_person}
+                        onChange={e => setBookingForm(p => ({ ...p, booker_contact_person: e.target.value }))}
+                        placeholder="Jane Smith"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {bookingForm.booker_type && (
+                  <>
+                    <div>
+                      <Label>Phone</Label>
+                      <Input
+                        value={bookingForm.booker_phone}
+                        onChange={e => setBookingForm(p => ({ ...p, booker_phone: e.target.value }))}
+                        placeholder="+254700000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={bookingForm.booker_email}
+                        onChange={e => setBookingForm(p => ({ ...p, booker_email: e.target.value }))}
+                        placeholder="booker@example.com"
+                      />
+                    </div>
+                    {bookingErrors.booker_contact && (
+                      <p className="text-xs text-destructive">{bookingErrors.booker_contact}</p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
             <Button
               className="w-full"

@@ -43,15 +43,15 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 5.6 Add an `AlertDialog` confirmation before executing booking delete
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 6. Checkpoint — Ensure facility and booking CRUD works end-to-end
+- [x] 6. Checkpoint — Ensure facility and booking CRUD works end-to-end
   - Ensure all mutations fire correctly, toasts appear, and lists refresh. Ask the user if questions arise.
 
-- [ ] 7. Booker identity capture in booking form
-  - [ ] 7.1 Extend `bookingForm` state with: `booker_type`, `booker_name`, `booker_org_name`, `booker_contact_person`, `booker_phone`, `booker_email`
-  - [ ] 7.2 Add a "Booker Type" `Select` (options: "Individual", "Organisation") to the booking `Sheet`
-  - [ ] 7.3 Conditionally render Individual fields (name, phone, email) or Organisation fields (org name, contact person, phone, email) based on `booker_type` selection
-  - [ ] 7.4 Add inline validation: require booker_type + (booker_name or booker_org_name) + (booker_phone or booker_email) before allowing submission; display error messages under the relevant fields
-  - [ ] 7.5 Include all booker fields in `createBookingMutation` and `updateBookingMutation` insert/update payloads
+- [x] 7. Booker identity capture in booking form
+  - [x] 7.1 Extend `bookingForm` state with: `booker_type`, `booker_name`, `booker_org_name`, `booker_contact_person`, `booker_phone`, `booker_email`
+  - [x] 7.2 Add a "Booker Type" `Select` (options: "Individual", "Organisation") to the booking `Sheet`
+  - [x] 7.3 Conditionally render Individual fields (name, phone, email) or Organisation fields (org name, contact person, phone, email) based on `booker_type` selection
+  - [x] 7.4 Add inline validation: require booker_type + (booker_name or booker_org_name) + (booker_phone or booker_email) before allowing submission; display error messages under the relevant fields
+  - [x] 7.5 Include all booker fields in `createBookingMutation` and `updateBookingMutation` insert/update payloads
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
 
 - [ ] 8. `send-booking-confirmation` Edge Function
