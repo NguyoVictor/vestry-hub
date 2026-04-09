@@ -49,8 +49,6 @@ const BOOKING_STATUS_MAP: Record<string, string> = {
 
 const EMPTY_FACILITY_FORM = {
   name: "", type: "other", capacity: 0, description: "", is_active: true, quotation: 0,
-  booker_type: "", booker_name: "", booker_org_name: "",
-  booker_contact_person: "", booker_phone: "", booker_email: "",
 };
 
 export default function FacilityBookingPage() {
@@ -68,6 +66,12 @@ export default function FacilityBookingPage() {
   // Send confirmation / request dialog state
   const [sendConfirmationFacility, setSendConfirmationFacility] = useState<any | null>(null);
   const [sendRequestBooking, setSendRequestBooking] = useState<any | null>(null);
+  const [sendConfirmRecipient, setSendConfirmRecipient] = useState({
+    recipient_type: "", recipient_name: "", recipient_org_name: "",
+    recipient_contact_person: "", recipient_phone: "", recipient_email: "",
+    message: "",
+  });
+  const [sendConfirmErrors, setSendConfirmErrors] = useState<Record<string, string>>({});
 
   // Booking sheet state
   const [bookingSheetOpen, setBookingSheetOpen] = useState(false);
@@ -165,12 +169,6 @@ export default function FacilityBookingPage() {
         description: facilityForm.description,
         is_active: facilityForm.is_active,
         quotation: facilityForm.quotation || null,
-        booker_type: facilityForm.booker_type || null,
-        booker_name: facilityForm.booker_name || null,
-        booker_org_name: facilityForm.booker_org_name || null,
-        booker_contact_person: facilityForm.booker_contact_person || null,
-        booker_phone: facilityForm.booker_phone || null,
-        booker_email: facilityForm.booker_email || null,
       });
       if (error) throw error;
     },
@@ -194,12 +192,6 @@ export default function FacilityBookingPage() {
           description: facilityForm.description,
           is_active: facilityForm.is_active,
           quotation: facilityForm.quotation || null,
-          booker_type: facilityForm.booker_type || null,
-          booker_name: facilityForm.booker_name || null,
-          booker_org_name: facilityForm.booker_org_name || null,
-          booker_contact_person: facilityForm.booker_contact_person || null,
-          booker_phone: facilityForm.booker_phone || null,
-          booker_email: facilityForm.booker_email || null,
         })
         .eq("id", editingFacility!.id);
       if (error) throw error;
@@ -330,12 +322,6 @@ export default function FacilityBookingPage() {
       description: facility.description ?? "",
       is_active: facility.is_active ?? true,
       quotation: facility.quotation ?? 0,
-      booker_type: facility.booker_type ?? "",
-      booker_name: facility.booker_name ?? "",
-      booker_org_name: facility.booker_org_name ?? "",
-      booker_contact_person: facility.booker_contact_person ?? "",
-      booker_phone: facility.booker_phone ?? "",
-      booker_email: facility.booker_email ?? "",
     });
     setEditingFacility(facility);
     setFacilityDialogMode("edit");
@@ -510,20 +496,47 @@ export default function FacilityBookingPage() {
 
   async function handleFacilitySendConfirmation(channel: 'email' | 'sms') {
     const facility = sendConfirmationFacility;
-    const booking = bookings?.find((b: any) => b.facility_name === facility.name);
-    if (!booking) { toast.error("No booking found for this facility"); return; }
-    if (channel === 'email' && !booking.booker_email) { toast.error("No email address on file for this booking"); return; }
-    if (channel === 'sms' && !booking.booker_phone) { toast.error("No phone number on file for this booking"); return; }
-    setSendConfirmationFacility(null);
-    const bookerName = booking.booker_type === 'Organisation'
-      ? (booking.booker_org_name || booking.booker_contact_person)
-      : booking.booker_name;
+    const r = sendConfirmRecipient;
+
+    // Validate
+    const errors: Record<string, string> = {};
+    if (!r.recipient_type) errors.recipient_type = "Recipient type is required";
+    if (r.recipient_type === "Individual" && !r.recipient_name) errors.recipient_name = "Name is required";
+    if (r.recipient_type === "Organisation" && !r.recipient_org_name) errors.recipient_org_name = "Organisation name is required";
+    if (channel === 'email' && !r.recipient_email) errors.recipient_email = "Email is required";
+    if (channel === 'sms' && !r.recipient_phone) errors.recipient_phone = "Phone is required";
+    if (Object.keys(errors).length > 0) { setSendConfirmErrors(errors); return; }
+    setSendConfirmErrors({});
+
+    const recipientName = r.recipient_type === "Organisation"
+      ? (r.recipient_org_name || r.recipient_contact_person)
+      : r.recipient_name;
+
+    const quotationLine = facility.quotation > 0
+      ? `\n\nQuotation: ${facility.quotation}`
+      : "";
+
     const payload = channel === 'email'
-      ? { channel: 'email', to: booking.booker_email, subject: `Booking Confirmation — ${facility.name}`, body: `Dear ${bookerName},\n\nYour booking for ${facility.name} on ${booking.booking_date} from ${booking.start_time?.toString().slice(0,5)} to ${booking.end_time?.toString().slice(0,5)} has been confirmed.\n\nThank you.`, booking_id: booking.id, tenant_id: tenantId }
-      : { channel: 'sms', to: booking.booker_phone, body: `Hi ${bookerName}, your booking for ${facility.name} on ${booking.booking_date} (${booking.start_time?.toString().slice(0,5)}–${booking.end_time?.toString().slice(0,5)}) is confirmed.`, booking_id: booking.id, tenant_id: tenantId };
+      ? {
+          channel: 'email',
+          to: r.recipient_email,
+          subject: `Facility Available — ${facility.name}`,
+          body: `Dear ${recipientName},\n\nWe would like to inform you that our facility "${facility.name}" is available for hire.${quotationLine}\n\n${r.message || "Please get in touch if you are interested."}\n\nThank you.`,
+          booking_id: null,
+          tenant_id: tenantId,
+        }
+      : {
+          channel: 'sms',
+          to: r.recipient_phone,
+          body: `Hi ${recipientName}, our facility "${facility.name}" is available for hire.${facility.quotation > 0 ? ` Quotation: ${facility.quotation}.` : ""} ${r.message || "Contact us if interested."}`,
+          booking_id: null,
+          tenant_id: tenantId,
+        };
+
+    setSendConfirmationFacility(null);
     const { error } = await supabase.functions.invoke('send-booking-confirmation', { body: payload });
-    if (error) toast.error(`Failed to send ${channel === 'email' ? 'email' : 'SMS'} confirmation`);
-    else toast.success(`${channel === 'email' ? 'Email' : 'SMS'} confirmation sent`);
+    if (error) toast.error(`Failed to send ${channel === 'email' ? 'email' : 'SMS'}`);
+    else toast.success(`${channel === 'email' ? 'Email' : 'SMS'} sent to ${recipientName}`);
   }
 
   async function handleBookingSendRequest(channel: 'email' | 'sms') {
@@ -850,78 +863,6 @@ export default function FacilityBookingPage() {
             </div>
 
             {/* ── Booker Identity ── */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium text-foreground mb-3">Booker Identity (optional)</p>
-              <div className="space-y-3">
-                <div>
-                  <Label>Booker Type</Label>
-                  <Select
-                    value={facilityForm.booker_type}
-                    onValueChange={v => setFacilityForm(p => ({ ...p, booker_type: v, booker_name: "", booker_org_name: "", booker_contact_person: "" }))}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Individual">Individual</SelectItem>
-                      <SelectItem value="Organisation">Organisation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {facilityForm.booker_type === "Individual" && (
-                  <div>
-                    <Label>Full Name</Label>
-                    <Input
-                      value={facilityForm.booker_name}
-                      onChange={e => setFacilityForm(p => ({ ...p, booker_name: e.target.value }))}
-                      placeholder="John Doe"
-                    />
-                  </div>
-                )}
-
-                {facilityForm.booker_type === "Organisation" && (
-                  <>
-                    <div>
-                      <Label>Organisation Name</Label>
-                      <Input
-                        value={facilityForm.booker_org_name}
-                        onChange={e => setFacilityForm(p => ({ ...p, booker_org_name: e.target.value }))}
-                        placeholder="Acme Ltd"
-                      />
-                    </div>
-                    <div>
-                      <Label>Contact Person</Label>
-                      <Input
-                        value={facilityForm.booker_contact_person}
-                        onChange={e => setFacilityForm(p => ({ ...p, booker_contact_person: e.target.value }))}
-                        placeholder="Jane Smith"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {facilityForm.booker_type && (
-                  <>
-                    <div>
-                      <Label>Phone</Label>
-                      <Input
-                        value={facilityForm.booker_phone}
-                        onChange={e => setFacilityForm(p => ({ ...p, booker_phone: e.target.value }))}
-                        placeholder="+254700000000"
-                      />
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={facilityForm.booker_email}
-                        onChange={e => setFacilityForm(p => ({ ...p, booker_email: e.target.value }))}
-                        placeholder="booker@example.com"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
 
             <div className="flex items-center gap-3">
               <Switch
@@ -1002,7 +943,7 @@ export default function FacilityBookingPage() {
         }
       }}>
         <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
-          <SheetHeader><SheetTitle>{bookingSheetMode === "edit" ? "Edit Booking" : "New Booking Request"}</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>{bookingSheetMode === "edit" ? "Edit Booking Request" : "New Booking Request"}</SheetTitle></SheetHeader>
           <div className="space-y-4 mt-6">
             <div>
               <Label>Facility</Label>
@@ -1077,17 +1018,17 @@ export default function FacilityBookingPage() {
               />
             </div>
 
-            {/* ── Booker Identity ── */}
+            {/* ── Facility Owner / Contact ── */}
             <div className="border-t pt-4">
-              <p className="text-sm font-medium text-foreground mb-3">Booker Identity</p>
+              <p className="text-sm font-medium text-foreground mb-3">Facility Owner / Contact</p>
               <div className="space-y-3">
                 <div>
-                  <Label>Booker Type</Label>
+                  <Label>Contact Type</Label>
                   <Select
                     value={bookingForm.booker_type}
                     onValueChange={v => setBookingForm(p => ({ ...p, booker_type: v, booker_name: "", booker_org_name: "", booker_contact_person: "" }))}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Individual or Organisation?" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Individual">Individual</SelectItem>
                       <SelectItem value="Organisation">Organisation</SelectItem>
@@ -1175,7 +1116,7 @@ export default function FacilityBookingPage() {
               onClick={handleSubmitBooking}
               disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
             >
-              {updateBookingMutation.isPending ? "Submitting..." : "Submit Booking"}
+              {updateBookingMutation.isPending ? "Submitting..." : "Submit Request"}
             </Button>
             <Button
               variant="outline"
@@ -1183,7 +1124,7 @@ export default function FacilityBookingPage() {
               onClick={handleEmailConfirmation}
               disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
             >
-              Email Confirmation
+              <Mail className="h-4 w-4 mr-2" />Email Request
             </Button>
             <Button
               variant="outline"
@@ -1191,24 +1132,118 @@ export default function FacilityBookingPage() {
               onClick={handleSmsConfirmation}
               disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
             >
-              SMS Confirmation
+              <MessageCircle className="h-4 w-4 mr-2" />SMS Request
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
       {/* ── Send Confirmation Dialog (Facility Card) ── */}
-      <Dialog open={sendConfirmationFacility !== null} onOpenChange={open => { if (!open) setSendConfirmationFacility(null); }}>
-        <DialogContent>
+      <Dialog open={sendConfirmationFacility !== null} onOpenChange={open => {
+        if (!open) {
+          setSendConfirmationFacility(null);
+          setSendConfirmRecipient({ recipient_type: "", recipient_name: "", recipient_org_name: "", recipient_contact_person: "", recipient_phone: "", recipient_email: "", message: "" });
+          setSendConfirmErrors({});
+        }
+      }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Send Confirmation</DialogTitle>
+            <DialogTitle>Send Facility Offer — {sendConfirmationFacility?.name}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Choose how to send the confirmation for <strong>{sendConfirmationFacility?.name}</strong>.
+          <p className="text-sm text-muted-foreground -mt-1">
+            Enter the details of the interested party to send them a facility offer{sendConfirmationFacility?.quotation > 0 ? " and quotation" : ""}.
           </p>
-          <DialogFooter className="flex gap-2 sm:justify-start">
-            <Button onClick={() => handleFacilitySendConfirmation('email')}>Email</Button>
-            <Button onClick={() => handleFacilitySendConfirmation('sms')}>SMS</Button>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label>Recipient Type</Label>
+              <Select
+                value={sendConfirmRecipient.recipient_type}
+                onValueChange={v => setSendConfirmRecipient(p => ({ ...p, recipient_type: v, recipient_name: "", recipient_org_name: "", recipient_contact_person: "" }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Individual">Individual</SelectItem>
+                  <SelectItem value="Organisation">Organisation</SelectItem>
+                </SelectContent>
+              </Select>
+              {sendConfirmErrors.recipient_type && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_type}</p>}
+            </div>
+
+            {sendConfirmRecipient.recipient_type === "Individual" && (
+              <div>
+                <Label>Full Name</Label>
+                <Input
+                  value={sendConfirmRecipient.recipient_name}
+                  onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_name: e.target.value }))}
+                  placeholder="John Doe"
+                />
+                {sendConfirmErrors.recipient_name && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_name}</p>}
+              </div>
+            )}
+
+            {sendConfirmRecipient.recipient_type === "Organisation" && (
+              <>
+                <div>
+                  <Label>Organisation Name</Label>
+                  <Input
+                    value={sendConfirmRecipient.recipient_org_name}
+                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_org_name: e.target.value }))}
+                    placeholder="Acme Ltd"
+                  />
+                  {sendConfirmErrors.recipient_org_name && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_org_name}</p>}
+                </div>
+                <div>
+                  <Label>Contact Person</Label>
+                  <Input
+                    value={sendConfirmRecipient.recipient_contact_person}
+                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_contact_person: e.target.value }))}
+                    placeholder="Jane Smith"
+                  />
+                </div>
+              </>
+            )}
+
+            {sendConfirmRecipient.recipient_type && (
+              <>
+                <div>
+                  <Label>Phone</Label>
+                  <Input
+                    value={sendConfirmRecipient.recipient_phone}
+                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_phone: e.target.value }))}
+                    placeholder="+254700000000"
+                  />
+                  {sendConfirmErrors.recipient_phone && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_phone}</p>}
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={sendConfirmRecipient.recipient_email}
+                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_email: e.target.value }))}
+                    placeholder="recipient@example.com"
+                  />
+                  {sendConfirmErrors.recipient_email && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_email}</p>}
+                </div>
+              </>
+            )}
+
+            <div>
+              <Label>Additional Message (optional)</Label>
+              <Textarea
+                value={sendConfirmRecipient.message}
+                onChange={e => setSendConfirmRecipient(p => ({ ...p, message: e.target.value }))}
+                placeholder="Any additional details for the recipient..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-start mt-4">
+            <Button onClick={() => handleFacilitySendConfirmation('email')}>
+              <Mail className="h-4 w-4 mr-2" />Send Email
+            </Button>
+            <Button onClick={() => handleFacilitySendConfirmation('sms')}>
+              <MessageCircle className="h-4 w-4 mr-2" />Send SMS
+            </Button>
             <Button variant="outline" onClick={() => setSendConfirmationFacility(null)}>Cancel</Button>
           </DialogFooter>
         </DialogContent>
