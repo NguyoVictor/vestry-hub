@@ -15,17 +15,17 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - Add RLS policies for tenant-scoped read/write on `facility_booking_responses`
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-- [ ] 2. Update schema constants
-  - [ ] 2.1 Add `FACILITY_BOOKING_RESPONSES: "facility_booking_responses"` to the `TABLES` constant in `src/lib/schema.ts`
+- [x] 2. Update schema constants
+  - [x] 2.1 Add `FACILITY_BOOKING_RESPONSES: "facility_booking_responses"` to the `TABLES` constant in `src/lib/schema.ts`
   - _Requirements: 12.6_
 
-- [ ] 3. Facility card edit and delete actions
-  - [ ] 3.1 Add edit state to `FacilityBooking.tsx`: `editingFacility` state holding the selected facility record, and `facilityDialogMode` state (`'create' | 'edit'`)
-  - [ ] 3.2 Add a `DropdownMenu` actions menu to each facility `Card` with "Edit", "Delete", and "Send Confirmation" options using Lucide `MoreVertical` icon
-  - [ ] 3.3 Pre-populate the existing `facilityForm` state and open the dialog when "Edit" is selected; update dialog title to reflect create vs edit mode
-  - [ ] 3.4 Add `updateFacilityMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITIES).update(...).eq('id', editingFacility.id)` and invalidates `["facilities", tenantId]` on success
-  - [ ] 3.5 Add `deleteFacilityMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITIES).delete().eq('id', id)` and invalidates on success; show `toast.error` on failure
-  - [ ] 3.6 Add an `AlertDialog` confirmation before executing delete, triggered from the "Delete" menu item
+- [x] 3. Facility card edit and delete actions
+  - [x] 3.1 Add edit state to `FacilityBooking.tsx`: `editingFacility` state holding the selected facility record, and `facilityDialogMode` state (`'create' | 'edit'`)
+  - [x] 3.2 Add a `DropdownMenu` actions menu to each facility `Card` with "Edit", "Delete", and "Send Confirmation" options using Lucide `MoreVertical` icon
+  - [x] 3.3 Pre-populate the existing `facilityForm` state and open the dialog when "Edit" is selected; update dialog title to reflect create vs edit mode
+  - [x] 3.4 Add `updateFacilityMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITIES).update(...).eq('id', editingFacility.id)` and invalidates `["facilities", tenantId]` on success
+  - [x] 3.5 Add `deleteFacilityMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITIES).delete().eq('id', id)` and invalidates on success; show `toast.error` on failure
+  - [x] 3.6 Add an `AlertDialog` confirmation before executing delete, triggered from the "Delete" menu item
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
 - [ ] 4. Facility quotation field
