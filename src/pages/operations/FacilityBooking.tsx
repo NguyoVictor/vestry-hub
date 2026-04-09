@@ -30,7 +30,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2, Send, Edit } from "lucide-react";
+import { Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2, Send, Edit, MessageSquare, Mail, MessageCircle } from "lucide-react";
 
 const FACILITY_TYPES = [
   { value: "main_hall", label: "Main Hall" },
@@ -110,6 +110,42 @@ export default function FacilityBookingPage() {
     },
     staleTime: 300000,
   });
+
+  const { data: responses, isLoading: responsesLoading } = useQuery({
+    queryKey: ["facility_booking_responses", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.FACILITY_BOOKING_RESPONSES)
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    staleTime: 300000,
+  });
+
+  const unreadCount = responses?.filter((r: any) => !r.is_read).length ?? 0;
+
+  const markResponsesReadMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from(TABLES.FACILITY_BOOKING_RESPONSES)
+        .update({ is_read: true })
+        .eq("tenant_id", tenantId)
+        .eq("is_read", false);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["facility_booking_responses", tenantId] });
+    },
+  });
+
+  function handleTabChange(value: string) {
+    if (value === "responses" && unreadCount > 0) {
+      markResponsesReadMutation.mutate();
+    }
+  }
 
   // ── Facility mutations ────────────────────────────────────────────────────────
 
@@ -503,10 +539,18 @@ export default function FacilityBookingPage() {
         }
       />
 
-      <Tabs defaultValue="facilities">
+      <Tabs defaultValue="facilities" onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="facilities">Facilities</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="responses" className="relative">
+            Responses
+            {unreadCount > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold min-w-[16px] h-4 px-1">
+                {unreadCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Facilities Tab ── */}
@@ -667,6 +711,62 @@ export default function FacilityBookingPage() {
                 </TableBody>
               </Table>
             </Card>
+          )}
+        </TabsContent>
+
+        {/* ── Responses Tab ── */}
+        <TabsContent value="responses" className="mt-4">
+          {responsesLoading ? (
+            <Card className="p-4 space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+            </Card>
+          ) : !responses?.length ? (
+            <Card className="p-12 text-center">
+              <MessageSquare className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-1">No responses yet</h3>
+              <p className="text-sm text-muted-foreground">
+                Booker replies received via email or SMS will appear here.
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {responses.map((r: any) => (
+                <Card key={r.id} className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="mt-0.5 shrink-0">
+                        {r.channel === "email"
+                          ? <Mail className="h-4 w-4 text-indigo-500" />
+                          : <MessageCircle className="h-4 w-4 text-emerald-500" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-medium text-sm text-foreground">
+                            {r.booker_name || r.from_address || "Unknown"}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] capitalize ${r.channel === "email" ? "border-indigo-300 text-indigo-600 dark:text-indigo-400" : "border-emerald-300 text-emerald-600 dark:text-emerald-400"}`}
+                          >
+                            {r.channel}
+                          </Badge>
+                          {!r.is_read && (
+                            <span className="inline-block w-2 h-2 rounded-full bg-destructive" title="Unread" />
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{r.body}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          {r.booking_id && (
+                            <span className="font-mono">Ref: {r.booking_reference || r.booking_id.slice(0, 8)}</span>
+                          )}
+                          <span>{r.created_at ? format(new Date(r.created_at), "dd MMM yyyy · HH:mm") : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
           )}
         </TabsContent>
       </Tabs>

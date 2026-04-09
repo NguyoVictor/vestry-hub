@@ -85,13 +85,13 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 12.5 Return HTTP 400 for malformed payloads without inserting any records
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-- [ ] 13. Responses tab UI
-  - [ ] 13.1 Add a third `TabsTrigger` labelled "Responses" to the existing `Tabs` component in `FacilityBooking.tsx`
-  - [ ] 13.2 Add a `useQuery` hook keyed `["facility_booking_responses", tenantId]` that fetches from `TABLES.FACILITY_BOOKING_RESPONSES` filtered by `tenant_id`, ordered by `created_at` descending, with `staleTime: 300000`
-  - [ ] 13.3 Render each response as a card/row showing: booker name or `from_address`, channel badge, message body, booking reference, and formatted `created_at` timestamp
-  - [ ] 13.4 Show an unread count badge on the "Responses" tab label when any response has `is_read = false`
-  - [ ] 13.5 On tab activation (`onValueChange`), fire a mutation that sets `is_read = true` on all unread responses for the tenant and invalidates the responses query
-  - [ ] 13.6 Render an empty state with a `MessageSquare` icon and descriptive text when no responses exist
+- [x] 13. Responses tab UI
+  - [x] 13.1 Add a third `TabsTrigger` labelled "Responses" to the existing `Tabs` component in `FacilityBooking.tsx`
+  - [x] 13.2 Add a `useQuery` hook keyed `["facility_booking_responses", tenantId]` that fetches from `TABLES.FACILITY_BOOKING_RESPONSES` filtered by `tenant_id`, ordered by `created_at` descending, with `staleTime: 300000`
+  - [x] 13.3 Render each response as a card/row showing: booker name or `from_address`, channel badge, message body, booking reference, and formatted `created_at` timestamp
+  - [x] 13.4 Show an unread count badge on the "Responses" tab label when any response has `is_read = false`
+  - [x] 13.5 On tab activation (`onValueChange`), fire a mutation that sets `is_read = true` on all unread responses for the tenant and invalidates the responses query
+  - [x] 13.6 Render an empty state with a `MessageSquare` icon and descriptive text when no responses exist
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
 - [ ] 14. Navbar notification for new responses
