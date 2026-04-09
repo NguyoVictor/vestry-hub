@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, ArrowRight, LinkIcon } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
+import { captureEvent, identifyUser } from "@/lib/monitoring";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -22,8 +23,11 @@ const SignIn = () => {
     setLoading(false);
     if (error) {
       toast.error(error.message);
+      captureEvent("login_failed", { reason: error.message });
     } else {
       toast.success("Signed in successfully!");
+      captureEvent("login_success");
+      identifyUser(data.session.user.id, { email: data.session.user.email });
       // Check onboarding status
       const { data: user } = await supabase
         .from("users")

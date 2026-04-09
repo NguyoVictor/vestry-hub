@@ -28,6 +28,7 @@ import {
   ChevronLeft, ChevronRight, MoreHorizontal, MapPin, Clock,
 } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
+import { captureEvent } from "@/lib/monitoring";
 import { TABLES } from "@/lib/schema";
 
 const EVENT_TYPES = [
@@ -430,6 +431,7 @@ export default function EventsPage() {
     onSuccess: () => {
       invalidateEvents();
       toast.success("Event created successfully");
+      captureEvent("event_created");
       logActivity({
         churchId: tenantId!,
         actionType: "new_event",

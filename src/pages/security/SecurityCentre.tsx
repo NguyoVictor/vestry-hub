@@ -12,6 +12,8 @@ import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { Shield, AlertTriangle, Users, Clock, Monitor, Smartphone, Download } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { SentryMonitor } from "@/components/security/SentryMonitor";
+import { PostHogDashboard } from "@/components/security/PostHogDashboard";
 
 const severityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
@@ -254,6 +256,14 @@ export default function SecurityCentre() {
           )}
         </CardContent>
       </Card>
+
+      {/* Error & Performance Monitor (Sentry) */}
+      <div className="mt-6">
+        <SentryMonitor />
+      </div>
+
+      {/* Live Analytics (PostHog) */}
+      <PostHogDashboard />
     </div>
   );
 }

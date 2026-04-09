@@ -27,6 +27,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { logActivity } from "@/lib/activityLogger";
+import { captureEvent } from "@/lib/monitoring";
 
 const addMemberSchema = z.object({
   first_name: z.string().min(2, "Min 2 chars"),
@@ -139,6 +140,7 @@ const Members = () => {
       toast.success(`${values.first_name} ${values.last_name} added to Vestry`);
       setSheetOpen(false);
       form.reset();
+      captureEvent("member_created");
       logActivity({ churchId: tenantId!, actionType: "new_member", description: `${values.first_name} ${values.last_name} was added as a new member`, entityType: "member", entityName: `${values.first_name} ${values.last_name}` });
       // Show portal access dialog if member has email
       if (values.email && memberId) {

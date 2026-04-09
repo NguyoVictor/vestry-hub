@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { formatCurrencyFull } from "@/lib/format";
+import { captureEvent } from "@/lib/monitoring";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -251,6 +252,7 @@ export default function FacilityBookingPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
       toast.success("Booking request submitted");
+      captureEvent("booking_created");
       setBookingSheetOpen(false);
     },
     onError: () => toast.error("Failed to create booking"),

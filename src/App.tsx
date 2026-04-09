@@ -1,9 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import * as Sentry from "@sentry/react";
+import { useEffect } from "react";
+import { capturePageView } from "./lib/monitoring";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
@@ -128,6 +131,13 @@ const queryClient = new QueryClient({
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
+// Track page views on every route change
+function PageViewTracker() {
+  const location = useLocation();
+  useEffect(() => { capturePageView(location.pathname); }, [location.pathname]);
+  return null;
+}
+
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
@@ -136,12 +146,14 @@ const GROWTH_PATHS = ["/discipleship", "/discipleship-resources", "/outreach", "
 const ADMIN_PATHS = ["/reports", "/branches"];
 
 const App = () => (
+  <Sentry.ErrorBoundary fallback={<div className="flex items-center justify-center min-h-screen p-12 text-muted-foreground">Something went wrong. Please refresh the page.</div>}>
   <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <PageViewTracker />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth/signin" element={<SignIn />} />
@@ -256,6 +268,7 @@ const App = () => (
       </TooltipProvider>
     </QueryClientProvider>
   </ThemeProvider>
+  </Sentry.ErrorBoundary>
 );
 
 export default App;
