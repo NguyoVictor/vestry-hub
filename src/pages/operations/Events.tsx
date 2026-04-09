@@ -60,6 +60,26 @@ export default function EventsPage() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 300000,
+  });
+
+  // Fetch RSVP counts per event for this tenant
+  const { data: rsvpCounts = {} } = useQuery({
+    queryKey: ["event-rsvp-counts", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("event_rsvps")
+        .select("event_id")
+        .eq("tenant_id", tenantId!)
+        .eq("status", "confirmed");
+      const counts: Record<string, number> = {};
+      (data || []).forEach((r: any) => {
+        counts[r.event_id] = (counts[r.event_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
   });
 
   const createMutation = useMutation({
@@ -95,7 +115,8 @@ export default function EventsPage() {
   ) || [];
 
   const upcomingCount = events?.filter(e => new Date(e.event_date) >= new Date()).length || 0;
-  const totalRsvps = 0; // would come from event_rsvps join
+  const thisMonthStart = new Date(); thisMonthStart.setDate(1); thisMonthStart.setHours(0,0,0,0);
+  const totalRsvps = Object.values(rsvpCounts as Record<string, number>).reduce((a, b) => a + b, 0);
   const yearCount = events?.length || 0;
 
   return (
@@ -193,6 +214,7 @@ export default function EventsPage() {
                 banner_image_url: (e as any).banner_image_url,
                 capacity_limit: e.capacity_limit || undefined,
                 status: (e as any).status || (e.is_published ? "published" : "draft"),
+                rsvp_count: (rsvpCounts as Record<string, number>)[e.id] || 0,
               }}
               variant="full"
               onClick={() => {}}
@@ -208,6 +230,7 @@ export default function EventsPage() {
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground">Event</th>
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground">Date</th>
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground">Location</th>
+                  <th className="text-left p-3 text-sm font-medium text-muted-foreground">RSVPs</th>
                   <th className="text-left p-3 text-sm font-medium text-muted-foreground">Status</th>
                 </tr>
               </thead>
@@ -217,6 +240,12 @@ export default function EventsPage() {
                     <td className="p-3 font-medium text-foreground">{e.title}</td>
                     <td className="p-3 text-sm text-muted-foreground">{format(new Date(e.event_date), "dd MMM yyyy")}</td>
                     <td className="p-3 text-sm text-muted-foreground">{e.location || "—"}</td>
+                    <td className="p-3 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {(rsvpCounts as Record<string, number>)[e.id] || 0}
+                      </span>
+                    </td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${e.is_published ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
                         {e.is_published ? "Published" : "Draft"}
