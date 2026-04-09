@@ -19,8 +19,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TimeSlotPicker } from "@/components/events/TimeSlotPicker";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck } from "lucide-react";
+import {
+  format, startOfMonth, endOfMonth, eachDayOfMonth, getDay,
+  isSameDay, isSameMonth, isToday, addMonths, subMonths,
+} from "date-fns";
+import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck, ChevronLeft, LayoutList } from "lucide-react";
 
 const MEETING_TYPES = [
   { value: "board_meeting", label: "Board Meeting" },
@@ -125,9 +128,136 @@ function StatusPipeline({ status, onAdvance, onJump }: { status: string; onAdvan
   );
 }
 
+// ─── Meeting Calendar View ────────────────────────────────────────────────────
+const MEETING_STATUS_CHIP: Record<string, string> = {
+  scheduled: "bg-amber-500",
+  in_progress: "bg-blue-500",
+  completed: "bg-emerald-500",
+  cancelled: "bg-red-500",
+};
+
+function MeetingCalendarView({ meetings }: { meetings: any[] }) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  const monthStart = startOfMonth(currentMonth);
+  const days = eachDayOfMonth(monthStart);
+  const startDow = getDay(monthStart);
+  const prefixBlanks = startDow === 0 ? 6 : startDow - 1;
+
+  const meetingsOnDate = (date: Date) =>
+    meetings.filter((m) => {
+      try { return isSameDay(new Date(m.meeting_date), date); } catch { return false; }
+    });
+
+  const selectedMeetings = selectedDate ? meetingsOnDate(selectedDate) : [];
+
+  return (
+    <div className="flex gap-4">
+      <Card className="flex-1 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="font-semibold text-sm">{format(currentMonth, "MMMM yyyy")}</span>
+          <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-7 mb-1">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+            <div key={d} className="text-center text-[11px] font-medium text-muted-foreground py-1">{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-px bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden border border-slate-100 dark:border-slate-700">
+          {Array.from({ length: prefixBlanks }).map((_, i) => (
+            <div key={`blank-${i}`} className="bg-white dark:bg-slate-800 min-h-[72px]" />
+          ))}
+          {days.map((day) => {
+            const dayMeetings = meetingsOnDate(day);
+            const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
+            const todayDay = isToday(day);
+            const inMonth = isSameMonth(day, currentMonth);
+            return (
+              <div
+                key={day.toISOString()}
+                className={`bg-white dark:bg-slate-800 min-h-[72px] p-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${isSelected ? "ring-2 ring-inset ring-indigo-500" : ""} ${!inMonth ? "opacity-40" : ""}`}
+                onClick={() => setSelectedDate(isSelected ? null : day)}
+              >
+                <div className="flex justify-end mb-0.5">
+                  <span className={`text-xs font-medium w-5 h-5 flex items-center justify-center rounded-full ${todayDay ? "bg-indigo-600 text-white" : "text-foreground"}`}>
+                    {format(day, "d")}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  {dayMeetings.slice(0, 3).map((m) => (
+                    <div key={m.id} className={`text-[10px] text-white px-1 py-0.5 rounded truncate ${MEETING_STATUS_CHIP[(m as any).status || "scheduled"] || MEETING_STATUS_CHIP.scheduled}`}>
+                      {m.title}
+                    </div>
+                  ))}
+                  {dayMeetings.length > 3 && (
+                    <div className="text-[10px] text-muted-foreground px-1">+{dayMeetings.length - 3} more</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Side panel */}
+      <Card className="w-72 shrink-0 p-4">
+        {selectedDate ? (
+          <>
+            <h3 className="font-semibold text-sm mb-3">Meetings on {format(selectedDate, "EEE, dd MMM yyyy")}</h3>
+            {selectedMeetings.length === 0 ? (
+              <div className="text-center py-8">
+                <Calendar className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No meetings on this date</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedMeetings.map((m) => {
+                  const status = (m as any).status || "scheduled";
+                  return (
+                    <div key={m.id} className="border rounded-lg p-3 space-y-1.5">
+                      <p className="font-medium text-sm leading-tight">{m.title}</p>
+                      <Badge variant="outline" className="text-[10px] capitalize">{(m as any).type?.replace(/_/g, " ") || "—"}</Badge>
+                      {m.start_time && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />{m.start_time.toString().slice(0, 5)}
+                          {m.end_time && ` – ${m.end_time.toString().slice(0, 5)}`}
+                        </div>
+                      )}
+                      {m.location && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3" /><span className="truncate">{m.location}</span>
+                        </div>
+                      )}
+                      <div className={`inline-flex px-2 py-0.5 rounded text-[10px] font-medium ${STATUS_COLORS[status]}`}>
+                        {STATUS_LABELS[status]}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <Calendar className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Click a date to see meetings</p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export default function BoardMeetingsPage() {
   const { tenantId, userId } = useChurch();
   const queryClient = useQueryClient();
+  const [view, setView] = useState<"list" | "calendar">("list");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -280,8 +410,19 @@ export default function BoardMeetingsPage() {
       <PageHeader
         title="Board Meetings"
         subtitle="Schedule meetings, build agendas and record minutes"
-        action={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>}
-      />
+        action={
+          <div className="flex items-center gap-2">
+            <div className="flex border rounded-md overflow-hidden">
+              <Button variant={view === "list" ? "default" : "ghost"} size="sm" onClick={() => setView("list")}>
+                <LayoutList className="h-4 w-4" />
+              </Button>
+              <Button variant={view === "calendar" ? "default" : "ghost"} size="sm" onClick={() => setView("calendar")}>
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>
+          </div>
+        }      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -305,8 +446,10 @@ export default function BoardMeetingsPage() {
         </Card>
       </div>
 
-      {/* Table */}
-      {isLoading ? (
+      {/* Table / Calendar */}
+      {view === "calendar" ? (
+        <MeetingCalendarView meetings={meetings || []} />
+      ) : isLoading ? (
         <Card className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</Card>
       ) : !meetings?.length ? (
         <Card className="p-12 text-center">
