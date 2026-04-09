@@ -1,4 +1,3 @@
-
 -- Tables that might already exist from prior phases - skip if exists
 CREATE TABLE IF NOT EXISTS media_folders (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -13,7 +12,6 @@ DO $$ BEGIN
     CREATE POLICY "media_folders_tenant_rls" ON media_folders FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS media_assets (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -34,7 +32,6 @@ DO $$ BEGIN
     CREATE POLICY "media_assets_tenant_rls" ON media_assets FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS ai_tool_usage (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -49,7 +46,6 @@ DO $$ BEGIN
     CREATE POLICY "ai_tool_usage_tenant_rls" ON ai_tool_usage FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS sermon_series (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -67,7 +63,6 @@ DO $$ BEGIN
     CREATE POLICY "sermon_series_tenant_rls" ON sermon_series FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS studio_media (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -95,7 +90,6 @@ DO $$ BEGIN
     CREATE POLICY "studio_media_tenant_rls" ON studio_media FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS bible_notes (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   user_id varchar NOT NULL,
@@ -112,7 +106,6 @@ DO $$ BEGIN
     CREATE POLICY "bible_notes_user_rls" ON bible_notes FOR ALL USING (user_id = auth.uid()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS bible_highlights (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   user_id varchar NOT NULL,
@@ -128,7 +121,6 @@ DO $$ BEGIN
     CREATE POLICY "bible_highlights_user_rls" ON bible_highlights FOR ALL USING (user_id = auth.uid()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS bible_favorites (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   user_id varchar NOT NULL,
@@ -144,14 +136,12 @@ DO $$ BEGIN
     CREATE POLICY "bible_favorites_user_rls" ON bible_favorites FOR ALL USING (user_id = auth.uid()::text);
   END IF;
 END $$;
-
 -- Songs already exists, add RLS if missing
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'songs' AND policyname = 'songs_tenant_rls') THEN
     CREATE POLICY "songs_tenant_rls" ON songs FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS set_lists (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -167,7 +157,6 @@ DO $$ BEGIN
     CREATE POLICY "set_lists_tenant_rls" ON set_lists FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS set_list_songs (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   set_list_id varchar NOT NULL REFERENCES set_lists(id) ON DELETE CASCADE,
@@ -184,7 +173,6 @@ DO $$ BEGIN
     );
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS media_albums (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -200,7 +188,6 @@ DO $$ BEGIN
     CREATE POLICY "media_albums_tenant_rls" ON media_albums FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS media_photos (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -219,7 +206,6 @@ DO $$ BEGIN
     CREATE POLICY "media_photos_tenant_rls" ON media_photos FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS asset_maintenance (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   asset_id varchar NOT NULL REFERENCES church_assets(id) ON DELETE CASCADE,
@@ -238,7 +224,6 @@ DO $$ BEGIN
     );
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS sermons (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -269,7 +254,6 @@ DO $$ BEGIN
     CREATE POLICY "sermons_tenant_rls" ON sermons FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
   END IF;
 END $$;
-
 CREATE TABLE IF NOT EXISTS livestreams (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

@@ -1,8 +1,6 @@
-
 -- Fix: drop existing policies before recreating
 DROP POLICY IF EXISTS "pledge_campaigns_tenant_rls" ON pledge_campaigns;
 CREATE POLICY "pledge_campaigns_tenant_rls" ON pledge_campaigns FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 -- Create remaining tables that may not exist yet
 CREATE TABLE IF NOT EXISTS pledges (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
@@ -21,7 +19,6 @@ CREATE TABLE IF NOT EXISTS pledges (
 );
 DROP POLICY IF EXISTS "pledges_tenant_rls" ON pledges;
 CREATE POLICY "pledges_tenant_rls" ON pledges FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS payroll_staff (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   tenant_id varchar NOT NULL,
@@ -44,7 +41,6 @@ CREATE TABLE IF NOT EXISTS payroll_staff (
 );
 DROP POLICY IF EXISTS "payroll_staff_tenant_rls" ON payroll_staff;
 CREATE POLICY "payroll_staff_tenant_rls" ON payroll_staff FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS payroll_runs (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   tenant_id varchar NOT NULL,
@@ -59,7 +55,6 @@ CREATE TABLE IF NOT EXISTS payroll_runs (
 );
 DROP POLICY IF EXISTS "payroll_runs_tenant_rls" ON payroll_runs;
 CREATE POLICY "payroll_runs_tenant_rls" ON payroll_runs FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS payroll_payments (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   payroll_run_id varchar NOT NULL REFERENCES payroll_runs(id) ON DELETE CASCADE,
@@ -74,7 +69,6 @@ CREATE TABLE IF NOT EXISTS payroll_payments (
 );
 DROP POLICY IF EXISTS "payroll_payments_tenant_rls" ON payroll_payments;
 CREATE POLICY "payroll_payments_tenant_rls" ON payroll_payments FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS fund_transactions (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   fund_id varchar NOT NULL REFERENCES funds(id) ON DELETE CASCADE,
@@ -91,7 +85,6 @@ CREATE TABLE IF NOT EXISTS fund_transactions (
 );
 DROP POLICY IF EXISTS "fund_transactions_tenant_rls" ON fund_transactions;
 CREATE POLICY "fund_transactions_tenant_rls" ON fund_transactions FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS invoices (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   tenant_id varchar NOT NULL,
@@ -121,7 +114,6 @@ CREATE TABLE IF NOT EXISTS invoices (
 );
 DROP POLICY IF EXISTS "invoices_tenant_rls" ON invoices;
 CREATE POLICY "invoices_tenant_rls" ON invoices FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS chart_of_accounts (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   tenant_id varchar NOT NULL,
@@ -133,7 +125,6 @@ CREATE TABLE IF NOT EXISTS chart_of_accounts (
 );
 DROP POLICY IF EXISTS "chart_of_accounts_tenant_rls" ON chart_of_accounts;
 CREATE POLICY "chart_of_accounts_tenant_rls" ON chart_of_accounts FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS journal_entries (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   tenant_id varchar NOT NULL,
@@ -146,7 +137,6 @@ CREATE TABLE IF NOT EXISTS journal_entries (
 );
 DROP POLICY IF EXISTS "journal_entries_tenant_rls" ON journal_entries;
 CREATE POLICY "journal_entries_tenant_rls" ON journal_entries FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 CREATE TABLE IF NOT EXISTS journal_lines (
   id varchar PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   journal_entry_id varchar NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
@@ -160,7 +150,6 @@ DROP POLICY IF EXISTS "journal_lines_tenant_rls" ON journal_lines;
 CREATE POLICY "journal_lines_tenant_rls" ON journal_lines FOR ALL USING (
   (journal_entry_id)::text IN (SELECT id FROM journal_entries WHERE (tenant_id)::text = (get_my_tenant_id())::text)
 );
-
 CREATE OR REPLACE FUNCTION seed_chart_of_accounts(p_tenant_id varchar)
 RETURNS VOID AS $$
 BEGIN
@@ -194,4 +183,3 @@ BEGIN
     (p_tenant_id, 'Opening Balance Equity', 'equity', '3002', true);
 END;
 $$ LANGUAGE plpgsql;
-;

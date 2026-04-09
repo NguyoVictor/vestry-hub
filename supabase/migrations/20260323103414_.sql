@@ -6,4 +6,4 @@ CREATE OR REPLACE FUNCTION public.get_my_tenant_id()
  SET search_path = public
 AS $function$
   SELECT tenant_id FROM users WHERE id = auth.uid()::text
-$function$;;
+$function$;

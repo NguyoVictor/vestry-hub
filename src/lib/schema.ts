@@ -71,6 +71,7 @@ export const TABLES = {
   MEETING_ACTION_ITEMS: "meeting_action_items",
   FACILITIES: "facilities",
   FACILITY_BOOKINGS: "facility_bookings",
+  FACILITY_BOOKING_RESPONSES: "facility_booking_responses",
 
   // Security & Communications
   INCIDENTS: "incidents",

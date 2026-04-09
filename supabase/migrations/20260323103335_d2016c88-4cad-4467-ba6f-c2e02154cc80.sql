@@ -36,7 +36,6 @@ BEGIN
     (p_tenant_id, 'Opening Balance Equity', 'equity', '3002', true);
 END;
 $function$;
-
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
  RETURNS trigger
  LANGUAGE plpgsql

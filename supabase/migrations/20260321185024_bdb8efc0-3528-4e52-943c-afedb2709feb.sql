@@ -1,27 +1,22 @@
-
 -- Add missing columns to existing tables
 ALTER TABLE visitors ADD COLUMN IF NOT EXISTS follow_up_status varchar DEFAULT 'not_contacted';
 ALTER TABLE visitors ADD COLUMN IF NOT EXISTS assigned_to varchar;
 ALTER TABLE visitors ADD COLUMN IF NOT EXISTS follow_up_due_date date;
 ALTER TABLE visitors ADD COLUMN IF NOT EXISTS service_attended varchar;
-
 ALTER TABLE members ADD COLUMN IF NOT EXISTS secondary_phone varchar;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS nationality varchar;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS id_number varchar;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS department varchar;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS skills text[];
 ALTER TABLE members ADD COLUMN IF NOT EXISTS baptized boolean DEFAULT false;
-
 ALTER TABLE new_converts ADD COLUMN IF NOT EXISTS mentor_id varchar;
 ALTER TABLE new_converts ADD COLUMN IF NOT EXISTS baptism_status varchar DEFAULT 'not_baptized';
 ALTER TABLE new_converts ADD COLUMN IF NOT EXISTS baptism_date date;
 ALTER TABLE new_converts ADD COLUMN IF NOT EXISTS graduated_at timestamptz;
-
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS color varchar DEFAULT '#4F46E5';
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS meeting_day varchar;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS meeting_time varchar;
 ALTER TABLE groups ADD COLUMN IF NOT EXISTS meeting_location varchar;
-
 -- Create house_fellowships table
 CREATE TABLE IF NOT EXISTS house_fellowships (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -41,7 +36,6 @@ CREATE TABLE IF NOT EXISTS house_fellowships (
 );
 ALTER TABLE house_fellowships ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "hf_tenant_rls" ON house_fellowships FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 -- Create fellowship_members table
 CREATE TABLE IF NOT EXISTS fellowship_members (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -53,7 +47,6 @@ CREATE TABLE IF NOT EXISTS fellowship_members (
 );
 ALTER TABLE fellowship_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "fm_tenant_rls" ON fellowship_members FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-
 -- Create family_members join table
 CREATE TABLE IF NOT EXISTS family_members (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -66,7 +59,6 @@ ALTER TABLE family_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "fam_members_rls" ON family_members FOR ALL USING (
   (family_id)::text IN (SELECT id FROM families WHERE (tenant_id)::text = (get_my_tenant_id())::text)
 );
-
 -- Create visitor_followup_notes
 CREATE TABLE IF NOT EXISTS visitor_followup_notes (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -80,7 +72,6 @@ ALTER TABLE visitor_followup_notes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "vfn_tenant_rls" ON visitor_followup_notes FOR ALL USING (
   (visitor_id)::text IN (SELECT id FROM visitors WHERE (tenant_id)::text = (get_my_tenant_id())::text)
 );
-
 -- Create convert_checkins
 CREATE TABLE IF NOT EXISTS convert_checkins (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -94,7 +85,6 @@ ALTER TABLE convert_checkins ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "cc_tenant_rls" ON convert_checkins FOR ALL USING (
   (convert_id)::text IN (SELECT id FROM new_converts WHERE (tenant_id)::text = (get_my_tenant_id())::text)
 );
-
 -- Create convert_stage_history
 CREATE TABLE IF NOT EXISTS convert_stage_history (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,

@@ -1,4 +1,3 @@
-
 -- Add missing columns to tenants table
 ALTER TABLE public.tenants
   ADD COLUMN IF NOT EXISTS about text,
@@ -14,7 +13,6 @@ ALTER TABLE public.tenants
   ADD COLUMN IF NOT EXISTS twitter_url varchar,
   ADD COLUMN IF NOT EXISTS whatsapp_number varchar,
   ADD COLUMN IF NOT EXISTS enabled_modules jsonb DEFAULT '[]'::jsonb;
-
 -- Tenant SEO settings
 CREATE TABLE IF NOT EXISTS public.tenant_seo_settings (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -38,7 +36,6 @@ CREATE TABLE IF NOT EXISTS public.tenant_seo_settings (
 ALTER TABLE public.tenant_seo_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "seo_tenant_rls" ON public.tenant_seo_settings FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
 CREATE POLICY "seo_public_read" ON public.tenant_seo_settings FOR SELECT TO anon USING (public_page_visible = true);
-
 -- Notification preferences
 CREATE TABLE IF NOT EXISTS public.notification_preferences (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -62,7 +59,6 @@ CREATE TABLE IF NOT EXISTS public.notification_preferences (
 );
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "notif_prefs_own" ON public.notification_preferences FOR ALL USING ((user_id)::text = (auth.uid())::text);
-
 -- Login events
 CREATE TABLE IF NOT EXISTS public.login_events (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,

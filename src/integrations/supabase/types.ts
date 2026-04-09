@@ -1668,6 +1668,7 @@ export type Database = {
           is_active: boolean | null
           name: string
           photo_url: string | null
+          quotation: number | null
           tenant_id: string
           type: string | null
           updated_at: string | null
@@ -1681,6 +1682,7 @@ export type Database = {
           is_active?: boolean | null
           name: string
           photo_url?: string | null
+          quotation?: number | null
           tenant_id: string
           type?: string | null
           updated_at?: string | null
@@ -1694,6 +1696,7 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           photo_url?: string | null
+          quotation?: number | null
           tenant_id?: string
           type?: string | null
           updated_at?: string | null
@@ -1708,11 +1711,58 @@ export type Database = {
           },
         ]
       }
+      facility_booking_responses: {
+        Row: {
+          body: string | null
+          booking_id: string | null
+          channel: string
+          created_at: string
+          from_address: string | null
+          id: string
+          is_read: boolean
+          tenant_id: string
+        }
+        Insert: {
+          body?: string | null
+          booking_id?: string | null
+          channel: string
+          created_at?: string
+          from_address?: string | null
+          id: string
+          is_read?: boolean
+          tenant_id: string
+        }
+        Update: {
+          body?: string | null
+          booking_id?: string | null
+          channel?: string
+          created_at?: string
+          from_address?: string | null
+          id?: string
+          is_read?: boolean
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_booking_responses_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "facility_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facility_bookings: {
         Row: {
           approved_at: string | null
           approved_by: string | null
           booked_by: string | null
+          booker_contact_person: string | null
+          booker_email: string | null
+          booker_name: string | null
+          booker_org_name: string | null
+          booker_phone: string | null
+          booker_type: string | null
           booking_date: string
           booking_reference: string | null
           created_at: string | null
@@ -1735,6 +1785,12 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           booked_by?: string | null
+          booker_contact_person?: string | null
+          booker_email?: string | null
+          booker_name?: string | null
+          booker_org_name?: string | null
+          booker_phone?: string | null
+          booker_type?: string | null
           booking_date: string
           booking_reference?: string | null
           created_at?: string | null
@@ -1757,6 +1813,12 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           booked_by?: string | null
+          booker_contact_person?: string | null
+          booker_email?: string | null
+          booker_name?: string | null
+          booker_org_name?: string | null
+          booker_phone?: string | null
+          booker_type?: string | null
           booking_date?: string
           booking_reference?: string | null
           created_at?: string | null
@@ -6445,5 +6507,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.84.2 (currently installed v2.75.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
