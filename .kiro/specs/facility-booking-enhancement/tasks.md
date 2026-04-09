@@ -54,19 +54,19 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 7.5 Include all booker fields in `createBookingMutation` and `updateBookingMutation` insert/update payloads
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
 
-- [ ] 8. `send-booking-confirmation` Edge Function
-  - [ ] 8.1 Create `supabase/functions/send-booking-confirmation/index.ts`
-  - [ ] 8.2 Accept JSON payload: `{ channel, to, subject?, body, booking_id, tenant_id }`
-  - [ ] 8.3 When `channel === 'email'`, POST to Resend API (`https://api.resend.com/emails`) using `RESEND_API_KEY` secret; return HTTP 200 on success, HTTP 500 with structured error on failure
-  - [ ] 8.4 When `channel === 'sms'`, POST to Africa's Talking messaging API using `AT_API_KEY` and `AT_USERNAME` secrets; return HTTP 200 on success, HTTP 500 on failure
-  - [ ] 8.5 Return HTTP 400 for missing required fields; include CORS headers matching the pattern in existing edge functions
+- [x] 8. `send-booking-confirmation` Edge Function
+  - [x] 8.1 Create `supabase/functions/send-booking-confirmation/index.ts`
+  - [x] 8.2 Accept JSON payload: `{ channel, to, subject?, body, booking_id, tenant_id }`
+  - [x] 8.3 When `channel === 'email'`, POST to Resend API (`https://api.resend.com/emails`) using `RESEND_API_KEY` secret; return HTTP 200 on success, HTTP 500 with structured error on failure
+  - [x] 8.4 When `channel === 'sms'`, POST to Africa's Talking messaging API using `AT_API_KEY` and `AT_USERNAME` secrets; return HTTP 200 on success, HTTP 500 on failure
+  - [x] 8.5 Return HTTP 400 for missing required fields; include CORS headers matching the pattern in existing edge functions
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 13.1, 13.2, 13.3, 13.4_
 
-- [ ] 9. Booking form submission actions
-  - [ ] 9.1 Replace the single "Submit Booking" button in the booking sheet with three buttons: "Submit Booking", "Email Confirmation", "SMS Confirmation"
-  - [ ] 9.2 "Submit Booking" saves with `status: 'pending_confirmation'` and no Edge Function call
-  - [ ] 9.3 "Email Confirmation" validates `booker_email` is present, saves the booking, then calls `supabase.functions.invoke('send-booking-confirmation', { body: { channel: 'email', ... } })`; show `toast.error` if the function returns an error but keep the saved record
-  - [ ] 9.4 "SMS Confirmation" validates `booker_phone` is present, saves the booking, then calls `supabase.functions.invoke('send-booking-confirmation', { body: { channel: 'sms', ... } })`; show `toast.error` on function error
+- [x] 9. Booking form submission actions
+  - [x] 9.1 Replace the single "Submit Booking" button in the booking sheet with three buttons: "Submit Booking", "Email Confirmation", "SMS Confirmation"
+  - [x] 9.2 "Submit Booking" saves with `status: 'pending_confirmation'` and no Edge Function call
+  - [x] 9.3 "Email Confirmation" validates `booker_email` is present, saves the booking, then calls `supabase.functions.invoke('send-booking-confirmation', { body: { channel: 'email', ... } })`; show `toast.error` if the function returns an error but keep the saved record
+  - [x] 9.4 "SMS Confirmation" validates `booker_phone` is present, saves the booking, then calls `supabase.functions.invoke('send-booking-confirmation', { body: { channel: 'sms', ... } })`; show `toast.error` on function error
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7_
 
 - [ ] 10. "Send Confirmation" action on Facility Card and "Send Request" on Booking Card

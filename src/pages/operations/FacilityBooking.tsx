@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -188,6 +188,7 @@ export default function FacilityBookingPage() {
         setup_required: bookingForm.setup_required,
         setup_notes: bookingForm.setup_notes || null,
         notes: bookingForm.notes || null,
+        status: "pending_confirmation",
         booker_type: bookingForm.booker_type || null,
         booker_name: bookingForm.booker_name || null,
         booker_org_name: bookingForm.booker_org_name || null,
@@ -308,8 +309,7 @@ export default function FacilityBookingPage() {
     setBookingSheetOpen(true);
   }
 
-  function handleBookingSubmit() {
-    // Validate booker identity
+  function validateBookerIdentity(): Record<string, string> {
     const errors: Record<string, string> = {};
     if (!bookingForm.booker_type) errors.booker_type = "Booker type is required";
     if (bookingForm.booker_type === "Individual" && !bookingForm.booker_name)
@@ -318,13 +318,116 @@ export default function FacilityBookingPage() {
       errors.booker_org_name = "Organisation name is required";
     if (!bookingForm.booker_phone && !bookingForm.booker_email)
       errors.booker_contact = "Phone or email is required";
+    return errors;
+  }
+
+  async function saveBooking(): Promise<string | null> {
+    try {
+      if (bookingSheetMode === "edit") {
+        await updateBookingMutation.mutateAsync(bookingForm);
+        return editingBooking!.id;
+      } else {
+        // createBookingMutation doesn't return the id, so we need a direct call
+        const { data, error } = await supabase.from(TABLES.FACILITY_BOOKINGS).insert({
+          tenant_id: tenantId,
+          facility_name: bookingForm.facility_name,
+          purpose: bookingForm.purpose,
+          booking_date: bookingForm.booking_date,
+          start_time: bookingForm.start_time,
+          end_time: bookingForm.end_time,
+          booked_by: userId,
+          expected_attendees: bookingForm.expected_attendees || null,
+          setup_required: bookingForm.setup_required,
+          setup_notes: bookingForm.setup_notes || null,
+          notes: bookingForm.notes || null,
+          status: "pending_confirmation",
+          booker_type: bookingForm.booker_type || null,
+          booker_name: bookingForm.booker_name || null,
+          booker_org_name: bookingForm.booker_org_name || null,
+          booker_contact_person: bookingForm.booker_contact_person || null,
+          booker_phone: bookingForm.booker_phone || null,
+          booker_email: bookingForm.booker_email || null,
+        } as any).select("id").single();
+        if (error) throw error;
+        queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
+        toast.success("Booking request submitted");
+        setBookingSheetOpen(false);
+        return (data as any).id;
+      }
+    } catch {
+      toast.error("Failed to save booking");
+      return null;
+    }
+  }
+
+  async function handleSubmitBooking() {
+    const errors = validateBookerIdentity();
     if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
     setBookingErrors({});
-    if (bookingSheetMode === "edit") {
-      updateBookingMutation.mutate(bookingForm);
+    await saveBooking();
+  }
+
+  async function handleEmailConfirmation() {
+    const errors = validateBookerIdentity();
+    if (!bookingForm.booker_email) errors.booker_email = "Email is required for email confirmation";
+    if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
+    setBookingErrors({});
+
+    const bookingId = await saveBooking();
+    if (!bookingId) return;
+
+    const bookerName = bookingForm.booker_type === "Organisation"
+      ? (bookingForm.booker_org_name || bookingForm.booker_contact_person)
+      : bookingForm.booker_name;
+
+    const { error } = await supabase.functions.invoke("send-booking-confirmation", {
+      body: {
+        channel: "email",
+        to: bookingForm.booker_email,
+        subject: `Booking Confirmation — ${bookingForm.facility_name}`,
+        body: `Dear ${bookerName},\n\nYour booking for ${bookingForm.facility_name} on ${bookingForm.booking_date} from ${bookingForm.start_time} to ${bookingForm.end_time} has been received.\n\nPurpose: ${bookingForm.purpose || "N/A"}\n\nThank you.`,
+        booking_id: bookingId,
+        tenant_id: tenantId,
+      },
+    });
+    if (error) {
+      toast.error("Booking saved, but failed to send email confirmation");
     } else {
-      createBookingMutation.mutate();
+      toast.success("Email confirmation sent");
     }
+  }
+
+  async function handleSmsConfirmation() {
+    const errors = validateBookerIdentity();
+    if (!bookingForm.booker_phone) errors.booker_phone = "Phone is required for SMS confirmation";
+    if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
+    setBookingErrors({});
+
+    const bookingId = await saveBooking();
+    if (!bookingId) return;
+
+    const bookerName = bookingForm.booker_type === "Organisation"
+      ? (bookingForm.booker_org_name || bookingForm.booker_contact_person)
+      : bookingForm.booker_name;
+
+    const { error } = await supabase.functions.invoke("send-booking-confirmation", {
+      body: {
+        channel: "sms",
+        to: bookingForm.booker_phone,
+        body: `Hi ${bookerName}, your booking for ${bookingForm.facility_name} on ${bookingForm.booking_date} (${bookingForm.start_time}–${bookingForm.end_time}) has been received.`,
+        booking_id: bookingId,
+        tenant_id: tenantId,
+      },
+    });
+    if (error) {
+      toast.error("Booking saved, but failed to send SMS confirmation");
+    } else {
+      toast.success("SMS confirmation sent");
+    }
+  }
+
+  function handleBookingSubmit() {
+    handleSubmitBooking();
   }
 
   const isFacilityMutating =
@@ -791,6 +894,9 @@ export default function FacilityBookingPage() {
                         onChange={e => setBookingForm(p => ({ ...p, booker_phone: e.target.value }))}
                         placeholder="+254700000000"
                       />
+                      {bookingErrors.booker_phone && (
+                        <p className="text-xs text-destructive mt-1">{bookingErrors.booker_phone}</p>
+                      )}
                     </div>
                     <div>
                       <Label>Email</Label>
@@ -800,6 +906,9 @@ export default function FacilityBookingPage() {
                         onChange={e => setBookingForm(p => ({ ...p, booker_email: e.target.value }))}
                         placeholder="booker@example.com"
                       />
+                      {bookingErrors.booker_email && (
+                        <p className="text-xs text-destructive mt-1">{bookingErrors.booker_email}</p>
+                      )}
                     </div>
                     {bookingErrors.booker_contact && (
                       <p className="text-xs text-destructive">{bookingErrors.booker_contact}</p>
@@ -808,16 +917,32 @@ export default function FacilityBookingPage() {
                 )}
               </div>
             </div>
+          </div>
+          <SheetFooter className="mt-6 flex flex-col gap-2 sm:flex-col">
             <Button
               className="w-full"
-              onClick={handleBookingSubmit}
-              disabled={!bookingForm.facility_name || !bookingForm.purpose || createBookingMutation.isPending || updateBookingMutation.isPending}
+              onClick={handleSubmitBooking}
+              disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
             >
-              {(createBookingMutation.isPending || updateBookingMutation.isPending)
-                ? "Submitting..."
-                : bookingSheetMode === "edit" ? "Save Changes" : "Submit Booking"}
+              {updateBookingMutation.isPending ? "Submitting..." : "Submit Booking"}
             </Button>
-          </div>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleEmailConfirmation}
+              disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
+            >
+              Email Confirmation
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleSmsConfirmation}
+              disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
+            >
+              SMS Confirmation
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     </>
