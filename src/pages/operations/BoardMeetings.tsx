@@ -23,7 +23,7 @@ import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
   isSameDay, isSameMonth, isToday, addMonths, subMonths,
 } from "date-fns";
-import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck, ChevronLeft, LayoutList } from "lucide-react";
+import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck, ChevronLeft, LayoutList, LayoutGrid } from "lucide-react";
 
 const MEETING_TYPES = [
   { value: "board_meeting", label: "Board Meeting" },
@@ -254,10 +254,101 @@ function MeetingCalendarView({ meetings }: { meetings: any[] }) {
   );
 }
 
+// ─── Status banner colors ─────────────────────────────────────────────────────
+const STATUS_BANNER: Record<string, string> = {
+  scheduled: "bg-amber-400",
+  in_progress: "bg-blue-500",
+  completed: "bg-emerald-500",
+  cancelled: "bg-red-500",
+};
+
+// ─── Meeting Card ─────────────────────────────────────────────────────────────
+function MeetingCard({
+  m, attendeeCount, onEdit, onDelete, onAdvance, onJump,
+}: {
+  m: any; attendeeCount: number;
+  onEdit: () => void; onDelete: () => void;
+  onAdvance: (s: string) => void; onJump: (s: string) => void;
+}) {
+  const status = m.status || "scheduled";
+  const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label || m.type?.replace(/_/g, " ") || "Meeting";
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
+      {/* Colored banner */}
+      <div className={`h-28 ${STATUS_BANNER[status] || STATUS_BANNER.scheduled} relative flex items-center justify-center`}>
+        <Video className="h-10 w-10 text-white/30" />
+        {/* Date badge */}
+        <div className="absolute bottom-2 left-3 bg-white dark:bg-slate-800 rounded-lg p-1.5 text-center shadow-md min-w-[48px]">
+          <div className="text-[10px] uppercase font-semibold text-primary">
+            {format(new Date(m.meeting_date), "MMM")}
+          </div>
+          <div className="text-lg font-bold text-foreground leading-tight">
+            {format(new Date(m.meeting_date), "dd")}
+          </div>
+        </div>
+        {/* ⋯ menu */}
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon" className="h-7 w-7">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Card body */}
+      <div className="p-4 space-y-3">
+        {/* Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="text-xs capitalize">{typeLabel}</Badge>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${STATUS_COLORS[status]}`}>
+            {STATUS_LABELS[status]}
+          </span>
+        </div>
+
+        {/* Title */}
+        <h3 className="font-semibold text-foreground line-clamp-1">{m.title}</h3>
+
+        {/* Meta row */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+          {m.start_time && (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />{m.start_time.toString().slice(0, 5)}
+            </span>
+          )}
+          {m.location && (
+            <span className="flex items-center gap-1 truncate max-w-[120px]">
+              <MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{m.location}</span>
+            </span>
+          )}
+          {attendeeCount > 0 && (
+            <span className="flex items-center gap-1">
+              <Users className="h-3 w-3" />{attendeeCount}
+            </span>
+          )}
+        </div>
+
+        {/* Progress pipeline */}
+        <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+          <StatusPipeline status={status} onAdvance={onAdvance} onJump={onJump} />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function BoardMeetingsPage() {
   const { tenantId, userId } = useChurch();
   const queryClient = useQueryClient();
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const [view, setView] = useState<"cards" | "list" | "calendar">("cards");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -289,6 +380,19 @@ export default function BoardMeetingsPage() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 60000,
+  });
+
+  // Attendee counts per meeting
+  const { data: attendeeCounts = {} } = useQuery({
+    queryKey: ["meeting-attendee-counts", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from("meeting_attendees").select("meeting_id");
+      const counts: Record<string, number> = {};
+      (data || []).forEach((a: any) => { counts[a.meeting_id] = (counts[a.meeting_id] || 0) + 1; });
+      return counts;
+    },
+    enabled: !!tenantId,
     staleTime: 60000,
   });
 
@@ -365,6 +469,7 @@ export default function BoardMeetingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["board_meetings", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["meeting-attendee-counts", tenantId] });
       toast.success(editingId ? "Meeting updated" : "Meeting scheduled");
       setSheetOpen(false);
       setEditingId(null);
@@ -413,6 +518,9 @@ export default function BoardMeetingsPage() {
         action={
           <div className="flex items-center gap-2">
             <div className="flex border rounded-md overflow-hidden">
+              <Button variant={view === "cards" ? "default" : "ghost"} size="sm" onClick={() => setView("cards")}>
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
               <Button variant={view === "list" ? "default" : "ghost"} size="sm" onClick={() => setView("list")}>
                 <LayoutList className="h-4 w-4" />
               </Button>
@@ -446,11 +554,13 @@ export default function BoardMeetingsPage() {
         </Card>
       </div>
 
-      {/* Table / Calendar */}
+      {/* Cards / Table / Calendar */}
       {view === "calendar" ? (
         <MeetingCalendarView meetings={meetings || []} />
       ) : isLoading ? (
-        <Card className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-lg" />)}
+        </div>
       ) : !meetings?.length ? (
         <Card className="p-12 text-center">
           <Video className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
@@ -458,6 +568,20 @@ export default function BoardMeetingsPage() {
           <p className="text-sm text-muted-foreground mb-4">Schedule your first board meeting.</p>
           <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>
         </Card>
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {meetings.map(m => (
+            <MeetingCard
+              key={m.id}
+              m={m}
+              attendeeCount={(attendeeCounts as Record<string, number>)[m.id] || 0}
+              onEdit={() => openEdit(m)}
+              onDelete={() => setDeleteId(m.id)}
+              onAdvance={s => updateStatusMutation.mutate({ id: m.id, status: s })}
+              onJump={s => updateStatusMutation.mutate({ id: m.id, status: s })}
+            />
+          ))}
+        </div>
       ) : (
         <Card>
           <Table>
