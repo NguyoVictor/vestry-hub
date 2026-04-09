@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TimeSlotPicker } from "@/components/events/TimeSlotPicker";
 import { toast } from "sonner";
 import {
-  format, startOfMonth, endOfMonth, eachDayOfMonth, getDay,
+  format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
   isSameDay, isSameMonth, isToday, addMonths, subMonths,
 } from "date-fns";
 import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck, ChevronLeft, LayoutList } from "lucide-react";
@@ -141,7 +141,7 @@ function MeetingCalendarView({ meetings }: { meetings: any[] }) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const monthStart = startOfMonth(currentMonth);
-  const days = eachDayOfMonth(monthStart);
+  const days = eachDayOfInterval({ start: monthStart, end: endOfMonth(monthStart) });
   const startDow = getDay(monthStart);
   const prefixBlanks = startDow === 0 ? 6 : startDow - 1;
 

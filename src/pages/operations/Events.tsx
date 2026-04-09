@@ -20,7 +20,7 @@ import { EventCard } from "@/components/events/EventCard";
 import { TimeSlotPicker } from "@/components/events/TimeSlotPicker";
 import { toast } from "sonner";
 import {
-  format, startOfMonth, endOfMonth, eachDayOfMonth, getDay,
+  format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
   isSameDay, isSameMonth, isToday, addMonths, subMonths,
 } from "date-fns";
 import {
@@ -178,7 +178,7 @@ function CalendarViewPanel({ events }: { events: any[] }) {
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
-  const days = eachDayOfMonth(monthStart);
+  const days = eachDayOfInterval({ start: monthStart, end: endOfMonth(monthStart) });
 
   // getDay returns 0=Sun..6=Sat; we want Mon=0..Sun=6
   const startDow = getDay(monthStart); // 0=Sun
