@@ -36,6 +36,8 @@ export default function JoinChurch() {
   const [copied, setCopied] = useState(false);
   const [church, setChurch] = useState<{ name: string; logo: string | null } | null>(null);
   const [churchCode, setChurchCode] = useState("");
+  // Track whether user arrived via QR scan (code pre-filled from URL)
+  const [arrivedViaQR, setArrivedViaQR] = useState(false);
 
   // Routing question — shown first
   const [memberType, setMemberType] = useState<"member" | "visitor" | null>(null);
@@ -54,6 +56,7 @@ export default function JoinChurch() {
     if (code) {
       const upper = code.toUpperCase();
       setChurchCode(upper);
+      setArrivedViaQR(true);
       lookupChurch(upper);
     }
   }, []);
@@ -84,6 +87,7 @@ export default function JoinChurch() {
         phone: form.phone,
         memberType,
         howHeard: form.howHeard || undefined,
+        registrationSource: arrivedViaQR ? "qr_scan" : "form",
         // Member-only fields
         ...(memberType === "member" ? {
           gender: form.gender || undefined,
@@ -256,20 +260,29 @@ export default function JoinChurch() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
             <form onSubmit={submit} className="space-y-4">
 
-              {/* Church code if not pre-filled */}
-              {!searchParams.get("code") && (
-                <div className="space-y-1.5">
-                  <Label>Church Access Code *</Label>
-                  <Input
-                    value={churchCode}
-                    onChange={e => { const v = e.target.value.toUpperCase(); setChurchCode(v); if (v.length >= 9) lookupChurch(v); }}
-                    placeholder="e.g. HOPE-2847"
-                    className="h-11 uppercase font-mono tracking-widest text-center"
-                    maxLength={9}
-                    required
-                  />
-                </div>
-              )}
+              {/* Church code — always shown, read-only if pre-filled from QR */}
+              <div className="space-y-1.5">
+                <Label>Church Access Code *</Label>
+                <Input
+                  value={churchCode}
+                  onChange={e => {
+                    if (arrivedViaQR) return; // locked when from QR
+                    const v = e.target.value.toUpperCase();
+                    setChurchCode(v);
+                    if (v.length >= 9) lookupChurch(v);
+                  }}
+                  placeholder="e.g. HOPE-2847"
+                  className={`h-11 uppercase font-mono tracking-widest text-center ${arrivedViaQR ? "bg-slate-50 dark:bg-slate-800 cursor-not-allowed opacity-70" : ""}`}
+                  maxLength={9}
+                  readOnly={arrivedViaQR}
+                  required
+                />
+                {arrivedViaQR && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    ✓ Church code pre-filled from QR code
+                  </p>
+                )}
+              </div>
 
               {/* Name */}
               <div className="grid grid-cols-2 gap-3">

@@ -13,7 +13,7 @@ Deno.serve(async (req: Request) => {
     const {
       churchCode, firstName, lastName, email, phone,
       gender, dateOfBirth, address, city, occupation,
-      maritalStatus, memberType, howHeard,
+      maritalStatus, memberType, howHeard, registrationSource,
     } = await req.json();
 
     if (!churchCode || !firstName || !lastName || !phone) {
@@ -55,6 +55,7 @@ Deno.serve(async (req: Request) => {
           visit_date: today,
           how_heard: howHeard || null,
           follow_up_status: "not_contacted",
+          service_attended: registrationSource === "qr_scan" ? "qr_scan" : "form",
           created_at: new Date().toISOString(),
         })
         .select()
@@ -62,10 +63,11 @@ Deno.serve(async (req: Request) => {
 
       if (visitorErr) throw visitorErr;
 
+      const sourceLabel = registrationSource === "qr_scan" ? "QR code" : "registration form";
       await supabase.from("activity_log").insert({
         tenant_id: tenant.id,
         action_type: "new_visitor",
-        description: `${firstName} ${lastName} visited via QR code`,
+        description: `${firstName} ${lastName} visited via ${sourceLabel}`,
         entity_id: visitor.id,
         entity_type: "visitor",
       });
@@ -115,7 +117,7 @@ Deno.serve(async (req: Request) => {
         status: "active",
         member_type: "member",
         membership_status: "Pending Approval",
-        registration_source: "qr_scan",
+        registration_source: registrationSource === "qr_scan" ? "qr_scan" : "admin",
         join_date: today,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -126,10 +128,11 @@ Deno.serve(async (req: Request) => {
 
     if (insertError) throw insertError;
 
+    const sourceLabel = registrationSource === "qr_scan" ? "QR code" : "registration form";
     await supabase.from("activity_log").insert({
       tenant_id: tenant.id,
       action_type: "new_member",
-      description: `${firstName} ${lastName} registered via QR code (Pending Approval)`,
+      description: `${firstName} ${lastName} registered via ${sourceLabel} (Pending Approval)`,
       entity_id: member.id,
       entity_type: "member",
     });

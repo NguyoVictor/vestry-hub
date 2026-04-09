@@ -144,7 +144,7 @@ export default function MemberLoginPage() {
 
           <div className="text-center space-y-2 text-sm text-slate-500">
             <p>Not registered yet?{" "}
-              <Link to="/member/join" className="text-indigo-600 font-medium">Register via QR code</Link>
+              <Link to="/member/join" className="text-indigo-600 font-medium">Register</Link>
             </p>
             <p><Link to="/auth/signin" className="text-slate-400 hover:text-slate-600">Admin Sign In</Link></p>
           </div>
