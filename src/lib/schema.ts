@@ -184,6 +184,14 @@ export const COLS = {
   GIVING_CAMPAIGN_ID: "campaign_id",
   GIVING_DONOR_NAME: "donor_name",
   GIVING_CATEGORY: "category",
+
+  // Notifications
+  NOTIF_TASK_ID: "task_id",
+  NOTIF_IS_READ: "is_read",
+  NOTIF_TYPE: "type",
+  NOTIF_TITLE: "title",
+  NOTIF_BODY: "body",
+  NOTIF_USER_ID: "user_id",
 } as const;
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────

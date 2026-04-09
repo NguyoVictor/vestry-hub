@@ -3644,6 +3644,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_read: boolean | null
+          task_id: string | null
           tenant_id: string
           title: string
           type: string | null
@@ -3654,6 +3655,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_read?: boolean | null
+          task_id?: string | null
           tenant_id: string
           title: string
           type?: string | null
@@ -3664,12 +3666,20 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_read?: boolean | null
+          task_id?: string | null
           tenant_id?: string
           title?: string
           type?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "follow_up_tasks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_tenant_id_fkey"
             columns: ["tenant_id"]

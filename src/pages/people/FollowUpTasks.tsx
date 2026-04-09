@@ -106,7 +106,7 @@ const FollowUpTasks = () => {
   return (
     <>
       <Helmet><title>Follow-Up Tasks — Vestry</title></Helmet>
-      <PageHeader title="Follow-Up Tasks" subtitle="Assign and track member and visitor follow-ups" />
+      <PageHeader title="Follow-Up Tasks" subtitle="Assign and track member, church and visitor follow-ups" />
       <div className="flex gap-2 mb-4 justify-end -mt-8">
         <div className="flex border rounded-md">
           <Button variant={viewMode === "kanban" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("kanban")}><LayoutGrid className="h-4 w-4" /></Button>
