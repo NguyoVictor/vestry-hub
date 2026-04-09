@@ -125,7 +125,13 @@ export default function MemberRequests() {
               </Select>
             </div>
             <div className="space-y-1.5"><Label>Title *</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} maxLength={100} className="h-11 rounded-xl" /></div>
-            <div className="space-y-1.5"><Label>Description *</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={4} placeholder="Please describe your request in detail..." /></div>
+            <div className="space-y-1.5">
+              <Label>Description *</Label>
+              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={4} placeholder="Please describe your request in detail..." />
+              {form.description.length > 0 && form.description.length < 10 && (
+                <p className="text-xs text-muted-foreground">{10 - form.description.length} more characters needed</p>
+              )}
+            </div>
             <div className="space-y-1.5">
               <Label>Priority</Label>
               <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
@@ -142,7 +148,7 @@ export default function MemberRequests() {
               <Switch checked={form.is_confidential} onCheckedChange={v => setForm(f => ({ ...f, is_confidential: v }))} />
               <Label>Keep this request confidential</Label>
             </div>
-            <Button className="w-full h-11 rounded-full" onClick={() => submit.mutate()} disabled={!form.title || form.description.length < 20 || submit.isPending}>
+            <Button className="w-full h-11 rounded-full" onClick={() => submit.mutate()} disabled={!form.title || form.description.length < 10 || submit.isPending}>
               {submit.isPending ? "Submitting..." : "Submit Request"}
             </Button>
           </div>
