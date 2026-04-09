@@ -14,12 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TimeSlotPicker } from "@/components/events/TimeSlotPicker";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight } from "lucide-react";
+import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck } from "lucide-react";
 
 const MEETING_TYPES = [
   { value: "board_meeting", label: "Board Meeting" },
@@ -54,6 +55,12 @@ const emptyForm = {
   location: "", location_type: "on_site", online_link: "",
   agenda: "", pre_meeting_notes: "", status: "scheduled",
 };
+
+const LEADERSHIP_ROLES = [
+  "Pastor", "Senior Pastor", "Associate Pastor", "Elder", "Deacon",
+  "Administrator", "Church Administrator", "Treasurer", "Finance Officer",
+  "Board Member", "Staff",
+];
 
 // Inline status pipeline component
 function StatusPipeline({ status, onAdvance, onJump }: { status: string; onAdvance: (s: string) => void; onJump: (s: string) => void }) {
@@ -125,6 +132,23 @@ export default function BoardMeetingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+
+  // Leadership members for attendees dropdown
+  const { data: leadershipMembers = [] } = useQuery({
+    queryKey: ["leadership-members", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("members")
+        .select("id, first_name, last_name, membership_status")
+        .eq("tenant_id", tenantId!)
+        .in("membership_status", LEADERSHIP_ROLES)
+        .order("first_name", { ascending: true });
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300000,
+  });
 
   const { data: meetings, isLoading } = useQuery({
     queryKey: ["board_meetings", tenantId],
@@ -141,10 +165,11 @@ export default function BoardMeetingsPage() {
   const openCreate = () => {
     setEditingId(null);
     setFormData({ ...emptyForm });
+    setSelectedAttendees([]);
     setSheetOpen(true);
   };
 
-  const openEdit = (m: any) => {
+  const openEdit = async (m: any) => {
     setEditingId(m.id);
     setFormData({
       title: m.title || "",
@@ -159,6 +184,12 @@ export default function BoardMeetingsPage() {
       pre_meeting_notes: m.pre_meeting_notes || "",
       status: m.status || "scheduled",
     });
+    // Load existing attendees
+    const { data: existing } = await supabase
+      .from("meeting_attendees")
+      .select("member_id")
+      .eq("meeting_id", m.id);
+    setSelectedAttendees((existing || []).map((a: any) => a.member_id));
     setSheetOpen(true);
   };
 
@@ -177,14 +208,29 @@ export default function BoardMeetingsPage() {
         pre_meeting_notes: formData.pre_meeting_notes,
         status: formData.status,
       };
+      let meetingId = editingId;
       if (editingId) {
         const { error } = await supabase.from("board_meetings").update(payload).eq("id", editingId);
         if (error) throw error;
+        // Replace attendees
+        await supabase.from("meeting_attendees").delete().eq("meeting_id", editingId);
       } else {
-        const { error } = await supabase.from("board_meetings").insert({
+        const { data, error } = await supabase.from("board_meetings").insert({
           ...payload, tenant_id: tenantId, created_by: userId,
-        });
+        }).select().single();
         if (error) throw error;
+        meetingId = data.id;
+      }
+      // Insert selected attendees
+      if (selectedAttendees.length && meetingId) {
+        await supabase.from("meeting_attendees").insert(
+          selectedAttendees.map(memberId => ({
+            id: crypto.randomUUID(),
+            meeting_id: meetingId,
+            member_id: memberId,
+            attendance_status: "expected",
+          }))
+        );
       }
     },
     onSuccess: () => {
@@ -193,6 +239,7 @@ export default function BoardMeetingsPage() {
       setSheetOpen(false);
       setEditingId(null);
       setFormData({ ...emptyForm });
+      setSelectedAttendees([]);
     },
     onError: () => toast.error("Failed to save meeting"),
   });
@@ -337,7 +384,7 @@ export default function BoardMeetingsPage() {
       )}
 
       {/* Create / Edit Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={v => { setSheetOpen(v); if (!v) setEditingId(null); }}>
+      <Sheet open={sheetOpen} onOpenChange={v => { setSheetOpen(v); if (!v) { setEditingId(null); setSelectedAttendees([]); } }}>
         <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
           <SheetHeader><SheetTitle>{editingId ? "Edit Meeting" : "Schedule Meeting"}</SheetTitle></SheetHeader>
           <div className="space-y-4 mt-6">
@@ -384,6 +431,43 @@ export default function BoardMeetingsPage() {
             )}
             <div><Label>Agenda</Label><Textarea value={formData.agenda} onChange={e => setFormData(p => ({ ...p, agenda: e.target.value }))} rows={4} placeholder="1. Opening Prayer&#10;2. Review of Minutes&#10;3. Financial Report..." /></div>
             <div><Label>Pre-meeting Notes</Label><Textarea value={formData.pre_meeting_notes} onChange={e => setFormData(p => ({ ...p, pre_meeting_notes: e.target.value }))} rows={2} /></div>
+
+            {/* Attendees — leadership members only */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <UserCheck className="h-4 w-4" />Attendees
+              </Label>
+              {leadershipMembers.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic border border-dashed border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+                  No leadership members found — assign roles via the Members page
+                </p>
+              ) : (
+                <div className="border border-slate-200 dark:border-slate-700 rounded-lg divide-y divide-slate-100 dark:divide-slate-800 max-h-48 overflow-y-auto">
+                  {(leadershipMembers as any[]).map((m: any) => {
+                    const checked = selectedAttendees.includes(m.id);
+                    return (
+                      <label key={m.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={v => {
+                            setSelectedAttendees(prev =>
+                              v ? [...prev, m.id] : prev.filter(id => id !== m.id)
+                            );
+                          }}
+                        />
+                        <span className="text-sm flex-1">
+                          {m.first_name} {m.last_name}
+                          <span className="text-xs text-muted-foreground ml-1">— {m.membership_status}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedAttendees.length > 0 && (
+                <p className="text-xs text-muted-foreground">{selectedAttendees.length} attendee{selectedAttendees.length !== 1 ? "s" : ""} selected</p>
+              )}
+            </div>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>Cancel</Button>
               <Button className="flex-1" onClick={() => saveMutation.mutate()} disabled={!formData.title || saveMutation.isPending}>
