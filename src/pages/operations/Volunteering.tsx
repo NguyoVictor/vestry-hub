@@ -56,6 +56,25 @@ export default function VolunteeringPage() {
     },
   });
 
+  // Also fetch from members table — portal signups use members.id not users.id
+  const { data: memberRecords } = useQuery({
+    queryKey: ["members-for-volunteers", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from("members").select("id, first_name, last_name, avatar_url").eq("tenant_id", tenantId);
+      return data || [];
+    },
+    staleTime: 300000,
+  });
+
+  // Merged lookup: check members table first, then users table
+  const getMemberName = (memberId: string) => {
+    const fromMembers = memberRecords?.find(m => m.id === memberId);
+    if (fromMembers?.first_name) return { name: `${fromMembers.first_name} ${fromMembers.last_name || ""}`.trim(), avatarUrl: fromMembers.avatar_url };
+    const fromUsers = members?.find(m => m.id === memberId);
+    if (fromUsers?.first_name) return { name: `${fromUsers.first_name} ${fromUsers.last_name || ""}`.trim(), avatarUrl: null };
+    return { name: "Unknown", avatarUrl: null };
+  };
+
   const createRoleMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("volunteer_roles" as any).insert({
@@ -200,14 +219,13 @@ export default function VolunteeringPage() {
                 </TableHeader>
                 <TableBody>
                   {assignments.map((a: any) => {
-                    const member = members?.find(m => m.id === a.member_id);
                     const role = roles?.find((r: any) => r.id === a.role_id);
-                    const name = member ? `${member.first_name} ${member.last_name}` : "Unknown";
+                    const { name, avatarUrl } = getMemberName(a.member_id);
                     return (
                       <TableRow key={a.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <MemberAvatar name={name} size="sm" />
+                            <MemberAvatar name={name} avatarUrl={avatarUrl} size="sm" />
                             <span className="font-medium text-foreground">{name}</span>
                           </div>
                         </TableCell>
@@ -254,7 +272,7 @@ export default function VolunteeringPage() {
               <Select value={assignForm.member_id} onValueChange={v => setAssignForm(p => ({ ...p, member_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
                 <SelectContent>
-                  {members?.map(m => (
+                  {memberRecords?.filter(m => m.first_name).map(m => (
                     <SelectItem key={m.id} value={m.id}>{m.first_name} {m.last_name}</SelectItem>
                   ))}
                 </SelectContent>
