@@ -100,10 +100,16 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
+  const getNotificationLabel = (n: any): string => {
+    if (n.type === "facility_response") return "New booking response received";
+    return n.title;
+  };
+
   const handleNotificationClick = (n: any) => {
     if (!n.is_read) markRead.mutate(n.id);
     if (n.type === "task_deadline") navigate("/follow-up-tasks");
     else if (n.type === "meeting_reminder") navigate("/board-meetings");
+    else if (n.type === "facility_response") navigate("/facility-booking?tab=responses");
   };
 
   const handleLogout = async () => {
@@ -165,7 +171,7 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
                       )}
                       <div className={!n.is_read ? "" : "pl-4"}>
-                        <p className="text-sm font-medium text-foreground leading-snug">{n.title}</p>
+                        <p className="text-sm font-medium text-foreground leading-snug">{getNotificationLabel(n)}</p>
                         {n.body && <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>}
                         <p className="mt-1 text-xs text-muted-foreground">
                           {n.created_at && formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}

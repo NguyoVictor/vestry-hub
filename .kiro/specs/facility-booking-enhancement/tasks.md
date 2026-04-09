@@ -94,11 +94,11 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 13.6 Render an empty state with a `MessageSquare` icon and descriptive text when no responses exist
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-- [ ] 14. Navbar notification for new responses
-  - [ ] 14.1 Locate the existing navbar notifications component/hook and ensure it already queries the `notifications` table; confirm `type = 'facility_response'` records will appear in the dropdown
-  - [ ] 14.2 Add a display label "New booking response received" for notifications where `type = 'facility_response'` in the notifications dropdown render logic
-  - [ ] 14.3 Add a click handler for `facility_response` notifications that navigates to `/operations/facility-booking` and sets the active tab to "responses" (use URL search param or React Router state)
-  - [ ] 14.4 Ensure marking the notification as read sets `is_read = true` on the `notifications` record via the existing notification read mutation
+- [x] 14. Navbar notification for new responses
+  - [x] 14.1 Locate the existing navbar notifications component/hook and ensure it already queries the `notifications` table; confirm `type = 'facility_response'` records will appear in the dropdown
+  - [x] 14.2 Add a display label "New booking response received" for notifications where `type = 'facility_response'` in the notifications dropdown render logic
+  - [x] 14.3 Add a click handler for `facility_response` notifications that navigates to `/operations/facility-booking` and sets the active tab to "responses" (use URL search param or React Router state)
+  - [x] 14.4 Ensure marking the notification as read sets `is_read = true` on the `notifications` record via the existing notification read mutation
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
 - [ ] 15. Final checkpoint — Ensure all tests pass

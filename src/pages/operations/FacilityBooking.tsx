@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -53,6 +54,8 @@ const EMPTY_FACILITY_FORM = {
 export default function FacilityBookingPage() {
   const { tenantId, userId, currency } = useChurch();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") ?? "facilities";
 
   // Facility dialog state
   const [facilityDialogOpen, setFacilityDialogOpen] = useState(false);
@@ -142,6 +145,7 @@ export default function FacilityBookingPage() {
   });
 
   function handleTabChange(value: string) {
+    setSearchParams(value === "facilities" ? {} : { tab: value });
     if (value === "responses" && unreadCount > 0) {
       markResponsesReadMutation.mutate();
     }
@@ -539,7 +543,7 @@ export default function FacilityBookingPage() {
         }
       />
 
-      <Tabs defaultValue="facilities" onValueChange={handleTabChange}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="facilities">Facilities</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
