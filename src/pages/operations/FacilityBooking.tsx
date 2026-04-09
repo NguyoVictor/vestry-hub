@@ -49,6 +49,8 @@ const BOOKING_STATUS_MAP: Record<string, string> = {
 
 const EMPTY_FACILITY_FORM = {
   name: "", type: "other", capacity: 0, description: "", is_active: true, quotation: 0,
+  booker_type: "", booker_name: "", booker_org_name: "",
+  booker_contact_person: "", booker_phone: "", booker_email: "",
 };
 
 export default function FacilityBookingPage() {
@@ -163,6 +165,12 @@ export default function FacilityBookingPage() {
         description: facilityForm.description,
         is_active: facilityForm.is_active,
         quotation: facilityForm.quotation || null,
+        booker_type: facilityForm.booker_type || null,
+        booker_name: facilityForm.booker_name || null,
+        booker_org_name: facilityForm.booker_org_name || null,
+        booker_contact_person: facilityForm.booker_contact_person || null,
+        booker_phone: facilityForm.booker_phone || null,
+        booker_email: facilityForm.booker_email || null,
       });
       if (error) throw error;
     },
@@ -186,6 +194,12 @@ export default function FacilityBookingPage() {
           description: facilityForm.description,
           is_active: facilityForm.is_active,
           quotation: facilityForm.quotation || null,
+          booker_type: facilityForm.booker_type || null,
+          booker_name: facilityForm.booker_name || null,
+          booker_org_name: facilityForm.booker_org_name || null,
+          booker_contact_person: facilityForm.booker_contact_person || null,
+          booker_phone: facilityForm.booker_phone || null,
+          booker_email: facilityForm.booker_email || null,
         })
         .eq("id", editingFacility!.id);
       if (error) throw error;
@@ -316,6 +330,12 @@ export default function FacilityBookingPage() {
       description: facility.description ?? "",
       is_active: facility.is_active ?? true,
       quotation: facility.quotation ?? 0,
+      booker_type: facility.booker_type ?? "",
+      booker_name: facility.booker_name ?? "",
+      booker_org_name: facility.booker_org_name ?? "",
+      booker_contact_person: facility.booker_contact_person ?? "",
+      booker_phone: facility.booker_phone ?? "",
+      booker_email: facility.booker_email ?? "",
     });
     setEditingFacility(facility);
     setFacilityDialogMode("edit");
@@ -828,6 +848,81 @@ export default function FacilityBookingPage() {
                 placeholder="0"
               />
             </div>
+
+            {/* ── Booker Identity ── */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium text-foreground mb-3">Booker Identity (optional)</p>
+              <div className="space-y-3">
+                <div>
+                  <Label>Booker Type</Label>
+                  <Select
+                    value={facilityForm.booker_type}
+                    onValueChange={v => setFacilityForm(p => ({ ...p, booker_type: v, booker_name: "", booker_org_name: "", booker_contact_person: "" }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Individual">Individual</SelectItem>
+                      <SelectItem value="Organisation">Organisation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {facilityForm.booker_type === "Individual" && (
+                  <div>
+                    <Label>Full Name</Label>
+                    <Input
+                      value={facilityForm.booker_name}
+                      onChange={e => setFacilityForm(p => ({ ...p, booker_name: e.target.value }))}
+                      placeholder="John Doe"
+                    />
+                  </div>
+                )}
+
+                {facilityForm.booker_type === "Organisation" && (
+                  <>
+                    <div>
+                      <Label>Organisation Name</Label>
+                      <Input
+                        value={facilityForm.booker_org_name}
+                        onChange={e => setFacilityForm(p => ({ ...p, booker_org_name: e.target.value }))}
+                        placeholder="Acme Ltd"
+                      />
+                    </div>
+                    <div>
+                      <Label>Contact Person</Label>
+                      <Input
+                        value={facilityForm.booker_contact_person}
+                        onChange={e => setFacilityForm(p => ({ ...p, booker_contact_person: e.target.value }))}
+                        placeholder="Jane Smith"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {facilityForm.booker_type && (
+                  <>
+                    <div>
+                      <Label>Phone</Label>
+                      <Input
+                        value={facilityForm.booker_phone}
+                        onChange={e => setFacilityForm(p => ({ ...p, booker_phone: e.target.value }))}
+                        placeholder="+254700000000"
+                      />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={facilityForm.booker_email}
+                        onChange={e => setFacilityForm(p => ({ ...p, booker_email: e.target.value }))}
+                        placeholder="booker@example.com"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center gap-3">
               <Switch
                 checked={facilityForm.is_active}
