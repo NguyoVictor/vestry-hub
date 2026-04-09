@@ -69,9 +69,9 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 9.4 "SMS Confirmation" validates `booker_phone` is present, saves the booking, then calls `supabase.functions.invoke('send-booking-confirmation', { body: { channel: 'sms', ... } })`; show `toast.error` on function error
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7_
 
-- [ ] 10. "Send Confirmation" action on Facility Card and "Send Request" on Booking Card
-  - [ ] 10.1 Wire the "Send Confirmation" menu item on the facility card: open a small `Dialog` or `AlertDialog` with two buttons "Email" and "SMS"; on selection invoke `send-booking-confirmation` with the appropriate channel and the facility's latest booking data
-  - [ ] 10.2 Wire the "Send Request" menu item on the booking card: open the same channel-selection prompt; validate that the required contact field exists before invoking; show `toast.success` on success and `toast.error` on failure or missing contact
+- [x] 10. "Send Confirmation" action on Facility Card and "Send Request" on Booking Card
+  - [x] 10.1 Wire the "Send Confirmation" menu item on the facility card: open a small `Dialog` or `AlertDialog` with two buttons "Email" and "SMS"; on selection invoke `send-booking-confirmation` with the appropriate channel and the facility's latest booking data
+  - [x] 10.2 Wire the "Send Request" menu item on the booking card: open the same channel-selection prompt; validate that the required contact field exists before invoking; show `toast.success` on success and `toast.error` on failure or missing contact
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
 - [ ] 11. Checkpoint — Ensure confirmation dispatch works for all paths

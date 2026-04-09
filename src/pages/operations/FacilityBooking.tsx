@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -59,6 +59,10 @@ export default function FacilityBookingPage() {
   const [facilityDialogMode, setFacilityDialogMode] = useState<"create" | "edit">("create");
   const [editingFacility, setEditingFacility] = useState<any | null>(null);
   const [facilityToDelete, setFacilityToDelete] = useState<any | null>(null);
+
+  // Send confirmation / request dialog state
+  const [sendConfirmationFacility, setSendConfirmationFacility] = useState<any | null>(null);
+  const [sendRequestBooking, setSendRequestBooking] = useState<any | null>(null);
 
   // Booking sheet state
   const [bookingSheetOpen, setBookingSheetOpen] = useState(false);
@@ -430,6 +434,40 @@ export default function FacilityBookingPage() {
     handleSubmitBooking();
   }
 
+  async function handleFacilitySendConfirmation(channel: 'email' | 'sms') {
+    const facility = sendConfirmationFacility;
+    const booking = bookings?.find((b: any) => b.facility_name === facility.name);
+    if (!booking) { toast.error("No booking found for this facility"); return; }
+    if (channel === 'email' && !booking.booker_email) { toast.error("No email address on file for this booking"); return; }
+    if (channel === 'sms' && !booking.booker_phone) { toast.error("No phone number on file for this booking"); return; }
+    setSendConfirmationFacility(null);
+    const bookerName = booking.booker_type === 'Organisation'
+      ? (booking.booker_org_name || booking.booker_contact_person)
+      : booking.booker_name;
+    const payload = channel === 'email'
+      ? { channel: 'email', to: booking.booker_email, subject: `Booking Confirmation — ${facility.name}`, body: `Dear ${bookerName},\n\nYour booking for ${facility.name} on ${booking.booking_date} from ${booking.start_time?.toString().slice(0,5)} to ${booking.end_time?.toString().slice(0,5)} has been confirmed.\n\nThank you.`, booking_id: booking.id, tenant_id: tenantId }
+      : { channel: 'sms', to: booking.booker_phone, body: `Hi ${bookerName}, your booking for ${facility.name} on ${booking.booking_date} (${booking.start_time?.toString().slice(0,5)}–${booking.end_time?.toString().slice(0,5)}) is confirmed.`, booking_id: booking.id, tenant_id: tenantId };
+    const { error } = await supabase.functions.invoke('send-booking-confirmation', { body: payload });
+    if (error) toast.error(`Failed to send ${channel === 'email' ? 'email' : 'SMS'} confirmation`);
+    else toast.success(`${channel === 'email' ? 'Email' : 'SMS'} confirmation sent`);
+  }
+
+  async function handleBookingSendRequest(channel: 'email' | 'sms') {
+    const booking = sendRequestBooking;
+    if (channel === 'email' && !booking.booker_email) { toast.error("No email address on file for this booking"); return; }
+    if (channel === 'sms' && !booking.booker_phone) { toast.error("No phone number on file for this booking"); return; }
+    setSendRequestBooking(null);
+    const bookerName = booking.booker_type === 'Organisation'
+      ? (booking.booker_org_name || booking.booker_contact_person)
+      : booking.booker_name;
+    const payload = channel === 'email'
+      ? { channel: 'email', to: booking.booker_email, subject: `Booking Request — ${booking.facility_name}`, body: `Dear ${bookerName},\n\nYour booking request for ${booking.facility_name} on ${booking.booking_date} from ${booking.start_time?.toString().slice(0,5)} to ${booking.end_time?.toString().slice(0,5)} has been received.\n\nPurpose: ${booking.purpose || 'N/A'}\n\nThank you.`, booking_id: booking.id, tenant_id: tenantId }
+      : { channel: 'sms', to: booking.booker_phone, body: `Hi ${bookerName}, your booking request for ${booking.facility_name} on ${booking.booking_date} (${booking.start_time?.toString().slice(0,5)}–${booking.end_time?.toString().slice(0,5)}) has been received.`, booking_id: booking.id, tenant_id: tenantId };
+    const { error } = await supabase.functions.invoke('send-booking-confirmation', { body: payload });
+    if (error) toast.error(`Failed to send ${channel === 'email' ? 'email' : 'SMS'} request`);
+    else toast.success(`${channel === 'email' ? 'Email' : 'SMS'} request sent`);
+  }
+
   const isFacilityMutating =
     createFacilityMutation.isPending || updateFacilityMutation.isPending;
 
@@ -506,7 +544,7 @@ export default function FacilityBookingPage() {
                           >
                             <Trash2 className="h-4 w-4 mr-2" />Delete
                           </DropdownMenuItem>
-                          <DropdownMenuItem disabled>
+                          <DropdownMenuItem onClick={() => setSendConfirmationFacility(f)}>
                             <Send className="h-4 w-4 mr-2" />Send Confirmation
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -604,7 +642,7 @@ export default function FacilityBookingPage() {
                             >
                               <Trash2 className="h-4 w-4 mr-2" />Delete
                             </DropdownMenuItem>
-                            <DropdownMenuItem disabled>
+                            <DropdownMenuItem onClick={() => setSendRequestBooking(b)}>
                               <Send className="h-4 w-4 mr-2" />Send Request
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -945,6 +983,38 @@ export default function FacilityBookingPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* ── Send Confirmation Dialog (Facility Card) ── */}
+      <Dialog open={sendConfirmationFacility !== null} onOpenChange={open => { if (!open) setSendConfirmationFacility(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Confirmation</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Choose how to send the confirmation for <strong>{sendConfirmationFacility?.name}</strong>.
+          </p>
+          <DialogFooter className="flex gap-2 sm:justify-start">
+            <Button onClick={() => handleFacilitySendConfirmation('email')}>Email</Button>
+            <Button onClick={() => handleFacilitySendConfirmation('sms')}>SMS</Button>
+            <Button variant="outline" onClick={() => setSendConfirmationFacility(null)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Send Request Dialog (Booking Row) ── */}
+      <Dialog open={sendRequestBooking !== null} onOpenChange={open => { if (!open) setSendRequestBooking(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Request</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Choose how to send the booking request.</p>
+          <DialogFooter className="flex gap-2 sm:justify-start">
+            <Button onClick={() => handleBookingSendRequest('email')}>Email</Button>
+            <Button onClick={() => handleBookingSendRequest('sms')}>SMS</Button>
+            <Button variant="outline" onClick={() => setSendRequestBooking(null)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
