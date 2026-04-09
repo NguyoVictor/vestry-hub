@@ -23,10 +23,10 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700",
+  open: "bg-amber-100 text-amber-700",
   in_progress: "bg-blue-100 text-blue-700",
-  resolved: "bg-emerald-100 text-emerald-700",
-  closed: "bg-slate-100 text-slate-600",
+  completed: "bg-emerald-100 text-emerald-700",
+  cancelled: "bg-slate-100 text-slate-600",
 };
 
 const defaultForm = { request_type: "prayer", title: "", description: "", priority: "medium", is_confidential: false };
@@ -48,13 +48,17 @@ export default function MemberRequests() {
   const submit = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("member_requests").insert({
-        ...form,
+        request_type: form.request_type,
+        title: form.title,
+        description: form.description,
+        priority: form.priority,
+        is_confidential: form.is_confidential,
         member_id: member.memberId,
         tenant_id: member.churchId,
-        status: "pending",
+        status: "open",
       });
       if (error) throw error;
-      await supabase.from("activity_log").insert({ tenant_id: member.churchId, action_type: "member_request", description: `New ${form.request_type} request submitted`, entity_id: member.memberId });
+      await supabase.from("activity_log").insert({ tenant_id: member.churchId, action_type: "new_request", description: `New ${form.request_type} request submitted`, entity_id: member.memberId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["member-requests", member.memberId] });
