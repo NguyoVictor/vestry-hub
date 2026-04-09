@@ -325,9 +325,19 @@ export default function FacilityBookingPage() {
     return errors;
   }
 
-  async function saveBooking(): Promise<string | null> {
+  async function saveBooking(silent = false): Promise<string | null> {
     try {
       if (bookingSheetMode === "edit") {
+        if (silent) {
+          // In silent mode (called from confirmation handlers), update without closing sheet
+          const { error } = await supabase
+            .from(TABLES.FACILITY_BOOKINGS)
+            .update({ ...bookingForm, updated_at: new Date().toISOString() } as any)
+            .eq("id", editingBooking!.id);
+          if (error) throw error;
+          queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
+          return editingBooking!.id;
+        }
         await updateBookingMutation.mutateAsync(bookingForm);
         return editingBooking!.id;
       } else {
@@ -354,8 +364,10 @@ export default function FacilityBookingPage() {
         } as any).select("id").single();
         if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
-        toast.success("Booking request submitted");
-        setBookingSheetOpen(false);
+        if (!silent) {
+          toast.success("Booking request submitted");
+          setBookingSheetOpen(false);
+        }
         return (data as any).id;
       }
     } catch {
@@ -377,7 +389,7 @@ export default function FacilityBookingPage() {
     if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
     setBookingErrors({});
 
-    const bookingId = await saveBooking();
+    const bookingId = await saveBooking(true);
     if (!bookingId) return;
 
     const bookerName = bookingForm.booker_type === "Organisation"
@@ -399,6 +411,7 @@ export default function FacilityBookingPage() {
     } else {
       toast.success("Email confirmation sent");
     }
+    setBookingSheetOpen(false);
   }
 
   async function handleSmsConfirmation() {
@@ -407,7 +420,7 @@ export default function FacilityBookingPage() {
     if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
     setBookingErrors({});
 
-    const bookingId = await saveBooking();
+    const bookingId = await saveBooking(true);
     if (!bookingId) return;
 
     const bookerName = bookingForm.booker_type === "Organisation"
@@ -428,6 +441,7 @@ export default function FacilityBookingPage() {
     } else {
       toast.success("SMS confirmation sent");
     }
+    setBookingSheetOpen(false);
   }
 
   function handleBookingSubmit() {

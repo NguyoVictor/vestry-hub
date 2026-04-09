@@ -74,7 +74,7 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 10.2 Wire the "Send Request" menu item on the booking card: open the same channel-selection prompt; validate that the required contact field exists before invoking; show `toast.success` on success and `toast.error` on failure or missing contact
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-- [ ] 11. Checkpoint — Ensure confirmation dispatch works for all paths
+- [x] 11. Checkpoint — Ensure confirmation dispatch works for all paths
   - Verify email and SMS paths in the Edge Function, all three booking form buttons, and both card-level send actions. Ask the user if questions arise.
 
 - [ ] 12. `receive-booking-response` Edge Function
