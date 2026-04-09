@@ -12,13 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TimeSlotPicker } from "@/components/events/TimeSlotPicker";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Plus, Video, Calendar, MapPin, Clock, Users } from "lucide-react";
+import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight } from "lucide-react";
 
 const MEETING_TYPES = [
   { value: "board_meeting", label: "Board Meeting" },
@@ -30,23 +31,100 @@ const MEETING_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-const STATUS_MAP: Record<string, string> = {
-  scheduled: "pending",
-  in_progress: "in_progress",
-  completed: "completed",
-  cancelled: "inactive",
+// Status pipeline — order matters
+const STATUS_PIPELINE = ["scheduled", "in_progress", "completed"];
+
+const STATUS_LABELS: Record<string, string> = {
+  scheduled: "Pending",
+  in_progress: "In Progress",
+  completed: "Completed",
+  cancelled: "Cancelled",
 };
+
+const STATUS_COLORS: Record<string, string> = {
+  scheduled: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  cancelled: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+};
+
+const emptyForm = {
+  title: "", type: "board_meeting",
+  date: format(new Date(), "yyyy-MM-dd"), startTime: "10:00", endTime: "12:00",
+  location: "", location_type: "on_site", online_link: "",
+  agenda: "", pre_meeting_notes: "", status: "scheduled",
+};
+
+// Inline status pipeline component
+function StatusPipeline({ status, onAdvance, onJump }: { status: string; onAdvance: (s: string) => void; onJump: (s: string) => void }) {
+  const currentIdx = STATUS_PIPELINE.indexOf(status);
+  const nextStatus = currentIdx >= 0 && currentIdx < STATUS_PIPELINE.length - 1 ? STATUS_PIPELINE[currentIdx + 1] : null;
+
+  return (
+    <div className="flex items-center gap-1">
+      {/* Pipeline steps */}
+      <div className="flex items-center gap-0.5">
+        {STATUS_PIPELINE.map((s, i) => {
+          const isActive = s === status;
+          const isPast = currentIdx > i;
+          return (
+            <div key={s} className="flex items-center">
+              <button
+                onClick={() => onJump(s)}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                  isActive
+                    ? STATUS_COLORS[s]
+                    : isPast
+                    ? "bg-emerald-50 text-emerald-500 dark:bg-emerald-900/10"
+                    : "bg-slate-100 text-slate-400 dark:bg-slate-800 hover:bg-slate-200"
+                }`}
+              >
+                {STATUS_LABELS[s]}
+              </button>
+              {i < STATUS_PIPELINE.length - 1 && (
+                <ChevronRight className="h-3 w-3 text-slate-300 mx-0.5" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {/* Advance button */}
+      {nextStatus && status !== "cancelled" && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 text-[10px] px-2 ml-1"
+          onClick={() => onAdvance(nextStatus)}
+        >
+          → {STATUS_LABELS[nextStatus]}
+        </Button>
+      )}
+      {/* Cancel option via dropdown */}
+      {status !== "cancelled" && status !== "completed" && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 ml-0.5">
+              <MoreHorizontal className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem className="text-destructive text-xs" onClick={() => onJump("cancelled")}>
+              Cancel Meeting
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
 
 export default function BoardMeetingsPage() {
   const { tenantId, userId } = useChurch();
   const queryClient = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "", type: "board_meeting",
-    date: format(new Date(), "yyyy-MM-dd"), startTime: "10:00", endTime: "12:00",
-    location: "", location_type: "on_site", online_link: "",
-    agenda: "", pre_meeting_notes: "",
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ ...emptyForm });
 
   const { data: meetings, isLoading } = useQuery({
     queryKey: ["board_meetings", tenantId],
@@ -57,33 +135,81 @@ export default function BoardMeetingsPage() {
       if (error) throw error;
       return data || [];
     },
+    staleTime: 60000,
   });
 
-  const createMutation = useMutation({
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData({ ...emptyForm });
+    setSheetOpen(true);
+  };
+
+  const openEdit = (m: any) => {
+    setEditingId(m.id);
+    setFormData({
+      title: m.title || "",
+      type: m.type || "board_meeting",
+      date: m.meeting_date || format(new Date(), "yyyy-MM-dd"),
+      startTime: m.start_time ? m.start_time.toString().slice(0, 5) : "10:00",
+      endTime: m.end_time ? m.end_time.toString().slice(0, 5) : "12:00",
+      location: m.location || "",
+      location_type: m.location_type || "on_site",
+      online_link: m.online_link || "",
+      agenda: m.agenda || "",
+      pre_meeting_notes: m.pre_meeting_notes || "",
+      status: m.status || "scheduled",
+    });
+    setSheetOpen(true);
+  };
+
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("board_meetings").insert({
-        tenant_id: tenantId,
+      const payload: any = {
         title: formData.title,
         meeting_date: formData.date,
         start_time: formData.startTime,
+        end_time: formData.endTime,
         agenda: formData.agenda,
         location: formData.location,
-        created_by: userId,
         type: formData.type,
-        end_time: formData.endTime,
         location_type: formData.location_type,
         online_link: formData.online_link,
         pre_meeting_notes: formData.pre_meeting_notes,
-        status: "scheduled",
-      } as any);
+        status: formData.status,
+      };
+      if (editingId) {
+        const { error } = await supabase.from("board_meetings").update(payload).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("board_meetings").insert({
+          ...payload, tenant_id: tenantId, created_by: userId,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board_meetings", tenantId] });
+      toast.success(editingId ? "Meeting updated" : "Meeting scheduled");
+      setSheetOpen(false);
+      setEditingId(null);
+      setFormData({ ...emptyForm });
+    },
+    onError: () => toast.error("Failed to save meeting"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from("meeting_attendees").delete().eq("meeting_id", id);
+      await supabase.from("meeting_action_items").delete().eq("meeting_id", id);
+      const { error } = await supabase.from("board_meetings").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["board_meetings", tenantId] });
-      toast.success("Meeting scheduled");
-      setSheetOpen(false);
+      setDeleteId(null);
+      toast.success("Meeting deleted");
     },
-    onError: () => toast.error("Failed to schedule meeting"),
+    onError: () => toast.error("Failed to delete meeting"),
   });
 
   const updateStatusMutation = useMutation({
@@ -93,11 +219,12 @@ export default function BoardMeetingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["board_meetings", tenantId] });
-      toast.success("Meeting updated");
+      toast.success("Status updated");
     },
+    onError: () => toast.error("Failed to update status"),
   });
 
-  const upcoming = meetings?.filter(m => new Date(m.meeting_date) >= new Date()) || [];
+  const upcoming = meetings?.filter(m => new Date(m.meeting_date) >= new Date() && (m as any).status !== "cancelled") || [];
   const completed = meetings?.filter(m => (m as any).status === "completed").length || 0;
 
   return (
@@ -106,7 +233,7 @@ export default function BoardMeetingsPage() {
       <PageHeader
         title="Board Meetings"
         subtitle="Schedule meetings, build agendas and record minutes"
-        action={<Button onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>}
+        action={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>}
       />
 
       {/* Stats */}
@@ -114,79 +241,32 @@ export default function BoardMeetingsPage() {
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10"><Calendar className="h-5 w-5 text-primary" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{upcoming.length}</p>
-              <p className="text-sm text-muted-foreground">Upcoming Meetings</p>
-            </div>
+            <div><p className="text-2xl font-bold">{upcoming.length}</p><p className="text-sm text-muted-foreground">Upcoming Meetings</p></div>
           </div>
         </Card>
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-emerald-500/10"><Video className="h-5 w-5 text-emerald-500" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{meetings?.length || 0}</p>
-              <p className="text-sm text-muted-foreground">Total Meetings</p>
-            </div>
+            <div><p className="text-2xl font-bold">{meetings?.length || 0}</p><p className="text-sm text-muted-foreground">Total Meetings</p></div>
           </div>
         </Card>
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/10"><Users className="h-5 w-5 text-blue-500" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{completed}</p>
-              <p className="text-sm text-muted-foreground">Completed</p>
-            </div>
+            <div><p className="text-2xl font-bold">{completed}</p><p className="text-sm text-muted-foreground">Completed</p></div>
           </div>
         </Card>
       </div>
 
-      {/* Upcoming */}
-      {upcoming.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Upcoming</h3>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {upcoming.slice(0, 3).map(m => (
-              <Card key={m.id} className="p-4 min-w-[280px] shrink-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline" className="text-xs capitalize">{(m as any).type?.replace(/_/g, " ") || "Meeting"}</Badge>
-                  <StatusBadge status="pending" />
-                </div>
-                <h4 className="font-semibold text-foreground">{m.title}</h4>
-                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>{format(new Date(m.meeting_date), "EEE, dd MMM yyyy")}</span>
-                </div>
-                {m.start_time && (
-                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{m.start_time.toString().slice(0, 5)}</span>
-                  </div>
-                )}
-                {m.location && (
-                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span>{m.location}</span>
-                  </div>
-                )}
-                <div className="flex gap-2 mt-3">
-                  <Button size="sm" variant="outline" onClick={() => updateStatusMutation.mutate({ id: m.id, status: "in_progress" })}>Start</Button>
-                  <Button size="sm" variant="outline" className="text-emerald-600" onClick={() => updateStatusMutation.mutate({ id: m.id, status: "completed" })}>Complete</Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* All Meetings Table */}
+      {/* Table */}
       {isLoading ? (
         <Card className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</Card>
       ) : !meetings?.length ? (
         <Card className="p-12 text-center">
           <Video className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-1">No meetings yet</h3>
+          <h3 className="text-lg font-semibold mb-1">No meetings yet</h3>
           <p className="text-sm text-muted-foreground mb-4">Schedule your first board meeting.</p>
-          <Button onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>
+          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>
         </Card>
       ) : (
         <Card>
@@ -197,37 +277,69 @@ export default function BoardMeetingsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Date & Time</TableHead>
                 <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Progress</TableHead>
                 <TableHead>Minutes</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {meetings.map(m => (
-                <TableRow key={m.id}>
-                  <TableCell className="font-medium text-foreground">{m.title}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-xs capitalize">{(m as any).type?.replace(/_/g, " ") || "—"}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(m.meeting_date), "dd MMM yyyy")}
-                    {m.start_time && ` · ${m.start_time.toString().slice(0, 5)}`}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{m.location || "—"}</TableCell>
-                  <TableCell><StatusBadge status={STATUS_MAP[(m as any).status || "scheduled"] || "pending"} /></TableCell>
-                  <TableCell>
-                    {(m as any).minutes_content || m.minutes ? (
-                      <Badge variant="secondary" className="text-xs">Recorded</Badge>
-                    ) : "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {meetings.map(m => {
+                const status = (m as any).status || "scheduled";
+                return (
+                  <TableRow key={m.id}>
+                    <TableCell className="font-medium">{m.title}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {(m as any).type?.replace(/_/g, " ") || "—"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {format(new Date(m.meeting_date), "dd MMM yyyy")}
+                      {m.start_time && ` · ${m.start_time.toString().slice(0, 5)}`}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{m.location || "—"}</TableCell>
+                    <TableCell>
+                      <StatusPipeline
+                        status={status}
+                        onAdvance={s => updateStatusMutation.mutate({ id: m.id, status: s })}
+                        onJump={s => updateStatusMutation.mutate({ id: m.id, status: s })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {(m as any).minutes_content || m.minutes
+                        ? <Badge variant="secondary" className="text-xs">Recorded</Badge>
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(m)}>
+                            <Pencil className="h-4 w-4 mr-2" />Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(m.id)}>
+                            <Trash2 className="h-4 w-4 mr-2" />Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
       )}
 
-      {/* Schedule Meeting Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      {/* Create / Edit Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={v => { setSheetOpen(v); if (!v) setEditingId(null); }}>
         <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
-          <SheetHeader><SheetTitle>Schedule Meeting</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>{editingId ? "Edit Meeting" : "Schedule Meeting"}</SheetTitle></SheetHeader>
           <div className="space-y-4 mt-6">
             <div><Label>Meeting Name</Label><Input value={formData.title} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} placeholder="Board Meeting — Q1 Review" /></div>
             <div>
@@ -256,14 +368,47 @@ export default function BoardMeetingsPage() {
             {(formData.location_type === "online" || formData.location_type === "hybrid") && (
               <div><Label>Online Link</Label><Input value={formData.online_link} onChange={e => setFormData(p => ({ ...p, online_link: e.target.value }))} placeholder="https://zoom.us/..." /></div>
             )}
+            {editingId && (
+              <div>
+                <Label>Status</Label>
+                <Select value={formData.status} onValueChange={v => setFormData(p => ({ ...p, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">Pending</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div><Label>Agenda</Label><Textarea value={formData.agenda} onChange={e => setFormData(p => ({ ...p, agenda: e.target.value }))} rows={4} placeholder="1. Opening Prayer&#10;2. Review of Minutes&#10;3. Financial Report..." /></div>
             <div><Label>Pre-meeting Notes</Label><Textarea value={formData.pre_meeting_notes} onChange={e => setFormData(p => ({ ...p, pre_meeting_notes: e.target.value }))} rows={2} /></div>
-            <Button className="w-full" onClick={() => createMutation.mutate()} disabled={!formData.title || createMutation.isPending}>
-              {createMutation.isPending ? "Scheduling..." : "Schedule Meeting"}
-            </Button>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>Cancel</Button>
+              <Button className="flex-1" onClick={() => saveMutation.mutate()} disabled={!formData.title || saveMutation.isPending}>
+                {saveMutation.isPending ? "Saving..." : editingId ? "Update Meeting" : "Schedule Meeting"}
+              </Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={v => { if (!v) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this meeting permanently?</AlertDialogTitle>
+            <AlertDialogDescription>This will also remove all associated minutes and agenda items. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteId && deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
