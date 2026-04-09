@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
+import { formatCurrencyFull } from "@/lib/format";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,7 +30,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2, Send } from "lucide-react";
+import { Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2, Send, Edit } from "lucide-react";
 
 const FACILITY_TYPES = [
   { value: "main_hall", label: "Main Hall" },
@@ -46,11 +47,11 @@ const BOOKING_STATUS_MAP: Record<string, string> = {
 };
 
 const EMPTY_FACILITY_FORM = {
-  name: "", type: "other", capacity: 0, description: "", is_active: true,
+  name: "", type: "other", capacity: 0, description: "", is_active: true, quotation: 0,
 };
 
 export default function FacilityBookingPage() {
-  const { tenantId, userId } = useChurch();
+  const { tenantId, userId, currency } = useChurch();
   const queryClient = useQueryClient();
 
   // Facility dialog state
@@ -61,12 +62,17 @@ export default function FacilityBookingPage() {
 
   // Booking sheet state
   const [bookingSheetOpen, setBookingSheetOpen] = useState(false);
+  const [bookingSheetMode, setBookingSheetMode] = useState<'create' | 'edit'>('create');
+  const [editingBooking, setEditingBooking] = useState<any>(null);
+  const [bookingToDelete, setBookingToDelete] = useState<string | null>(null);
 
   const [facilityForm, setFacilityForm] = useState(EMPTY_FACILITY_FORM);
   const [bookingForm, setBookingForm] = useState({
     facility_name: "", purpose: "", booking_date: format(new Date(), "yyyy-MM-dd"),
     start_time: "09:00", end_time: "12:00", expected_attendees: 0,
     setup_required: false, setup_notes: "", notes: "",
+    booker_type: "", booker_name: "", booker_org_name: "",
+    booker_contact_person: "", booker_phone: "", booker_email: "",
   });
 
   // ── Queries ──────────────────────────────────────────────────────────────────
@@ -111,6 +117,7 @@ export default function FacilityBookingPage() {
         capacity: facilityForm.capacity || null,
         description: facilityForm.description,
         is_active: facilityForm.is_active,
+        quotation: facilityForm.quotation || null,
       });
       if (error) throw error;
     },
@@ -133,6 +140,7 @@ export default function FacilityBookingPage() {
           capacity: facilityForm.capacity || null,
           description: facilityForm.description,
           is_active: facilityForm.is_active,
+          quotation: facilityForm.quotation || null,
         })
         .eq("id", editingFacility!.id);
       if (error) throw error;
@@ -206,6 +214,39 @@ export default function FacilityBookingPage() {
     },
   });
 
+  const updateBookingMutation = useMutation({
+    mutationFn: async (data: typeof bookingForm) => {
+      const { error } = await supabase
+        .from(TABLES.FACILITY_BOOKINGS)
+        .update({ ...data, updated_at: new Date().toISOString() } as any)
+        .eq("id", editingBooking!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
+      toast.success("Booking updated successfully");
+      setBookingSheetOpen(false);
+      setEditingBooking(null);
+      setBookingSheetMode("create");
+    },
+    onError: () => toast.error("Failed to update booking"),
+  });
+
+  const deleteBookingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from(TABLES.FACILITY_BOOKINGS)
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
+      toast.success("Booking deleted successfully");
+    },
+    onError: () => toast.error("Failed to delete booking"),
+  });
+
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
   function openCreateFacility() {
@@ -222,6 +263,7 @@ export default function FacilityBookingPage() {
       capacity: facility.capacity ?? 0,
       description: facility.description ?? "",
       is_active: facility.is_active ?? true,
+      quotation: facility.quotation ?? 0,
     });
     setEditingFacility(facility);
     setFacilityDialogMode("edit");
@@ -233,6 +275,37 @@ export default function FacilityBookingPage() {
       updateFacilityMutation.mutate();
     } else {
       createFacilityMutation.mutate();
+    }
+  }
+
+  function openEditBooking(booking: any) {
+    setBookingForm({
+      facility_name: booking.facility_name ?? "",
+      purpose: booking.purpose ?? "",
+      booking_date: booking.booking_date ?? format(new Date(), "yyyy-MM-dd"),
+      start_time: booking.start_time?.toString().slice(0, 5) ?? "09:00",
+      end_time: booking.end_time?.toString().slice(0, 5) ?? "12:00",
+      expected_attendees: booking.expected_attendees ?? 0,
+      setup_required: booking.setup_required ?? false,
+      setup_notes: booking.setup_notes ?? "",
+      notes: booking.notes ?? "",
+      booker_type: booking.booker_type ?? "",
+      booker_name: booking.booker_name ?? "",
+      booker_org_name: booking.booker_org_name ?? "",
+      booker_contact_person: booking.booker_contact_person ?? "",
+      booker_phone: booking.booker_phone ?? "",
+      booker_email: booking.booker_email ?? "",
+    });
+    setEditingBooking(booking);
+    setBookingSheetMode("edit");
+    setBookingSheetOpen(true);
+  }
+
+  function handleBookingSubmit() {
+    if (bookingSheetMode === "edit") {
+      updateBookingMutation.mutate(bookingForm);
+    } else {
+      createBookingMutation.mutate();
     }
   }
 
@@ -331,6 +404,11 @@ export default function FacilityBookingPage() {
                     {f.description && (
                       <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{f.description}</p>
                     )}
+                    {f.quotation > 0 && (
+                      <p className="text-sm font-medium text-foreground mt-2">
+                        {formatCurrencyFull(f.quotation, currency)}
+                      </p>
+                    )}
                     {f.amenities?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {f.amenities.map((a: string) => (
@@ -388,18 +466,28 @@ export default function FacilityBookingPage() {
                         <StatusBadge status={BOOKING_STATUS_MAP[b.status || "open"] || "pending"} />
                       </TableCell>
                       <TableCell>
-                        {(b.status === "open" || (b.status as string) === "pending") && (
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="outline" className="h-7 text-xs text-emerald-600"
-                              onClick={() => updateBookingStatus.mutate({ id: b.id, status: "approved" })}>
-                              Approve
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <MoreVertical className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs text-destructive"
-                              onClick={() => updateBookingStatus.mutate({ id: b.id, status: "rejected" })}>
-                              Reject
-                            </Button>
-                          </div>
-                        )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditBooking(b)}>
+                              <Edit className="h-4 w-4 mr-2" />Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setBookingToDelete(b.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />Delete
+                            </DropdownMenuItem>
+                            <DropdownMenuItem disabled>
+                              <Send className="h-4 w-4 mr-2" />Send Request
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -453,6 +541,16 @@ export default function FacilityBookingPage() {
                 rows={2}
               />
             </div>
+            <div>
+              <Label>Quotation (optional)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={facilityForm.quotation || ""}
+                onChange={e => setFacilityForm(p => ({ ...p, quotation: Number(e.target.value) }))}
+                placeholder="0"
+              />
+            </div>
             <div className="flex items-center gap-3">
               <Switch
                 checked={facilityForm.is_active}
@@ -495,10 +593,43 @@ export default function FacilityBookingPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── New Booking Sheet ── */}
-      <Sheet open={bookingSheetOpen} onOpenChange={setBookingSheetOpen}>
+      {/* ── Delete Booking Confirmation ── */}
+      <AlertDialog open={bookingToDelete !== null} onOpenChange={open => { if (!open) setBookingToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this booking? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBookingToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (bookingToDelete) {
+                  deleteBookingMutation.mutate(bookingToDelete);
+                  setBookingToDelete(null);
+                }
+              }}
+              disabled={deleteBookingMutation.isPending}
+            >
+              {deleteBookingMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── New / Edit Booking Sheet ── */}
+      <Sheet open={bookingSheetOpen} onOpenChange={open => {
+        setBookingSheetOpen(open);
+        if (!open) {
+          setEditingBooking(null);
+          setBookingSheetMode("create");
+        }
+      }}>
         <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
-          <SheetHeader><SheetTitle>New Booking Request</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>{bookingSheetMode === "edit" ? "Edit Booking" : "New Booking Request"}</SheetTitle></SheetHeader>
           <div className="space-y-4 mt-6">
             <div>
               <Label>Facility</Label>
@@ -574,10 +705,12 @@ export default function FacilityBookingPage() {
             </div>
             <Button
               className="w-full"
-              onClick={() => createBookingMutation.mutate()}
-              disabled={!bookingForm.facility_name || !bookingForm.purpose || createBookingMutation.isPending}
+              onClick={handleBookingSubmit}
+              disabled={!bookingForm.facility_name || !bookingForm.purpose || createBookingMutation.isPending || updateBookingMutation.isPending}
             >
-              {createBookingMutation.isPending ? "Submitting..." : "Submit Booking"}
+              {(createBookingMutation.isPending || updateBookingMutation.isPending)
+                ? "Submitting..."
+                : bookingSheetMode === "edit" ? "Save Changes" : "Submit Booking"}
             </Button>
           </div>
         </SheetContent>

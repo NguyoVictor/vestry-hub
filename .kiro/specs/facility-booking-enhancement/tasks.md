@@ -28,19 +28,19 @@ Enhance the existing `FacilityBooking.tsx` page with edit/delete actions on faci
   - [x] 3.6 Add an `AlertDialog` confirmation before executing delete, triggered from the "Delete" menu item
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [ ] 4. Facility quotation field
-  - [ ] 4.1 Add `quotation` (number, optional) field to `facilityForm` state and render a numeric `Input` labelled "Quotation (optional)" in the facility dialog
-  - [ ] 4.2 Include `quotation` in both `createFacilityMutation` and `updateFacilityMutation` payloads
-  - [ ] 4.3 In the facility `Card`, conditionally render a price line using `formatCurrency` (from `src/lib/format.ts` or inline with tenant currency) when `f.quotation > 0`
+- [x] 4. Facility quotation field
+  - [x] 4.1 Add `quotation` (number, optional) field to `facilityForm` state and render a numeric `Input` labelled "Quotation (optional)" in the facility dialog
+  - [x] 4.2 Include `quotation` in both `createFacilityMutation` and `updateFacilityMutation` payloads
+  - [x] 4.3 In the facility `Card`, conditionally render a price line using `formatCurrency` (from `src/lib/format.ts` or inline with tenant currency) when `f.quotation > 0`
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-- [ ] 5. Booking card edit and delete actions
-  - [ ] 5.1 Add `editingBooking` state to hold the selected booking record and `bookingSheetMode` state (`'create' | 'edit'`)
-  - [ ] 5.2 Replace the inline Approve/Reject buttons in the bookings table row with a `DropdownMenu` containing "Edit", "Delete", and "Send Request" options
-  - [ ] 5.3 Pre-populate `bookingForm` state (including new booker fields) and open the sheet when "Edit" is selected
-  - [ ] 5.4 Add `updateBookingMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITY_BOOKINGS).update(...).eq('id', editingBooking.id)` and invalidates `["facility_bookings", tenantId]`
-  - [ ] 5.5 Add `deleteBookingMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITY_BOOKINGS).delete().eq('id', id)` and invalidates on success; show `toast.error` on failure
-  - [ ] 5.6 Add an `AlertDialog` confirmation before executing booking delete
+- [x] 5. Booking card edit and delete actions
+  - [x] 5.1 Add `editingBooking` state to hold the selected booking record and `bookingSheetMode` state (`'create' | 'edit'`)
+  - [x] 5.2 Replace the inline Approve/Reject buttons in the bookings table row with a `DropdownMenu` containing "Edit", "Delete", and "Send Request" options
+  - [x] 5.3 Pre-populate `bookingForm` state (including new booker fields) and open the sheet when "Edit" is selected
+  - [x] 5.4 Add `updateBookingMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITY_BOOKINGS).update(...).eq('id', editingBooking.id)` and invalidates `["facility_bookings", tenantId]`
+  - [x] 5.5 Add `deleteBookingMutation` using `useMutation` that calls `supabase.from(TABLES.FACILITY_BOOKINGS).delete().eq('id', id)` and invalidates on success; show `toast.error` on failure
+  - [x] 5.6 Add an `AlertDialog` confirmation before executing booking delete
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
 - [ ] 6. Checkpoint — Ensure facility and booking CRUD works end-to-end
