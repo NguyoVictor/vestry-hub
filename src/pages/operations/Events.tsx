@@ -80,10 +80,26 @@ const EVENT_STATUS_LABELS: Record<string, string> = {
 };
 
 const EVENT_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  published: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  draft: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  published: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  cancelled: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+  cancelled: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+};
+
+// Banner bg colors (solid) — for card tops and calendar chips
+const EVENT_STATUS_BANNER: Record<string, string> = {
+  draft: "bg-slate-400",
+  published: "bg-blue-500",
+  completed: "bg-emerald-500",
+  cancelled: "bg-red-500",
+};
+
+// Left-border colors for side panel
+const EVENT_STATUS_BORDER: Record<string, string> = {
+  draft: "border-l-slate-400",
+  published: "border-l-blue-500",
+  completed: "border-l-emerald-500",
+  cancelled: "border-l-red-500",
 };
 
 function EventStatusPipeline({
@@ -254,7 +270,7 @@ function CalendarViewPanel({ events }: { events: any[] }) {
                     <div
                       key={e.id}
                       className={`text-[10px] text-white px-1 py-0.5 rounded truncate ${
-                        EVENT_TYPE_BG[e.type || "other"] || EVENT_TYPE_BG.other
+                        EVENT_STATUS_BANNER[e.status || "published"] || EVENT_STATUS_BANNER.published
                       }`}
                     >
                       {e.title}
@@ -289,7 +305,7 @@ function CalendarViewPanel({ events }: { events: any[] }) {
                 {selectedEvents.map((e) => (
                   <div
                     key={e.id}
-                    className={`border-l-4 ${EVENT_TYPE_BORDER[e.type || "other"] || EVENT_TYPE_BORDER.other} pl-3 py-2 rounded-r-md bg-muted/30`}
+                    className={`border-l-4 ${EVENT_STATUS_BORDER[e.status || "published"] || EVENT_STATUS_BORDER.published} pl-3 py-2 rounded-r-md bg-muted/30`}
                   >
                     <p className="font-medium text-sm leading-tight">{e.title}</p>
                     {e.start_time && (
@@ -593,6 +609,7 @@ export default function EventsPage() {
             start_time: e.start_time || undefined,
             end_time: e.end_time || undefined,
             location: e.location || undefined,
+            status: (e as any).status || (e.is_published ? "published" : "draft"),
           }))}
         />
       ) : isLoading ? (
@@ -626,6 +643,7 @@ export default function EventsPage() {
                   onClick={() => {}}
                   onEdit={() => openEditEvent(e)}
                   onDelete={() => setDeleteEventId(e.id)}
+                  bannerColor={EVENT_STATUS_BANNER[status] || EVENT_STATUS_BANNER.published}
                 />
                 {/* Compact status pipeline below card */}
                 <div className="px-1">

@@ -50,12 +50,13 @@ interface EventCardProps {
   variant?: "compact" | "full";
   onEdit?: () => void;
   onDelete?: () => void;
+  bannerColor?: string;
 }
 
-export function EventCard({ event, onClick, variant = "compact", onEdit, onDelete }: EventCardProps) {
+export function EventCard({ event, onClick, variant = "compact", onEdit, onDelete, bannerColor }: EventCardProps) {
   const eventType = (event.type as string) || "other";
   const borderColor = EVENT_TYPE_COLORS[eventType] || EVENT_TYPE_COLORS.other;
-  const bgColor = EVENT_TYPE_BG[eventType] || EVENT_TYPE_BG.other;
+  const bgColor = bannerColor || EVENT_TYPE_BG[eventType] || EVENT_TYPE_BG.other;
 
   if (variant === "compact") {
     return (
