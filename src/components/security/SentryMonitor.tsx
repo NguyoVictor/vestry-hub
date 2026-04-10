@@ -8,6 +8,8 @@ import { formatDistanceToNow } from "date-fns";
 const SENTRY_AUTH_TOKEN = import.meta.env.VITE_SENTRY_AUTH_TOKEN;
 const SENTRY_ORG = import.meta.env.VITE_SENTRY_ORG;
 const SENTRY_PROJECT = import.meta.env.VITE_SENTRY_PROJECT;
+// EU region uses https://de.sentry.io — override via VITE_SENTRY_BASE_URL if needed
+const SENTRY_BASE_URL = import.meta.env.VITE_SENTRY_BASE_URL || "https://de.sentry.io";
 
 interface SentryIssue {
   id: string;
@@ -23,11 +25,22 @@ interface SentryIssue {
 }
 
 async function fetchSentryIssues(): Promise<SentryIssue[]> {
-  const res = await fetch(
-    `https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/issues/?query=is:unresolved&limit=20`,
-    { headers: { Authorization: `Bearer ${SENTRY_AUTH_TOKEN}` } }
-  );
-  if (!res.ok) throw new Error(`Sentry API error: ${res.status}`);
+  // Use the organizations endpoint — the /projects/ endpoint returns 400 for some project slug formats
+  const url = `${SENTRY_BASE_URL}/api/0/organizations/${SENTRY_ORG}/issues/?project=${SENTRY_PROJECT}&query=is:unresolved&limit=20`;
+
+  console.log("[SentryMonitor] Fetching:", url);
+  console.log("[SentryMonitor] Auth token defined:", !!SENTRY_AUTH_TOKEN);
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${SENTRY_AUTH_TOKEN}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[SentryMonitor] API error ${res.status}:`, body);
+    throw new Error(`Sentry API error: ${res.status}`);
+  }
+
   return res.json();
 }
 
@@ -41,12 +54,12 @@ const levelColors: Record<string, string> = {
 export function SentryMonitor() {
   const configured = !!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT);
 
-  const { data: issues, isLoading, isError } = useQuery({
+  const { data: issues, isLoading, isError, error } = useQuery({
     queryKey: ["sentry_issues"],
     queryFn: fetchSentryIssues,
-    enabled: configured,
+    enabled: configured, // works in both dev and prod — no PROD gate here
     staleTime: 300000,
-    retry: 1,
+    retry: false, // don't retry on 400/401 — surface the error immediately
   });
 
   const now = Date.now();
@@ -65,7 +78,12 @@ export function SentryMonitor() {
             <WifiOff className="h-5 w-5 shrink-0" />
             <div>
               <p className="font-medium text-foreground">Sentry not configured</p>
-              <p className="text-sm">Add <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_AUTH_TOKEN</code>, <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_ORG</code>, and <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_PROJECT</code> to your <code className="text-xs bg-muted px-1 rounded">.env</code> file to enable error monitoring.</p>
+              <p className="text-sm">
+                Add <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_AUTH_TOKEN</code>,{" "}
+                <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_ORG</code>, and{" "}
+                <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_PROJECT</code> to your{" "}
+                <code className="text-xs bg-muted px-1 rounded">.env</code> file to enable error monitoring.
+              </p>
             </div>
           </div>
         </CardContent>
@@ -78,7 +96,11 @@ export function SentryMonitor() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Bug className="h-5 w-5" />Error & Performance Monitor
-          {!isError && <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600"><Wifi className="h-3.5 w-3.5" />Connected</span>}
+          {!isLoading && !isError && (
+            <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600">
+              <Wifi className="h-3.5 w-3.5" />Connected
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -89,7 +111,12 @@ export function SentryMonitor() {
             <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
             <div>
               <p className="font-medium text-destructive">Unable to reach Sentry API</p>
-              <p className="text-sm text-muted-foreground">Check your auth token and org/project slugs in your environment variables.</p>
+              <p className="text-sm text-muted-foreground">
+                {(error as Error)?.message || "Unknown error"} — check your auth token and org/project slugs in your environment variables.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 font-mono">
+                Org: {SENTRY_ORG} · Project: {SENTRY_PROJECT} · Base: {SENTRY_BASE_URL}
+              </p>
             </div>
           </div>
         ) : (
