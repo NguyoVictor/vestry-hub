@@ -27,34 +27,37 @@ export function initSentry() {
 
 export function initPostHog() {
   const key = import.meta.env.VITE_POSTHOG_KEY;
-  const host = import.meta.env.VITE_POSTHOG_HOST || "https://app.posthog.com";
-  if (!key || !import.meta.env.PROD) return;
+  const host = import.meta.env.VITE_POSTHOG_HOST;
+
+  // Only initialize if a real key is provided — never use a placeholder
+  if (!key || key.trim() === "" || key === "fake_token") return;
+  if (!host || host.trim() === "") return;
 
   try {
     posthog.init(key, {
       api_host: host,
-      capture_pageview: false, // we handle this manually on route change
+      capture_pageview: false, // handled manually on route change
       persistence: "localStorage",
     });
   } catch {
-    // fail silently
+    // fail silently — never crash the app
   }
 }
 
 export function capturePageView(path: string) {
   try {
-    if (import.meta.env.PROD) posthog.capture("$pageview", { $current_url: path });
+    if (posthog.__loaded) posthog.capture("$pageview", { $current_url: path });
   } catch { /* noop */ }
 }
 
 export function captureEvent(event: string, properties?: Record<string, unknown>) {
   try {
-    if (import.meta.env.PROD) posthog.capture(event, properties);
+    if (posthog.__loaded) posthog.capture(event, properties);
   } catch { /* noop */ }
 }
 
 export function identifyUser(id: string, traits?: Record<string, unknown>) {
   try {
-    if (import.meta.env.PROD) posthog.identify(id, traits);
+    if (posthog.__loaded) posthog.identify(id, traits);
   } catch { /* noop */ }
 }

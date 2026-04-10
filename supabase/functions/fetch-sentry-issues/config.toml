@@ -1,0 +1,2 @@
+[functions.fetch-sentry-issues]
+verify_jwt = false

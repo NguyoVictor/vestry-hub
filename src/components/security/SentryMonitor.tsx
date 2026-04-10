@@ -1,15 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Bug, ExternalLink, Wifi, WifiOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
-const SENTRY_AUTH_TOKEN = import.meta.env.VITE_SENTRY_AUTH_TOKEN;
-const SENTRY_ORG = import.meta.env.VITE_SENTRY_ORG;
-const SENTRY_PROJECT = import.meta.env.VITE_SENTRY_PROJECT;
-// EU region uses https://de.sentry.io — override via VITE_SENTRY_BASE_URL if needed
-const SENTRY_BASE_URL = import.meta.env.VITE_SENTRY_BASE_URL || "https://de.sentry.io";
 
 interface SentryIssue {
   id: string;
@@ -25,23 +20,10 @@ interface SentryIssue {
 }
 
 async function fetchSentryIssues(): Promise<SentryIssue[]> {
-  // Use the organizations endpoint — the /projects/ endpoint returns 400 for some project slug formats
-  const url = `${SENTRY_BASE_URL}/api/0/organizations/${SENTRY_ORG}/issues/?project=${SENTRY_PROJECT}&query=is:unresolved&limit=20`;
-
-  console.log("[SentryMonitor] Fetching:", url);
-  console.log("[SentryMonitor] Auth token defined:", !!SENTRY_AUTH_TOKEN);
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${SENTRY_AUTH_TOKEN}` },
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error(`[SentryMonitor] API error ${res.status}:`, body);
-    throw new Error(`Sentry API error: ${res.status}`);
-  }
-
-  return res.json();
+  const { data, error } = await supabase.functions.invoke("fetch-sentry-issues");
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.message ?? data.error);
+  return data as SentryIssue[];
 }
 
 const levelColors: Record<string, string> = {
@@ -52,14 +34,11 @@ const levelColors: Record<string, string> = {
 };
 
 export function SentryMonitor() {
-  const configured = !!(SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT);
-
   const { data: issues, isLoading, isError, error } = useQuery({
     queryKey: ["sentry_issues"],
     queryFn: fetchSentryIssues,
-    enabled: configured, // works in both dev and prod — no PROD gate here
     staleTime: 300000,
-    retry: false, // don't retry on 400/401 — surface the error immediately
+    retry: false,
   });
 
   const now = Date.now();
@@ -68,28 +47,6 @@ export function SentryMonitor() {
 
   const errors24h = issues?.filter(i => new Date(i.lastSeen).getTime() > oneDayAgo).length ?? 0;
   const errors7d = issues?.filter(i => new Date(i.lastSeen).getTime() > sevenDaysAgo).length ?? 0;
-
-  if (!configured) {
-    return (
-      <Card className="mb-6">
-        <CardHeader><CardTitle className="flex items-center gap-2"><Bug className="h-5 w-5" />Error & Performance Monitor</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3 rounded-lg border border-dashed p-6 text-muted-foreground">
-            <WifiOff className="h-5 w-5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">Sentry not configured</p>
-              <p className="text-sm">
-                Add <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_AUTH_TOKEN</code>,{" "}
-                <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_ORG</code>, and{" "}
-                <code className="text-xs bg-muted px-1 rounded">VITE_SENTRY_PROJECT</code> to your{" "}
-                <code className="text-xs bg-muted px-1 rounded">.env</code> file to enable error monitoring.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="mb-6">
@@ -112,16 +69,12 @@ export function SentryMonitor() {
             <div>
               <p className="font-medium text-destructive">Unable to reach Sentry API</p>
               <p className="text-sm text-muted-foreground">
-                {(error as Error)?.message || "Unknown error"} — check your auth token and org/project slugs in your environment variables.
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 font-mono">
-                Org: {SENTRY_ORG} · Project: {SENTRY_PROJECT} · Base: {SENTRY_BASE_URL}
+                {(error as Error)?.message || "Unknown error"} — check that the Sentry secrets are set on the Edge Function.
               </p>
             </div>
           </div>
         ) : (
           <>
-            {/* Summary stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
               {[
                 { label: "Errors (24h)", value: errors24h, color: errors24h > 0 ? "text-destructive" : "text-emerald-600" },
@@ -136,7 +89,6 @@ export function SentryMonitor() {
               ))}
             </div>
 
-            {/* Recent issues */}
             {!issues?.length ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Bug className="mx-auto h-10 w-10 mb-2 opacity-30" />

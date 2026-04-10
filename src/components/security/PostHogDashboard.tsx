@@ -3,6 +3,8 @@ import { BarChart2, WifiOff } from "lucide-react";
 
 const POSTHOG_DASHBOARD_URL = import.meta.env.VITE_POSTHOG_DASHBOARD_URL;
 
+console.log("[PostHogDashboard] iframe src:", POSTHOG_DASHBOARD_URL || "(not set)");
+
 export function PostHogDashboard() {
   return (
     <Card className="mb-6">
