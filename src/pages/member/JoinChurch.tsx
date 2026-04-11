@@ -47,8 +47,8 @@ export default function JoinChurch() {
     firstName: "", lastName: "", phone: "", email: "",
     // Member-only
     gender: "", dateOfBirth: "", address: "", city: "", occupation: "", maritalStatus: "",
-    // Visitor-only
-    howHeard: "",
+    // Visitor fields
+    howHeard: "", ageGroup: "", preferredContact: "phone_call", prayerRequest: "",
   });
 
   useEffect(() => {
@@ -88,6 +88,14 @@ export default function JoinChurch() {
         memberType,
         howHeard: form.howHeard || undefined,
         registrationSource: arrivedViaQR ? "qr_scan" : "form",
+        // Visitor-specific fields
+        ...(memberType === "visitor" ? {
+          gender: form.gender || undefined,
+          ageGroup: form.ageGroup || undefined,
+          city: form.city || undefined,
+          preferredContact: form.preferredContact || undefined,
+          prayerRequest: form.prayerRequest || undefined,
+        } : {}),
         // Member-only fields
         ...(memberType === "member" ? {
           gender: form.gender || undefined,
@@ -308,17 +316,71 @@ export default function JoinChurch() {
                 <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Your email address" required={memberType === "member"} className="h-10" />
               </div>
 
-              {/* VISITOR-ONLY: How did you hear about us */}
+              {/* VISITOR-ONLY: Full visitor fields */}
               {memberType === "visitor" && (
-                <div className="space-y-1.5">
-                  <Label>How did you hear about us?</Label>
-                  <Select value={form.howHeard || undefined} onValueChange={v => setForm(f => ({ ...f, howHeard: v }))}>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Select an option" /></SelectTrigger>
-                    <SelectContent>
-                      {HOW_HEARD_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Gender</Label>
+                      <Select value={form.gender || undefined} onValueChange={v => setForm(f => ({ ...f, gender: v }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Age Group</Label>
+                      <Select value={form.ageGroup || undefined} onValueChange={v => setForm(f => ({ ...f, ageGroup: v }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="under_18">Under 18</SelectItem>
+                          <SelectItem value="18_25">18-25</SelectItem>
+                          <SelectItem value="26_35">26-35</SelectItem>
+                          <SelectItem value="36_50">36-50</SelectItem>
+                          <SelectItem value="51_65">51-65</SelectItem>
+                          <SelectItem value="over_65">Over 65</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>City</Label>
+                    <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Where do you live?" className="h-10" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>How did you hear about us?</Label>
+                    <Select value={form.howHeard || undefined} onValueChange={v => setForm(f => ({ ...f, howHeard: v }))}>
+                      <SelectTrigger className="h-10"><SelectValue placeholder="Select an option" /></SelectTrigger>
+                      <SelectContent>
+                        {HOW_HEARD_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Preferred Contact Method</Label>
+                    <Select value={form.preferredContact} onValueChange={v => setForm(f => ({ ...f, preferredContact: v }))}>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="phone_call">Phone Call</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Prayer Request (Optional)</Label>
+                    <textarea
+                      value={form.prayerRequest}
+                      onChange={e => setForm(f => ({ ...f, prayerRequest: e.target.value }))}
+                      placeholder="Is there anything you'd like us to pray about?"
+                      rows={3}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                    />
+                  </div>
+                </>
               )}
 
               {/* MEMBER-ONLY: Additional fields */}

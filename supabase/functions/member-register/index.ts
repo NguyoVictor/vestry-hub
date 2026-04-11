@@ -14,6 +14,7 @@ Deno.serve(async (req: Request) => {
       churchCode, firstName, lastName, email, phone,
       gender, dateOfBirth, address, city, occupation,
       maritalStatus, memberType, howHeard, registrationSource,
+      ageGroup, preferredContact, prayerRequest,
     } = await req.json();
 
     if (!churchCode || !firstName || !lastName || !phone) {
@@ -52,10 +53,17 @@ Deno.serve(async (req: Request) => {
           last_name: lastName.trim(),
           email: email ? email.trim().toLowerCase() : null,
           phone: phone.trim(),
+          city: city || null,
+          gender: gender || null,
           visit_date: today,
           how_heard: howHeard || null,
-          follow_up_status: "not_contacted",
+          how_heard_detail: preferredContact || null,
+          follow_up_status: "new",
           service_attended: registrationSource === "qr_scan" ? "qr_scan" : "form",
+          notes: [
+            ageGroup ? `Age group: ${ageGroup}` : null,
+            prayerRequest ? `Prayer request: ${prayerRequest}` : null,
+          ].filter(Boolean).join("\n") || null,
           created_at: new Date().toISOString(),
         })
         .select()

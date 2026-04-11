@@ -111,6 +111,9 @@ const FacilityBooking = lazy(() => import("./pages/operations/FacilityBooking"))
 const SecurityCentre = lazy(() => import("./pages/security/SecurityCentre"));
 const IncidentManagement = lazy(() => import("./pages/security/IncidentManagement"));
 
+// Public pages
+const VisitorRegistration = lazy(() => import("./pages/VisitorRegistration"));
+
 // Communications pages
 const CommunicationsPage = lazy(() => import("./pages/communications/Communications"));
 const AnnouncementsPage = lazy(() => import("./pages/communications/Announcements"));
@@ -162,6 +165,7 @@ const App = () => (
             <Route path="/member-login" element={<Navigate to="/member/login" replace />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/church/:slug" element={<ChurchPublicPage />} />
+            <Route path="/visitor-registration/:churchId" element={<Suspense fallback={<Fallback />}><VisitorRegistration /></Suspense>} />
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
