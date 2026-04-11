@@ -6041,12 +6041,14 @@ export type Database = {
       visitors: {
         Row: {
           assigned_to: string | null
+          city: string | null
           converted_to_member_id: string | null
           created_at: string | null
           email: string | null
           first_name: string
           follow_up_due_date: string | null
           follow_up_status: string | null
+          gender: string | null
           how_heard: string | null
           how_heard_detail: string | null
           id: string
@@ -6059,12 +6061,14 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          city?: string | null
           converted_to_member_id?: string | null
           created_at?: string | null
           email?: string | null
           first_name: string
           follow_up_due_date?: string | null
           follow_up_status?: string | null
+          gender?: string | null
           how_heard?: string | null
           how_heard_detail?: string | null
           id?: string
@@ -6077,12 +6081,14 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          city?: string | null
           converted_to_member_id?: string | null
           created_at?: string | null
           email?: string | null
           first_name?: string
           follow_up_due_date?: string | null
           follow_up_status?: string | null
+          gender?: string | null
           how_heard?: string | null
           how_heard_detail?: string | null
           id?: string

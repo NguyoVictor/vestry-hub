@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -339,8 +340,11 @@ function VisitorDetailsModal({
   visitor, open, onOpenChange, tenantId, userId, userName, onMutationSuccess,
 }: VisitorDetailsModalProps) {
   const queryClient = useQueryClient();
-  const [followUpNote, setFollowUpNote] = useState("");
-  const [followUpDate, setFollowUpDate] = useState("");
+  const navigate = useNavigate();
+  const [followUpModalOpen, setFollowUpModalOpen] = useState(false);
+  const [followUpForm, setFollowUpForm] = useState({
+    task_type: "", assigned_to: "", due_date: "", notes: "",
+  });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
@@ -359,17 +363,37 @@ function VisitorDetailsModal({
     staleTime: 300000,
   });
 
+  const { data: admins = [] } = useQuery({
+    queryKey: ["tenant-admins", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("users")
+        .select("id, first_name, last_name, email")
+        .eq("tenant_id", tenantId)
+        .in("role", ["super_admin", "staff_leader"]);
+      return data || [];
+    },
+    enabled: open,
+    staleTime: 300000,
+  });
+
   const addFollowUpMut = useMutation({
     mutationFn: async () => {
       if (!visitor) return;
+      const taskTitle = followUpForm.task_type === "Custom Task"
+        ? (followUpForm.notes.trim() || "Custom Follow-up")
+        : followUpForm.task_type;
       const { error } = await supabase.from(TABLES.FOLLOW_UP_TASKS).insert({
         id: crypto.randomUUID(),
         tenant_id: tenantId,
-        title: "Follow-up with visitor",
-        description: followUpNote.trim() || null,
+        title: taskTitle,
+        description: followUpForm.notes.trim() || null,
         related_visitor_id: visitor.id,
-        due_date: followUpDate || null,
+        assigned_to: followUpForm.assigned_to || null,
+        due_date: followUpForm.due_date || null,
         status: "open",
+        priority: "medium",
+        created_by: userId,
         created_at: new Date().toISOString(),
       } as any);
       if (error) throw error;
@@ -377,9 +401,9 @@ function VisitorDetailsModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitor-tasks", visitor?.id] });
       queryClient.invalidateQueries({ queryKey: ["follow-up-tasks"] });
-      setFollowUpNote("");
-      setFollowUpDate("");
-      toast.success("Follow-up task added");
+      setFollowUpForm({ task_type: "", assigned_to: "", due_date: "", notes: "" });
+      setFollowUpModalOpen(false);
+      toast.success("Follow-up task created");
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -468,6 +492,7 @@ function VisitorDetailsModal({
       toast.success("Member profile created");
       onOpenChange(false);
       onMutationSuccess();
+      navigate("/members");
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -479,104 +504,96 @@ function VisitorDetailsModal({
   const isNew = ds === "new";
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Visitor Details</DialogTitle>
         </DialogHeader>
-        <div className="space-y-5">
-          {/* Header */}
-          <div className="flex items-center gap-4">
-            <MemberAvatar name={fullName} size="lg" />
-            <div>
-              <h3 className="text-lg font-semibold">{fullName}</h3>
-              <StatusBadge status={visitor.follow_up_status} />
-            </div>
-          </div>
-
-          {/* Info grid */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            {visitor.gender && (
-              <div>
-                <p className="text-xs text-muted-foreground">Gender</p>
-                <p className="font-medium capitalize">{visitor.gender}</p>
-              </div>
-            )}
-            {visitor.how_heard_detail && (
-              <div>
-                <p className="text-xs text-muted-foreground">Preferred Contact</p>
-                <p className="font-medium capitalize">{visitor.how_heard_detail}</p>
-              </div>
-            )}
-            {visitor.how_heard && (
-              <div>
-                <p className="text-xs text-muted-foreground">How They Heard</p>
-                <p className="font-medium capitalize">{visitor.how_heard.replace(/_/g, " ")}</p>
-              </div>
-            )}
-            {visitor.city && (
-              <div className="flex items-start gap-1">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-xs text-muted-foreground">City</p>
-                  <p className="font-medium">{visitor.city}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Contact info */}
-          <div className="space-y-2">
-            {visitor.phone && (
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{visitor.phone}</span>
-              </div>
-            )}
-            {visitor.email && (
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{visitor.email}</span>
-              </div>
-            )}
-            {visitor.visit_date && (
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>Visited {format(new Date(visitor.visit_date), "dd MMM yyyy")}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Notes */}
-          {visitor.notes && (
-            <div className="rounded-lg bg-muted p-3">
-              <p className="text-xs text-muted-foreground mb-1">Notes</p>
-              <p className="text-sm whitespace-pre-wrap">{visitor.notes}</p>
-            </div>
-          )}
-
-          {/* Follow-up tasks */}
+        <div className="space-y-4">
+          {/* Header — name + status + gender + age group inline */}
           <div>
-            <p className="text-sm font-medium flex items-center gap-2 mb-2">
-              <ClipboardList className="h-4 w-4" />
-              Follow-up Tasks
-            </p>
+            <h2 className="text-xl font-bold uppercase tracking-wide">{fullName}</h2>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              <StatusBadge status={visitor.follow_up_status} />
+              {visitor.gender && <span className="text-sm text-muted-foreground capitalize">{visitor.gender}</span>}
+              {visitor.notes && visitor.notes.includes("Age group:") && (
+                <span className="text-sm text-muted-foreground">
+                  {visitor.notes.match(/Age group: ([^\n]+)/)?.[1]?.replace(/_/g, "–") ?? ""}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Two-column info cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Contact Information */}
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-xs font-semibold text-foreground">Contact Information</p>
+              {visitor.phone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{visitor.phone}</span>
+                  {visitor.how_heard_detail && (
+                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground capitalize">
+                      Prefers: {visitor.how_heard_detail.replace(/_/g, " ")}
+                    </span>
+                  )}
+                </div>
+              )}
+              {visitor.email && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{visitor.email}</span>
+                </div>
+              )}
+              {visitor.city && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>{visitor.city}</span>
+                </div>
+              )}
+              {!visitor.phone && !visitor.email && !visitor.city && (
+                <p className="text-xs text-muted-foreground">No contact info</p>
+              )}
+            </div>
+
+            {/* Visit Details */}
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-xs font-semibold text-foreground">Visit Details</p>
+              {visitor.visit_date && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span>Visited on {format(new Date(visitor.visit_date), "MMMM d, yyyy")}</span>
+                </div>
+              )}
+              {visitor.how_heard && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground text-xs">💬</span>
+                  <span className="capitalize">Heard about us via: {visitor.how_heard.replace(/_/g, " ")}</span>
+                </div>
+              )}
+              {!visitor.visit_date && !visitor.how_heard && (
+                <p className="text-xs text-muted-foreground">No visit details</p>
+              )}
+            </div>
+          </div>
+
+          {/* Follow-up Tasks */}
+          <div className="rounded-lg border p-3">
+            <p className="text-xs font-semibold text-foreground mb-2">Follow-up Tasks</p>
             {tasksLoading ? (
-              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-8 w-full" />
             ) : tasks.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No follow-up tasks yet.</p>
+              <p className="text-xs text-muted-foreground">No follow-up tasks</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {tasks.map(t => (
-                  <div key={t.id} className="flex items-start justify-between rounded-md border p-2 text-sm">
+                  <div key={t.id} className="flex items-start justify-between rounded border p-2 text-xs">
                     <div>
-                      <p className="font-medium">{t.title}</p>
-                      {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
-                      {t.due_date && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Due: {format(new Date(t.due_date), "dd MMM yyyy")}
-                        </p>
-                      )}
+                      <p className="font-medium text-sm">{t.title}</p>
+                      {t.description && <p className="text-muted-foreground">{t.description}</p>}
+                      {t.due_date && <p className="text-muted-foreground mt-0.5">Due: {format(new Date(t.due_date), "dd MMM yyyy")}</p>}
                     </div>
                     <Badge variant="outline" className="capitalize text-xs shrink-0">{t.status}</Badge>
                   </div>
@@ -585,46 +602,29 @@ function VisitorDetailsModal({
             )}
           </div>
 
-          {/* Add follow-up form */}
-          <div className="rounded-lg border p-3 space-y-3">
-            <p className="text-sm font-medium">Add Follow-up Task</p>
-            <Textarea
-              placeholder="Note or task description..."
-              value={followUpNote}
-              onChange={e => setFollowUpNote(e.target.value)}
-              rows={2}
-            />
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                value={followUpDate}
-                onChange={e => setFollowUpDate(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                size="sm"
-                onClick={() => addFollowUpMut.mutate()}
-                disabled={addFollowUpMut.isPending || !followUpNote.trim()}
-              >
-                {addFollowUpMut.isPending ? "Adding..." : "Add"}
-              </Button>
-            </div>
-          </div>
+          {/* Action buttons — matching mockup layout */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {/* Row 1: Add Follow-up | Mark First Contact Completed */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+              onClick={() => setFollowUpModalOpen(true)}
+            >
+              <ClipboardList className="h-4 w-4" />
+              Add Follow-up
+            </Button>
+            <Button
+              size="sm"
+              className={`flex items-center gap-2 ${ds === "contacted" || ds === "integrated" ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"}`}
+              onClick={() => markContactedMut.mutate()}
+              disabled={markContactedMut.isPending || ds === "integrated"}
+            >
+              <UserCheck className="h-4 w-4" />
+              {ds === "contacted" || ds === "integrated" ? "Contacted" : "Mark First Contact Completed"}
+            </Button>
 
-          {/* Action buttons */}
-          <div className="grid grid-cols-2 gap-2">
-            {isNew && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-                onClick={() => markContactedMut.mutate()}
-                disabled={markContactedMut.isPending}
-              >
-                <UserCheck className="h-4 w-4 text-amber-600" />
-                Mark First Contact
-              </Button>
-            )}
+            {/* Row 2: Record Salvation Decision | Create Member Profile */}
             <Button
               variant="outline"
               size="sm"
@@ -632,24 +632,86 @@ function VisitorDetailsModal({
               onClick={() => recordSalvationMut.mutate()}
               disabled={recordSalvationMut.isPending}
             >
-              <HeartHandshake className="h-4 w-4 text-rose-600" />
-              Record Salvation
+              <HeartHandshake className="h-4 w-4 text-rose-500" />
+              Record Salvation Decision
             </Button>
-            {visitor.follow_up_status !== "converted" && (
-              <Button
-                size="sm"
-                className="flex items-center gap-2 col-span-2"
-                onClick={() => createMemberMut.mutate()}
-                disabled={createMemberMut.isPending}
-              >
-                <UserPlus className="h-4 w-4" />
-                {createMemberMut.isPending ? "Creating..." : "Create Member Profile"}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+              onClick={() => createMemberMut.mutate()}
+              disabled={createMemberMut.isPending || visitor.follow_up_status === "converted"}
+            >
+              <UserPlus className="h-4 w-4 text-indigo-500" />
+              {createMemberMut.isPending ? "Creating..." : "Create Member Profile"}
+            </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* ── Create Follow-Up Task Modal ── */}
+    <Dialog open={followUpModalOpen} onOpenChange={v => { setFollowUpModalOpen(v); if (!v) setFollowUpForm({ task_type: "", assigned_to: "", due_date: "", notes: "" }); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create Follow-Up Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-1.5">
+            <Label>Visitor *</Label>
+            <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+              {visitor ? `${visitor.first_name} ${visitor.last_name || ""}`.trim() + ` (${getDisplayStatus(visitor.follow_up_status)})` : ""}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Task Type *</Label>
+            <Select value={followUpForm.task_type} onValueChange={v => setFollowUpForm(f => ({ ...f, task_type: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select task type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Welcome Call">Welcome Call</SelectItem>
+                <SelectItem value="Welcome SMS/WhatsApp">Welcome SMS/WhatsApp</SelectItem>
+                <SelectItem value="Prayer Support Call">Prayer Support Call</SelectItem>
+                <SelectItem value="Verify/Confirm Contact Details">Verify/Confirm Contact Details</SelectItem>
+                <SelectItem value="Invite Back to Next Service">Invite Back to Next Service</SelectItem>
+                <SelectItem value="Custom Task">Custom Task</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Assign To *</Label>
+            <Select value={followUpForm.assigned_to} onValueChange={v => setFollowUpForm(f => ({ ...f, assigned_to: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select admin" /></SelectTrigger>
+              <SelectContent>
+                {admins.map((a: any) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.first_name} {a.last_name}{a.email ? ` (${a.email})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Due Date *</Label>
+            <Input type="date" value={followUpForm.due_date} onChange={e => setFollowUpForm(f => ({ ...f, due_date: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notes (optional)</Label>
+            <Textarea value={followUpForm.notes} onChange={e => setFollowUpForm(f => ({ ...f, notes: e.target.value }))} placeholder="Add any additional notes..." rows={3} />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => setFollowUpModalOpen(false)}>Cancel</Button>
+            <Button
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => addFollowUpMut.mutate()}
+              disabled={addFollowUpMut.isPending || !followUpForm.task_type || !followUpForm.assigned_to || !followUpForm.due_date}
+            >
+              {addFollowUpMut.isPending ? "Creating..." : "Create Task"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
@@ -684,19 +746,29 @@ const Visitors = () => {
     staleTime: 300000,
   });
 
-  // ── Mark contacted mutation (heart icon) ─────────────────────────────────
+  // ── Convert to New Convert mutation (heart icon) ─────────────────────────
 
-  const markContactedMut = useMutation({
-    mutationFn: async (visitorId: string) => {
-      const { error } = await supabase
-        .from(TABLES.VISITORS)
-        .update({ follow_up_status: "contacted" } as any)
-        .eq("id", visitorId);
-      if (error) throw error;
+  const convertToNewConvertMut = useMutation({
+    mutationFn: async (v: Visitor) => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: nc, error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
+        id: crypto.randomUUID(),
+        tenant_id: tenantId!,
+        first_name: v.first_name,
+        last_name: v.last_name || "",
+        phone: v.phone || null,
+        email: v.email || null,
+        visitor_id: v.id,
+        conversion_date: today,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any).select("id").single();
+      if (ncErr) throw ncErr;
+      await supabase.from(TABLES.VISITORS).update({ follow_up_status: "converted" } as any).eq("id", v.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
-      toast.success("Visitor marked as contacted");
+      toast.success("Visitor converted to New Convert");
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -893,9 +965,9 @@ const Visitors = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
-                                onClick={() => markContactedMut.mutate(v.id)}
-                                disabled={markContactedMut.isPending}
-                                title="Mark as contacted"
+                                onClick={() => convertToNewConvertMut.mutate(v)}
+                                disabled={convertToNewConvertMut.isPending}
+                                title="Convert to New Convert"
                               >
                                 <Heart className="h-4 w-4" />
                               </Button>
