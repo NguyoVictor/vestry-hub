@@ -187,6 +187,7 @@ export default function Communications() {
                   <SelectItem value="all_members">All Members</SelectItem>
                   <SelectItem value="specific_groups">Specific Groups</SelectItem>
                   <SelectItem value="staff_only">Staff Only</SelectItem>
+                  <SelectItem value="visitor">Visitors</SelectItem>
                 </SelectContent>
               </Select>
             </div>

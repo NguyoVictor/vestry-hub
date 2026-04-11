@@ -411,15 +411,32 @@ function VisitorDetailsModal({
   const markContactedMut = useMutation({
     mutationFn: async () => {
       if (!visitor) return;
+      // Update visitor status to contacted
       const { error } = await supabase
         .from(TABLES.VISITORS)
         .update({ follow_up_status: "contacted" } as any)
         .eq("id", visitor.id);
       if (error) throw error;
+      // Auto-create a broadcast record so visitor appears as recipient in Communications
+      await supabase.from("broadcasts").insert({
+        tenant_id: tenantId,
+        subject: `Follow-up: ${visitor.first_name} ${visitor.last_name || ""}`.trim(),
+        body: `Initial contact completed with visitor ${visitor.first_name} ${visitor.last_name || ""}. Phone: ${visitor.phone || "N/A"}, Email: ${visitor.email || "N/A"}.`,
+        channels: ["in_app"],
+        recipient_type: "visitor",
+        recipient_config: {
+          visitor_id: visitor.id,
+          name: `${visitor.first_name} ${visitor.last_name || ""}`.trim(),
+          phone: visitor.phone,
+          email: visitor.email,
+        },
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      } as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
-      toast.success("Marked as first contact completed");
+      toast.success("Visitor marked as contacted and added to Communications");
       onMutationSuccess();
     },
     onError: (err: any) => toast.error(err.message),
@@ -428,21 +445,38 @@ function VisitorDetailsModal({
   const recordSalvationMut = useMutation({
     mutationFn: async () => {
       if (!visitor) return;
-      const today = format(new Date(), "dd MMM yyyy");
-      const existing = visitor.notes || "";
-      const updated = existing
-        ? `${existing}\nSalvation decision recorded on ${today}`
-        : `Salvation decision recorded on ${today}`;
-      const { error } = await supabase
+      const today = new Date().toISOString().split("T")[0];
+      // Insert into new_converts
+      const { error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        first_name: visitor.first_name,
+        last_name: visitor.last_name || "",
+        phone: visitor.phone || null,
+        email: visitor.email || null,
+        visitor_id: visitor.id,
+        conversion_date: today,
+        salvation_date: today,
+        discipleship_stage: "1",
+        baptism_status: "not_baptized",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any);
+      if (ncErr) throw ncErr;
+      // Update visitor status to integrated
+      const { error: vErr } = await supabase
         .from(TABLES.VISITORS)
-        .update({ notes: updated } as any)
+        .update({ follow_up_status: "integrated" } as any)
         .eq("id", visitor.id);
-      if (error) throw error;
+      if (vErr) throw vErr;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
-      toast.success("Salvation decision recorded");
+      queryClient.invalidateQueries({ queryKey: ["new-converts"] });
+      toast.success("Salvation recorded — visitor moved to New Converts");
+      onOpenChange(false);
       onMutationSuccess();
+      navigate("/new-converts");
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -602,49 +636,61 @@ function VisitorDetailsModal({
             )}
           </div>
 
-          {/* Action buttons — matching mockup layout */}
+          {/* Action buttons — conditional on visitor status */}
           <div className="grid grid-cols-2 gap-2 pt-1">
-            {/* Row 1: Add Follow-up | Mark First Contact Completed */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={() => setFollowUpModalOpen(true)}
-            >
-              <ClipboardList className="h-4 w-4" />
-              Add Follow-up
-            </Button>
-            <Button
-              size="sm"
-              className={`flex items-center gap-2 ${ds === "contacted" || ds === "integrated" ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"}`}
-              onClick={() => markContactedMut.mutate()}
-              disabled={markContactedMut.isPending || ds === "integrated"}
-            >
-              <UserCheck className="h-4 w-4" />
-              {ds === "contacted" || ds === "integrated" ? "Contacted" : "Mark First Contact Completed"}
-            </Button>
+            {/* Add Follow-up — hidden once a task exists for this visitor */}
+            {tasks.length === 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={() => setFollowUpModalOpen(true)}
+              >
+                <ClipboardList className="h-4 w-4" />
+                Add Follow-up
+              </Button>
+            )}
 
-            {/* Row 2: Record Salvation Decision | Create Member Profile */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={() => recordSalvationMut.mutate()}
-              disabled={recordSalvationMut.isPending}
-            >
-              <HeartHandshake className="h-4 w-4 text-rose-500" />
-              Record Salvation Decision
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={() => createMemberMut.mutate()}
-              disabled={createMemberMut.isPending || visitor.follow_up_status === "converted"}
-            >
-              <UserPlus className="h-4 w-4 text-indigo-500" />
-              {createMemberMut.isPending ? "Creating..." : "Create Member Profile"}
-            </Button>
+            {/* Mark First Contact Completed — only when status is "new" */}
+            {ds === "new" && (
+              <Button
+                size="sm"
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => markContactedMut.mutate()}
+                disabled={markContactedMut.isPending}
+              >
+                <UserCheck className="h-4 w-4" />
+                {markContactedMut.isPending ? "Updating..." : "Mark First Contact Completed"}
+              </Button>
+            )}
+
+            {/* Record Salvation Decision — only when status is "contacted" */}
+            {ds === "contacted" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={() => recordSalvationMut.mutate()}
+                disabled={recordSalvationMut.isPending}
+              >
+                <HeartHandshake className="h-4 w-4 text-rose-500" />
+                {recordSalvationMut.isPending ? "Recording..." : "Record Salvation Decision"}
+              </Button>
+            )}
+
+            {/* Create Member Profile — hidden once converted */}
+            {visitor.follow_up_status !== "converted" && visitor.converted_to_member_id === null && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={() => createMemberMut.mutate()}
+                disabled={createMemberMut.isPending}
+              >
+                <UserPlus className="h-4 w-4 text-indigo-500" />
+                {createMemberMut.isPending ? "Creating..." : "Create Member Profile"}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
