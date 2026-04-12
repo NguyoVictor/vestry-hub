@@ -83,7 +83,17 @@ export default function Communications() {
       </div>
 
       <Tabs defaultValue="sent">
-        <TabsList><TabsTrigger value="sent">Sent Messages</TabsTrigger><TabsTrigger value="drafts">Drafts & Scheduled {draftCount > 0 && <Badge className="ml-1" variant="secondary">{draftCount}</Badge>}</TabsTrigger></TabsList>
+        <TabsList>
+          <TabsTrigger value="sent">Sent Messages</TabsTrigger>
+          <TabsTrigger value="drafts" className="relative">
+            Drafts & Scheduled
+            {draftCount > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-semibold min-w-[16px] h-4 px-1">
+                {draftCount}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="sent">
           <Card>
@@ -135,18 +145,29 @@ export default function Communications() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Subject</TableHead>
+                      <TableHead>Recipient</TableHead>
+                      <TableHead>Channel</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {broadcasts.filter(b => b.status === "draft" || b.status === "scheduled").map((msg) => (
-                      <TableRow key={msg.id}>
-                        <TableCell className="font-medium">{msg.subject}</TableCell>
-                        <TableCell><Badge className={statusColors[msg.status || "draft"]}>{msg.status}</Badge></TableCell>
-                        <TableCell className="text-sm">{msg.created_at ? format(new Date(msg.created_at), "dd MMM yyyy") : "—"}</TableCell>
-                      </TableRow>
-                    ))}
+                    {broadcasts.filter(b => b.status === "draft" || b.status === "scheduled").map((msg) => {
+                      const config = msg.recipient_config as any;
+                      const recipientLabel = config?.name
+                        ? `${config.name} (${msg.recipient_type === "visitor" ? "Visitor" : msg.recipient_type?.replace(/_/g, " ")})`
+                        : msg.recipient_type?.replace(/_/g, " ");
+                      const channel = (msg.channels as string[])?.[0] || "in_app";
+                      return (
+                        <TableRow key={msg.id}>
+                          <TableCell className="font-medium">{msg.subject}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{recipientLabel}</TableCell>
+                          <TableCell><Badge variant="secondary" className="capitalize">{channel}</Badge></TableCell>
+                          <TableCell><Badge className={statusColors[msg.status || "draft"]}>{msg.status}</Badge></TableCell>
+                          <TableCell className="text-sm">{msg.created_at ? format(new Date(msg.created_at), "dd MMM yyyy") : "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}

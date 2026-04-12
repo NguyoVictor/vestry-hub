@@ -417,26 +417,30 @@ function VisitorDetailsModal({
         .update({ follow_up_status: "contacted" } as any)
         .eq("id", visitor.id);
       if (error) throw error;
-      // Auto-create a broadcast record so visitor appears as recipient in Communications
+      // Determine channel from visitor's preferred contact method
+      const preferred = visitor.how_heard_detail || "phone_call";
+      const channel = preferred === "email" ? "email" : "sms";
+      // Create a DRAFT broadcast so admin can compose and send it from Communications
       await supabase.from("broadcasts").insert({
         tenant_id: tenantId,
-        subject: `Follow-up: ${visitor.first_name} ${visitor.last_name || ""}`.trim(),
-        body: `Initial contact completed with visitor ${visitor.first_name} ${visitor.last_name || ""}. Phone: ${visitor.phone || "N/A"}, Email: ${visitor.email || "N/A"}.`,
-        channels: ["in_app"],
+        subject: `Follow-up with ${visitor.first_name} ${visitor.last_name || ""}`.trim(),
+        body: `Hi ${visitor.first_name},\n\nThank you for visiting us! We'd love to stay in touch.\n\nBest regards,\nThe Church Team`,
+        channels: [channel],
         recipient_type: "visitor",
         recipient_config: {
           visitor_id: visitor.id,
           name: `${visitor.first_name} ${visitor.last_name || ""}`.trim(),
           phone: visitor.phone,
           email: visitor.email,
+          preferred_channel: channel,
         },
-        status: "sent",
-        sent_at: new Date().toISOString(),
+        status: "draft",
       } as any);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
-      toast.success("Visitor marked as contacted and added to Communications");
+      queryClient.invalidateQueries({ queryKey: ["broadcasts"] });
+      toast.success("Visitor marked as contacted — draft message created in Communications");
       onMutationSuccess();
     },
     onError: (err: any) => toast.error(err.message),
