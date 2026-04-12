@@ -437,9 +437,12 @@ const NewConverts = () => {
                   </div>
 
                   {/* Badges row */}
-                  <div className="flex flex-wrap gap-2 text-xs">
+                  <div className="flex flex-wrap gap-2 text-xs items-center">
                     <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100">In Discipleship</Badge>
                     {savedDate && <span className="text-muted-foreground">Saved: {format(new Date(savedDate), "dd MMM yyyy")}</span>}
+                    {c.counsellor_name && (
+                      <span className="text-muted-foreground">· Counsellor: <span className="font-medium text-foreground">{c.counsellor_name}</span></span>
+                    )}
                   </div>
 
                   {/* Progress bar */}

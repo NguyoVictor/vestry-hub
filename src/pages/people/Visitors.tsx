@@ -506,6 +506,7 @@ function VisitorDetailsModal({
         conversion_date: data.salvation_date,
         salvation_date: data.salvation_date,
         notes: data.notes || null,
+        counsellor_name: data.counsellor_name || null,
         discipleship_stage: "1",
         baptism_status: "not_baptized",
         created_at: new Date().toISOString(),
