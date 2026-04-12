@@ -69,6 +69,19 @@ const FollowUpTasks = () => {
     staleTime: 300000,
   });
 
+  const { data: converts = [] } = useQuery({
+    queryKey: ["converts-for-tasks", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("new_converts")
+        .select("id, first_name, last_name")
+        .eq("tenant_id", tenantId!);
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300000,
+  });
+
   const form = useForm<z.infer<typeof taskSchema>>({
     resolver: zodResolver(taskSchema),
     defaultValues: { title: "", priority: "medium", status: "open", due_date: "" },
@@ -225,7 +238,19 @@ const FollowUpTasks = () => {
                       <Card key={task.id} className="hover:shadow-sm transition-shadow">
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
-                            <span className="font-medium text-sm leading-snug">{task.title}</span>
+                            <div className="flex-1 min-w-0">
+                              {task.related_convert_id && (() => {
+                                const convert = converts.find((c: any) => c.id === task.related_convert_id);
+                                if (!convert) return null;
+                                const convertName = `${convert.first_name} ${convert.last_name || ""}`.trim();
+                                return (
+                                  <p className="text-xs text-muted-foreground/60 mb-0.5">
+                                    {convertName} <span className="font-medium text-muted-foreground/40">(CONVERT)</span>
+                                  </p>
+                                );
+                              })()}
+                              <span className="font-medium text-sm leading-snug">{task.title}</span>
+                            </div>
                             <TaskMenu task={task} />
                           </div>
                           {task.description && (

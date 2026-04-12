@@ -341,6 +341,7 @@ const NewConverts = () => {
   const createTaskMut = useMutation({
     mutationFn: async () => {
       if (!taskDialogConvert) return;
+      const convertName = `${taskDialogConvert.first_name} ${taskDialogConvert.last_name || ""}`.trim();
       const { error } = await supabase.from(TABLES.FOLLOW_UP_TASKS).insert({
         id: crypto.randomUUID(),
         tenant_id: tenantId!,
@@ -349,6 +350,7 @@ const NewConverts = () => {
         due_date: taskForm.due_date || null,
         status: "open",
         priority: "medium",
+        related_convert_id: taskDialogConvert.id,
         created_at: new Date().toISOString(),
       } as any);
       if (error) throw error;
