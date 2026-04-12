@@ -640,10 +640,10 @@ function VisitorDetailsModal({
             )}
           </div>
 
-          {/* Action buttons — conditional on visitor status */}
+          {/* Action buttons — all 4 visible initially, each disappears after its task is done */}
           <div className="grid grid-cols-2 gap-2 pt-1">
-            {/* Add Follow-up — hidden once a task exists for this visitor */}
-            {tasks.length === 0 && (
+            {/* Add Follow-up — disappears once a task exists */}
+            {tasks.length === 0 && !tasksLoading && (
               <Button
                 variant="outline"
                 size="sm"
@@ -655,7 +655,7 @@ function VisitorDetailsModal({
               </Button>
             )}
 
-            {/* Mark First Contact Completed — only when status is "new" */}
+            {/* Mark First Contact Completed — disappears once contacted or beyond */}
             {ds === "new" && (
               <Button
                 size="sm"
@@ -668,8 +668,8 @@ function VisitorDetailsModal({
               </Button>
             )}
 
-            {/* Record Salvation Decision — only when status is "contacted" */}
-            {ds === "contacted" && (
+            {/* Record Salvation Decision — disappears once integrated */}
+            {ds !== "integrated" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -682,8 +682,8 @@ function VisitorDetailsModal({
               </Button>
             )}
 
-            {/* Create Member Profile — hidden once converted */}
-            {visitor.follow_up_status !== "converted" && visitor.converted_to_member_id === null && (
+            {/* Create Member Profile — disappears once converted to member */}
+            {!visitor.converted_to_member_id && (
               <Button
                 variant="outline"
                 size="sm"
