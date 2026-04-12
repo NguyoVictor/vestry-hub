@@ -100,6 +100,7 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
   const emptyForm = { first_name: "", last_name: "", phone: "", email: "", city: "", gender: "", visit_date: today, how_heard: "", notes: "" };
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Pre-fill form when editingVisitor changes or sheet opens
   useEffect(() => {
@@ -120,12 +121,17 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
     }
   }, [open, editingVisitor?.id]);
 
-  const reset = () => setForm(emptyForm);
+  const reset = () => { setForm(emptyForm); setFieldErrors({}); }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.first_name.trim()) { toast.error("First name is required"); return; }
-    if (!form.visit_date) { toast.error("Visit date is required"); return; }
+    const errors: Record<string, string> = {};
+    if (!form.first_name.trim()) errors.first_name = "First name is required";
+    if (!form.last_name.trim()) errors.last_name = "Last name is required";
+    if (!form.phone.trim()) errors.phone = "Phone number is required";
+    if (!form.visit_date) errors.visit_date = "Visit date is required";
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
+    setFieldErrors({});
     setSaving(true);
     try {
       if (isEdit && editingVisitor) {
@@ -190,16 +196,19 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label>First Name *</Label>
-              <Input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder="John" />
+              <Input value={form.first_name} onChange={e => { setForm(f => ({ ...f, first_name: e.target.value })); setFieldErrors(fe => ({ ...fe, first_name: "" })); }} placeholder="John" className={fieldErrors.first_name ? "border-destructive" : ""} />
+              {fieldErrors.first_name && <p className="text-xs text-destructive">{fieldErrors.first_name}</p>}
             </div>
             <div className="space-y-1">
-              <Label>Last Name</Label>
-              <Input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Doe" />
+              <Label>Last Name *</Label>
+              <Input value={form.last_name} onChange={e => { setForm(f => ({ ...f, last_name: e.target.value })); setFieldErrors(fe => ({ ...fe, last_name: "" })); }} placeholder="Doe" className={fieldErrors.last_name ? "border-destructive" : ""} />
+              {fieldErrors.last_name && <p className="text-xs text-destructive">{fieldErrors.last_name}</p>}
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Phone</Label>
-            <Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 234 567 8900" />
+            <Label>Phone *</Label>
+            <Input value={form.phone} onChange={e => { setForm(f => ({ ...f, phone: e.target.value })); setFieldErrors(fe => ({ ...fe, phone: "" })); }} placeholder="+1 234 567 8900" className={fieldErrors.phone ? "border-destructive" : ""} />
+            {fieldErrors.phone && <p className="text-xs text-destructive">{fieldErrors.phone}</p>}
           </div>
           <div className="space-y-1">
             <Label>Email</Label>
@@ -224,8 +233,8 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
           </div>
           <div className="space-y-1">
             <Label>Visit Date *</Label>
-            <Input type="date" value={form.visit_date} onChange={e => setForm(f => ({ ...f, visit_date: e.target.value }))} className={!form.visit_date ? "border-destructive" : ""} />
-            {!form.visit_date && <p className="text-xs text-destructive">Visit date is required</p>}
+            <Input type="date" value={form.visit_date} onChange={e => { setForm(f => ({ ...f, visit_date: e.target.value })); setFieldErrors(fe => ({ ...fe, visit_date: "" })); }} className={fieldErrors.visit_date ? "border-destructive" : ""} />
+            {fieldErrors.visit_date && <p className="text-xs text-destructive">{fieldErrors.visit_date}</p>}
           </div>
           <div className="space-y-1">
             <Label>How did they hear about us?</Label>
