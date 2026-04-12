@@ -111,15 +111,18 @@ function MilestoneDialog({ convert, open, onOpenChange, onAdvance, advancing }: 
                       <CheckCircle2 className="h-3 w-3 mr-1" />Completed
                     </Badge>
                   ) : completed ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={() => onAdvance(convert.id, milestoneNum - 1)}
-                      disabled={advancing}
-                    >
-                      {advancing ? "Saving..." : "Mark Pending"}
-                    </Button>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />Completed
+                      </Badge>
+                      <button
+                        className="text-[10px] text-muted-foreground hover:text-destructive underline"
+                        onClick={() => onAdvance(convert.id, milestoneNum - 1)}
+                        disabled={advancing}
+                      >
+                        Undo
+                      </button>
+                    </div>
                   ) : milestoneNum === stage + 1 ? (
                     <Button
                       size="sm"
