@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,13 +16,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
   UserPlus, Users, Eye, Heart, Copy, Download, Share2,
   Phone, Mail, MapPin, Calendar, QrCode, CheckCircle,
-  UserCheck, HeartHandshake, ClipboardList,
+  UserCheck, HeartHandshake, ClipboardList, MoreVertical, Pencil, Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { logActivity } from "@/lib/activityLogger";
@@ -82,52 +90,84 @@ interface AddVisitorSheetProps {
   tenantId: string;
   userId: string;
   userName: string;
+  editingVisitor?: Visitor | null;
   onSuccess: () => void;
 }
 
-function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, onSuccess }: AddVisitorSheetProps) {
-  const [form, setForm] = useState({
-    first_name: "", last_name: "", phone: "", email: "",
-    city: "", gender: "", visit_date: "", how_heard: "", notes: "",
-  });
+function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editingVisitor, onSuccess }: AddVisitorSheetProps) {
+  const isEdit = !!editingVisitor;
+  const emptyForm = { first_name: "", last_name: "", phone: "", email: "", city: "", gender: "", visit_date: "", how_heard: "", notes: "" };
+  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  const reset = () => setForm({
-    first_name: "", last_name: "", phone: "", email: "",
-    city: "", gender: "", visit_date: "", how_heard: "", notes: "",
-  });
+  // Pre-fill form when editingVisitor changes or sheet opens
+  useEffect(() => {
+    if (open && editingVisitor) {
+      setForm({
+        first_name: editingVisitor.first_name ?? "",
+        last_name: editingVisitor.last_name ?? "",
+        phone: editingVisitor.phone ?? "",
+        email: editingVisitor.email ?? "",
+        city: editingVisitor.city ?? "",
+        gender: editingVisitor.gender ?? "",
+        visit_date: editingVisitor.visit_date ?? "",
+        how_heard: editingVisitor.how_heard ?? "",
+        notes: editingVisitor.notes ?? "",
+      });
+    } else if (!open) {
+      setForm(emptyForm);
+    }
+  }, [open, editingVisitor?.id]);
+
+  const reset = () => setForm(emptyForm);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.first_name.trim()) { toast.error("First name is required"); return; }
     setSaving(true);
     try {
-      const { error } = await supabase.from(TABLES.VISITORS).insert({
-        id: crypto.randomUUID(),
-        tenant_id: tenantId,
-        first_name: form.first_name.trim(),
-        last_name: form.last_name.trim() || null,
-        phone: form.phone.trim() || null,
-        email: form.email.trim() || null,
-        city: form.city.trim() || null,
-        gender: form.gender || null,
-        visit_date: form.visit_date || null,
-        how_heard: form.how_heard || null,
-        notes: form.notes.trim() || null,
-        follow_up_status: "new",
-        created_at: new Date().toISOString(),
-      } as any);
-      if (error) throw error;
-      await logActivity({
-        churchId: tenantId,
-        actionType: "new_visitor",
-        description: `New visitor ${form.first_name} ${form.last_name} added`,
-        actorId: userId,
-        actorName: userName,
-        entityType: "visitor",
-        entityName: `${form.first_name} ${form.last_name}`,
-      });
-      toast.success("Visitor added");
+      if (isEdit && editingVisitor) {
+        const { error } = await supabase.from(TABLES.VISITORS).update({
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim() || null,
+          phone: form.phone.trim() || null,
+          email: form.email.trim() || null,
+          city: form.city.trim() || null,
+          gender: form.gender || null,
+          visit_date: form.visit_date || null,
+          how_heard: form.how_heard || null,
+          notes: form.notes.trim() || null,
+        } as any).eq("id", editingVisitor.id);
+        if (error) throw error;
+        toast.success("Visitor updated");
+      } else {
+        const { error } = await supabase.from(TABLES.VISITORS).insert({
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim() || null,
+          phone: form.phone.trim() || null,
+          email: form.email.trim() || null,
+          city: form.city.trim() || null,
+          gender: form.gender || null,
+          visit_date: form.visit_date || null,
+          how_heard: form.how_heard || null,
+          notes: form.notes.trim() || null,
+          follow_up_status: "new",
+          created_at: new Date().toISOString(),
+        } as any);
+        if (error) throw error;
+        await logActivity({
+          churchId: tenantId,
+          actionType: "new_visitor",
+          description: `New visitor ${form.first_name} ${form.last_name} added`,
+          actorId: userId,
+          actorName: userName,
+          entityType: "visitor",
+          entityName: `${form.first_name} ${form.last_name}`,
+        });
+        toast.success("Visitor added");
+      }
       reset();
       onOpenChange(false);
       onSuccess();
@@ -142,7 +182,7 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, onSuc
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Add Visitor</SheetTitle>
+          <SheetTitle>{isEdit ? "Edit Visitor" : "Add Visitor"}</SheetTitle>
         </SheetHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-6">
           <div className="grid grid-cols-2 gap-3">
@@ -204,7 +244,7 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, onSuc
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" className="flex-1" disabled={saving}>{saving ? "Saving..." : "Add Visitor"}</Button>
+            <Button type="submit" className="flex-1" disabled={saving}>{saving ? "Saving..." : isEdit ? "Save Changes" : "Add Visitor"}</Button>
           </div>
         </form>
       </SheetContent>
@@ -777,6 +817,8 @@ const Visitors = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editingVisitor, setEditingVisitor] = useState<Visitor | null>(null);
+  const [deleteVisitorId, setDeleteVisitorId] = useState<string | null>(null);
 
   const registrationUrl = `${import.meta.env.VITE_BASE_URL || window.location.origin}/visitor-registration/${tenantId}`;
 
@@ -830,8 +872,22 @@ const Visitors = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  // ── Computed stats ────────────────────────────────────────────────────────
+  // ── Delete visitor mutation ───────────────────────────────────────────────
 
+  const deleteVisitorMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(TABLES.VISITORS).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["visitors"] });
+      toast.success("Visitor deleted");
+      setDeleteVisitorId(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  // ── Computed stats ────────────────────────────────────────────────────────
   const total = visitors.length;
   const newCount = visitors.filter(v => getDisplayStatus(v.follow_up_status) === "new").length;
   const contactedCount = visitors.filter(v => getDisplayStatus(v.follow_up_status) === "contacted").length;
@@ -1029,6 +1085,25 @@ const Visitors = () => {
                                 <Heart className="h-4 w-4" />
                               </Button>
                             )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                  <span className="sr-only">More actions</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setEditingVisitor(v); setAddOpen(true); }}>
+                                  <Pencil className="h-4 w-4 mr-2" />Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteVisitorId(v.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </td>
                       </tr>
@@ -1046,10 +1121,11 @@ const Visitors = () => {
 
       <AddVisitorSheet
         open={addOpen}
-        onOpenChange={setAddOpen}
+        onOpenChange={v => { setAddOpen(v); if (!v) setEditingVisitor(null); }}
         tenantId={tenantId!}
         userId={userId}
         userName={userName}
+        editingVisitor={editingVisitor}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ["visitors"] })}
       />
 
@@ -1062,6 +1138,28 @@ const Visitors = () => {
         userName={userName}
         onMutationSuccess={handleMutationSuccess}
       />
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteVisitorId} onOpenChange={open => { if (!open) setDeleteVisitorId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Visitor</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this visitor? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteVisitorId && deleteVisitorMut.mutate(deleteVisitorId)}
+              disabled={deleteVisitorMut.isPending}
+            >
+              {deleteVisitorMut.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
