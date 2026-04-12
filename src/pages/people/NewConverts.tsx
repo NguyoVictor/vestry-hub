@@ -230,7 +230,11 @@ const NewConverts = () => {
           conversion_date: values.conversion_date,
           notes: values.notes || null,
           counsellor_name: values.counsellor_name || null,
-          discipleship_stage: values.discipleship_stage,
+          discipleship_stage: values.baptism_status === "completed"
+            ? String(Math.max(2, Number(values.discipleship_stage)))
+            : values.baptism_status === "not_baptized" && Number(values.discipleship_stage) <= 2
+              ? "1"
+              : values.discipleship_stage,
           baptism_status: values.baptism_status,
           baptism_date: values.baptism_date || null,
           updated_at: new Date().toISOString(),
@@ -586,18 +590,30 @@ const NewConverts = () => {
               <FormField control={form.control} name="baptism_status" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Baptism Status</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={v => {
+                      field.onChange(v);
+                      // Sync discipleship stage with baptism status
+                      if (v === "completed") {
+                        form.setValue("discipleship_stage", "2");
+                      } else {
+                        // Only reset to 1 if currently at stage 1 or 2
+                        const currentStage = Number(form.getValues("discipleship_stage"));
+                        if (currentStage <= 2) form.setValue("discipleship_stage", "1");
+                      }
+                    }}
+                    value={field.value}
+                  >
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="not_baptized">Not Baptized</SelectItem>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="not_baptized">Not Completed</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )} />
-              {(bapStatus === "scheduled" || bapStatus === "completed") && (
+              {bapStatus === "completed" && (
                 <FormField control={form.control} name="baptism_date" render={({ field }) => (
                   <FormItem><FormLabel>Baptism Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
