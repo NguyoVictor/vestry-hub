@@ -771,6 +771,7 @@ function VisitorDetailsModal({
 const Visitors = () => {
   const { tenantId, userId, userName } = useChurch();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [qrOpen, setQrOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -801,7 +802,7 @@ const Visitors = () => {
   const convertToNewConvertMut = useMutation({
     mutationFn: async (v: Visitor) => {
       const today = new Date().toISOString().split("T")[0];
-      const { data: nc, error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
+      const { error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
         id: crypto.randomUUID(),
         tenant_id: tenantId!,
         first_name: v.first_name,
@@ -810,15 +811,21 @@ const Visitors = () => {
         email: v.email || null,
         visitor_id: v.id,
         conversion_date: today,
+        salvation_date: today,
+        discipleship_stage: "1",
+        baptism_status: "not_baptized",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      } as any).select("id").single();
+      } as any);
       if (ncErr) throw ncErr;
-      await supabase.from(TABLES.VISITORS).update({ follow_up_status: "converted" } as any).eq("id", v.id);
+      // Same as Record Salvation Decision — status becomes "integrated"
+      await supabase.from(TABLES.VISITORS).update({ follow_up_status: "integrated" } as any).eq("id", v.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
-      toast.success("Visitor converted to New Convert");
+      queryClient.invalidateQueries({ queryKey: ["new-converts"] });
+      toast.success("Visitor recorded as New Convert");
+      navigate("/new-converts");
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -1010,7 +1017,7 @@ const Visitors = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {isNew && (
+                            {ds !== "integrated" && (
                               <Button
                                 variant="ghost"
                                 size="icon"
