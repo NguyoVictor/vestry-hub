@@ -14,12 +14,20 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Plus, Sparkles, Users, GraduationCap, Droplets, Heart,
-  Key, Building2, CheckCircle2, QrCode, ListTodo,
+  Key, Building2, CheckCircle2, QrCode, ListTodo, MoreVertical, Pencil, Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -140,6 +148,7 @@ const NewConverts = () => {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: "", due_date: "", notes: "" });
   const [search, setSearch] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: converts = [], isLoading } = useQuery({
     queryKey: ["new-converts", tenantId],
@@ -302,6 +311,19 @@ const NewConverts = () => {
 
   const bapStatus = form.watch("baptism_status");
 
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(TABLES.NEW_CONVERTS).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["new-converts"] });
+      toast.success("Convert deleted");
+      setDeleteId(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
   const openMilestones = (c: any) => {
     setMilestoneConvert(c);
     setMilestoneOpen(true);
@@ -394,7 +416,24 @@ const NewConverts = () => {
                       <p className="font-bold uppercase tracking-wide text-sm">{fullName}</p>
                       {c.phone && <p className="text-xs text-muted-foreground mt-0.5">{c.phone}</p>}
                     </div>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openEdit(c)}>Edit</Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(c)}>
+                          <Pencil className="h-4 w-4 mr-2" />Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setDeleteId(c.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
 
                   {/* Badges row */}
@@ -412,48 +451,52 @@ const NewConverts = () => {
                     <Progress value={progress} className="h-2" />
                   </div>
 
-                  {/* Milestone icons */}
-                  <div className="flex items-center gap-2">
+                  {/* Milestone icons with labels */}
+                  <div className="grid grid-cols-5 gap-1">
                     {MILESTONE_LABELS.map((label, i) => {
                       const Icon = MILESTONE_ICONS[i];
                       const done = stage >= i + 1;
+                      const shortLabels = ["Salvation", "Baptism", "Membership", "Training", "Ministry"];
                       return (
-                        <div
-                          key={label}
-                          title={label}
-                          className={`p-1.5 rounded-full ${done ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
+                        <div key={label} className="flex flex-col items-center gap-1" title={label}>
+                          <div className={`p-1.5 rounded-full ${done ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                            <Icon className="h-3.5 w-3.5" />
+                          </div>
+                          <span className={`text-[9px] text-center leading-tight ${done ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                            {shortLabels[i]}
+                          </span>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Action buttons */}
-                  <div className="flex gap-2 pt-1">
+                  {/* Action buttons — stacked to prevent overflow */}
+                  <div className="space-y-2 pt-1">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1 text-xs h-8"
+                      className="w-full text-xs h-8"
                       onClick={() => openMilestones(c)}
                     >
-                      View &amp; Update
+                      View &amp; Update Milestones
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 text-xs h-8"
-                      onClick={() => openTaskDialog(c)}
-                    >
-                      <ListTodo className="h-3.5 w-3.5 mr-1" />View Tasks
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 text-xs h-8 bg-orange-500 hover:bg-orange-600 text-white"
-                      onClick={() => openTaskDialog(c)}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />Create Task
-                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8"
+                        onClick={() => openTaskDialog(c)}
+                      >
+                        <ListTodo className="h-3.5 w-3.5 mr-1" />View Tasks
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-xs h-8 bg-orange-500 hover:bg-orange-600 text-white"
+                        onClick={() => openTaskDialog(c)}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />Create Task
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -560,6 +603,28 @@ const NewConverts = () => {
           </Form>
         </SheetContent>
       </Sheet>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Convert</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this convert? All their discipleship progress will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteId && deleteMut.mutate(deleteId)}
+              disabled={deleteMut.isPending}
+            >
+              {deleteMut.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
