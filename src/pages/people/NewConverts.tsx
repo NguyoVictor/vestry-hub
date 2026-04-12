@@ -52,6 +52,7 @@ const convertSchema = z.object({
   last_name: z.string().min(1, "Required"),
   phone: z.string().optional(),
   conversion_date: z.string().min(1, "Required"),
+  counsellor_name: z.string().optional(),
   notes: z.string().optional(),
   discipleship_stage: z.string().default("1"),
   baptism_status: z.string().default("not_baptized"),
@@ -184,6 +185,7 @@ const NewConverts = () => {
     resolver: zodResolver(convertSchema),
     defaultValues: {
       first_name: "", last_name: "", phone: "", notes: "", baptism_date: "",
+      counsellor_name: "",
       discipleship_stage: "1", baptism_status: "not_baptized",
       conversion_date: new Date().toISOString().split("T")[0],
     },
@@ -193,6 +195,7 @@ const NewConverts = () => {
     setEditingConvert(null);
     form.reset({
       first_name: "", last_name: "", phone: "", notes: "", baptism_date: "",
+      counsellor_name: "",
       discipleship_stage: "1", baptism_status: "not_baptized",
       conversion_date: new Date().toISOString().split("T")[0],
     });
@@ -207,6 +210,7 @@ const NewConverts = () => {
       phone: c.phone || "",
       notes: c.notes || "",
       baptism_date: c.baptism_date || "",
+      counsellor_name: c.counsellor_name || "",
       discipleship_stage: c.discipleship_stage ? String(c.discipleship_stage) : "1",
       baptism_status: c.baptism_status || "not_baptized",
       conversion_date: c.conversion_date || c.salvation_date || new Date().toISOString().split("T")[0],
@@ -225,6 +229,7 @@ const NewConverts = () => {
           salvation_date: values.conversion_date,
           conversion_date: values.conversion_date,
           notes: values.notes || null,
+          counsellor_name: values.counsellor_name || null,
           discipleship_stage: values.discipleship_stage,
           baptism_status: values.baptism_status,
           baptism_date: values.baptism_date || null,
@@ -240,6 +245,7 @@ const NewConverts = () => {
           salvation_date: values.conversion_date,
           conversion_date: values.conversion_date,
           notes: values.notes || null,
+          counsellor_name: values.counsellor_name || null,
           discipleship_stage: values.discipleship_stage,
           baptism_status: values.baptism_status,
           baptism_date: values.baptism_date || null,
@@ -573,6 +579,9 @@ const NewConverts = () => {
               )} />
               <FormField control={form.control} name="conversion_date" render={({ field }) => (
                 <FormItem><FormLabel>Salvation Date *</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="counsellor_name" render={({ field }) => (
+                <FormItem><FormLabel>Counsellor Name</FormLabel><FormControl><Input {...field} placeholder="Name of counsellor" /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="baptism_status" render={({ field }) => (
                 <FormItem>
