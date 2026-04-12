@@ -96,7 +96,8 @@ interface AddVisitorSheetProps {
 
 function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editingVisitor, onSuccess }: AddVisitorSheetProps) {
   const isEdit = !!editingVisitor;
-  const emptyForm = { first_name: "", last_name: "", phone: "", email: "", city: "", gender: "", visit_date: "", how_heard: "", notes: "" };
+  const today = new Date().toISOString().split("T")[0];
+  const emptyForm = { first_name: "", last_name: "", phone: "", email: "", city: "", gender: "", visit_date: today, how_heard: "", notes: "" };
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
@@ -124,6 +125,7 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.first_name.trim()) { toast.error("First name is required"); return; }
+    if (!form.visit_date) { toast.error("Visit date is required"); return; }
     setSaving(true);
     try {
       if (isEdit && editingVisitor) {
@@ -221,8 +223,9 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
             </div>
           </div>
           <div className="space-y-1">
-            <Label>Visit Date</Label>
-            <Input type="date" value={form.visit_date} onChange={e => setForm(f => ({ ...f, visit_date: e.target.value }))} />
+            <Label>Visit Date *</Label>
+            <Input type="date" value={form.visit_date} onChange={e => setForm(f => ({ ...f, visit_date: e.target.value }))} className={!form.visit_date ? "border-destructive" : ""} />
+            {!form.visit_date && <p className="text-xs text-destructive">Visit date is required</p>}
           </div>
           <div className="space-y-1">
             <Label>How did they hear about us?</Label>
