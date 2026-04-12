@@ -349,57 +349,60 @@ const FollowUpTasks = () => {
               "Custom Task",
             ];
             return (
-              <div className="space-y-4 mt-6">
-                {/* Visitor name — read only */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Visitor</label>
-                  <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
-                    {vName}
+              <Form {...form}>
+                <div className="space-y-4 mt-6">
+                  {/* Visitor name — read only */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Visitor</label>
+                    <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                      {vName}
+                    </div>
+                  </div>
+                  {/* Task Type */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Task Type *</label>
+                    <Select
+                      value={form.getValues("title")}
+                      onValueChange={v => form.setValue("title", v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select task type" /></SelectTrigger>
+                      <SelectContent>
+                        {TASK_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Due Date */}
+                  <FormField control={form.control} name="due_date" render={({ field }) => (
+                    <FormItem><FormLabel>Due Date *</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  {/* Notes */}
+                  <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Textarea {...field} rows={3} placeholder="Add any additional notes..." /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  {/* Status */}
+                  <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <div className="flex gap-3 pt-2">
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>Cancel</Button>
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      disabled={saveMut.isPending}
+                      onClick={() => form.handleSubmit(v => saveMut.mutate(v))()}
+                    >
+                      {saveMut.isPending ? "Saving..." : "Update Task"}
+                    </Button>
                   </div>
                 </div>
-                {/* Task Type */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Task Type *</label>
-                  <Select
-                    value={form.getValues("title")}
-                    onValueChange={v => form.setValue("title", v)}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select task type" /></SelectTrigger>
-                    <SelectContent>
-                      {TASK_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {/* Due Date */}
-                <FormField control={form.control} name="due_date" render={({ field }) => (
-                  <FormItem><FormLabel>Due Date *</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                {/* Notes */}
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Textarea {...field} rows={3} placeholder="Add any additional notes..." /></FormControl><FormMessage /></FormItem>
-                )} />
-                {/* Status */}
-                <FormField control={form.control} name="status" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <div className="flex gap-3 pt-2">
-                  <Button type="button" variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>Cancel</Button>
-                  <Button
-                    className="flex-1"
-                    disabled={saveMut.isPending}
-                    onClick={() => form.handleSubmit(v => saveMut.mutate(v))()}
-                  >
-                    {saveMut.isPending ? "Saving..." : "Update Task"}
-                  </Button>
-                </div>
-              </div>
+              </Form>
             );
           })() : (
             /* ── Generic form ── */
