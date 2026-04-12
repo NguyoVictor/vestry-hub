@@ -56,6 +56,19 @@ const FollowUpTasks = () => {
     staleTime: 300000,
   });
 
+  const { data: visitors = [] } = useQuery({
+    queryKey: ["visitors-for-tasks", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("visitors")
+        .select("id, first_name, last_name, phone, email, follow_up_status")
+        .eq("tenant_id", tenantId!);
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300000,
+  });
+
   const form = useForm<z.infer<typeof taskSchema>>({
     resolver: zodResolver(taskSchema),
     defaultValues: { title: "", priority: "medium", status: "open", due_date: "" },
@@ -218,6 +231,20 @@ const FollowUpTasks = () => {
                           {task.description && (
                             <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>
                           )}
+                          {task.related_visitor_id && (() => {
+                            const visitor = visitors.find((v: any) => v.id === task.related_visitor_id);
+                            if (!visitor) return null;
+                            return (
+                              <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-2 text-xs space-y-0.5">
+                                <p className="font-medium text-amber-800 dark:text-amber-400 flex items-center gap-1">
+                                  <span>👤</span> Visitor Follow-up
+                                </p>
+                                <p className="text-amber-700 dark:text-amber-300">{visitor.first_name} {visitor.last_name || ""}</p>
+                                {visitor.phone && <p className="text-amber-600">{visitor.phone}</p>}
+                                {visitor.email && <p className="text-amber-600">{visitor.email}</p>}
+                              </div>
+                            );
+                          })()}
                           <div className="flex items-center gap-2 flex-wrap">
                             <StatusBadge status={task.priority} />
                             {task.isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}

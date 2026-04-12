@@ -11,9 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { toast } from "sonner";
-import { Trophy, GraduationCap, Calendar, Phone, CalendarPlus } from "lucide-react";
+import { Trophy, GraduationCap, Calendar, Phone, CalendarPlus, Trash2 } from "lucide-react";
 import { format, startOfMonth, startOfYear } from "date-fns";
 
 const DiscipleshipGraduates = () => {
@@ -23,6 +28,7 @@ const DiscipleshipGraduates = () => {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleConvert, setScheduleConvert] = useState<any | null>(null);
   const [ceremonyDate, setCeremonyDate] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const now = new Date();
   const monthStart = startOfMonth(now).toISOString();
@@ -69,6 +75,27 @@ const DiscipleshipGraduates = () => {
       setScheduleOpen(false);
       setScheduleConvert(null);
       setCeremonyDate("");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const deleteGraduationMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from(TABLES.NEW_CONVERTS)
+        .update({
+          graduated_at: null,
+          discipleship_stage: "4",
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["graduates"] });
+      queryClient.invalidateQueries({ queryKey: ["new-converts"] });
+      toast.success("Graduation removed — convert moved back to Ministry stage");
+      setDeleteId(null);
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -164,15 +191,25 @@ const DiscipleshipGraduates = () => {
                         )}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={() => { setScheduleConvert(g); setCeremonyDate(g.graduation_date || ""); setScheduleOpen(true); }}
-                    >
-                      <CalendarPlus className="h-4 w-4 mr-1.5" />
-                      {g.graduation_date ? "Reschedule" : "Schedule Graduation"}
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setScheduleConvert(g); setCeremonyDate(g.graduation_date || ""); setScheduleOpen(true); }}
+                      >
+                        <CalendarPlus className="h-4 w-4 mr-1.5" />
+                        {g.graduation_date ? "Reschedule" : "Schedule Graduation"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60"
+                        onClick={() => setDeleteId(g.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1.5" />
+                        Delete Graduation
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -214,6 +251,28 @@ const DiscipleshipGraduates = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Graduation Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Graduation</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the graduation and move the convert back to the Ministry stage. Are you sure?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteId && deleteGraduationMut.mutate(deleteId)}
+              disabled={deleteGraduationMut.isPending}
+            >
+              {deleteGraduationMut.isPending ? "Removing..." : "Delete Graduation"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

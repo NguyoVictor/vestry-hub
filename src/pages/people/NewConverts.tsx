@@ -65,7 +65,7 @@ interface MilestoneDialogProps {
   convert: any | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onAdvance: (id: string, nextStage: number) => void;
+  onAdvance: (id: string, newStage: number) => void;
   advancing: boolean;
 }
 
@@ -96,7 +96,7 @@ function MilestoneDialog({ convert, open, onOpenChange, onAdvance, advancing }: 
               const milestoneNum = i + 1;
               const completed = stage >= milestoneNum;
               const Icon = MILESTONE_ICONS[i];
-              const isNext = milestoneNum === stage + 1;
+              const isSalvation = milestoneNum === 1;
 
               return (
                 <div key={label} className="flex items-center justify-between gap-3 p-3 rounded-lg border">
@@ -106,11 +106,21 @@ function MilestoneDialog({ convert, open, onOpenChange, onAdvance, advancing }: 
                     </div>
                     <span className="text-sm font-medium">{label}</span>
                   </div>
-                  {completed ? (
+                  {isSalvation ? (
                     <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
                       <CheckCircle2 className="h-3 w-3 mr-1" />Completed
                     </Badge>
-                  ) : isNext ? (
+                  ) : completed ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={() => onAdvance(convert.id, milestoneNum - 1)}
+                      disabled={advancing}
+                    >
+                      {advancing ? "Saving..." : "Mark Pending"}
+                    </Button>
+                  ) : milestoneNum === stage + 1 ? (
                     <Button
                       size="sm"
                       className="bg-orange-500 hover:bg-orange-600 text-white h-7 text-xs"
@@ -164,6 +174,33 @@ const NewConverts = () => {
     },
     enabled: !!tenantId,
     staleTime: 300000,
+  });
+
+  const { data: visitorAlerts = [] } = useQuery({
+    queryKey: ["convert-visitor-alerts", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.VISITORS)
+        .select("id, follow_up_status, created_at")
+        .eq("tenant_id", tenantId!);
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
+  });
+
+  const { data: visitorTasks = [] } = useQuery({
+    queryKey: ["visitor-follow-up-tasks-alerts", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.FOLLOW_UP_TASKS)
+        .select("id, related_visitor_id, status, created_at, due_date")
+        .eq("tenant_id", tenantId!)
+        .not("related_visitor_id", "is", null);
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
   });
 
   // ── Stats ──────────────────────────────────────────────────────────────────
@@ -268,19 +305,22 @@ const NewConverts = () => {
   });
 
   const advanceMilestoneMut = useMutation({
-    mutationFn: async ({ id, nextStage }: { id: string; nextStage: number }) => {
-      const isGraduating = nextStage === 5;
+    mutationFn: async ({ id, newStage }: { id: string; newStage: number }) => {
+      const isGraduating = newStage === 5;
+      const isUndoingGraduation = newStage === 4;
       const updates: any = {
-        discipleship_stage: String(nextStage),
+        discipleship_stage: String(newStage),
         updated_at: new Date().toISOString(),
       };
-      if (nextStage === 2) updates.baptism_status = "completed";
+      if (newStage === 2) updates.baptism_status = "completed";
+      if (newStage < 2) updates.baptism_status = "not_baptized";
       if (isGraduating) updates.graduated_at = new Date().toISOString();
+      if (isUndoingGraduation) updates.graduated_at = null;
       const { error } = await supabase.from(TABLES.NEW_CONVERTS).update(updates as any).eq("id", id);
       if (error) throw error;
-      return { isGraduating, nextStage };
+      return { isGraduating, newStage };
     },
-    onSuccess: ({ isGraduating }, { id }) => {
+    onSuccess: ({ isGraduating, newStage }, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["new-converts"] });
       const convert = converts.find((c: any) => c.id === id);
       const name = convert ? `${convert.first_name} ${convert.last_name || ""}`.trim() : "Convert";
@@ -288,9 +328,8 @@ const NewConverts = () => {
         toast.success(`Congratulations! ${name} has completed all milestones`);
         setMilestoneOpen(false);
       } else {
-        toast.success("Milestone marked complete");
-        // Refresh the milestone convert data
-        setMilestoneConvert((prev: any) => prev ? { ...prev, discipleship_stage: String(isGraduating ? 5 : Number(prev.discipleship_stage) + 1) } : prev);
+        toast.success(newStage > Number(convert?.discipleship_stage ?? 0) ? "Milestone marked complete" : "Milestone marked pending");
+        setMilestoneConvert((prev: any) => prev ? { ...prev, discipleship_stage: String(newStage) } : prev);
       }
     },
     onError: (err: any) => toast.error(err.message),
@@ -351,6 +390,11 @@ const NewConverts = () => {
     { label: "Baptized", value: baptized, icon: Droplets, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
     { label: "Completed", value: completed, icon: GraduationCap, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
   ];
+
+  // ── Alert thresholds ───────────────────────────────────────────────────────
+  const threeDaysAgo = new Date(Date.now() - 3 * 86400000);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+  const fourWeeksAgo = new Date(Date.now() - 28 * 86400000);
 
   return (
     <>
@@ -417,102 +461,117 @@ const NewConverts = () => {
             const fullName = `${c.first_name} ${c.last_name || ""}`.trim();
             const savedDate = c.salvation_date || c.conversion_date;
 
+            // ── Alert logic ──────────────────────────────────────────────────
+            const linkedVisitor = c.visitor_id ? visitorAlerts.find((v: any) => v.id === c.visitor_id) : null;
+            const linkedTasks = c.visitor_id ? visitorTasks.filter((t: any) => t.related_visitor_id === c.visitor_id) : [];
+            const hasOverdueTask = linkedTasks.some((t: any) => t.status === "open" && new Date(t.created_at) < sevenDaysAgo);
+            const notContacted = linkedVisitor && linkedVisitor.follow_up_status === "new" && new Date(linkedVisitor.created_at) < threeDaysAgo;
+            const atRisk = !c.graduated_at && new Date(c.updated_at) < fourWeeksAgo;
+
+            let cardOutline = "";
+            let cardTooltip = "";
+            if (notContacted) { cardOutline = "ring-2 ring-red-400"; cardTooltip = "Needs to be contacted. Finish Task on Visitors Page"; }
+            else if (hasOverdueTask) { cardOutline = "ring-2 ring-amber-400"; cardTooltip = "Needs Follow Up"; }
+            else if (atRisk) { cardOutline = "ring-2 ring-blue-400"; cardTooltip = "Convert Progress Risk"; }
+
             return (
-              <Card key={c.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-5 space-y-4">
-                  {/* Header */}
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-bold uppercase tracking-wide text-sm">{fullName}</p>
-                      {c.phone && <p className="text-xs text-muted-foreground mt-0.5">{c.phone}</p>}
+              <div key={c.id} title={cardTooltip}>
+                <Card className={`hover:shadow-md transition-shadow ${cardOutline}`}>
+                  <CardContent className="p-5 space-y-4">
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-bold uppercase tracking-wide text-sm">{fullName}</p>
+                        {c.phone && <p className="text-xs text-muted-foreground mt-0.5">{c.phone}</p>}
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(c)}>
+                            <Pencil className="h-4 w-4 mr-2" />Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteId(c.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(c)}>
-                          <Pencil className="h-4 w-4 mr-2" />Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => setDeleteId(c.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
 
-                  {/* Badges row */}
-                  <div className="flex flex-wrap gap-2 text-xs items-center">
-                    <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100">In Discipleship</Badge>
-                    {savedDate && <span className="text-muted-foreground">Saved: {format(new Date(savedDate), "dd MMM yyyy")}</span>}
-                    {c.counsellor_name && (
-                      <span className="text-muted-foreground">· Counsellor: <span className="font-medium text-foreground">{c.counsellor_name}</span></span>
-                    )}
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Discipleship Progress</span>
-                      <span>{Math.round(progress)}%</span>
+                    {/* Badges row */}
+                    <div className="flex flex-wrap gap-2 text-xs items-center">
+                      <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100">In Discipleship</Badge>
+                      {savedDate && <span className="text-muted-foreground">Saved: {format(new Date(savedDate), "dd MMM yyyy")}</span>}
+                      {c.counsellor_name && (
+                        <span className="text-muted-foreground">· Counsellor: <span className="font-medium text-foreground">{c.counsellor_name}</span></span>
+                      )}
                     </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
 
-                  {/* Milestone icons with labels */}
-                  <div className="grid grid-cols-5 gap-1">
-                    {MILESTONE_LABELS.map((label, i) => {
-                      const Icon = MILESTONE_ICONS[i];
-                      const done = stage >= i + 1;
-                      const shortLabels = ["Salvation", "Baptism", "Membership", "Training", "Ministry"];
-                      return (
-                        <div key={label} className="flex flex-col items-center gap-1" title={label}>
-                          <div className={`p-1.5 rounded-full ${done ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
-                            <Icon className="h-3.5 w-3.5" />
+                    {/* Progress bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Discipleship Progress</span>
+                        <span>{Math.round(progress)}%</span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
+                    </div>
+
+                    {/* Milestone icons with labels */}
+                    <div className="grid grid-cols-5 gap-1">
+                      {MILESTONE_LABELS.map((label, i) => {
+                        const Icon = MILESTONE_ICONS[i];
+                        const done = stage >= i + 1;
+                        const shortLabels = ["Salvation", "Baptism", "Membership", "Training", "Ministry"];
+                        return (
+                          <div key={label} className="flex flex-col items-center gap-1" title={label}>
+                            <div className={`p-1.5 rounded-full ${done ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <span className={`text-[9px] text-center leading-tight ${done ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
+                              {shortLabels[i]}
+                            </span>
                           </div>
-                          <span className={`text-[9px] text-center leading-tight ${done ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
-                            {shortLabels[i]}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
 
-                  {/* Action buttons — stacked to prevent overflow */}
-                  <div className="space-y-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full text-xs h-8"
-                      onClick={() => openMilestones(c)}
-                    >
-                      View &amp; Update Milestones
-                    </Button>
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Action buttons */}
+                    <div className="space-y-2 pt-1">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs h-8"
-                        onClick={() => openTaskDialog(c)}
+                        className="w-full text-xs h-8"
+                        onClick={() => openMilestones(c)}
                       >
-                        <ListTodo className="h-3.5 w-3.5 mr-1" />View Tasks
+                        View &amp; Update Milestones
                       </Button>
-                      <Button
-                        size="sm"
-                        className="text-xs h-8 bg-orange-500 hover:bg-orange-600 text-white"
-                        onClick={() => openTaskDialog(c)}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" />Create Task
-                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-8"
+                          onClick={() => openTaskDialog(c)}
+                        >
+                          <ListTodo className="h-3.5 w-3.5 mr-1" />View Tasks
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="text-xs h-8 bg-orange-500 hover:bg-orange-600 text-white"
+                          onClick={() => openTaskDialog(c)}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />Create Task
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
             );
           })}
         </div>
@@ -523,7 +582,7 @@ const NewConverts = () => {
         convert={milestoneConvert}
         open={milestoneOpen}
         onOpenChange={setMilestoneOpen}
-        onAdvance={(id, nextStage) => advanceMilestoneMut.mutate({ id, nextStage })}
+        onAdvance={(id, newStage) => advanceMilestoneMut.mutate({ id, newStage })}
         advancing={advanceMilestoneMut.isPending}
       />
 
@@ -593,11 +652,9 @@ const NewConverts = () => {
                   <Select
                     onValueChange={v => {
                       field.onChange(v);
-                      // Sync discipleship stage with baptism status
                       if (v === "completed") {
                         form.setValue("discipleship_stage", "2");
                       } else {
-                        // Only reset to 1 if currently at stage 1 or 2
                         const currentStage = Number(form.getValues("discipleship_stage"));
                         if (currentStage <= 2) form.setValue("discipleship_stage", "1");
                       }

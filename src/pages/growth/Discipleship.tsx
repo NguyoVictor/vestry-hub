@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { toast } from "sonner";
-import { format, startOfWeek, startOfMonth, subWeeks } from "date-fns";
+import { format, startOfWeek, startOfMonth, subWeeks, subDays } from "date-fns";
 import {
   Users, GraduationCap, Droplets, AlertTriangle, TrendingUp,
   Heart, UserPlus, ChevronRight, ArrowRight,
@@ -89,7 +89,9 @@ export default function Discipleship() {
   const now = new Date();
   const weekStart = startOfWeek(now).toISOString();
   const monthStart = startOfMonth(now).toISOString();
-  const twoWeeksAgo = subWeeks(now, 2).toISOString();
+  const sevenDaysAgo = subDays(now, 7);
+  const fourWeeksAgo = subWeeks(now, 4);
+  const threeDaysAgo = subDays(now, 3);
 
   // ── Overview stats ─────────────────────────────────────────────────────────
   const { data: overviewStats, isLoading: statsLoading } = useQuery({
@@ -97,20 +99,28 @@ export default function Discipleship() {
     queryFn: async () => {
       const [visitorsRes, newConvertsRes, followUpTasksRes] = await Promise.all([
         supabase.from(TABLES.VISITORS).select("id, follow_up_status, created_at").eq(COLS.TENANT_ID, tenantId!),
-        supabase.from(TABLES.NEW_CONVERTS).select("id, baptism_status, discipleship_stage, updated_at, created_at").eq(COLS.TENANT_ID, tenantId!),
-        supabase.from(TABLES.FOLLOW_UP_TASKS).select("id, due_date, status").eq(COLS.TENANT_ID, tenantId!),
+        supabase.from(TABLES.NEW_CONVERTS).select("id, baptism_status, discipleship_stage, graduated_at, updated_at, created_at").eq(COLS.TENANT_ID, tenantId!),
+        supabase.from(TABLES.FOLLOW_UP_TASKS).select("id, due_date, status, created_at").eq(COLS.TENANT_ID, tenantId!),
       ]);
 
       const visitors = visitorsRes.data || [];
       const converts = newConvertsRes.data || [];
       const tasks = followUpTasksRes.data || [];
 
+      const nowIso = now.toISOString();
+      const sevenDaysAgoIso = sevenDaysAgo.toISOString();
+      const fourWeeksAgoIso = fourWeeksAgo.toISOString();
+      const threeDaysAgoIso = threeDaysAgo.toISOString();
+
       const visitorsThisWeek = visitors.filter(v => v.created_at >= weekStart).length;
-      const notYetContacted = visitors.filter(v => v.follow_up_status === "new").length;
+      const notYetContacted = visitors.filter(v => v.follow_up_status === "new" && v.created_at < threeDaysAgoIso).length;
       const newConvertsMonth = converts.filter(c => c.created_at >= monthStart).length;
       const baptismsMonth = converts.filter(c => c.baptism_status === "completed" && c.updated_at >= monthStart).length;
-      const overdueFollowUps = tasks.filter(t => t.due_date && t.due_date < now.toISOString() && t.status !== "completed").length;
-      const atRiskConverts = converts.filter(c => !c.updated_at || c.updated_at < twoWeeksAgo).length;
+      const overdueFollowUps = tasks.filter(t =>
+        (t.due_date && t.due_date < nowIso && t.status !== "completed") ||
+        (t.status === "open" && new Date(t.created_at) < new Date(sevenDaysAgoIso))
+      ).length;
+      const atRiskConverts = converts.filter(c => !c.graduated_at && new Date(c.updated_at) < new Date(fourWeeksAgoIso)).length;
       const membershipClassMonth = converts.filter(c => Number(c.discipleship_stage) >= 3 && c.updated_at >= monthStart).length;
 
       return {
@@ -179,12 +189,12 @@ export default function Discipleship() {
   ];
 
   const statCards = [
-    { label: "Visitors This Week", value: overviewStats?.visitorsThisWeek ?? 0, icon: UserPlus, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
-    { label: "Not Yet Contacted", value: overviewStats?.notYetContacted ?? 0, icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/20" },
-    { label: "New Converts (Month)", value: overviewStats?.newConvertsMonth ?? 0, icon: Heart, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20" },
-    { label: "Baptisms (Month)", value: overviewStats?.baptismsMonth ?? 0, icon: Droplets, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
-    { label: "Overdue Follow-ups", value: overviewStats?.overdueFollowUps ?? 0, icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20" },
-    { label: "At-Risk Converts", value: overviewStats?.atRiskConverts ?? 0, icon: Users, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/20" },
+    { label: "Visitors This Week", value: overviewStats?.visitorsThisWeek ?? 0, icon: UserPlus, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/20", subtitle: undefined },
+    { label: "Not Yet Contacted", value: overviewStats?.notYetContacted ?? 0, icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/20", subtitle: undefined },
+    { label: "New Converts (Month)", value: overviewStats?.newConvertsMonth ?? 0, icon: Heart, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20", subtitle: undefined },
+    { label: "Baptisms (Month)", value: overviewStats?.baptismsMonth ?? 0, icon: Droplets, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20", subtitle: undefined },
+    { label: "Overdue Follow-ups", value: overviewStats?.overdueFollowUps ?? 0, icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20", subtitle: undefined },
+    { label: "At-Risk Converts", value: overviewStats?.atRiskConverts ?? 0, icon: Users, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/20", subtitle: "No progress in 4 weeks" },
   ];
 
   return (
@@ -212,7 +222,7 @@ export default function Discipleship() {
         <TabsContent value="overview" className="space-y-6">
           {/* Stats row */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {statCards.map(({ label, value, icon: Icon, color, bg }) => (
+            {statCards.map(({ label, value, icon: Icon, color, bg, subtitle }) => (
               <Card key={label}>
                 <CardContent className="p-5 flex items-center gap-4">
                   <div className={`rounded-lg p-2.5 ${bg}`}>
@@ -221,6 +231,7 @@ export default function Discipleship() {
                   <div>
                     {statsLoading ? <Skeleton className="h-7 w-10 mb-1" /> : <p className="text-2xl font-bold">{value}</p>}
                     <p className="text-xs text-muted-foreground">{label}</p>
+                    {subtitle && <p className="text-xs text-muted-foreground/70 mt-0.5">{subtitle}</p>}
                   </div>
                 </CardContent>
               </Card>
