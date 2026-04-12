@@ -386,6 +386,12 @@ function VisitorDetailsModal({
     task_type: "", assigned_to: "", due_date: "", notes: "",
   });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [salvationModalOpen, setSalvationModalOpen] = useState(false);
+  const [salvationForm, setSalvationForm] = useState({
+    salvation_date: new Date().toISOString().split("T")[0],
+    counsellor_name: "",
+    notes: "",
+  });
 
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ["visitor-tasks", visitor?.id],
@@ -487,10 +493,8 @@ function VisitorDetailsModal({
   });
 
   const recordSalvationMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: { salvation_date: string; counsellor_name: string; notes: string }) => {
       if (!visitor) return;
-      const today = new Date().toISOString().split("T")[0];
-      // Insert into new_converts
       const { error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
         id: crypto.randomUUID(),
         tenant_id: tenantId,
@@ -499,25 +503,22 @@ function VisitorDetailsModal({
         phone: visitor.phone || null,
         email: visitor.email || null,
         visitor_id: visitor.id,
-        conversion_date: today,
-        salvation_date: today,
+        conversion_date: data.salvation_date,
+        salvation_date: data.salvation_date,
+        notes: data.notes || null,
         discipleship_stage: "1",
         baptism_status: "not_baptized",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       } as any);
       if (ncErr) throw ncErr;
-      // Update visitor status to integrated
-      const { error: vErr } = await supabase
-        .from(TABLES.VISITORS)
-        .update({ follow_up_status: "integrated" } as any)
-        .eq("id", visitor.id);
-      if (vErr) throw vErr;
+      await supabase.from(TABLES.VISITORS).update({ follow_up_status: "integrated" } as any).eq("id", visitor.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
       queryClient.invalidateQueries({ queryKey: ["new-converts"] });
       toast.success("Salvation recorded — visitor moved to New Converts");
+      setSalvationModalOpen(false);
       onOpenChange(false);
       onMutationSuccess();
       navigate("/new-converts");
@@ -714,11 +715,11 @@ function VisitorDetailsModal({
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
-                onClick={() => recordSalvationMut.mutate()}
+                onClick={() => setSalvationModalOpen(true)}
                 disabled={recordSalvationMut.isPending}
               >
                 <HeartHandshake className="h-4 w-4 text-rose-500" />
-                {recordSalvationMut.isPending ? "Recording..." : "Record Salvation Decision"}
+                Record Salvation Decision
               </Button>
             )}
 
@@ -796,6 +797,52 @@ function VisitorDetailsModal({
               disabled={addFollowUpMut.isPending || !followUpForm.task_type || !followUpForm.assigned_to || !followUpForm.due_date}
             >
               {addFollowUpMut.isPending ? "Creating..." : "Create Task"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* ── Record Salvation Decision Modal ── */}
+    <Dialog open={salvationModalOpen} onOpenChange={v => { setSalvationModalOpen(v); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Record Salvation Decision</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-1.5">
+            <Label>Salvation Date</Label>
+            <Input
+              type="date"
+              value={salvationForm.salvation_date}
+              onChange={e => setSalvationForm(f => ({ ...f, salvation_date: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Counsellor Name</Label>
+            <Input
+              value={salvationForm.counsellor_name}
+              onChange={e => setSalvationForm(f => ({ ...f, counsellor_name: e.target.value }))}
+              placeholder="Name of counsellor"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notes</Label>
+            <Textarea
+              value={salvationForm.notes}
+              onChange={e => setSalvationForm(f => ({ ...f, notes: e.target.value }))}
+              placeholder="Any notes about the salvation decision..."
+              rows={3}
+            />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => setSalvationModalOpen(false)}>Cancel</Button>
+            <Button
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => recordSalvationMut.mutate(salvationForm)}
+              disabled={recordSalvationMut.isPending || !salvationForm.salvation_date}
+            >
+              {recordSalvationMut.isPending ? "Recording..." : "Record Salvation"}
             </Button>
           </div>
         </div>

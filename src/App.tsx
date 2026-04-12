@@ -58,6 +58,7 @@ const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"))
 // Growth & Discipleship pages
 const Discipleship = lazy(() => import("./pages/growth/Discipleship"));
 const DiscipleshipResources = lazy(() => import("./pages/growth/DiscipleshipResources"));
+const DiscipleshipGraduates = lazy(() => import("./pages/growth/DiscipleshipGraduates"));
 const Outreach = lazy(() => import("./pages/growth/Outreach"));
 const OutreachDetail = lazy(() => import("./pages/growth/OutreachDetail"));
 const ResourcesStore = lazy(() => import("./pages/growth/ResourcesStore"));
@@ -145,7 +146,7 @@ const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", 
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
 const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
-const GROWTH_PATHS = ["/discipleship", "/discipleship-resources", "/outreach", "/resources-store", "/training"];
+const GROWTH_PATHS = ["/discipleship", "/discipleship/graduates", "/discipleship-resources", "/outreach", "/resources-store", "/training"];
 const ADMIN_PATHS = ["/reports", "/branches"];
 
 const App = () => (
@@ -207,6 +208,7 @@ const App = () => (
                 <Route path="/surveys" element={<Suspense fallback={<Fallback />}><SurveysPage /></Suspense>} />
                 {/* Growth & Discipleship routes */}
                 <Route path="/discipleship" element={<Suspense fallback={<Fallback />}><Discipleship /></Suspense>} />
+                <Route path="/discipleship/graduates" element={<Suspense fallback={<Fallback />}><DiscipleshipGraduates /></Suspense>} />
                 <Route path="/discipleship-resources" element={<Suspense fallback={<Fallback />}><DiscipleshipResources /></Suspense>} />
                 <Route path="/outreach" element={<Suspense fallback={<Fallback />}><Outreach /></Suspense>} />
                 <Route path="/outreach/:activityId" element={<Suspense fallback={<Fallback />}><OutreachDetail /></Suspense>} />
