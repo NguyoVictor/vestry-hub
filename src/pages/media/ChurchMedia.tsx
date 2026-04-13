@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
   Upload, Image as ImageIcon, Music, Video, X, Download, Trash2,
-  Loader2, MoreHorizontal, Pencil,
+  Loader2, MoreHorizontal, Pencil, Play, ChevronUp, ChevronDown,
+  ListMusic,
 } from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,15 +144,14 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
             <Label>Description (optional)</Label>
             <Textarea className="mt-1.5 resize-none" placeholder={`Enter ${typeLabel.toLowerCase()} description`} rows={3} value={description} onChange={e => setDescription(e.target.value)} />
           </div>
-          {mediaType !== "audio" && (
-            <div>
-              <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>{IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Category — all types */}
+          <div>
+            <Label>Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>{IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
           <div className="flex gap-3 pt-1">
             <Button variant="outline" className="flex-1" onClick={handleClose} disabled={uploading}>Cancel</Button>
             <Button className="flex-1" onClick={handleUpload} disabled={!file || uploading}>
@@ -214,15 +215,14 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
             <Label>Description</Label>
             <Textarea className="mt-1.5 resize-none" rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Enter description" />
           </div>
-          {item.media_type !== "audio" && (
-            <div>
-              <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>{IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Category — all types */}
+          <div>
+            <Label>Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>{IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
           <div className="flex gap-3 pt-1">
             <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button className="flex-1" onClick={handleSave} disabled={saving}>
@@ -312,6 +312,13 @@ const ChurchMedia = () => {
   const [deleteItem, setDeleteItem] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
+  // Audio playback state
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [shuffle, setShuffle] = useState(false);
+  const [queue, setQueue] = useState<any[]>([]);
+  const [currentTrackIdx, setCurrentTrackIdx] = useState<number | null>(null);
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["church_media_items", church.tenantId, activeTab],
     queryFn: async () => {
@@ -346,6 +353,37 @@ const ChurchMedia = () => {
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["church_media_items"] });
+
+  // Keep queue in sync with fetched audio items
+  useEffect(() => {
+    if (activeTab === "audio") setQueue(items as any[]);
+  }, [items, activeTab]);
+
+  const moveTrack = (idx: number, dir: -1 | 1) => {
+    const next = idx + dir;
+    if (next < 0 || next >= queue.length) return;
+    const q = [...queue];
+    [q[idx], q[next]] = [q[next], q[idx]];
+    setQueue(q);
+  };
+
+  const playTrack = (idx: number) => {
+    // Pause all others
+    Object.values(audioRefs.current).forEach(a => { if (a) { a.pause(); a.currentTime = 0; } });
+    setCurrentTrackIdx(idx);
+    const item = queue[idx];
+    const el = audioRefs.current[item.id];
+    if (el) el.play();
+  };
+
+  const handleTrackEnded = useCallback((idx: number) => {
+    if (!autoPlay) return;
+    const nextIdx = shuffle
+      ? Math.floor(Math.random() * queue.length)
+      : (idx + 1) % queue.length;
+    playTrack(nextIdx);
+  }, [autoPlay, shuffle, queue]);
+
   const filtered = categoryFilter === "all" ? items : items.filter((i: any) => i.category === categoryFilter);
   const activeTabInfo = TABS.find(t => t.key === activeTab)!;
   const uploadLabel = activeTab === "image" ? "Images" : activeTab === "audio" ? "Audio" : "Video";
@@ -387,8 +425,8 @@ const ChurchMedia = () => {
         })}
       </div>
 
-      {/* ── Category filter (images only) ── */}
-      {activeTab === "image" && items.length > 0 && (
+      {/* ── Category filter (images and audio) ── */}
+      {(activeTab === "image" || activeTab === "audio") && items.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-5">
           {["all", ...IMAGE_CATEGORIES].map(c => (
             <button
@@ -445,23 +483,123 @@ const ChurchMedia = () => {
         </div>
 
       ) : activeTab === "audio" ? (
-        <div className="space-y-3">
-          {filtered.map((item: any) => (
-            <Card key={item.id}>
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                  <Music className="h-6 w-6 text-indigo-600" />
+        <div className="space-y-5">
+          {/* ── Playback Settings ── */}
+          <Card className="border border-slate-200 dark:border-slate-700 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <ListMusic className="h-4 w-4 text-indigo-600" />
+                <h3 className="font-semibold text-sm">Playback Settings</h3>
+              </div>
+              <div className="space-y-0 divide-y divide-slate-100 dark:divide-slate-700">
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">Auto-play next track</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Automatically play the next audio track when one finishes</p>
+                  </div>
+                  <Switch checked={autoPlay} onCheckedChange={setAutoPlay} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{item.title || item.file_name}</p>
-                  {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.created_at ? format(new Date(item.created_at), "dd MMM yyyy") : ""}</p>
+                <div className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">Shuffle mode</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Randomize playback order for listeners</p>
+                  </div>
+                  <Switch checked={shuffle} onCheckedChange={setShuffle} />
                 </div>
-                <audio controls src={item.file_url} className="h-8 max-w-[200px]" />
-                <ItemMenu item={item} onEdit={() => setEditingItem(item)} onDelete={() => setDeleteItem(item)} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Playback Queue ── */}
+          {queue.length > 0 && (
+            <Card className="border border-slate-200 dark:border-slate-700 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <ListMusic className="h-4 w-4 text-indigo-600" />
+                    <h3 className="font-semibold text-sm">Playback Queue</h3>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">{queue.length} {queue.length === 1 ? "track" : "tracks"}</Badge>
+                </div>
+                <div className="space-y-1">
+                  {queue.map((item: any, idx: number) => (
+                    <div key={item.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${currentTrackIdx === idx ? "bg-indigo-50 dark:bg-indigo-900/20" : "hover:bg-muted/50"}`}>
+                      {/* Reorder arrows */}
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <button onClick={() => moveTrack(idx, -1)} disabled={idx === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors">
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => moveTrack(idx, 1)} disabled={idx === queue.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors">
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {/* Track number */}
+                      <span className="text-xs text-muted-foreground w-4 text-center shrink-0">{idx + 1}</span>
+                      {/* Play button */}
+                      <button
+                        onClick={() => playTrack(idx)}
+                        className="h-7 w-7 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 hover:bg-indigo-200 transition-colors shrink-0"
+                      >
+                        <Play className="h-3.5 w-3.5 ml-0.5" />
+                      </button>
+                      {/* Title + category */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.title || item.file_name}</p>
+                        {item.category && (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                            {item.category}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
-          ))}
+          )}
+
+          {/* ── Audio track cards ── */}
+          {filtered.length === 0 ? (
+            <EmptyState icon={Music} label="Audio" onUpload={() => setUploadOpen(true)} />
+          ) : (
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+              {filtered.map((item: any, idx: number) => (
+                <div
+                  key={item.id}
+                  className="group rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800 hover:shadow-md transition-shadow overflow-hidden"
+                >
+                  {/* Top — icon + menu */}
+                  <div className="relative flex items-center justify-center pt-6 pb-3 bg-indigo-50/60 dark:bg-indigo-900/10">
+                    <div className="h-14 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                      <Music className="h-7 w-7 text-indigo-500" />
+                    </div>
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ItemMenu item={item} onEdit={() => setEditingItem(item)} onDelete={() => setDeleteItem(item)} />
+                    </div>
+                  </div>
+                  {/* Audio player */}
+                  <div className="px-4 pt-3">
+                    <audio
+                      ref={el => { audioRefs.current[item.id] = el; }}
+                      controls
+                      src={item.file_url}
+                      className="w-full h-8"
+                      onEnded={() => handleTrackEnded(queue.findIndex(q => q.id === item.id))}
+                    />
+                  </div>
+                  {/* Info */}
+                  <div className="px-4 pt-2 pb-4 space-y-1.5">
+                    <p className="font-semibold text-sm leading-snug break-words">{item.title || item.file_name}</p>
+                    {item.category && (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
       ) : (
