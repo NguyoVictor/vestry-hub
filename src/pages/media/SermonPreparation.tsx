@@ -26,10 +26,6 @@ import { format } from "date-fns";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-const STYLES = ["Expository", "Topical", "Narrative", "Devotional", "Apologetic", "Evangelistic"];
 const AUDIENCES = ["General Congregation", "Youth", "Children", "Men", "Women", "Leaders"];
 const DURATIONS = ["15 minutes", "30 minutes", "45 minutes", "60 minutes"];
 
@@ -45,74 +41,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const STYLE_PILL = "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300";
 
-// ── Gemini helper ────────────────────────────────────────────────────────────
-
-async function generateWithGemini(prompt: string): Promise<string> {
-  const res = await fetch(GEMINI_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
-    }),
-  });
-  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-}
-
-function buildPrompt(form: {
-  type: string; style: string; theme: string; scripture: string;
-  audience: string; duration: string; draftNotes: string; instructions: string;
-}): string {
-  const isSermon = form.type === "sermon";
-  return `You are an expert ${isSermon ? "sermon" : "Bible study"} writer for a Christian church.
-
-Generate a complete, structured ${isSermon ? "sermon" : "Bible study guide"} with the following details:
-- Type: ${isSermon ? "Sermon" : "Bible Study"}
-- Style: ${form.style}
-- Theme/Topic: ${form.theme || "Not specified"}
-- Main Scripture: ${form.scripture || "Not specified"}
-- Target Audience: ${form.audience}
-- Duration: ${form.duration}
-${form.draftNotes ? `- Draft Notes/Foundation: ${form.draftNotes}` : ""}
-${form.instructions ? `- Additional Instructions: ${form.instructions}` : ""}
-
-Please provide the following sections clearly labeled:
-
-**TITLE:** [A compelling, specific title]
-
-**SCRIPTURE REFERENCES:** [Main and supporting scriptures]
-
-**INTRODUCTION:** [Engaging opening that hooks the audience, 2-3 paragraphs]
-
-**MAIN POINTS:**
-Point 1: [Title]
-- Sub-point A: [Detail with scripture support]
-- Sub-point B: [Detail with scripture support]
-- Illustration: [Real-life story or analogy]
-- Application: [Practical takeaway]
-
-Point 2: [Title]
-- Sub-point A: [Detail with scripture support]
-- Sub-point B: [Detail with scripture support]
-- Illustration: [Real-life story or analogy]
-- Application: [Practical takeaway]
-
-Point 3: [Title]
-- Sub-point A: [Detail with scripture support]
-- Sub-point B: [Detail with scripture support]
-- Illustration: [Real-life story or analogy]
-- Application: [Practical takeaway]
-
-**CONCLUSION:** [Powerful closing that ties everything together, 2 paragraphs]
-
-${isSermon ? "**ALTAR CALL:** [Invitation for salvation or rededication, warm and welcoming]" : "**DISCUSSION QUESTIONS:** [5-7 thought-provoking questions for group discussion]"}
-
-**PREACHER'S NOTES:** [Key reminders, delivery tips, timing suggestions]
-
-Make the content biblically sound, culturally relevant, and spiritually impactful. Write in a warm, pastoral tone appropriate for ${form.audience.toLowerCase()}.`;
-}
+const STYLES = ["Expository", "Topical", "Narrative", "Devotional", "Apologetic", "Evangelistic"];
 
 // ── Compose Dialog ───────────────────────────────────────────────────────────
 
@@ -152,16 +81,18 @@ function ComposeDialog({ open, onClose, tenantId, userId, onSuccess }: ComposeDi
     if (!theme && !scripture) { toast.error("Please enter a theme/topic or scripture reference"); return; }
     setGenerating(true);
     try {
-      const prompt = buildPrompt({ type, style, theme, scripture, audience, duration, draftNotes, instructions });
-      const content = await generateWithGemini(prompt);
+      const { data, error } = await supabase.functions.invoke("generate-sermon", {
+        body: { type, style, theme, scripture, audience, duration, draftNotes, instructions },
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message);
+      const content: string = data.content;
       setGeneratedContent(content);
-      // Extract title from generated content
       const titleMatch = content.match(/\*\*TITLE:\*\*\s*(.+)/);
       setGeneratedTitle(titleMatch ? titleMatch[1].trim() : theme || `${style} ${type === "sermon" ? "Sermon" : "Bible Study"}`);
       setTab("preview");
       toast.success("Content generated successfully!");
-    } catch (err: any) {
-      toast.error(err.message || "Generation failed. Check your API key.");
+    } catch {
+      toast.error("Generation failed — please try again in a moment");
     } finally {
       setGenerating(false);
     }
