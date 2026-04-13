@@ -49,7 +49,7 @@ export const navigationGroups: NavGroup[] = [
     { title: "Security Centre", path: "/security-centre", icon: ShieldCheck },
     { title: "Incident Management", path: "/incident-management", icon: AlertTriangle },
   ]},
-  { label: "Communications", items: [
+  { label: "Engagement", items: [
     { title: "Communications", path: "/communications", icon: Send },
     { title: "Announcements", path: "/announcements", icon: Megaphone },
     { title: "Member Messaging", path: "/member-messaging", icon: MessageCircle },
