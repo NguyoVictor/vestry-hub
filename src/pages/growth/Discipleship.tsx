@@ -86,19 +86,23 @@ export default function Discipleship() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
-  const now = new Date();
-  const weekStart = startOfWeek(now).toISOString();
-  const monthStart = startOfMonth(now).toISOString();
-  const sevenDaysAgo = subDays(now, 7);
-  const fourWeeksAgo = subWeeks(now, 4);
-  const threeDaysAgo = subDays(now, 3);
-
   // ── Overview stats ─────────────────────────────────────────────────────────
   const { data: overviewStats, isLoading: statsLoading } = useQuery({
     queryKey: ["discipleship-overview-stats", tenantId],
     staleTime: 60000,
     refetchOnWindowFocus: true,
+    enabled: !!tenantId,
     queryFn: async () => {
+      // All date calculations are inside the queryFn so they are always
+      // freshly computed on every fetch — never stale closure values.
+      const now = new Date();
+      const weekStart = startOfWeek(now).toISOString();
+      const monthStart = startOfMonth(now).toISOString();
+      const nowIso = now.toISOString();
+      const sevenDaysAgoIso = subDays(now, 7).toISOString();
+      const fourWeeksAgoIso = subWeeks(now, 4).toISOString();
+      const threeDaysAgoIso = subDays(now, 3).toISOString();
+
       const [visitorsRes, newConvertsRes, followUpTasksRes] = await Promise.all([
         supabase.from(TABLES.VISITORS).select("id, follow_up_status, created_at").eq(COLS.TENANT_ID, tenantId!),
         supabase.from(TABLES.NEW_CONVERTS).select("id, baptism_status, discipleship_stage, graduated_at, updated_at, created_at").eq(COLS.TENANT_ID, tenantId!),
@@ -108,11 +112,6 @@ export default function Discipleship() {
       const visitors = visitorsRes.data || [];
       const converts = newConvertsRes.data || [];
       const tasks = followUpTasksRes.data || [];
-
-      const nowIso = now.toISOString();
-      const sevenDaysAgoIso = sevenDaysAgo.toISOString();
-      const fourWeeksAgoIso = fourWeeksAgo.toISOString();
-      const threeDaysAgoIso = threeDaysAgo.toISOString();
 
       const visitorsThisWeek = visitors.filter(v => v.created_at >= weekStart).length;
       const notYetContacted = visitors.filter(v => v.follow_up_status === "new" && v.created_at < threeDaysAgoIso).length;
@@ -137,9 +136,6 @@ export default function Discipleship() {
         converts,
       };
     },
-    enabled: !!tenantId,
-    staleTime: 60000,
-    refetchOnWindowFocus: true,
   });
 
   // ── Recent visitors & converts ─────────────────────────────────────────────
