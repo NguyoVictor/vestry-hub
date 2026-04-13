@@ -129,9 +129,17 @@ export default function Communications() {
         title="Communications"
         subtitle="Send emails, SMS, WhatsApp and manage automated notifications"
         action={
-          <Button onClick={() => { setActiveSection("broadcasts"); setShowCompose(true); }}>
-            <Plus className="mr-2 h-4 w-4" />Compose Message
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setActiveSection("ai_draft")}>
+              <Bot className="mr-2 h-4 w-4" />AI Draft
+            </Button>
+            <Button variant="outline" onClick={() => setActiveSection("test_email")}>
+              <FlaskConical className="mr-2 h-4 w-4" />Send Test Email
+            </Button>
+            <Button onClick={() => { setActiveSection("broadcasts"); setShowCompose(true); }}>
+              <Plus className="mr-2 h-4 w-4" />Compose Message
+            </Button>
+          </div>
         }
       />
 
