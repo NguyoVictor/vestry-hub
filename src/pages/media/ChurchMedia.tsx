@@ -413,7 +413,7 @@ const ChurchMedia = () => {
         <EmptyState icon={activeTabInfo.icon} label={uploadLabel} onUpload={() => setUploadOpen(true)} />
 
       ) : activeTab === "image" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))" }}>
           {filtered.map((item: any) => (
             <div
               key={item.id}
@@ -430,7 +430,7 @@ const ChurchMedia = () => {
               </div>
               {/* Info bottom */}
               <div className="p-3 space-y-1.5">
-                <p className="font-semibold text-sm leading-snug truncate">{item.title || item.file_name}</p>
+                <p className="font-semibold text-sm leading-snug break-words">{item.title || item.file_name}</p>
                 {item.description && (
                   <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
                 )}
@@ -465,7 +465,7 @@ const ChurchMedia = () => {
         </div>
 
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
           {filtered.map((item: any) => (
             <div
               key={item.id}
@@ -481,7 +481,7 @@ const ChurchMedia = () => {
               </div>
               {/* Info bottom */}
               <div className="p-3 space-y-1.5">
-                <p className="font-semibold text-sm leading-snug truncate">{item.title || item.file_name}</p>
+                <p className="font-semibold text-sm leading-snug break-words">{item.title || item.file_name}</p>
                 {item.description && (
                   <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
                 )}
@@ -499,33 +499,57 @@ const ChurchMedia = () => {
       {/* ── Image lightbox ── */}
       {lightbox && activeTab === "image" && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
-          <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
-            <img src={lightbox.file_url} alt={lightbox.title || ""} className="max-w-full max-h-[80vh] object-contain mx-auto rounded-lg" />
-            <div className="absolute top-3 right-3 flex gap-2">
-              <Button variant="secondary" size="icon" onClick={() => { setLightbox(null); setEditingItem(lightbox); }}><Pencil className="h-4 w-4" /></Button>
-              <Button variant="secondary" size="icon" onClick={async () => {
-                try {
-                  const res = await fetch(lightbox.file_url);
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = lightbox.file_name || lightbox.title || "download";
-                  document.body.appendChild(a);
-                  a.click();
-                  a.remove();
-                  URL.revokeObjectURL(url);
-                } catch { window.open(lightbox.file_url, "_blank"); }
-              }}><Download className="h-4 w-4" /></Button>
-              <Button variant="destructive" size="icon" onClick={() => { setLightbox(null); setDeleteItem(lightbox); }}><Trash2 className="h-4 w-4" /></Button>
-              <Button variant="secondary" size="icon" onClick={() => setLightbox(null)}><X className="h-4 w-4" /></Button>
-            </div>
-            {(lightbox.title || lightbox.category) && (
-              <div className="mt-3 text-center">
-                {lightbox.title && <p className="text-white font-medium">{lightbox.title}</p>}
-                {lightbox.category && <Badge className="mt-1 bg-white/20 text-white border-0">{lightbox.category}</Badge>}
+          <div
+            className="relative w-full max-w-3xl bg-slate-900 rounded-xl overflow-hidden shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+              onClick={() => setLightbox(null)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {/* Image */}
+            <img
+              src={lightbox.file_url}
+              alt={lightbox.title || ""}
+              className="w-full max-h-[65vh] object-contain"
+            />
+
+            {/* Bottom info + actions — always inside the modal */}
+            <div className="bg-slate-800 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                {lightbox.title && <p className="text-white font-medium text-sm truncate">{lightbox.title}</p>}
+                {lightbox.category && (
+                  <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-white/10 text-white/70">
+                    {lightbox.category}
+                  </span>
+                )}
               </div>
-            )}
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="secondary" onClick={() => { setLightbox(null); setEditingItem(lightbox); }}>
+                  <Pencil className="h-4 w-4 mr-1.5" />Edit
+                </Button>
+                <Button size="sm" variant="secondary" onClick={async () => {
+                  try {
+                    const res = await fetch(lightbox.file_url);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = lightbox.file_name || lightbox.title || "download";
+                    document.body.appendChild(a); a.click(); a.remove();
+                    URL.revokeObjectURL(url);
+                  } catch { window.open(lightbox.file_url, "_blank"); }
+                }}>
+                  <Download className="h-4 w-4 mr-1.5" />Download
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => { setLightbox(null); setDeleteItem(lightbox); }}>
+                  <Trash2 className="h-4 w-4 mr-1.5" />Delete
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
