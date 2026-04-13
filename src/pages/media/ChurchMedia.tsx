@@ -413,28 +413,33 @@ const ChurchMedia = () => {
         <EmptyState icon={activeTabInfo.icon} label={uploadLabel} onUpload={() => setUploadOpen(true)} />
 
       ) : activeTab === "image" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {filtered.map((item: any) => (
             <div
               key={item.id}
-              className="relative group cursor-pointer rounded-lg overflow-hidden aspect-square bg-muted"
-              onClick={() => setLightbox(item)}
+              className="group rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden bg-white dark:bg-slate-800 cursor-pointer hover:shadow-md transition-shadow"
             >
-              <img src={item.file_url} alt={item.title || ""} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
-              {/* Actions — appear on hover, top-right */}
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ItemMenu
-                  item={item}
-                  onEdit={() => setEditingItem(item)}
-                  onDelete={() => setDeleteItem(item)}
-                />
-              </div>
-              {item.category && (
-                <div className="absolute bottom-0 left-0 right-0 p-2 translate-y-full group-hover:translate-y-0 transition-transform">
-                  <Badge className="text-[10px] bg-black/60 text-white border-0">{item.category}</Badge>
+              {/* Media top */}
+              <div className="relative h-[200px] bg-muted overflow-hidden" onClick={() => setLightbox(item)}>
+                <img src={item.file_url} alt={item.title || ""} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                {/* ⋯ menu — top right on hover */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ItemMenu item={item} onEdit={() => setEditingItem(item)} onDelete={() => setDeleteItem(item)} />
                 </div>
-              )}
+              </div>
+              {/* Info bottom */}
+              <div className="p-3 space-y-1.5">
+                <p className="font-semibold text-sm leading-snug truncate">{item.title || item.file_name}</p>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                )}
+                {item.category && (
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                    {item.category}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -460,21 +465,33 @@ const ChurchMedia = () => {
         </div>
 
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((item: any) => (
-            <Card key={item.id} className="overflow-hidden">
-              <div className="relative aspect-video bg-slate-900">
-                <video src={item.file_url} className="w-full h-full object-contain" controls />
-              </div>
-              <CardContent className="p-3 flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{item.title || item.file_name}</p>
-                  {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.created_at ? format(new Date(item.created_at), "dd MMM yyyy") : ""}</p>
+            <div
+              key={item.id}
+              className="group rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden bg-white dark:bg-slate-800 hover:shadow-md transition-shadow"
+            >
+              {/* Video top */}
+              <div className="relative h-[200px] bg-slate-900 overflow-hidden">
+                <video src={item.file_url} className="w-full h-full object-cover" controls />
+                {/* ⋯ menu — top right on hover */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <ItemMenu item={item} onEdit={() => setEditingItem(item)} onDelete={() => setDeleteItem(item)} />
                 </div>
-                <ItemMenu item={item} onEdit={() => setEditingItem(item)} onDelete={() => setDeleteItem(item)} />
-              </CardContent>
-            </Card>
+              </div>
+              {/* Info bottom */}
+              <div className="p-3 space-y-1.5">
+                <p className="font-semibold text-sm leading-snug truncate">{item.title || item.file_name}</p>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                )}
+                {item.category && (
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                    {item.category}
+                  </span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
