@@ -40,6 +40,7 @@ const FollowUpTasks = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [dragId, setDragId] = useState<string | null>(null);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["follow-up-tasks", tenantId],
@@ -155,8 +156,17 @@ const FollowUpTasks = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const enrichedTasks = tasks.map((t: any) => ({
-    ...t,
+  const onDragStart = (e: React.DragEvent, id: string) => { setDragId(id); e.dataTransfer.effectAllowed = "move"; };
+  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const onDrop = (e: React.DragEvent, targetStatus: string) => {
+    e.preventDefault();
+    if (!dragId) return;
+    const task = tasks.find((t: any) => t.id === dragId);
+    if (task && (task as any).status !== targetStatus) updateStatusMut.mutate({ id: dragId, status: targetStatus });
+    setDragId(null);
+  };
+
+  const enrichedTasks = tasks.map((t: any) => ({    ...t,
     isOverdue: t.status !== "completed" && t.due_date && isPast(new Date(t.due_date)),
   }));
 
@@ -224,18 +234,19 @@ const FollowUpTasks = () => {
           {kanbanCols.map(col => {
             const colTasks = enrichedTasks.filter((t: any) => t.status === col.key);
             return (
-              <div key={col.key}>
+              <div key={col.key} onDragOver={onDragOver} onDrop={e => onDrop(e, col.key)}>
                 <div className={`rounded-t-lg px-3 py-2 ${col.color} flex items-center justify-between`}>
                   <span className="font-medium text-sm">{col.label}</span>
                   <Badge variant="secondary" className="text-xs">{colTasks.length}</Badge>
+                  <span className="text-xs text-muted-foreground ml-auto">drag to move</span>
                 </div>
                 <ScrollArea className="border border-t-0 rounded-b-lg" style={{ height: "calc(100vh - 220px)" }}>
                   <div className="p-2 space-y-2">
                     {colTasks.length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
+                      <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-8 text-center text-sm text-muted-foreground">Drop here</div>
                     )}
                     {colTasks.map((task: any) => (
-                      <Card key={task.id} className="hover:shadow-sm transition-shadow">
+                      <Card key={task.id} draggable onDragStart={e => onDragStart(e, task.id)} className="hover:shadow-sm transition-shadow cursor-grab active:cursor-grabbing select-none">
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0">
