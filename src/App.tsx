@@ -57,6 +57,7 @@ const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"))
 
 // Media pages
 const ChurchMediaPage = lazy(() => import("./pages/media/ChurchMedia"));
+const SermonPreparationPage = lazy(() => import("./pages/media/SermonPreparation"));
 const Discipleship = lazy(() => import("./pages/growth/Discipleship"));
 const DiscipleshipResources = lazy(() => import("./pages/growth/DiscipleshipResources"));
 const DiscipleshipGraduates = lazy(() => import("./pages/growth/DiscipleshipGraduates"));
@@ -149,7 +150,7 @@ const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", 
 const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
 const GROWTH_PATHS = ["/discipleship", "/discipleship/graduates", "/discipleship-resources", "/outreach", "/resources-store", "/training"];
 const ADMIN_PATHS = ["/reports", "/branches"];
-const MEDIA_PATHS = ["/church-media"];
+const MEDIA_PATHS = ["/church-media", "/sermon-preparation"];
 
 const App = () => (
   <Sentry.ErrorBoundary fallback={<div className="flex items-center justify-center min-h-screen p-12 text-muted-foreground">Something went wrong. Please refresh the page.</div>}>
@@ -225,6 +226,7 @@ const App = () => (
                 <Route path="/branches/:branchId" element={<Suspense fallback={<Fallback />}><BranchDetail /></Suspense>} />
                 {/* Media routes */}
                 <Route path="/church-media" element={<Suspense fallback={<Fallback />}><ChurchMediaPage /></Suspense>} />
+                <Route path="/sermon-preparation" element={<Suspense fallback={<Fallback />}><SermonPreparationPage /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/profile" replace />} />
