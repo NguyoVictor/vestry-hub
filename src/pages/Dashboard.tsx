@@ -107,7 +107,8 @@ const Dashboard = () => {
   // Single RPC call replaces 4 separate stat queries — per vestry-project.md performance rules
   const { data: dashStats, isLoading: statsLoading } = useQuery({
     queryKey: ["dashboard-stats", church.tenantId],
-    staleTime: 300_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_dashboard_stats", { p_tenant_id: church.tenantId });
       if (error) throw error;
@@ -126,7 +127,7 @@ const Dashboard = () => {
 
   const { data: givingTrend, isLoading: trendLoading } = useQuery({
     queryKey: ["dashboard", "giving-trend", chartMonths, church.tenantId],
-    staleTime: 300_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const start = new Date();
       start.setMonth(start.getMonth() - chartMonths);
@@ -147,7 +148,7 @@ const Dashboard = () => {
 
   const { data: groupDistribution, isLoading: distLoading } = useQuery({
     queryKey: ["dashboard", "group-distribution", church.tenantId],
-    staleTime: 300_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data: groups } = await supabase.from("groups").select("id, name").eq("tenant_id", church.tenantId).eq("is_active", true);
       if (!groups?.length) return [];
@@ -161,7 +162,7 @@ const Dashboard = () => {
 
   const { data: upcomingEvents, isLoading: upEventsLoading } = useQuery({
     queryKey: ["dashboard", "upcoming-events-list", church.tenantId],
-    staleTime: 300_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
       const { data } = await supabase.from("events").select("id, title, event_date, start_time, location")
@@ -173,7 +174,7 @@ const Dashboard = () => {
 
   const { data: recentDonations, isLoading: donationsLoading } = useQuery({
     queryKey: ["dashboard", "recent-donations", church.tenantId],
-    staleTime: 300_000,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data } = await supabase.from("giving_records")
         .select("id, amount, giving_type, payment_method, given_at, currency")

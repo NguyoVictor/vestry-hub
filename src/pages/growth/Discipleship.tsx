@@ -96,6 +96,8 @@ export default function Discipleship() {
   // ── Overview stats ─────────────────────────────────────────────────────────
   const { data: overviewStats, isLoading: statsLoading } = useQuery({
     queryKey: ["discipleship-overview-stats", tenantId],
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const [visitorsRes, newConvertsRes, followUpTasksRes] = await Promise.all([
         supabase.from(TABLES.VISITORS).select("id, follow_up_status, created_at").eq(COLS.TENANT_ID, tenantId!),
@@ -136,7 +138,8 @@ export default function Discipleship() {
       };
     },
     enabled: !!tenantId,
-    staleTime: 300000,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
   });
 
   // ── Recent visitors & converts ─────────────────────────────────────────────
@@ -152,7 +155,8 @@ export default function Discipleship() {
       return data || [];
     },
     enabled: !!tenantId,
-    staleTime: 300000,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: recentConverts = [] } = useQuery({
@@ -167,7 +171,8 @@ export default function Discipleship() {
       return data || [];
     },
     enabled: !!tenantId,
-    staleTime: 300000,
+    staleTime: 60000,
+    refetchOnWindowFocus: true,
   });
 
   // ── Chart data ─────────────────────────────────────────────────────────────
