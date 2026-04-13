@@ -127,17 +127,9 @@ export default function Communications() {
         title="Communications"
         subtitle="Send emails, SMS, WhatsApp and manage automated notifications"
         action={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setActiveSection("ai_draft")}>
-              <Bot className="mr-2 h-4 w-4" />AI Draft
-            </Button>
-            <Button variant="outline" onClick={() => setActiveSection("test_email")}>
-              <FlaskConical className="mr-2 h-4 w-4" />Send Test Email
-            </Button>
-            <Button onClick={() => { setActiveSection("broadcasts"); setShowCompose(true); }}>
-              <Plus className="mr-2 h-4 w-4" />Compose Message
-            </Button>
-          </div>
+          <Button onClick={() => { setActiveSection("broadcasts"); setShowCompose(true); }}>
+            <Plus className="mr-2 h-4 w-4" />Compose Message
+          </Button>
         }
       />
 
@@ -292,7 +284,17 @@ export default function Communications() {
 
           {/* ── EMAIL ── */}
           {activeSection === "email" && (
-            <Card><CardContent><ComingSoon icon={Mail} title="Email" description="Send and manage emails to your congregation. Coming soon." /></CardContent></Card>
+            <>
+              <div className="flex items-center gap-2 mb-4 justify-end">
+                <Button variant="outline">
+                  <Bot className="mr-2 h-4 w-4" />AI Draft
+                </Button>
+                <Button variant="outline">
+                  <FlaskConical className="mr-2 h-4 w-4" />Send Test Email
+                </Button>
+              </div>
+              <Card><CardContent><ComingSoon icon={Mail} title="Email" description="Send and manage emails to your congregation. Coming soon." /></CardContent></Card>
+            </>
           )}
 
           {/* ── EMAIL TEMPLATES ── */}
