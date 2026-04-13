@@ -14,9 +14,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  PenLine, Plus, Search, Trash2, FileText, BookOpen, Sparkles,
+  PenLine, Search, Trash2, FileText, BookOpen, Sparkles,
   MoreHorizontal, Pencil, Eye, BookMarked, Clock, Users, CalendarDays,
-  Archive,
+  Archive, Loader2, Copy, Printer, CheckCircle2,
 } from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,64 +24,173 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${GEMINI_API_KEY}`;
+
+const STYLES = ["Expository", "Topical", "Narrative", "Devotional", "Apologetic", "Evangelistic"];
+const AUDIENCES = ["General Congregation", "Youth", "Children", "Men", "Women", "Leaders"];
+const DURATIONS = ["15 minutes", "30 minutes", "45 minutes", "60 minutes"];
 
 const TYPE_COLORS: Record<string, string> = {
   sermon: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   bible_study: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
 };
-
 const STATUS_COLORS: Record<string, string> = {
   ready: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   draft: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
   published: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
   archived: "bg-muted text-muted-foreground",
 };
+const STYLE_PILL = "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300";
 
-const STYLE_COLORS = "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300";
+// ── Gemini helper ────────────────────────────────────────────────────────────
 
-// ── Compose / Edit Sheet ─────────────────────────────────────────────────────
+async function generateWithGemini(prompt: string): Promise<string> {
+  const res = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+function buildPrompt(form: {
+  type: string; style: string; theme: string; scripture: string;
+  audience: string; duration: string; draftNotes: string; instructions: string;
+}): string {
+  const isSermon = form.type === "sermon";
+  return `You are an expert ${isSermon ? "sermon" : "Bible study"} writer for a Christian church.
+
+Generate a complete, structured ${isSermon ? "sermon" : "Bible study guide"} with the following details:
+- Type: ${isSermon ? "Sermon" : "Bible Study"}
+- Style: ${form.style}
+- Theme/Topic: ${form.theme || "Not specified"}
+- Main Scripture: ${form.scripture || "Not specified"}
+- Target Audience: ${form.audience}
+- Duration: ${form.duration}
+${form.draftNotes ? `- Draft Notes/Foundation: ${form.draftNotes}` : ""}
+${form.instructions ? `- Additional Instructions: ${form.instructions}` : ""}
+
+Please provide the following sections clearly labeled:
+
+**TITLE:** [A compelling, specific title]
+
+**SCRIPTURE REFERENCES:** [Main and supporting scriptures]
+
+**INTRODUCTION:** [Engaging opening that hooks the audience, 2-3 paragraphs]
+
+**MAIN POINTS:**
+Point 1: [Title]
+- Sub-point A: [Detail with scripture support]
+- Sub-point B: [Detail with scripture support]
+- Illustration: [Real-life story or analogy]
+- Application: [Practical takeaway]
+
+Point 2: [Title]
+- Sub-point A: [Detail with scripture support]
+- Sub-point B: [Detail with scripture support]
+- Illustration: [Real-life story or analogy]
+- Application: [Practical takeaway]
+
+Point 3: [Title]
+- Sub-point A: [Detail with scripture support]
+- Sub-point B: [Detail with scripture support]
+- Illustration: [Real-life story or analogy]
+- Application: [Practical takeaway]
+
+**CONCLUSION:** [Powerful closing that ties everything together, 2 paragraphs]
+
+${isSermon ? "**ALTAR CALL:** [Invitation for salvation or rededication, warm and welcoming]" : "**DISCUSSION QUESTIONS:** [5-7 thought-provoking questions for group discussion]"}
+
+**PREACHER'S NOTES:** [Key reminders, delivery tips, timing suggestions]
+
+Make the content biblically sound, culturally relevant, and spiritually impactful. Write in a warm, pastoral tone appropriate for ${form.audience.toLowerCase()}.`;
+}
+
+// ── Compose Dialog ───────────────────────────────────────────────────────────
 
 interface ComposeDialogProps {
   open: boolean;
   onClose: () => void;
-  editing: any | null;
   tenantId: string;
   userId: string | null;
   onSuccess: () => void;
 }
 
-function ComposeDialog({ open, onClose, editing, tenantId, userId, onSuccess }: ComposeDialogProps) {
-  const [title, setTitle] = useState(editing?.title || "");
-  const [type, setType] = useState(editing?.sermon_type || "sermon");
-  const [style, setStyle] = useState(editing?.style || "expository");
-  const [scripture, setScripture] = useState(editing?.scripture_reference || "");
-  const [audience, setAudience] = useState(editing?.audience || "General Congregation");
-  const [duration, setDuration] = useState(editing?.duration || "30");
-  const [status, setStatus] = useState(editing?.status || "draft");
-  const [introduction, setIntroduction] = useState(editing?.introduction || "");
-  const [manuscript, setManuscript] = useState(editing?.manuscript || "");
-  const [notes, setNotes] = useState(editing?.notes || "");
+function ComposeDialog({ open, onClose, tenantId, userId, onSuccess }: ComposeDialogProps) {
+  const [tab, setTab] = useState<"setup" | "preview">("setup");
+  const [type, setType] = useState("sermon");
+  const [style, setStyle] = useState("Expository");
+  const [theme, setTheme] = useState("");
+  const [scripture, setScripture] = useState("");
+  const [audience, setAudience] = useState("General Congregation");
+  const [duration, setDuration] = useState("30 minutes");
+  const [draftNotes, setDraftNotes] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generatedContent, setGeneratedContent] = useState("");
+  const [generatedTitle, setGeneratedTitle] = useState("");
+
+  const reset = () => {
+    setTab("setup"); setType("sermon"); setStyle("Expository"); setTheme("");
+    setScripture(""); setAudience("General Congregation"); setDuration("30 minutes");
+    setDraftNotes(""); setInstructions(""); setGenerating(false); setSaving(false);
+    setGeneratedContent(""); setGeneratedTitle("");
+  };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleGenerate = async () => {
+    if (!theme && !scripture) { toast.error("Please enter a theme/topic or scripture reference"); return; }
+    setGenerating(true);
+    try {
+      const prompt = buildPrompt({ type, style, theme, scripture, audience, duration, draftNotes, instructions });
+      const content = await generateWithGemini(prompt);
+      setGeneratedContent(content);
+      // Extract title from generated content
+      const titleMatch = content.match(/\*\*TITLE:\*\*\s*(.+)/);
+      setGeneratedTitle(titleMatch ? titleMatch[1].trim() : theme || `${style} ${type === "sermon" ? "Sermon" : "Bible Study"}`);
+      setTab("preview");
+      toast.success("Content generated successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Generation failed. Check your API key.");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSave = async () => {
-    if (!title.trim()) { toast.error("Title is required"); return; }
+    if (!generatedContent) return;
     setSaving(true);
     try {
-      const payload: any = {
-        title, scripture_reference: scripture, introduction, manuscript, notes,
-        status, speaker: audience, tenant_id: tenantId, created_by: userId,
-      };
-      if (editing?.id) {
-        const { error } = await supabase.from("sermons").update(payload).eq("id", editing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("sermons").insert(payload);
-        if (error) throw error;
-      }
-      toast.success(editing?.id ? "Updated successfully" : "Sermon saved");
+      const { error } = await supabase.from("sermons").insert({
+        tenant_id: tenantId,
+        created_by: userId,
+        title: generatedTitle,
+        scripture_reference: scripture || null,
+        sermon_type: type,
+        style: style.toLowerCase(),
+        audience,
+        duration,
+        draft_notes: draftNotes || null,
+        additional_instructions: instructions || null,
+        manuscript: generatedContent,
+        status: "ready",
+        ai_generated: true,
+        speaker: audience,
+      } as any);
+      if (error) throw error;
+      toast.success("Sermon saved to Saved Content!");
       onSuccess();
-      onClose();
+      handleClose();
     } catch (err: any) {
       toast.error(err.message || "Save failed");
     } finally {
@@ -89,98 +198,202 @@ function ComposeDialog({ open, onClose, editing, tenantId, userId, onSuccess }: 
     }
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generatedContent);
+    toast.success("Copied to clipboard");
+  };
+
+  const handlePrint = () => {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`<html><head><title>${generatedTitle}</title><style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto;line-height:1.8;color:#1a1a1a}h1{font-size:24px;margin-bottom:8px}pre{white-space:pre-wrap;font-family:inherit}</style></head><body><h1>${generatedTitle}</h1><pre>${generatedContent}</pre></body></html>`);
+    win.document.close();
+    win.print();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-indigo-600" />
-            {editing?.id ? "Edit Sermon / Study" : "Prepare Sermon / Study"}
+            <Sparkles className="h-5 w-5 text-orange-500" />
+            AI Sermon &amp; Bible Study Preparation
           </DialogTitle>
+          {/* Info banner */}
+          <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            Upload sermon archives in the 'AI Training Archive' tab to enable AI-powered topic suggestions.
+          </div>
         </DialogHeader>
-        <div className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Type</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sermon">Sermon</SelectItem>
-                  <SelectItem value="bible_study">Bible Study</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Preaching Style</Label>
-              <Select value={style} onValueChange={setStyle}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="expository">Expository</SelectItem>
-                  <SelectItem value="topical">Topical</SelectItem>
-                  <SelectItem value="narrative">Narrative</SelectItem>
-                  <SelectItem value="textual">Textual</SelectItem>
-                  <SelectItem value="biographical">Biographical</SelectItem>
-                  <SelectItem value="evangelistic">Evangelistic</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div>
-            <Label>Title *</Label>
-            <Input className="mt-1.5" placeholder="e.g. God's Masterpiece: Designed, Destined, and Dignified" value={title} onChange={e => setTitle(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Scripture Reference</Label>
-              <Input className="mt-1.5" placeholder="e.g. Romans 8:28-29" value={scripture} onChange={e => setScripture(e.target.value)} />
-            </div>
-            <div>
-              <Label>Audience</Label>
-              <Input className="mt-1.5" placeholder="e.g. General Congregation" value={audience} onChange={e => setAudience(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Duration (minutes)</Label>
-              <Input className="mt-1.5" type="number" placeholder="30" value={duration} onChange={e => setDuration(e.target.value)} />
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="ready">Ready</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <Tabs defaultValue="outline">
-            <TabsList>
-              <TabsTrigger value="outline">Outline / Introduction</TabsTrigger>
-              <TabsTrigger value="manuscript">Manuscript</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
-            </TabsList>
-            <TabsContent value="outline" className="mt-3">
-              <Textarea rows={6} placeholder="Write your sermon introduction and outline points..." value={introduction} onChange={e => setIntroduction(e.target.value)} className="resize-none" />
-            </TabsContent>
-            <TabsContent value="manuscript" className="mt-3">
-              <Textarea rows={10} placeholder="Full sermon manuscript..." value={manuscript} onChange={e => setManuscript(e.target.value)} className="resize-none" />
-            </TabsContent>
-            <TabsContent value="notes" className="mt-3">
-              <Textarea rows={6} placeholder="Private notes, illustrations, research..." value={notes} onChange={e => setNotes(e.target.value)} className="resize-none" />
-            </TabsContent>
-          </Tabs>
+        {/* Tab switcher */}
+        <div className="flex border rounded-lg overflow-hidden shrink-0 mt-1">
+          <button
+            onClick={() => setTab("setup")}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${tab === "setup" ? "bg-slate-100 dark:bg-slate-700 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Setup
+          </button>
+          <button
+            onClick={() => { if (generatedContent) setTab("preview"); }}
+            disabled={!generatedContent}
+            className={`flex-1 py-2 text-sm font-medium transition-colors disabled:opacity-40 ${tab === "preview" ? "bg-slate-100 dark:bg-slate-700 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Preview &amp; Actions
+          </button>
+        </div>
 
-          <div className="flex gap-3 pt-1">
-            <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button className="flex-1" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : editing?.id ? "Update" : "Save"}
-            </Button>
-          </div>
+        <div className="flex-1 overflow-y-auto">
+          {tab === "setup" ? (
+            <div className="space-y-4 py-2">
+              {/* Type selector */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: "sermon", label: "Sermon", desc: "Full sermon outline with points and applications", icon: "📖" },
+                  { key: "bible_study", label: "Bible Study", desc: "Discussion-based study with questions", icon: "📚" },
+                ].map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setType(t.key)}
+                    className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${type === t.key ? "border-orange-400 bg-orange-50 dark:bg-orange-900/20" : "border-slate-200 dark:border-slate-700 hover:border-slate-300"}`}
+                  >
+                    <span className="text-xl">{t.icon}</span>
+                    <div>
+                      <p className="font-semibold text-sm">{t.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Style */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Style</Label>
+                <div className="flex flex-wrap gap-2">
+                  {STYLES.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setStyle(s)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${style === s ? "bg-orange-400 text-white border-orange-400" : "border-slate-200 dark:border-slate-700 text-muted-foreground hover:border-slate-300"}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Theme + Scripture */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Theme/Topic</Label>
+                  <Input className="mt-1.5" placeholder="e.g. Faith in difficult times" value={theme} onChange={e => setTheme(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Main Scripture Reference</Label>
+                  <Input className="mt-1.5" placeholder="e.g. Romans 8:28-39" value={scripture} onChange={e => setScripture(e.target.value)} />
+                </div>
+              </div>
+
+              {/* Audience + Duration */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Target Audience</Label>
+                  <Select value={audience} onValueChange={setAudience}>
+                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>{AUDIENCES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Duration</Label>
+                  <Select value={duration} onValueChange={setDuration}>
+                    <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                    <SelectContent>{DURATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Draft notes */}
+              <div>
+                <Label>Draft Sermon / Idea Notes (Optional)</Label>
+                <Textarea
+                  className="mt-1.5 resize-none"
+                  rows={4}
+                  placeholder="Paste your draft sermon, sermon outline, or idea notes here. The AI will use this as a foundation to build upon..."
+                  value={draftNotes}
+                  onChange={e => setDraftNotes(e.target.value)}
+                />
+              </div>
+
+              {/* Additional instructions */}
+              <div>
+                <Label>Additional Instructions (Optional)</Label>
+                <Textarea
+                  className="mt-1.5 resize-none"
+                  rows={3}
+                  placeholder="Any specific points to cover, illustrations to include, or context for the message..."
+                  value={instructions}
+                  onChange={e => setInstructions(e.target.value)}
+                />
+              </div>
+
+              {/* Generate button */}
+              <Button
+                className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={handleGenerate}
+                disabled={generating || (!theme && !scripture)}
+              >
+                {generating ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating {type === "sermon" ? "Sermon" : "Bible Study"}...</>
+                ) : (
+                  <><Sparkles className="mr-2 h-4 w-4" />Generate {type === "sermon" ? "Sermon" : "Bible Study"}</>
+                )}
+              </Button>
+            </div>
+          ) : (
+            /* ── Preview & Actions ── */
+            <div className="space-y-4 py-2">
+              {/* Title + meta */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <h3 className="font-bold text-base mb-2">{generatedTitle}</h3>
+                <div className="flex flex-wrap gap-2">
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_COLORS[type]}`}>
+                    {type === "bible_study" ? "Bible Study" : "Sermon"}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STYLE_PILL}`}>{style}</span>
+                  {scripture && <span className="text-xs text-muted-foreground flex items-center gap-1"><BookOpen className="h-3 w-3" />{scripture}</span>}
+                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{audience}</span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{duration}</span>
+                </div>
+              </div>
+
+              {/* Generated content */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 max-h-[320px] overflow-y-auto">
+                <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{generatedContent}</pre>
+              </div>
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={handleCopy}>
+                  <Copy className="mr-2 h-4 w-4" />Copy to Clipboard
+                </Button>
+                <Button variant="outline" onClick={handlePrint}>
+                  <Printer className="mr-2 h-4 w-4" />Print / Export
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={() => setTab("setup")}>
+                  ← Back to Setup
+                </Button>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : <><CheckCircle2 className="mr-2 h-4 w-4" />Save to Library</>}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -246,7 +459,7 @@ const SermonPreparation = () => {
         title="Sermon Preparation"
         subtitle="AI-powered sermon and Bible study preparation with storage, sharing, and printing"
         action={
-          <Button onClick={() => { setEditingItem(null); setComposeOpen(true); }}>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setComposeOpen(true)}>
             <Sparkles className="mr-2 h-4 w-4" />Prepare Sermon/Study
           </Button>
         }
@@ -278,7 +491,7 @@ const SermonPreparation = () => {
         </CardContent>
       </Card>
 
-      {/* ── Tab buttons ── */}
+      {/* ── Tabs ── */}
       <div className="flex items-center gap-1 border-b mb-5">
         {[
           { key: "saved", label: "Saved Content", icon: BookMarked },
@@ -288,9 +501,7 @@ const SermonPreparation = () => {
             key={key}
             onClick={() => setActiveTab(key as any)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              activeTab === key
-                ? "border-indigo-600 text-indigo-600"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+              activeTab === key ? "border-indigo-600 text-indigo-600" : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             <Icon className="h-4 w-4" />{label}
@@ -302,12 +513,7 @@ const SermonPreparation = () => {
       <div className="flex items-center gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search by title, theme, or scripture..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <Input className="pl-9" placeholder="Search by title, theme, or scripture..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="flex items-center gap-2 ml-auto shrink-0">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -333,23 +539,17 @@ const SermonPreparation = () => {
 
       {/* ── Content list ── */}
       {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-        </div>
+        <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20">
             <PenLine className="h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h3 className="font-semibold text-lg mb-1">
-              {activeTab === "archive" ? "No archived content" : "No saved content yet"}
-            </h3>
+            <h3 className="font-semibold text-lg mb-1">{activeTab === "archive" ? "No archived content" : "No saved content yet"}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {activeTab === "archive"
-                ? "Archived sermons and studies will appear here."
-                : "Click \"Prepare Sermon/Study\" to create your first sermon or Bible study."}
+              {activeTab === "archive" ? "Archived sermons and studies will appear here." : "Click \"Prepare Sermon/Study\" to generate your first AI-powered sermon or Bible study."}
             </p>
             {activeTab === "saved" && (
-              <Button onClick={() => { setEditingItem(null); setComposeOpen(true); }}>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setComposeOpen(true)}>
                 <Sparkles className="mr-2 h-4 w-4" />Prepare Sermon/Study
               </Button>
             )}
@@ -365,62 +565,34 @@ const SermonPreparation = () => {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      {/* Badges row */}
                       <div className="flex flex-wrap items-center gap-1.5 mb-2">
                         <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_COLORS[itemType] || TYPE_COLORS.sermon}`}>
                           {itemType === "bible_study" ? "Bible Study" : "Sermon"}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STYLE_COLORS}`}>
-                          {itemStyle}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[item.status] || STATUS_COLORS.draft}`}>
-                          {item.status}
-                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STYLE_PILL}`}>{itemStyle}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[item.status] || STATUS_COLORS.draft}`}>{item.status}</span>
+                        {(item as any).ai_generated && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                            <Sparkles className="h-3 w-3" />AI
+                          </span>
+                        )}
                       </div>
-                      {/* Title */}
                       <p className="font-semibold text-sm leading-snug mb-2">{item.title}</p>
-                      {/* Meta row */}
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        {item.scripture_reference && (
-                          <span className="flex items-center gap-1">
-                            <BookOpen className="h-3.5 w-3.5" />{item.scripture_reference}
-                          </span>
-                        )}
-                        {item.speaker && (
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5" />{item.speaker}
-                          </span>
-                        )}
-                        {item.duration && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" />{item.duration} min
-                          </span>
-                        )}
-                        {item.created_at && (
-                          <span className="flex items-center gap-1">
-                            <CalendarDays className="h-3.5 w-3.5" />{format(new Date(item.created_at), "dd MMM yyyy")}
-                          </span>
-                        )}
+                        {item.scripture_reference && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{item.scripture_reference}</span>}
+                        {item.speaker && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{item.speaker}</span>}
+                        {item.duration && <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{item.duration}</span>}
+                        {item.created_at && <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{format(new Date(item.created_at), "dd MMM yyyy")}</span>}
                       </div>
                     </div>
-                    {/* ⋯ menu */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setViewItem(item)}>
-                          <Eye className="h-4 w-4 mr-2" />View
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setEditingItem(item); setComposeOpen(true); }}>
-                          <Pencil className="h-4 w-4 mr-2" />Edit
-                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setViewItem(item)}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(item.id)}>
-                          <Trash2 className="h-4 w-4 mr-2" />Delete
-                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(item.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -434,56 +606,61 @@ const SermonPreparation = () => {
       {/* ── View dialog ── */}
       {viewItem && (
         <Dialog open onOpenChange={() => setViewItem(null)}>
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="shrink-0">
               <DialogTitle>{viewItem.title}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-2 text-sm">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mt-2">
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_COLORS[viewItem.sermon_type || "sermon"]}`}>
                   {viewItem.sermon_type === "bible_study" ? "Bible Study" : "Sermon"}
                 </span>
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[viewItem.status]}`}>{viewItem.status}</span>
+                {viewItem.ai_generated && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700"><Sparkles className="h-3 w-3" />AI Generated</span>}
               </div>
-              {viewItem.scripture_reference && <p><span className="font-medium">Scripture:</span> {viewItem.scripture_reference}</p>}
-              {viewItem.speaker && <p><span className="font-medium">Audience:</span> {viewItem.speaker}</p>}
-              {viewItem.introduction && (
-                <div>
-                  <p className="font-medium mb-1">Outline / Introduction</p>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{viewItem.introduction}</p>
-                </div>
-              )}
-              {viewItem.manuscript && (
-                <div>
-                  <p className="font-medium mb-1">Manuscript</p>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{viewItem.manuscript}</p>
-                </div>
-              )}
-              {viewItem.notes && (
-                <div>
-                  <p className="font-medium mb-1">Notes</p>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{viewItem.notes}</p>
-                </div>
-              )}
-              <div className="flex justify-end pt-2">
-                <Button variant="outline" onClick={() => setViewItem(null)}>Close</Button>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-3 py-2">
+                {viewItem.scripture_reference && <p className="text-sm"><span className="font-medium">Scripture:</span> {viewItem.scripture_reference}</p>}
+                {viewItem.speaker && <p className="text-sm"><span className="font-medium">Audience:</span> {viewItem.speaker}</p>}
+                {viewItem.duration && <p className="text-sm"><span className="font-medium">Duration:</span> {viewItem.duration}</p>}
+                {viewItem.manuscript && (
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-800/50">
+                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{viewItem.manuscript}</pre>
+                  </div>
+                )}
+                {viewItem.introduction && !viewItem.manuscript && (
+                  <div>
+                    <p className="font-medium text-sm mb-1">Introduction</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewItem.introduction}</p>
+                  </div>
+                )}
               </div>
+            </div>
+            <div className="flex gap-3 pt-3 shrink-0 border-t">
+              <Button variant="outline" className="flex-1" onClick={() => { navigator.clipboard.writeText(viewItem.manuscript || viewItem.introduction || ""); toast.success("Copied"); }}>
+                <Copy className="mr-2 h-4 w-4" />Copy
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => {
+                const win = window.open("", "_blank");
+                if (!win) return;
+                win.document.write(`<html><head><title>${viewItem.title}</title><style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto;line-height:1.8}pre{white-space:pre-wrap;font-family:inherit}</style></head><body><h1>${viewItem.title}</h1><pre>${viewItem.manuscript || viewItem.introduction || ""}</pre></body></html>`);
+                win.document.close(); win.print();
+              }}>
+                <Printer className="mr-2 h-4 w-4" />Print
+              </Button>
+              <Button variant="outline" onClick={() => setViewItem(null)}>Close</Button>
             </div>
           </DialogContent>
         </Dialog>
       )}
 
-      {/* ── Compose / Edit dialog ── */}
-      {composeOpen && (
-        <ComposeDialog
-          open={composeOpen}
-          onClose={() => { setComposeOpen(false); setEditingItem(null); }}
-          editing={editingItem}
-          tenantId={church.tenantId!}
-          userId={church.userId}
-          onSuccess={invalidate}
-        />
-      )}
+      {/* ── Compose dialog ── */}
+      <ComposeDialog
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        tenantId={church.tenantId!}
+        userId={church.userId}
+        onSuccess={invalidate}
+      />
 
       {/* ── Delete confirmation ── */}
       <AlertDialog open={!!deleteId} onOpenChange={v => { if (!v) setDeleteId(null); }}>
@@ -494,11 +671,7 @@ const SermonPreparation = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
-              onClick={() => deleteId && deleteMut.mutate(deleteId)}
-              disabled={deleteMut.isPending}
-            >
+            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deleteId && deleteMut.mutate(deleteId)} disabled={deleteMut.isPending}>
               {deleteMut.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
