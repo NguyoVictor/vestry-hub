@@ -7,12 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
   Upload, Image as ImageIcon, Music, Video, X, Download, Trash2,
-  Play, Loader2,
+  Loader2, MoreHorizontal, Pencil,
 } from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,7 +43,7 @@ const ACCEPT_MAP: Record<string, string> = {
 
 type MediaType = "image" | "audio" | "video";
 
-// ── Upload Image Dialog ──────────────────────────────────────────────────────
+// ── Upload Dialog ────────────────────────────────────────────────────────────
 
 interface UploadDialogProps {
   open: boolean;
@@ -61,10 +63,7 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
   const [category, setCategory] = useState("General");
   const [uploading, setUploading] = useState(false);
 
-  const reset = () => {
-    setFile(null); setPreview(null); setTitle(""); setDescription(""); setCategory("General");
-  };
-
+  const reset = () => { setFile(null); setPreview(null); setTitle(""); setDescription(""); setCategory("General"); };
   const handleClose = () => { reset(); onOpenChange(false); };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,28 +80,18 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
       const ext = file.name.split(".").pop();
       const path = `${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const bucket = BUCKET_MAP[mediaType];
-
       const { error: storageErr } = await supabase.storage.from(bucket).upload(path, file);
       if (storageErr) throw storageErr;
-
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
-
       const { error: dbErr } = await supabase.from("church_media_items").insert({
-        tenant_id: tenantId,
-        media_type: mediaType,
-        title: title || file.name,
-        description: description || null,
-        category,
-        file_url: publicUrl,
-        file_name: file.name,
-        file_size: file.size,
-        mime_type: file.type,
-        storage_path: path,
-        uploaded_by: userId,
+        tenant_id: tenantId, media_type: mediaType,
+        title: title || file.name, description: description || null,
+        category, file_url: publicUrl, file_name: file.name,
+        file_size: file.size, mime_type: file.type,
+        storage_path: path, uploaded_by: userId,
       });
       if (dbErr) throw dbErr;
-
-      toast.success(`${mediaType === "image" ? "Image" : mediaType === "audio" ? "Audio" : "Video"} uploaded successfully`);
+      toast.success("Uploaded successfully");
       onSuccess();
       handleClose();
     } catch (err: any) {
@@ -113,30 +102,21 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
   };
 
   const typeLabel = mediaType === "image" ? "Image" : mediaType === "audio" ? "Audio" : "Video";
-  const typeIcon = mediaType === "image" ? ImageIcon : mediaType === "audio" ? Music : Video;
-  const TypeIcon = typeIcon;
+  const TypeIcon = mediaType === "image" ? ImageIcon : mediaType === "audio" ? Music : Video;
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <TypeIcon className="h-5 w-5 text-indigo-600" />
-            Upload {typeLabel}
+            <TypeIcon className="h-5 w-5 text-indigo-600" />Upload {typeLabel}
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Upload {typeLabel.toLowerCase()} files to showcase on your church's pages.
-          </p>
+          <p className="text-sm text-muted-foreground">Upload {typeLabel.toLowerCase()} files to showcase on your church's pages.</p>
         </DialogHeader>
-
         <div className="space-y-4 mt-2">
-          {/* File picker */}
           <div>
             <Label>Select File</Label>
-            <div
-              className="mt-1.5 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors"
-              onClick={() => fileRef.current?.click()}
-            >
+            <div className="mt-1.5 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors" onClick={() => fileRef.current?.click()}>
               {preview ? (
                 <img src={preview} alt="preview" className="mx-auto max-h-32 rounded-md object-contain" />
               ) : (
@@ -150,56 +130,27 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
                   </p>
                 </>
               )}
-              {file && !preview && (
-                <p className="text-sm font-medium text-indigo-600 mt-1">{file.name}</p>
-              )}
+              {file && !preview && <p className="text-sm font-medium text-indigo-600 mt-1">{file.name}</p>}
             </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept={ACCEPT_MAP[mediaType]}
-              className="hidden"
-              onChange={handleFile}
-            />
+            <input ref={fileRef} type="file" accept={ACCEPT_MAP[mediaType]} className="hidden" onChange={handleFile} />
           </div>
-
-          {/* Title */}
           <div>
             <Label>Title (optional)</Label>
-            <Input
-              className="mt-1.5"
-              placeholder={`Enter ${typeLabel.toLowerCase()} title`}
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
+            <Input className="mt-1.5" placeholder={`Enter ${typeLabel.toLowerCase()} title`} value={title} onChange={e => setTitle(e.target.value)} />
           </div>
-
-          {/* Description */}
           <div>
             <Label>Description (optional)</Label>
-            <Textarea
-              className="mt-1.5 resize-none"
-              placeholder={`Enter ${typeLabel.toLowerCase()} description`}
-              rows={3}
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
+            <Textarea className="mt-1.5 resize-none" placeholder={`Enter ${typeLabel.toLowerCase()} description`} rows={3} value={description} onChange={e => setDescription(e.target.value)} />
           </div>
-
-          {/* Category — images only */}
           {mediaType === "image" && (
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           )}
-
-          {/* Actions */}
           <div className="flex gap-3 pt-1">
             <Button variant="outline" className="flex-1" onClick={handleClose} disabled={uploading}>Cancel</Button>
             <Button className="flex-1" onClick={handleUpload} disabled={!file || uploading}>
@@ -209,6 +160,104 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Edit Dialog ──────────────────────────────────────────────────────────────
+
+interface EditDialogProps {
+  item: any;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
+  const [title, setTitle] = useState(item.title || "");
+  const [description, setDescription] = useState(item.description || "");
+  const [category, setCategory] = useState(item.category || "General");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("church_media_items").update({
+        title: title || null,
+        description: description || null,
+        category,
+        updated_at: new Date().toISOString(),
+      }).eq("id", item.id);
+      if (error) throw error;
+      toast.success("Updated successfully");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-5 w-5 text-indigo-600" />Edit Details
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div>
+            <Label>Title</Label>
+            <Input className="mt-1.5" value={title} onChange={e => setTitle(e.target.value)} placeholder="Enter title" />
+          </div>
+          <div>
+            <Label>Description</Label>
+            <Textarea className="mt-1.5 resize-none" rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Enter description" />
+          </div>
+          {item.media_type === "image" && (
+            <div>
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>{IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button className="flex-1" onClick={handleSave} disabled={saving}>
+              {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Item actions menu ────────────────────────────────────────────────────────
+
+function ItemMenu({ item, onEdit, onDelete }: { item: any; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="icon" className="h-7 w-7" onClick={e => e.stopPropagation()}>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={e => { e.stopPropagation(); onEdit(); }}>
+          <Pencil className="h-4 w-4 mr-2" />Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={e => { e.stopPropagation(); window.open(item.file_url, "_blank"); }}>
+          <Download className="h-4 w-4 mr-2" />Download
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); onDelete(); }}>
+          <Trash2 className="h-4 w-4 mr-2" />Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -241,6 +290,8 @@ const ChurchMedia = () => {
   const [activeTab, setActiveTab] = useState<MediaType>("image");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lightbox, setLightbox] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [deleteItem, setDeleteItem] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const { data: items = [], isLoading } = useQuery({
@@ -271,10 +322,12 @@ const ChurchMedia = () => {
       qc.invalidateQueries({ queryKey: ["church_media_items"] });
       toast.success("Deleted successfully");
       setLightbox(null);
+      setDeleteItem(null);
     },
     onError: (err: any) => toast.error(err.message),
   });
 
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["church_media_items"] });
   const filtered = categoryFilter === "all" ? items : items.filter((i: any) => i.category === categoryFilter);
   const activeTabInfo = TABS.find(t => t.key === activeTab)!;
   const uploadLabel = activeTab === "image" ? "Images" : activeTab === "audio" ? "Audio" : "Video";
@@ -296,7 +349,6 @@ const ChurchMedia = () => {
       <div className="flex items-center gap-1 border-b mb-6">
         {TABS.map(tab => {
           const Icon = tab.icon;
-          const count = activeTab === tab.key ? filtered.length : undefined;
           return (
             <button
               key={tab.key}
@@ -320,19 +372,15 @@ const ChurchMedia = () => {
       {/* ── Category filter (images only) ── */}
       {activeTab === "image" && items.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-5">
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === "all" ? "bg-indigo-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
-          >
-            All
-          </button>
-          {IMAGE_CATEGORIES.map(c => (
+          {["all", ...IMAGE_CATEGORIES].map(c => (
             <button
               key={c}
               onClick={() => setCategoryFilter(c)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === c ? "bg-indigo-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors capitalize ${
+                categoryFilter === c ? "bg-indigo-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
             >
-              {c}
+              {c === "all" ? "All" : c}
             </button>
           ))}
         </div>
@@ -345,6 +393,7 @@ const ChurchMedia = () => {
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={activeTabInfo.icon} label={uploadLabel} onUpload={() => setUploadOpen(true)} />
+
       ) : activeTab === "image" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {filtered.map((item: any) => (
@@ -355,6 +404,14 @@ const ChurchMedia = () => {
             >
               <img src={item.file_url} alt={item.title || ""} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
+              {/* Actions — appear on hover, top-right */}
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <ItemMenu
+                  item={item}
+                  onEdit={() => setEditingItem(item)}
+                  onDelete={() => setDeleteItem(item)}
+                />
+              </div>
               {item.category && (
                 <div className="absolute bottom-0 left-0 right-0 p-2 translate-y-full group-hover:translate-y-0 transition-transform">
                   <Badge className="text-[10px] bg-black/60 text-white border-0">{item.category}</Badge>
@@ -363,6 +420,7 @@ const ChurchMedia = () => {
             </div>
           ))}
         </div>
+
       ) : activeTab === "audio" ? (
         <div className="space-y-3">
           {filtered.map((item: any) => (
@@ -377,18 +435,17 @@ const ChurchMedia = () => {
                   <p className="text-xs text-muted-foreground mt-0.5">{item.created_at ? format(new Date(item.created_at), "dd MMM yyyy") : ""}</p>
                 </div>
                 <audio controls src={item.file_url} className="h-8 max-w-[200px]" />
-                <Button variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => deleteMut.mutate(item)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <ItemMenu item={item} onEdit={() => setEditingItem(item)} onDelete={() => setDeleteItem(item)} />
               </CardContent>
             </Card>
           ))}
         </div>
+
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((item: any) => (
             <Card key={item.id} className="overflow-hidden">
-              <div className="relative aspect-video bg-slate-900 flex items-center justify-center">
+              <div className="relative aspect-video bg-slate-900">
                 <video src={item.file_url} className="w-full h-full object-contain" controls />
               </div>
               <CardContent className="p-3 flex items-start justify-between gap-2">
@@ -397,9 +454,7 @@ const ChurchMedia = () => {
                   {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
                   <p className="text-xs text-muted-foreground mt-0.5">{item.created_at ? format(new Date(item.created_at), "dd MMM yyyy") : ""}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => deleteMut.mutate(item)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <ItemMenu item={item} onEdit={() => setEditingItem(item)} onDelete={() => setDeleteItem(item)} />
               </CardContent>
             </Card>
           ))}
@@ -412,8 +467,9 @@ const ChurchMedia = () => {
           <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
             <img src={lightbox.file_url} alt={lightbox.title || ""} className="max-w-full max-h-[80vh] object-contain mx-auto rounded-lg" />
             <div className="absolute top-3 right-3 flex gap-2">
+              <Button variant="secondary" size="icon" onClick={() => { setLightbox(null); setEditingItem(lightbox); }}><Pencil className="h-4 w-4" /></Button>
               <Button variant="secondary" size="icon" onClick={() => window.open(lightbox.file_url, "_blank")}><Download className="h-4 w-4" /></Button>
-              <Button variant="destructive" size="icon" onClick={() => deleteMut.mutate(lightbox)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="destructive" size="icon" onClick={() => { setLightbox(null); setDeleteItem(lightbox); }}><Trash2 className="h-4 w-4" /></Button>
               <Button variant="secondary" size="icon" onClick={() => setLightbox(null)}><X className="h-4 w-4" /></Button>
             </div>
             {(lightbox.title || lightbox.category) && (
@@ -426,6 +482,33 @@ const ChurchMedia = () => {
         </div>
       )}
 
+      {/* ── Edit dialog ── */}
+      {editingItem && (
+        <EditDialog item={editingItem} onClose={() => setEditingItem(null)} onSuccess={invalidate} />
+      )}
+
+      {/* ── Delete confirmation ── */}
+      <AlertDialog open={!!deleteItem} onOpenChange={v => { if (!v) setDeleteItem(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this file?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deleteItem?.title || deleteItem?.file_name}" will be permanently removed from storage. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteItem && deleteMut.mutate(deleteItem)}
+              disabled={deleteMut.isPending}
+            >
+              {deleteMut.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Upload dialog ── */}
       <UploadDialog
         open={uploadOpen}
@@ -433,7 +516,7 @@ const ChurchMedia = () => {
         mediaType={activeTab}
         tenantId={church.tenantId!}
         userId={church.userId}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ["church_media_items"] })}
+        onSuccess={invalidate}
       />
     </>
   );
