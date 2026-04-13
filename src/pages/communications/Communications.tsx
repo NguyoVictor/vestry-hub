@@ -42,11 +42,9 @@ const NAV_ITEMS: NavItem[] = [
   { id: "credits",           label: "Credits",          icon: CreditCard,     group: "Settings" },
   { id: "branding",          label: "Branding",         icon: Paintbrush,     group: "Settings" },
   { id: "admin_broadcast",   label: "Admin Broadcast",  icon: Radio,          group: "Settings" },
-  { id: "ai_draft",          label: "AI Draft",         icon: Bot,            group: "Tools" },
-  { id: "test_email",        label: "Test Email",       icon: FlaskConical,   group: "Tools" },
 ];
 
-const GROUPS = ["General", "Email", "SMS", "WhatsApp", "Settings", "Tools"];
+const GROUPS = ["General", "Email", "SMS", "WhatsApp", "Settings"];
 
 // ── Status helpers ───────────────────────────────────────────────────────────
 
@@ -350,16 +348,6 @@ export default function Communications() {
           {/* ── ADMIN BROADCAST ── */}
           {activeSection === "admin_broadcast" && (
             <Card><CardContent><ComingSoon icon={Radio} title="Admin Broadcast" description="Send system-wide broadcasts to all church admins. Coming soon." /></CardContent></Card>
-          )}
-
-          {/* ── AI DRAFT ── */}
-          {activeSection === "ai_draft" && (
-            <Card><CardContent><ComingSoon icon={Bot} title="AI Draft" description="Use AI to draft compelling messages and announcements. Coming soon." /></CardContent></Card>
-          )}
-
-          {/* ── TEST EMAIL ── */}
-          {activeSection === "test_email" && (
-            <Card><CardContent><ComingSoon icon={FlaskConical} title="Test Email" description="Send a test email to verify your email configuration. Coming soon." /></CardContent></Card>
           )}
 
         </div>
