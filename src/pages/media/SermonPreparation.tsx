@@ -26,7 +26,7 @@ import { format } from "date-fns";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const AUDIENCES = ["General Congregation", "Youth", "Children", "Men", "Women", "Leaders"];
+const AUDIENCES = ["General Congregation", "Youth", "Children", "Men", "Women", "Couples", "Leaders"];
 const DURATIONS = ["15 minutes", "30 minutes", "45 minutes", "60 minutes"];
 
 const TYPE_COLORS: Record<string, string> = {

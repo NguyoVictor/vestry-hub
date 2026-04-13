@@ -5,58 +5,175 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ── Style instructions ────────────────────────────────────────────────────────
+
+const STYLE_INSTRUCTIONS: Record<string, string> = {
+  expository:
+    "Use a verse-by-verse expository approach. Unpack the scripture deeply with scholarly analysis. " +
+    "Explain the original context, meaning of key words, and theological significance. " +
+    "Each main point should flow directly from the text.",
+  topical:
+    "Use a topical approach. Build the entire sermon around one central theme or question. " +
+    "Draw from multiple scriptures across the Bible that all speak to this topic. " +
+    "Make it practical and show how the theme applies to everyday life.",
+  narrative:
+    "Use a narrative storytelling approach. Open with a compelling story and weave stories throughout. " +
+    "Use real-life illustrations, parables, and vivid descriptions heavily. " +
+    "The sermon should feel like a journey the listener is taken on.",
+  devotional:
+    "Use a warm, personal, devotional tone. Keep points shorter and more reflective. " +
+    "Focus heavily on personal application and spiritual growth. " +
+    "Write as if speaking intimately to each individual listener.",
+  apologetic:
+    "Use a logical, evidence-based apologetic approach. Address common doubts and questions about faith. " +
+    "Use reason, historical evidence, and scripture together. " +
+    "Anticipate objections and answer them clearly and respectfully.",
+  evangelistic:
+    "Use a conversational, welcoming evangelistic tone aimed at non-believers or seekers. " +
+    "Avoid church jargon. Explain concepts simply. " +
+    "Build toward a clear, warm salvation message and invitation at the end.",
+};
+
+// ── Audience instructions ─────────────────────────────────────────────────────
+
+const AUDIENCE_INSTRUCTIONS: Record<string, string> = {
+  "general congregation":
+    "Write for a mixed-age, inclusive congregation. Use broad applications that speak to all life stages.",
+  youth:
+    "Write for teenagers and young adults. Use energetic language, pop culture references where appropriate, " +
+    "short punchy points, and relatable real-life scenarios.",
+  children:
+    "Write for children. Use very simple language, short sentences, object lessons, and stories. " +
+    "Every point must be immediately understandable to a child.",
+  men:
+    "Write for men. Use direct, action-oriented language. Emphasise leadership, responsibility, " +
+    "integrity, and practical steps. Avoid overly emotional language.",
+  women:
+    "Write for women. Use nurturing, community-focused language with emotional depth. " +
+    "Emphasise relationships, identity, and practical daily application.",
+  couples:
+    "Write for married couples or those in relationships. Focus on relationship dynamics, " +
+    "marriage themes, communication, and practical partnership applications from scripture.",
+  leaders:
+    "Write for church leaders and ministry workers. Include deeper theological depth, " +
+    "leadership principles, stewardship of responsibility, and equipping language.",
+};
+
+// ── Duration instructions ─────────────────────────────────────────────────────
+
+const DURATION_INSTRUCTIONS: Record<string, string> = {
+  "15 minutes":
+    "This is a SHORT sermon (15 minutes). Write a brief outline with exactly 2 main points. " +
+    "Keep illustrations short (1-2 sentences each). Total content should be 600-800 words.",
+  "30 minutes":
+    "This is a STANDARD sermon (30 minutes). Write a standard outline with exactly 3 main points. " +
+    "Include moderate illustrations (3-5 sentences each). Total content should be 1200-1500 words.",
+  "45 minutes":
+    "This is a DETAILED sermon (45 minutes). Write a detailed outline with 3-4 main points. " +
+    "Include full illustrations with development. Total content should be 1800-2200 words.",
+  "60 minutes":
+    "This is a COMPREHENSIVE sermon (60 minutes). Write a comprehensive outline with 4-5 main points. " +
+    "Include extensive illustrations, sub-points, and application sections. Total content should be 2500-3000 words.",
+};
+
+// ── Prompt builder ────────────────────────────────────────────────────────────
+
 function buildPrompt(params: {
   type: string; style: string; theme: string; scripture: string;
   audience: string; duration: string; draftNotes: string; instructions: string;
 }): string {
   const isSermon = params.type === "sermon";
+  const styleKey = params.style.toLowerCase();
+  const audienceKey = params.audience.toLowerCase();
+  const durationKey = params.duration.toLowerCase();
+
+  const styleGuide = STYLE_INSTRUCTIONS[styleKey] || STYLE_INSTRUCTIONS["expository"];
+  const audienceGuide = AUDIENCE_INSTRUCTIONS[audienceKey] || AUDIENCE_INSTRUCTIONS["general congregation"];
+  const durationGuide = DURATION_INSTRUCTIONS[durationKey] || DURATION_INSTRUCTIONS["30 minutes"];
+
+  const mandatoryNotes = (params.draftNotes || params.instructions)
+    ? `\nMANDATORY PASTOR REQUIREMENTS — you MUST incorporate ALL of the following exactly as specified:\n` +
+      (params.draftNotes ? `Draft Notes: ${params.draftNotes}\n` : "") +
+      (params.instructions ? `Additional Instructions: ${params.instructions}\n` : "")
+    : "";
+
   return `You are an expert ${isSermon ? "sermon" : "Bible study"} writer for a Christian church.
 
-Generate a complete, structured ${isSermon ? "sermon" : "Bible study guide"} with the following details:
-- Type: ${isSermon ? "Sermon" : "Bible Study"}
-- Style: ${params.style}
-- Theme/Topic: ${params.theme || "Not specified"}
-- Main Scripture: ${params.scripture || "Not specified"}
-- Target Audience: ${params.audience}
-- Duration: ${params.duration}
-${params.draftNotes ? `- Draft Notes/Foundation: ${params.draftNotes}` : ""}
-${params.instructions ? `- Additional Instructions: ${params.instructions}` : ""}
+CRITICAL FORMATTING RULES — follow these exactly:
+- Return clean plain text only. No markdown. No asterisks. No ** bold markers. No # headers.
+- Use plain section labels followed by a colon, like: TITLE:, INTRODUCTION:, MAIN POINT 1:, etc.
+- Separate each section with a blank line.
+- Do not use bullet points with dashes or asterisks. Use numbered lists or plain paragraphs instead.
 
-Please provide the following sections clearly labeled:
+STYLE: ${params.style}
+${styleGuide}
 
-**TITLE:** [A compelling, specific title]
+AUDIENCE: ${params.audience}
+${audienceGuide}
 
-**SCRIPTURE REFERENCES:** [Main and supporting scriptures]
+LENGTH AND DEPTH:
+${durationGuide}
 
-**INTRODUCTION:** [Engaging opening that hooks the audience, 2-3 paragraphs]
+CONTENT DETAILS:
+- Type: ${isSermon ? "Full Sermon" : "Bible Study Guide"}
+- Theme/Topic: ${params.theme || "Not specified — choose a relevant theme from the scripture"}
+- Main Scripture: ${params.scripture || "Choose an appropriate scripture for the theme"}
+${mandatoryNotes}
+Now generate the complete ${isSermon ? "sermon" : "Bible study"} using this exact structure:
 
-**MAIN POINTS:**
-Point 1: [Title]
-- Sub-point A: [Detail with scripture support]
-- Sub-point B: [Detail with scripture support]
-- Illustration: [Real-life story or analogy]
-- Application: [Practical takeaway]
+TITLE:
+[A compelling, specific title — no quotes, no markdown]
 
-Point 2: [Title]
-- Sub-point A: [Detail with scripture support]
-- Sub-point B: [Detail with scripture support]
-- Illustration: [Real-life story or analogy]
-- Application: [Practical takeaway]
+SCRIPTURE REFERENCES:
+[Main scripture and 2-3 supporting scriptures, written as plain text]
 
-Point 3: [Title]
-- Sub-point A: [Detail with scripture support]
-- Sub-point B: [Detail with scripture support]
-- Illustration: [Real-life story or analogy]
-- Application: [Practical takeaway]
+INTRODUCTION:
+[Engaging opening appropriate for the audience and style. Hook the listener immediately.]
 
-**CONCLUSION:** [Powerful closing that ties everything together, 2 paragraphs]
+${isSermon ? generateMainPointsTemplate(durationKey) : generateBibleStudyTemplate(durationKey)}
 
-${isSermon ? "**ALTAR CALL:** [Invitation for salvation or rededication, warm and welcoming]" : "**DISCUSSION QUESTIONS:** [5-7 thought-provoking questions for group discussion]"}
+CONCLUSION:
+[Powerful closing that ties all points together. Call the congregation to action or reflection.]
 
-**PREACHER'S NOTES:** [Key reminders, delivery tips, timing suggestions]
+${isSermon
+  ? "ALTAR CALL:\n[A warm, sincere invitation. For evangelistic style make this the centrepiece. For other styles keep it brief but genuine.]"
+  : "DISCUSSION QUESTIONS:\n[5-7 thought-provoking questions for group discussion, numbered plainly]"}
 
-Make the content biblically sound, culturally relevant, and spiritually impactful. Write in a warm, pastoral tone appropriate for ${params.audience.toLowerCase()}.`;
+PREACHER'S NOTES:
+[Key delivery reminders, timing suggestions, and any special notes for the pastor]`;
 }
+
+function generateMainPointsTemplate(duration: string): string {
+  const count = duration === "15 minutes" ? 2 : duration === "60 minutes" ? 5 : duration === "45 minutes" ? 4 : 3;
+  return Array.from({ length: count }, (_, i) => `MAIN POINT ${i + 1}:
+[Point title and explanation]
+
+Scripture Support:
+[Key verse(s) for this point]
+
+Illustration:
+[Story or real-life example]
+
+Application:
+[Practical takeaway for the listener]`).join("\n\n");
+}
+
+function generateBibleStudyTemplate(duration: string): string {
+  const count = duration === "15 minutes" ? 2 : duration === "60 minutes" ? 5 : duration === "45 minutes" ? 4 : 3;
+  return Array.from({ length: count }, (_, i) => `STUDY SECTION ${i + 1}:
+[Section title and key teaching]
+
+Key Verse:
+[Scripture reference and text]
+
+Explanation:
+[What this passage means in context]
+
+Application:
+[How this applies to daily life]`).join("\n\n");
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
