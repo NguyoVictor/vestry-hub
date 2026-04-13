@@ -238,6 +238,24 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
 // ── Item actions menu ────────────────────────────────────────────────────────
 
 function ItemMenu({ item, onEdit, onDelete }: { item: any; onEdit: () => void; onDelete: () => void }) {
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(item.file_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = item.file_name || item.title || "download";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // fallback — open in new tab
+      window.open(item.file_url, "_blank");
+    }
+  };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -249,7 +267,7 @@ function ItemMenu({ item, onEdit, onDelete }: { item: any; onEdit: () => void; o
         <DropdownMenuItem onClick={e => { e.stopPropagation(); onEdit(); }}>
           <Pencil className="h-4 w-4 mr-2" />Edit
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={e => { e.stopPropagation(); window.open(item.file_url, "_blank"); }}>
+        <DropdownMenuItem onClick={handleDownload}>
           <Download className="h-4 w-4 mr-2" />Download
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -468,7 +486,20 @@ const ChurchMedia = () => {
             <img src={lightbox.file_url} alt={lightbox.title || ""} className="max-w-full max-h-[80vh] object-contain mx-auto rounded-lg" />
             <div className="absolute top-3 right-3 flex gap-2">
               <Button variant="secondary" size="icon" onClick={() => { setLightbox(null); setEditingItem(lightbox); }}><Pencil className="h-4 w-4" /></Button>
-              <Button variant="secondary" size="icon" onClick={() => window.open(lightbox.file_url, "_blank")}><Download className="h-4 w-4" /></Button>
+              <Button variant="secondary" size="icon" onClick={async () => {
+                try {
+                  const res = await fetch(lightbox.file_url);
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = lightbox.file_name || lightbox.title || "download";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                } catch { window.open(lightbox.file_url, "_blank"); }
+              }}><Download className="h-4 w-4" /></Button>
               <Button variant="destructive" size="icon" onClick={() => { setLightbox(null); setDeleteItem(lightbox); }}><Trash2 className="h-4 w-4" /></Button>
               <Button variant="secondary" size="icon" onClick={() => setLightbox(null)}><X className="h-4 w-4" /></Button>
             </div>
