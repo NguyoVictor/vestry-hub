@@ -229,7 +229,7 @@ const FollowUpTasks = () => {
                   <span className="font-medium text-sm">{col.label}</span>
                   <Badge variant="secondary" className="text-xs">{colTasks.length}</Badge>
                 </div>
-                <ScrollArea className="border border-t-0 rounded-b-lg min-h-[200px] max-h-[500px]">
+                <ScrollArea className="border border-t-0 rounded-b-lg" style={{ height: "calc(100vh - 220px)" }}>
                   <div className="p-2 space-y-2">
                     {colTasks.length === 0 && (
                       <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
