@@ -142,7 +142,7 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
             <Label>Description (optional)</Label>
             <Textarea className="mt-1.5 resize-none" placeholder={`Enter ${typeLabel.toLowerCase()} description`} rows={3} value={description} onChange={e => setDescription(e.target.value)} />
           </div>
-          {mediaType === "image" && (
+          {mediaType !== "audio" && (
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
@@ -214,7 +214,7 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
             <Label>Description</Label>
             <Textarea className="mt-1.5 resize-none" rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Enter description" />
           </div>
-          {item.media_type === "image" && (
+          {item.media_type !== "audio" && (
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
