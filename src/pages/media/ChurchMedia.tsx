@@ -1,142 +1,440 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Upload, Image as ImageIcon, FolderPlus, X, Download, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Upload, Image as ImageIcon, Music, Video, X, Download, Trash2,
+  Play, Loader2,
+} from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { format } from "date-fns";
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const IMAGE_CATEGORIES = [
+  "General", "Worship", "Project", "New Building / Renovation",
+  "Ministry", "Outreach", "Sermons", "Meet Ups", "Occasion",
+];
+
+const BUCKET_MAP: Record<string, string> = {
+  image: "church-media",
+  audio: "church-audio",
+  video: "church-video",
+};
+
+const ACCEPT_MAP: Record<string, string> = {
+  image: "image/jpeg,image/png,image/gif,image/webp",
+  audio: "audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/aac,audio/m4a",
+  video: "video/mp4,video/webm,video/ogg,video/quicktime",
+};
+
+type MediaType = "image" | "audio" | "video";
+
+// ── Upload Image Dialog ──────────────────────────────────────────────────────
+
+interface UploadDialogProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  mediaType: MediaType;
+  tenantId: string;
+  userId: string | null;
+  onSuccess: () => void;
+}
+
+function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSuccess }: UploadDialogProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("General");
+  const [uploading, setUploading] = useState(false);
+
+  const reset = () => {
+    setFile(null); setPreview(null); setTitle(""); setDescription(""); setCategory("General");
+  };
+
+  const handleClose = () => { reset(); onOpenChange(false); };
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    if (mediaType === "image") setPreview(URL.createObjectURL(f));
+  };
+
+  const handleUpload = async () => {
+    if (!file) { toast.error("Please select a file"); return; }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const bucket = BUCKET_MAP[mediaType];
+
+      const { error: storageErr } = await supabase.storage.from(bucket).upload(path, file);
+      if (storageErr) throw storageErr;
+
+      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
+
+      const { error: dbErr } = await supabase.from("church_media_items").insert({
+        tenant_id: tenantId,
+        media_type: mediaType,
+        title: title || file.name,
+        description: description || null,
+        category,
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type,
+        storage_path: path,
+        uploaded_by: userId,
+      });
+      if (dbErr) throw dbErr;
+
+      toast.success(`${mediaType === "image" ? "Image" : mediaType === "audio" ? "Audio" : "Video"} uploaded successfully`);
+      onSuccess();
+      handleClose();
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const typeLabel = mediaType === "image" ? "Image" : mediaType === "audio" ? "Audio" : "Video";
+  const typeIcon = mediaType === "image" ? ImageIcon : mediaType === "audio" ? Music : Video;
+  const TypeIcon = typeIcon;
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <TypeIcon className="h-5 w-5 text-indigo-600" />
+            Upload {typeLabel}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Upload {typeLabel.toLowerCase()} files to showcase on your church's pages.
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {/* File picker */}
+          <div>
+            <Label>Select File</Label>
+            <div
+              className="mt-1.5 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              {preview ? (
+                <img src={preview} alt="preview" className="mx-auto max-h-32 rounded-md object-contain" />
+              ) : (
+                <>
+                  <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium text-muted-foreground">Click to select a {typeLabel.toLowerCase()}</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    {mediaType === "image" && "JPEG, PNG, GIF, or WebP (max 10MB)"}
+                    {mediaType === "audio" && "MP3, WAV, OGG, AAC, M4A (max 50MB)"}
+                    {mediaType === "video" && "MP4, WebM, MOV (max 500MB)"}
+                  </p>
+                </>
+              )}
+              {file && !preview && (
+                <p className="text-sm font-medium text-indigo-600 mt-1">{file.name}</p>
+              )}
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ACCEPT_MAP[mediaType]}
+              className="hidden"
+              onChange={handleFile}
+            />
+          </div>
+
+          {/* Title */}
+          <div>
+            <Label>Title (optional)</Label>
+            <Input
+              className="mt-1.5"
+              placeholder={`Enter ${typeLabel.toLowerCase()} title`}
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <Label>Description (optional)</Label>
+            <Textarea
+              className="mt-1.5 resize-none"
+              placeholder={`Enter ${typeLabel.toLowerCase()} description`}
+              rows={3}
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Category — images only */}
+          {mediaType === "image" && (
+            <div>
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {IMAGE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={handleClose} disabled={uploading}>Cancel</Button>
+            <Button className="flex-1" onClick={handleUpload} disabled={!file || uploading}>
+              {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</> : <><Upload className="mr-2 h-4 w-4" />Upload</>}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────────
+
+function EmptyState({ icon: Icon, label, onUpload }: { icon: React.ElementType; label: string; onUpload: () => void }) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center py-20">
+        <Icon className="h-16 w-16 text-muted-foreground/30 mb-4" />
+        <h3 className="font-semibold text-lg mb-1">No {label} files uploaded yet</h3>
+        <p className="text-sm text-muted-foreground mb-4">Upload {label.toLowerCase()} files to display on your church's public pages.</p>
+        <Button onClick={onUpload}><Upload className="mr-2 h-4 w-4" />Upload {label}</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+
+const TABS: { key: MediaType; label: string; icon: React.ElementType }[] = [
+  { key: "image", label: "Images", icon: ImageIcon },
+  { key: "audio", label: "Audio",  icon: Music },
+  { key: "video", label: "Video",  icon: Video },
+];
 
 const ChurchMedia = () => {
   const church = useChurch();
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<MediaType>("image");
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
-  const [lightboxPhoto, setLightboxPhoto] = useState<any>(null);
-  const [newAlbumName, setNewAlbumName] = useState("");
-  const [albumDialogOpen, setAlbumDialogOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<any>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
-  const { data: albums = [] } = useQuery({
-    queryKey: ["media_albums", church.tenantId],
-    queryFn: async () => { const { data } = await supabase.from("media_albums").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false }); return data || []; },
-  });
-
-  const { data: photos = [], isLoading } = useQuery({
-    queryKey: ["media_photos", church.tenantId, selectedAlbum],
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["church_media_items", church.tenantId, activeTab],
     queryFn: async () => {
-      let q = supabase.from("media_photos").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false });
-      if (selectedAlbum) q = q.eq("album_id", selectedAlbum);
-      const { data } = await q;
+      const { data, error } = await supabase
+        .from("church_media_items")
+        .select("*")
+        .eq("tenant_id", church.tenantId!)
+        .eq("media_type", activeTab)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
       return data || [];
     },
+    enabled: !!church.tenantId,
+    staleTime: 60000,
   });
 
-  const createAlbum = useMutation({
-    mutationFn: async (name: string) => {
-      const { error } = await supabase.from("media_albums").insert({ tenant_id: church.tenantId, name, created_by: church.userId });
+  const deleteMut = useMutation({
+    mutationFn: async (item: any) => {
+      if (item.storage_path) {
+        await supabase.storage.from(BUCKET_MAP[item.media_type as MediaType]).remove([item.storage_path]);
+      }
+      const { error } = await supabase.from("church_media_items").delete().eq("id", item.id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["media_albums"] }); toast.success("Album created"); setAlbumDialogOpen(false); setNewAlbumName(""); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["church_media_items"] });
+      toast.success("Deleted successfully");
+      setLightbox(null);
+    },
+    onError: (err: any) => toast.error(err.message),
   });
 
-  const deletePhoto = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("media_photos").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["media_photos"] }); toast.success("Photo deleted"); setLightboxPhoto(null); },
-  });
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-    for (const file of Array.from(files)) {
-      if (file.size > 25 * 1024 * 1024) { toast.error(`${file.name} exceeds 25MB`); continue; }
-      const path = `${church.tenantId}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from("church-media").upload(path, file);
-      if (error) { toast.error(`Failed: ${file.name}`); continue; }
-      const { data: { publicUrl } } = supabase.storage.from("church-media").getPublicUrl(path);
-      await supabase.from("media_photos").insert({
-        tenant_id: church.tenantId, album_id: selectedAlbum, file_url: publicUrl,
-        file_type: file.type.startsWith("video") ? "video" : "image",
-        file_size: file.size, uploaded_by: church.userId,
-      });
-    }
-    qc.invalidateQueries({ queryKey: ["media_photos"] });
-    toast.success("Photos uploaded");
-    setUploadOpen(false);
-  };
+  const filtered = categoryFilter === "all" ? items : items.filter((i: any) => i.category === categoryFilter);
+  const activeTabInfo = TABS.find(t => t.key === activeTab)!;
+  const uploadLabel = activeTab === "image" ? "Images" : activeTab === "audio" ? "Audio" : "Video";
 
   return (
     <>
       <Helmet><title>Church Media — Vestry</title></Helmet>
-      <PageHeader title="Church Media" subtitle="Photos and videos from your church" action={
-        <div className="flex gap-2">
-          <Dialog open={albumDialogOpen} onOpenChange={setAlbumDialogOpen}>
-            <DialogTrigger asChild><Button variant="outline" size="sm"><FolderPlus className="mr-2 h-4 w-4" />Create Album</Button></DialogTrigger>
-            <DialogContent><DialogHeader><DialogTitle>Create Album</DialogTitle></DialogHeader><div className="space-y-4 mt-4"><Label>Album Name</Label><Input value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><Button onClick={() => createAlbum.mutate(newAlbumName)} disabled={!newAlbumName.trim()}>Create</Button></div></DialogContent>
-          </Dialog>
-          <Button size="sm" onClick={() => setUploadOpen(true)}><Upload className="mr-2 h-4 w-4" />Upload Media</Button>
-        </div>
-      } />
+      <PageHeader
+        title="Church Media"
+        subtitle="Manage your church's images, videos, and audio"
+        action={
+          <Button onClick={() => setUploadOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />Upload {uploadLabel}
+          </Button>
+        }
+      />
 
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold mb-3">Albums</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          <Card className={`cursor-pointer hover:shadow-md transition-shadow ${!selectedAlbum ? "ring-2 ring-primary" : ""}`} onClick={() => setSelectedAlbum(null)}>
-            <CardContent className="pt-5 text-center"><ImageIcon className="mx-auto h-8 w-8 text-muted-foreground mb-2" /><p className="font-medium text-sm">All Photos</p><p className="text-xs text-muted-foreground">{photos.length} items</p></CardContent>
-          </Card>
-          {albums.map((album: any) => (
-            <Card key={album.id} className={`cursor-pointer hover:shadow-md transition-shadow ${selectedAlbum === album.id ? "ring-2 ring-primary" : ""}`} onClick={() => setSelectedAlbum(album.id)}>
-              <CardContent className="pt-5 text-center">
-                {album.cover_photo_url ? <img src={album.cover_photo_url} alt={album.name} className="w-full h-20 object-cover rounded-md mb-2" /> : <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground mb-2" />}
-                <p className="font-medium text-sm">{album.name}</p>
+      {/* ── Tab bar ── */}
+      <div className="flex items-center gap-1 border-b mb-6">
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          const count = activeTab === tab.key ? filtered.length : undefined;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setCategoryFilter("all"); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === tab.key
+                  ? "border-indigo-600 text-indigo-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+              {activeTab === tab.key && (
+                <span className="ml-1 text-xs bg-muted rounded-full px-1.5 py-0.5">{items.length}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Category filter (images only) ── */}
+      {activeTab === "image" && items.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          <button
+            onClick={() => setCategoryFilter("all")}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === "all" ? "bg-indigo-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+          >
+            All
+          </button>
+          {IMAGE_CATEGORIES.map(c => (
+            <button
+              key={c}
+              onClick={() => setCategoryFilter(c)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === c ? "bg-indigo-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Content ── */}
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={activeTabInfo.icon} label={uploadLabel} onUpload={() => setUploadOpen(true)} />
+      ) : activeTab === "image" ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {filtered.map((item: any) => (
+            <div
+              key={item.id}
+              className="relative group cursor-pointer rounded-lg overflow-hidden aspect-square bg-muted"
+              onClick={() => setLightbox(item)}
+            >
+              <img src={item.file_url} alt={item.title || ""} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
+              {item.category && (
+                <div className="absolute bottom-0 left-0 right-0 p-2 translate-y-full group-hover:translate-y-0 transition-transform">
+                  <Badge className="text-[10px] bg-black/60 text-white border-0">{item.category}</Badge>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : activeTab === "audio" ? (
+        <div className="space-y-3">
+          {filtered.map((item: any) => (
+            <Card key={item.id}>
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                  <Music className="h-6 w-6 text-indigo-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{item.title || item.file_name}</p>
+                  {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.created_at ? format(new Date(item.created_at), "dd MMM yyyy") : ""}</p>
+                </div>
+                <audio controls src={item.file_url} className="h-8 max-w-[200px]" />
+                <Button variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => deleteMut.mutate(item)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </CardContent>
             </Card>
           ))}
         </div>
-      </div>
-
-      {isLoading ? <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">{Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-md" />)}</div> :
-      photos.length === 0 ? (
-        <Card><CardContent className="flex flex-col items-center justify-center py-16"><ImageIcon className="h-16 w-16 text-muted-foreground/30 mb-4" /><h3 className="font-semibold">No photos yet</h3><Button className="mt-4" onClick={() => setUploadOpen(true)}><Upload className="mr-2 h-4 w-4" />Upload</Button></CardContent></Card>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-          {photos.map((photo: any) => (
-            <div key={photo.id} className="relative group cursor-pointer rounded-md overflow-hidden aspect-square bg-muted" onClick={() => setLightboxPhoto(photo)}>
-              <img src={photo.file_url} alt={photo.caption || ""} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                <ImageIcon className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((item: any) => (
+            <Card key={item.id} className="overflow-hidden">
+              <div className="relative aspect-video bg-slate-900 flex items-center justify-center">
+                <video src={item.file_url} className="w-full h-full object-contain" controls />
               </div>
-            </div>
+              <CardContent className="p-3 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{item.title || item.file_name}</p>
+                  {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.created_at ? format(new Date(item.created_at), "dd MMM yyyy") : ""}</p>
+                </div>
+                <Button variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => deleteMut.mutate(item)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
 
-      {lightboxPhoto && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setLightboxPhoto(null)}>
-          <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <img src={lightboxPhoto.file_url} alt="" className="max-w-full max-h-[90vh] object-contain" />
-            <div className="absolute top-4 right-4 flex gap-2">
-              <Button variant="secondary" size="icon" onClick={() => window.open(lightboxPhoto.file_url, "_blank")}><Download className="h-4 w-4" /></Button>
-              <Button variant="destructive" size="icon" onClick={() => deletePhoto.mutate(lightboxPhoto.id)}><Trash2 className="h-4 w-4" /></Button>
-              <Button variant="secondary" size="icon" onClick={() => setLightboxPhoto(null)}><X className="h-4 w-4" /></Button>
+      {/* ── Image lightbox ── */}
+      {lightbox && activeTab === "image" && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
+            <img src={lightbox.file_url} alt={lightbox.title || ""} className="max-w-full max-h-[80vh] object-contain mx-auto rounded-lg" />
+            <div className="absolute top-3 right-3 flex gap-2">
+              <Button variant="secondary" size="icon" onClick={() => window.open(lightbox.file_url, "_blank")}><Download className="h-4 w-4" /></Button>
+              <Button variant="destructive" size="icon" onClick={() => deleteMut.mutate(lightbox)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="secondary" size="icon" onClick={() => setLightbox(null)}><X className="h-4 w-4" /></Button>
             </div>
-            {lightboxPhoto.caption && <p className="text-white text-center mt-3">{lightboxPhoto.caption}</p>}
+            {(lightbox.title || lightbox.category) && (
+              <div className="mt-3 text-center">
+                {lightbox.title && <p className="text-white font-medium">{lightbox.title}</p>}
+                {lightbox.category && <Badge className="mt-1 bg-white/20 text-white border-0">{lightbox.category}</Badge>}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <Sheet open={uploadOpen} onOpenChange={setUploadOpen}>
-        <SheetContent className="sm:max-w-lg">
-          <SheetHeader><SheetTitle>Upload Media</SheetTitle></SheetHeader>
-          <div className="mt-6"><div className="border-2 border-dashed rounded-lg p-8 text-center"><Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" /><p className="text-sm font-medium">Drag files here or click to browse</p><p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP, MP4 — Max 25MB each</p><Input type="file" multiple accept="image/*,video/*" onChange={handleUpload} className="mt-4" /></div></div>
-        </SheetContent>
-      </Sheet>
+      {/* ── Upload dialog ── */}
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        mediaType={activeTab}
+        tenantId={church.tenantId!}
+        userId={church.userId}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ["church_media_items"] })}
+      />
     </>
   );
 };

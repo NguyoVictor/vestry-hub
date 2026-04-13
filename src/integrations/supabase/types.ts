@@ -1,4 +1,6 @@
-export type Json =
+Need to install the following packages:
+supabase@2.89.1
+Ok to proceed? (y) export type Json =
   | string
   | number
   | boolean
@@ -858,6 +860,72 @@ export type Database = {
           },
         ]
       }
+      church_media_items: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          file_name: string | null
+          file_size: number | null
+          file_url: string
+          id: string
+          media_type: string
+          mime_type: string | null
+          storage_path: string | null
+          tenant_id: string
+          title: string | null
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url: string
+          id?: string
+          media_type: string
+          mime_type?: string | null
+          storage_path?: string | null
+          tenant_id: string
+          title?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          media_type?: string
+          mime_type?: string | null
+          storage_path?: string | null
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_media_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "church_media_items_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collection_resources: {
         Row: {
           collection_id: string
@@ -1661,6 +1729,12 @@ export type Database = {
       facilities: {
         Row: {
           amenities: string[] | null
+          booker_contact_person: string | null
+          booker_email: string | null
+          booker_name: string | null
+          booker_org_name: string | null
+          booker_phone: string | null
+          booker_type: string | null
           capacity: number | null
           created_at: string | null
           description: string | null
@@ -1675,6 +1749,12 @@ export type Database = {
         }
         Insert: {
           amenities?: string[] | null
+          booker_contact_person?: string | null
+          booker_email?: string | null
+          booker_name?: string | null
+          booker_org_name?: string | null
+          booker_phone?: string | null
+          booker_type?: string | null
           capacity?: number | null
           created_at?: string | null
           description?: string | null
@@ -1689,6 +1769,12 @@ export type Database = {
         }
         Update: {
           amenities?: string[] | null
+          booker_contact_person?: string | null
+          booker_email?: string | null
+          booker_name?: string | null
+          booker_org_name?: string | null
+          booker_phone?: string | null
+          booker_type?: string | null
           capacity?: number | null
           created_at?: string | null
           description?: string | null
@@ -2004,6 +2090,7 @@ export type Database = {
           due_date: string | null
           id: string
           priority: Database["public"]["Enums"]["task_priority_enum"] | null
+          related_convert_id: string | null
           related_member_id: string | null
           related_visitor_id: string | null
           status: Database["public"]["Enums"]["task_status_enum"] | null
@@ -2019,6 +2106,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["task_priority_enum"] | null
+          related_convert_id?: string | null
           related_member_id?: string | null
           related_visitor_id?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
@@ -2034,6 +2122,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["task_priority_enum"] | null
+          related_convert_id?: string | null
           related_member_id?: string | null
           related_visitor_id?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
@@ -2042,6 +2131,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "follow_up_tasks_related_convert_id_fkey"
+            columns: ["related_convert_id"]
+            isOneToOne: false
+            referencedRelation: "new_converts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "follow_up_tasks_related_visitor_id_fkey"
             columns: ["related_visitor_id"]
@@ -3557,11 +3653,13 @@ export type Database = {
           baptism_status: string | null
           conversion_date: string | null
           counsellor_id: string | null
+          counsellor_name: string | null
           created_at: string | null
           discipleship_stage: string | null
           email: string | null
           first_name: string | null
           graduated_at: string | null
+          graduation_date: string | null
           id: string
           last_name: string | null
           member_id: string | null
@@ -3578,11 +3676,13 @@ export type Database = {
           baptism_status?: string | null
           conversion_date?: string | null
           counsellor_id?: string | null
+          counsellor_name?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
           email?: string | null
           first_name?: string | null
           graduated_at?: string | null
+          graduation_date?: string | null
           id?: string
           last_name?: string | null
           member_id?: string | null
@@ -3599,11 +3699,13 @@ export type Database = {
           baptism_status?: string | null
           conversion_date?: string | null
           counsellor_id?: string | null
+          counsellor_name?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
           email?: string | null
           first_name?: string | null
           graduated_at?: string | null
+          graduation_date?: string | null
           id?: string
           last_name?: string | null
           member_id?: string | null
