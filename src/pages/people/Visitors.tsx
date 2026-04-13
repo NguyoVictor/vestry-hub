@@ -936,12 +936,21 @@ const Visitors = () => {
 
   const deleteVisitorMut = useMutation({
     mutationFn: async (id: string) => {
-      // First nullify visitor_id on any linked new_converts to preserve discipleship data
-      await supabase
+      // Step 1: nullify related_visitor_id on any linked follow_up_tasks
+      const { error: fkErr1 } = await supabase
+        .from(TABLES.FOLLOW_UP_TASKS)
+        .update({ related_visitor_id: null } as any)
+        .eq("related_visitor_id", id);
+      if (fkErr1) throw fkErr1;
+
+      // Step 2: nullify visitor_id on any linked new_converts
+      const { error: fkErr2 } = await supabase
         .from(TABLES.NEW_CONVERTS)
         .update({ visitor_id: null } as any)
         .eq("visitor_id", id);
-      // Now safe to delete the visitor
+      if (fkErr2) throw fkErr2;
+
+      // Step 3: now safe to delete the visitor
       const { error } = await supabase.from(TABLES.VISITORS).delete().eq("id", id);
       if (error) throw error;
     },
