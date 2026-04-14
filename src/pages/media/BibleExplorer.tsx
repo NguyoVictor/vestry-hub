@@ -596,8 +596,6 @@ const BibleExplorer = () => {
   // Persisted state
   const [bookmarks, setBookmarks] = useState<{ ref: string; text: string; version: string }[]>(() => lsGet("bible_bookmarks", []));
   const [notes, setNotes] = useState<{ ref: string; text: string; date: string; title?: string; tags?: string; isPrivate?: boolean }[]>(() => lsGet("bible_notes", []));
-  const [noteRef, setNoteRef] = useState("");
-  const [noteText, setNoteText] = useState("");
   const [planDone, setPlanDone] = useState<number[]>(() => lsGet("bible_plan_done", []));
   const [joinedChallenges, setJoinedChallenges] = useState<Record<string, number>>(() => lsGet("bible_challenges", {}));
   const [reminderTime, setReminderTime] = useState(() => lsGet("bible_reminder", "07:00"));
@@ -713,17 +711,6 @@ const BibleExplorer = () => {
     const updated = bookmarks.filter(b => b.ref !== ref);
     setBookmarks(updated);
     lsSet("bible_bookmarks", updated);
-  };
-
-  // ── Notes ──
-  const saveNote = () => {
-    if (!noteRef.trim() || !noteText.trim()) { toast.error("Reference and note required"); return; }
-    const entry = { ref: noteRef, text: noteText, date: format(new Date(), "dd MMM yyyy") };
-    const updated = [entry, ...notes.filter(n => n.ref !== noteRef)];
-    setNotes(updated);
-    lsSet("bible_notes", updated);
-    setNoteRef(""); setNoteText("");
-    toast.success("Note saved!");
   };
 
   const maxChapter = CHAPTER_COUNTS[book] || 1;
