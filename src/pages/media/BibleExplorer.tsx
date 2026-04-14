@@ -567,6 +567,170 @@ function ReadingsTab({ allBooks, onNavigate }: { allBooks: string[]; onNavigate:
   );
 }
 
+// ── Streaks & Achievements Tab ────────────────────────────────────────────────
+
+const ACHIEVEMENTS = [
+  { id: "first_steps",    name: "First Steps",     desc: "Complete your first reading",  icon: "🔥", color: "bg-orange-100 text-orange-600", req: { type: "readings", val: 1 } },
+  { id: "getting_started",name: "Getting Started", desc: "3-day reading streak",          icon: "⚡", color: "bg-yellow-100 text-yellow-600", req: { type: "streak",   val: 3 } },
+  { id: "week_warrior",   name: "Week Warrior",    desc: "7-day reading streak",          icon: "🛡️", color: "bg-blue-100 text-blue-600",    req: { type: "streak",   val: 7 } },
+  { id: "monthly_master", name: "Monthly Master",  desc: "30-day reading streak",         icon: "🏆", color: "bg-amber-100 text-amber-600",  req: { type: "streak",   val: 30 } },
+  { id: "century_reader", name: "Century Reader",  desc: "100-day reading streak",        icon: "💯", color: "bg-purple-100 text-purple-600",req: { type: "streak",   val: 100 } },
+  { id: "bookworm",       name: "Bookworm",        desc: "Read 50 chapters",              icon: "📚", color: "bg-green-100 text-green-600",  req: { type: "chapters", val: 50 } },
+  { id: "scholar",        name: "Scholar",         desc: "Read 150 chapters",             icon: "🎓", color: "bg-teal-100 text-teal-600",    req: { type: "chapters", val: 150 } },
+  { id: "bible_expert",   name: "Bible Expert",    desc: "Read 500 chapters",             icon: "✝️", color: "bg-red-100 text-red-600",      req: { type: "chapters", val: 500 } },
+  { id: "complete_reader",name: "Complete Reader", desc: "Read all 1,189 chapters",       icon: "👑", color: "bg-amber-100 text-amber-700",  req: { type: "chapters", val: 1189 } },
+];
+
+function StreaksTab({ streak, longestStreak, chaptersRead, readingsCompleted }: {
+  streak: number; longestStreak: number; chaptersRead: number; readingsCompleted: number;
+}) {
+  const [earnedBadges, setEarnedBadges] = useState<string[]>(() => lsGet("bible_earned_badges", []));
+
+  // Check and unlock new badges
+  useEffect(() => {
+    const newlyEarned: string[] = [];
+    ACHIEVEMENTS.forEach(a => {
+      if (earnedBadges.includes(a.id)) return;
+      const val = a.req.type === "streak" ? streak : a.req.type === "chapters" ? chaptersRead : readingsCompleted;
+      if (val >= a.req.val) newlyEarned.push(a.id);
+    });
+    if (newlyEarned.length > 0) {
+      const updated = [...earnedBadges, ...newlyEarned];
+      setEarnedBadges(updated);
+      lsSet("bible_earned_badges", updated);
+      newlyEarned.forEach(id => {
+        const badge = ACHIEVEMENTS.find(a => a.id === id);
+        if (badge) toast.success(`🏆 Badge Unlocked: ${badge.name}!`);
+      });
+    }
+  }, [streak, chaptersRead, readingsCompleted]);
+
+  // Next achievement to unlock
+  const nextAchievement = ACHIEVEMENTS.find(a => {
+    if (earnedBadges.includes(a.id)) return false;
+    return true;
+  });
+  const nextProgress = nextAchievement
+    ? (nextAchievement.req.type === "streak" ? streak : nextAchievement.req.type === "chapters" ? chaptersRead : readingsCompleted)
+    : 0;
+
+  const earned = ACHIEVEMENTS.filter(a => earnedBadges.includes(a.id));
+
+  return (
+    <div className="space-y-4">
+      {/* Reading Streak card — orange gradient */}
+      <div className="rounded-xl border border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Flame className="h-4 w-4 text-orange-500" />
+          <span className="font-semibold text-sm">Reading Streak</span>
+        </div>
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-6xl font-bold text-orange-500 leading-none">{streak}</p>
+            <p className="text-sm text-muted-foreground mt-1">day streak</p>
+          </div>
+          <p className="text-xs text-muted-foreground">Best: {longestStreak} days</p>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
+              <BookOpen className="h-5 w-5 text-blue-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{readingsCompleted}</p>
+              <p className="text-xs text-muted-foreground">Readings Completed</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center shrink-0">
+              <Zap className="h-5 w-5 text-purple-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{chaptersRead}</p>
+              <p className="text-xs text-muted-foreground">Chapters Read</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Next Achievement */}
+      {nextAchievement && (
+        <Card className="border-l-4 border-l-amber-400 border-slate-200 dark:border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="text-xs">⭐</span>
+              <span className="text-xs font-semibold text-amber-600">Next Achievement</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-full flex items-center justify-center text-lg shrink-0 ${nextAchievement.color}`}>
+                {nextAchievement.icon}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">{nextAchievement.name}</p>
+                <p className="text-xs text-muted-foreground">{nextAchievement.desc}</p>
+                <p className="text-xs text-muted-foreground mt-1">{nextProgress} / {nextAchievement.req.val} {nextAchievement.req.type === "streak" ? "days" : "chapters"}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Earned Badges */}
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            <h3 className="font-semibold text-sm">Earned Badges ({earned.length})</h3>
+          </div>
+          {earned.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Complete readings to earn badges!</p>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              {earned.map(a => (
+                <div key={a.id} className={`rounded-xl p-3 text-center ${a.color.split(" ")[0]}`}>
+                  <div className="text-2xl mb-1">{a.icon}</div>
+                  <p className="text-xs font-semibold leading-tight">{a.name}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{a.desc}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* All Achievements */}
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          <h3 className="font-semibold text-sm mb-3">All Achievements</h3>
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            {ACHIEVEMENTS.map(a => {
+              const isEarned = earnedBadges.includes(a.id);
+              return (
+                <div key={a.id} className="flex items-center gap-3 py-3">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center text-base shrink-0 transition-all ${isEarned ? a.color : "bg-slate-100 dark:bg-slate-700 text-slate-400 grayscale"}`}>
+                    {isEarned ? a.icon : <span className="text-xs font-bold text-slate-400">{a.name[0]}</span>}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${isEarned ? "" : "text-muted-foreground"}`}>{a.name}</p>
+                    <p className="text-xs text-muted-foreground">{a.desc}</p>
+                  </div>
+                  {isEarned && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0">✓</span>}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Reading Planner ───────────────────────────────────────────────────────────
 
 const PLAN_TYPES = [
@@ -1271,30 +1435,15 @@ const BibleExplorer = () => {
       {/* STREAKS TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "streaks" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card className="border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-6 text-center">
-              <Flame className="h-12 w-12 text-orange-500 mx-auto mb-3" />
-              <p className="text-4xl font-bold text-orange-500">{streak}</p>
-              <p className="text-sm text-muted-foreground mt-1">Current Streak</p>
-              <p className="text-xs text-muted-foreground mt-0.5">consecutive days</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-6 text-center">
-              <Trophy className="h-12 w-12 text-amber-500 mx-auto mb-3" />
-              <p className="text-4xl font-bold text-amber-500">{longestStreak}</p>
-              <p className="text-sm text-muted-foreground mt-1">Longest Streak</p>
-              <p className="text-xs text-muted-foreground mt-0.5">personal best</p>
-            </CardContent>
-          </Card>
-          <Card className="border border-slate-200 dark:border-slate-700 sm:col-span-2">
-            <CardContent className="p-5">
-              <p className="text-sm font-medium mb-2">Keep it up!</p>
-              <p className="text-sm text-muted-foreground">Open Bible Explorer every day to maintain your streak. Your streak resets if you miss a day.</p>
-            </CardContent>
-          </Card>
-        </div>
+        <StreaksTab
+          streak={streak}
+          longestStreak={longestStreak}
+          chaptersRead={chaptersRead.length}
+          readingsCompleted={(() => {
+            const plans: any[] = lsGet("bible_reading_plans", []);
+            return plans.reduce((sum: number, p: any) => sum + (p.completedDays?.length || 0), 0);
+          })()}
+        />
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
