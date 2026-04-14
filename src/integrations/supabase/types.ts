@@ -264,6 +264,7 @@ export type Database = {
       asset_maintenance: {
         Row: {
           asset_id: string
+          completed_date: string | null
           cost: number | null
           created_at: string | null
           created_by: string | null
@@ -271,10 +272,17 @@ export type Database = {
           description: string
           id: string
           maintenance_date: string | null
+          maintenance_type: string | null
+          notes: string | null
           performed_by: string | null
+          scheduled_date: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
         }
         Insert: {
           asset_id: string
+          completed_date?: string | null
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -282,10 +290,17 @@ export type Database = {
           description: string
           id?: string
           maintenance_date?: string | null
+          maintenance_type?: string | null
+          notes?: string | null
           performed_by?: string | null
+          scheduled_date?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           asset_id?: string
+          completed_date?: string | null
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -293,7 +308,13 @@ export type Database = {
           description?: string
           id?: string
           maintenance_date?: string | null
+          maintenance_type?: string | null
+          notes?: string | null
           performed_by?: string | null
+          scheduled_date?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -301,6 +322,60 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "church_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_release_requests: {
+        Row: {
+          asset_id: string
+          created_at: string | null
+          date_needed: string | null
+          id: string
+          notes: string | null
+          purpose: string | null
+          requested_by: string
+          return_date: string | null
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string | null
+          date_needed?: string | null
+          id?: string
+          notes?: string | null
+          purpose?: string | null
+          requested_by: string
+          return_date?: string | null
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string | null
+          date_needed?: string | null
+          id?: string
+          notes?: string | null
+          purpose?: string | null
+          requested_by?: string
+          return_date?: string | null
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_release_requests_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "church_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_release_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -804,12 +879,16 @@ export type Database = {
           category: string | null
           condition: string | null
           created_at: string | null
+          depreciation_rate: number | null
+          description: string | null
           id: string
+          image_path: string | null
           location: string | null
           name: string
           notes: string | null
           purchase_date: string | null
           purchase_value: number | null
+          quantity: number
           serial_number: string | null
           tenant_id: string
         }
@@ -818,12 +897,16 @@ export type Database = {
           category?: string | null
           condition?: string | null
           created_at?: string | null
+          depreciation_rate?: number | null
+          description?: string | null
           id?: string
+          image_path?: string | null
           location?: string | null
           name: string
           notes?: string | null
           purchase_date?: string | null
           purchase_value?: number | null
+          quantity?: number
           serial_number?: string | null
           tenant_id: string
         }
@@ -832,12 +915,16 @@ export type Database = {
           category?: string | null
           condition?: string | null
           created_at?: string | null
+          depreciation_rate?: number | null
+          description?: string | null
           id?: string
+          image_path?: string | null
           location?: string | null
           name?: string
           notes?: string | null
           purchase_date?: string | null
           purchase_value?: number | null
+          quantity?: number
           serial_number?: string | null
           tenant_id?: string
         }
@@ -5317,6 +5404,7 @@ export type Database = {
       songs: {
         Row: {
           artist: string | null
+          chord_sheet_path: string | null
           chords: string | null
           created_at: string | null
           id: string
@@ -5326,9 +5414,12 @@ export type Database = {
           tempo: number | null
           tenant_id: string
           title: string
+          updated_at: string | null
+          video_url: string | null
         }
         Insert: {
           artist?: string | null
+          chord_sheet_path?: string | null
           chords?: string | null
           created_at?: string | null
           id?: string
@@ -5338,9 +5429,12 @@ export type Database = {
           tempo?: number | null
           tenant_id: string
           title: string
+          updated_at?: string | null
+          video_url?: string | null
         }
         Update: {
           artist?: string | null
+          chord_sheet_path?: string | null
           chords?: string | null
           created_at?: string | null
           id?: string
@@ -5350,6 +5444,8 @@ export type Database = {
           tempo?: number | null
           tenant_id?: string
           title?: string
+          updated_at?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -6739,5 +6835,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
