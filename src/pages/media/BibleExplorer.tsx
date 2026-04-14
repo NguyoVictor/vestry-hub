@@ -935,7 +935,7 @@ const BibleExplorer = () => {
 
   // ── Search ──
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim()) { toast.error("Enter A Search Term"); return; }
     setSearching(true);
     try {
       const data = await bibleGet(`/bibles/${versionId}/search?query=${encodeURIComponent(searchQuery)}&limit=20`);
@@ -946,7 +946,7 @@ const BibleExplorer = () => {
 
   // ── Lookup ──
   const handleLookup = async () => {
-    if (!lookupRef.trim()) return;
+    if (!lookupRef.trim()) { toast.error("Enter A Bible Reference"); return; }
     setLooking(true);
     try {
       // Convert "John 3:16" → "JHN.3.16"
