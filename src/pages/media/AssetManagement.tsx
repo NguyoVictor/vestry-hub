@@ -306,10 +306,13 @@ function MaintenanceDialog({ open, onClose, tenantId, assets, onSuccess }: any) 
   const [cost, setCost] = useState("");
   const [performedBy, setPerformedBy] = useState("");
   const [notes, setNotes] = useState("");
+  const [descError, setDescError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!assetId || !maintType) { toast.error("Asset and type are required"); return; }
+    if (!description.trim()) { setDescError("Description is required"); return; }
+    setDescError("");
     setSaving(true);
     try {
       const { error } = await supabase.from(TABLES.ASSET_MAINTENANCE).insert({
@@ -348,8 +351,14 @@ function MaintenanceDialog({ open, onClose, tenantId, assets, onSuccess }: any) 
             </Select>
           </div>
           <div>
-            <Label>Description</Label>
-            <Textarea className="mt-1.5 resize-none" rows={2} value={description} onChange={e => setDescription(e.target.value)} />
+            <Label>Description <span className="text-red-500">*</span></Label>
+            <Textarea
+              className={`mt-1.5 resize-none ${descError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+              rows={2}
+              value={description}
+              onChange={e => { setDescription(e.target.value); if (e.target.value.trim()) setDescError(""); }}
+            />
+            {descError && <p className="text-xs text-red-500 mt-1">{descError}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Scheduled Date</Label><Input type="date" className="mt-1.5" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} /></div>
