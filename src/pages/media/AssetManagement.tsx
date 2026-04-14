@@ -509,6 +509,9 @@ export default function AssetManagement() {
   // ── Delete mutation ───────────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Remove child records first to satisfy FK constraints
+      await supabase.from(TABLES.ASSET_RELEASE_REQUESTS).delete().eq("asset_id", id);
+      await supabase.from(TABLES.ASSET_MAINTENANCE).delete().eq("asset_id", id);
       const { error } = await supabase.from(TABLES.CHURCH_ASSETS).delete().eq("id", id);
       if (error) throw error;
     },
