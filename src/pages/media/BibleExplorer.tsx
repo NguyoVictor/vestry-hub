@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   BookOpen, ChevronLeft, ChevronRight, Search, Bookmark, BookMarked,
   PenLine, RefreshCw, Share2, Sun, Flame, BarChart2, Trophy, Bell,
-  CheckCircle2, Circle, Calendar, Target, Zap, BookOpenText,
+  CheckCircle2, Circle, Calendar, Target, Zap, BookOpenText, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -376,7 +376,7 @@ const BibleExplorer = () => {
 
   // Persisted state
   const [bookmarks, setBookmarks] = useState<{ ref: string; text: string; version: string }[]>(() => lsGet("bible_bookmarks", []));
-  const [notes, setNotes] = useState<{ ref: string; text: string; date: string }[]>(() => lsGet("bible_notes", []));
+  const [notes, setNotes] = useState<{ ref: string; text: string; date: string; title?: string; tags?: string; isPrivate?: boolean }[]>(() => lsGet("bible_notes", []));
   const [noteRef, setNoteRef] = useState("");
   const [noteText, setNoteText] = useState("");
   const [planDone, setPlanDone] = useState<number[]>(() => lsGet("bible_plan_done", []));
@@ -745,47 +745,154 @@ const BibleExplorer = () => {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* NOTES TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "notes" && (
-        <div className="space-y-4">
-          <Card className="border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <PenLine className="h-4 w-4 text-orange-500" />
-                <h3 className="font-semibold text-sm">Add Note</h3>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs">Bible Reference</Label>
-                  <Input className="mt-1 h-8 text-sm" placeholder="e.g. John 3:16" value={noteRef} onChange={e => setNoteRef(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs">Note</Label>
-                  <Textarea className="mt-1 text-sm resize-none" rows={4} placeholder="Write your reflection or study note..." value={noteText} onChange={e => setNoteText(e.target.value)} />
-                </div>
-                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={saveNote}>Save Note</Button>
-              </div>
-            </CardContent>
-          </Card>
-          {notes.length > 0 && (
+      {activeTab === "notes" && (() => {
+        const [noteSearch, setNoteSearch] = useState("");
+        const [addNoteOpen, setAddNoteOpen] = useState(false);
+        const [nTitle, setNTitle] = useState("");
+        const [nBook, setNBook] = useState("");
+        const [nChapter, setNChapter] = useState("1");
+        const [nVerse, setNVerse] = useState("");
+        const [nText, setNText] = useState("");
+        const [nTags, setNTags] = useState("");
+        const [nPrivate, setNPrivate] = useState(true);
+
+        const resetNoteForm = () => { setNTitle(""); setNBook(""); setNChapter("1"); setNVerse(""); setNText(""); setNTags(""); setNPrivate(true); };
+
+        const handleSaveNote = () => {
+          if (!nBook || !nText.trim()) { toast.error("Book and Notes are required"); return; }
+          const ref = `${nBook} ${nChapter}${nVerse ? `:${nVerse}` : ""}`;
+          const entry = { ref, text: nText, date: format(new Date(), "dd MMM yyyy"), title: nTitle || undefined, tags: nTags || undefined, isPrivate: nPrivate };
+          const updated = [entry, ...notes];
+          setNotes(updated);
+          lsSet("bible_notes", updated);
+          const newCount = versesLooked + 1;
+          setVersesLooked(newCount);
+          lsSet("bible_verses_looked", newCount);
+          toast.success("Note saved!");
+          resetNoteForm();
+          setAddNoteOpen(false);
+        };
+
+        const deleteNote = (i: number) => {
+          const updated = notes.filter((_, idx) => idx !== i);
+          setNotes(updated);
+          lsSet("bible_notes", updated);
+        };
+
+        const filtered = notes.filter(n =>
+          !noteSearch.trim() ||
+          (n.ref || "").toLowerCase().includes(noteSearch.toLowerCase()) ||
+          (n.text || "").toLowerCase().includes(noteSearch.toLowerCase()) ||
+          (n.title || "").toLowerCase().includes(noteSearch.toLowerCase())
+        );
+
+        return (
+          <>
             <Card className="border border-slate-200 dark:border-slate-700">
               <CardContent className="p-5">
-                <h3 className="font-semibold text-sm mb-3">Saved Notes ({notes.length})</h3>
-                <div className="space-y-3">
-                  {notes.map((n, i) => (
-                    <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-orange-600">{n.ref}</span>
-                        <span className="text-[10px] text-muted-foreground">{n.date}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{n.text}</p>
-                    </div>
-                  ))}
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <PenLine className="h-4 w-4 text-orange-500" />
+                    <h3 className="font-semibold text-sm">Study Notes</h3>
+                  </div>
+                  <Button className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs" onClick={() => setAddNoteOpen(true)}>
+                    <span className="mr-1 text-base leading-none">+</span> Add Note
+                  </Button>
                 </div>
+
+                {/* Search */}
+                <div className="relative mb-5">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input className="pl-8 h-8 text-xs" placeholder="Search notes..." value={noteSearch} onChange={e => setNoteSearch(e.target.value)} />
+                </div>
+
+                {/* Content */}
+                {filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <FileText className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">No study notes yet.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click "Add Note" to create your first study note</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filtered.map((n, i) => (
+                      <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-800 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            {n.title && <p className="font-semibold text-sm mb-0.5">{n.title}</p>}
+                            <p className="text-xs font-semibold text-orange-600 mb-1">{n.ref}</p>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">{n.text}</p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {n.tags && n.tags.split(",").map(t => t.trim()).filter(Boolean).map(t => (
+                                <span key={t} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{t}</span>
+                              ))}
+                              <span className="text-[10px] text-muted-foreground ml-auto">{n.date}</span>
+                            </div>
+                          </div>
+                          <button onClick={() => deleteNote(i)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5">
+                            <span className="text-xs">✕</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-        </div>
-      )}
+
+            {/* Add Study Note Dialog */}
+            <Dialog open={addNoteOpen} onOpenChange={v => { if (!v) { resetNoteForm(); setAddNoteOpen(false); } }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add Study Note</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-2">
+                  <div>
+                    <Label>Title (optional)</Label>
+                    <Input className="mt-1.5" placeholder="e.g., Reflections on Grace" value={nTitle} onChange={e => setNTitle(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label>Book *</Label>
+                      <Select value={nBook || undefined} onValueChange={setNBook}>
+                        <SelectTrigger className="mt-1.5"><SelectValue placeholder="Book" /></SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {ALL_BOOKS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Chapter *</Label>
+                      <Input className="mt-1.5" type="number" min={1} value={nChapter} onChange={e => setNChapter(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Verse</Label>
+                      <Input className="mt-1.5" placeholder="Optional" value={nVerse} onChange={e => setNVerse(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Notes *</Label>
+                    <Textarea className="mt-1.5 resize-none" rows={5} placeholder="Write your thoughts, insights, and reflections..." value={nText} onChange={e => setNText(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Tags (comma separated)</Label>
+                    <Input className="mt-1.5" placeholder="e.g., grace, salvation, faith" value={nTags} onChange={e => setNTags(e.target.value)} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={nPrivate} onCheckedChange={setNPrivate} />
+                    <Label className="text-sm">Private note</Label>
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <Button variant="outline" className="flex-1" onClick={() => { resetNoteForm(); setAddNoteOpen(false); }}>Cancel</Button>
+                    <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSaveNote}>Save</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
+        );
+      })()}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* SEARCH TAB */}
