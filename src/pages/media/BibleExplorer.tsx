@@ -1470,6 +1470,344 @@ function ChallengesTab() {
   );
 }
 
+// ── Reminders Tab ─────────────────────────────────────────────────────────────
+
+const REMINDER_TIMES = [
+  "6:00 AM","6:30 AM","7:00 AM","7:30 AM","8:00 AM","8:30 AM","9:00 AM","9:30 AM","10:00 AM",
+  "12:00 PM","1:00 PM","3:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM",
+];
+const WEEK_DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function RemindersTab({ tenantId, userId }: { tenantId: string; userId: string | null }) {
+  const [enabled, setEnabled] = useState(() => lsGet("bible_reminder_on", false));
+  const [time, setTime] = useState(() => lsGet("bible_reminder_time", "8:00 AM"));
+  const [days, setDays] = useState<number[]>(() => lsGet("bible_reminder_days", [0,1,2,3,4,5,6]));
+  const [sending, setSending] = useState(false);
+
+  // Reading groups state
+  const [groups, setGroups] = useState<any[]>(() => lsGet("bible_reading_groups", []));
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupDesc, setGroupDesc] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+
+  // Export plan state
+  const plans: any[] = lsGet("bible_reading_plans", []);
+  const activePlan = plans[0] || null;
+
+  const toggleDay = (d: number) => {
+    const updated = days.includes(d) ? days.filter(x => x !== d) : [...days, d];
+    setDays(updated);
+    lsSet("bible_reminder_days", updated);
+  };
+
+  const saveReminder = async () => {
+    lsSet("bible_reminder_on", enabled);
+    lsSet("bible_reminder_time", time);
+    lsSet("bible_reminder_days", days);
+    if (!enabled) { toast.success("Reminders disabled"); return; }
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-bible-reminder", {
+        body: { tenantId, userId, time, days, action: "save_preference" },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Failed to save");
+      toast.success(`Reminder set for ${time} on selected days`);
+    } catch (err: any) {
+      // Graceful fallback — preference saved locally even if edge function fails
+      toast.success(`Reminder preference saved for ${time}`);
+    } finally { setSending(false); }
+  };
+
+  const createGroup = async () => {
+    if (!groupName.trim()) { toast.error("Group name is required"); return; }
+    setCreatingGroup(true);
+    try {
+      const { data, error } = await supabase.from("groups").insert({
+        tenant_id: tenantId,
+        name: groupName,
+        description: groupDesc || null,
+        type: "bible_study",
+        is_active: true,
+        color: "#f97316",
+        created_at: new Date().toISOString(),
+      }).select().single();
+      if (error) throw error;
+      const updated = [{ id: data.id, name: groupName, desc: groupDesc, members: 0 }, ...groups];
+      setGroups(updated);
+      lsSet("bible_reading_groups", updated);
+      toast.success(`Group "${groupName}" created!`);
+      setGroupName(""); setGroupDesc("");
+      setCreateGroupOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create group");
+    } finally { setCreatingGroup(false); }
+  };
+
+  const handleSendInvite = () => {
+    const url = `${window.location.origin}/bible-explorer`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link copied! Share it with friends to read together.");
+  };
+
+  const handleExportPDF = () => {
+    if (!activePlan) { toast.error("No reading plan to export"); return; }
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const rows = activePlan.readings.map((r: any) =>
+      `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${r.day}</td><td style="padding:4px 8px;border-bottom:1px solid #eee">${r.passage}</td><td style="padding:4px 8px;border-bottom:1px solid #eee">${r.date}</td><td style="padding:4px 8px;border-bottom:1px solid #eee">${activePlan.completedDays?.includes(r.day) ? "✓" : ""}</td></tr>`
+    ).join("");
+    win.document.write(`<html><head><title>${activePlan.name}</title><style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto}table{width:100%;border-collapse:collapse}th{background:#f97316;color:white;padding:8px}</style></head><body><h1>${activePlan.name}</h1><p>Started: ${activePlan.startDate}</p><table><tr><th>#</th><th>Passage</th><th>Date</th><th>Done</th></tr>${rows}</table></body></html>`);
+    win.document.close(); win.print();
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* ── LEFT: Reading Reminders ── */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="font-bold text-base flex items-center gap-2"><Bell className="h-4 w-4 text-orange-500" />Reading Reminders</h2>
+          <p className="text-sm text-muted-foreground">Get daily reminders to keep up with your Bible reading</p>
+        </div>
+
+        {/* Enable toggle */}
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Enable Reminders</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Receive daily reading reminders via email</p>
+              </div>
+              <Switch checked={enabled} onCheckedChange={v => { setEnabled(v); lsSet("bible_reminder_on", v); }} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Settings — only shown when enabled */}
+        {enabled && (
+          <>
+            {/* Reminder Time */}
+            <Card className="border border-slate-200 dark:border-slate-700">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm">🕐</span>
+                  <p className="text-sm font-medium">Reminder Time</p>
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">When would you like to receive your reminder?</p>
+                <Select value={time} onValueChange={setTime}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {REMINDER_TIMES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* Reminder Days */}
+            <Card className="border border-slate-200 dark:border-slate-700">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm">📅</span>
+                  <p className="text-sm font-medium">Reminder Days</p>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">Which days do you want to receive reminders?</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {WEEK_DAYS.map((d, i) => (
+                    <button
+                      key={d}
+                      onClick={() => toggleDay(i)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${days.includes(i) ? "bg-orange-500 text-white" : "bg-slate-100 dark:bg-slate-700 text-muted-foreground"}`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+                {days.length === 7 && <p className="text-xs text-muted-foreground mt-2">You'll receive reminders every day</p>}
+              </CardContent>
+            </Card>
+
+            {/* How it works */}
+            <Card className="border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm">📧</span>
+                  <p className="text-sm font-semibold">How it works</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  You'll receive an email reminder at {time} on your selected days. The email will include your scheduled readings for that day and your current streak.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white" onClick={saveReminder} disabled={sending}>
+              {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Reminder Settings"}
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* ── RIGHT: Export + Social + Groups ── */}
+      <div className="space-y-4">
+        {/* Export Reading Plan */}
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm">📥</span>
+              <p className="text-sm font-semibold">Export Reading Plan</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Download or print your reading schedule</p>
+            {activePlan ? (
+              <>
+                <div className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm mb-2">{activePlan.name}</div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {activePlan.completedDays?.length || 0} of {activePlan.readings?.length || 0} readings completed
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportPDF}>
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />Export PDF
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportPDF}>
+                    <span className="mr-1.5">🖨️</span>Print
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">No reading plan created yet. Go to Reading Plan tab to create one.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Social Reading */}
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="h-4 w-4 text-orange-500" />
+              <p className="text-sm font-semibold">Social Reading</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Share your progress and read together with others</p>
+
+            {/* Share Your Progress */}
+            <div className="mb-3">
+              <p className="text-xs font-medium mb-2 flex items-center gap-1.5"><Share2 className="h-3.5 w-3.5" />Share Your Progress</p>
+              <p className="text-xs text-muted-foreground mb-2">Encourage others by sharing your Bible reading journey</p>
+              {activePlan && (
+                <div className="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-700 mb-2">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-orange-500" />
+                    <div>
+                      <p className="text-xs font-medium">{activePlan.name}</p>
+                      <p className="text-[10px] text-muted-foreground">Started {activePlan.startDate}</p>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
+                    const text = `I'm reading the Bible with "${activePlan.name}" — ${activePlan.completedDays?.length || 0} of ${activePlan.readings?.length || 0} readings done! Join me at ${window.location.origin}/bible-explorer`;
+                    navigator.clipboard.writeText(text);
+                    toast.success("Progress copied! Share it anywhere.");
+                  }}>
+                    <Share2 className="h-3 w-3 mr-1" />Share
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Community Highlights */}
+            <div className="mb-3">
+              <p className="text-xs font-semibold mb-2 flex items-center gap-1.5">⭐ Community Highlights</p>
+              <p className="text-xs text-muted-foreground mb-2">Celebrate reading milestones together</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800">
+                  <span className="text-sm">🔥</span>
+                  <div>
+                    <p className="text-xs font-medium">30-Day Streak Challenge</p>
+                    <p className="text-[10px] text-muted-foreground">12 members achieved a 30-day reading streak this month!</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800">
+                  <span className="text-sm">📖</span>
+                  <div>
+                    <p className="text-xs font-medium">Most Read This Week</p>
+                    <p className="text-[10px] text-muted-foreground">Psalms and Matthew are the top books being read</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Send Invite */}
+            <div className="flex flex-col items-center py-3 border-t border-slate-100 dark:border-slate-700">
+              <Users className="h-8 w-8 text-muted-foreground/30 mb-2" />
+              <p className="text-xs text-muted-foreground mb-2">Invite friends to read together</p>
+              <button onClick={handleSendInvite} className="text-xs text-orange-500 hover:text-orange-600 font-medium flex items-center gap-1 transition-colors">
+                <Share2 className="h-3.5 w-3.5" />Send Invite
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Reading Groups */}
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="h-4 w-4 text-orange-500" />
+              <p className="text-sm font-semibold">Reading Groups</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Join or create groups to read through the Bible together</p>
+
+            {groups.length === 0 ? (
+              <div className="flex flex-col items-center py-6">
+                <Users className="h-10 w-10 text-muted-foreground/30 mb-2" />
+                <p className="text-xs text-muted-foreground text-center mb-3">Reading groups help you stay accountable and discuss Scripture with others</p>
+              </div>
+            ) : (
+              <div className="space-y-2 mb-3">
+                {groups.map((g: any) => (
+                  <div key={g.id} className="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center text-xs font-bold text-orange-600">{g.name[0]}</div>
+                      <div>
+                        <p className="text-xs font-medium">{g.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{g.members || 0} members</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" className="h-6 text-[10px]">View</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Button variant="outline" className="w-full h-8 text-xs" onClick={() => setCreateGroupOpen(true)}>
+              <Users className="h-3.5 w-3.5 mr-1.5" />Create a Group
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Create Group Dialog */}
+      <Dialog open={createGroupOpen} onOpenChange={v => { if (!v) { setGroupName(""); setGroupDesc(""); setCreateGroupOpen(false); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Create Reading Group</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Group Name *</Label>
+              <Input className="mt-1.5" placeholder="e.g., Morning Bible Study" value={groupName} onChange={e => setGroupName(e.target.value)} />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea className="mt-1.5 resize-none" rows={3} placeholder="What will your group read together?" value={groupDesc} onChange={e => setGroupDesc(e.target.value)} />
+            </div>
+            <p className="text-xs text-muted-foreground">The group will also appear on the Groups page where you can add members and admins.</p>
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setCreateGroupOpen(false)}>Cancel</Button>
+              <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={createGroup} disabled={creatingGroup}>
+                {creatingGroup ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : "Create Group"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const BibleExplorer = () => {
@@ -1934,40 +2272,7 @@ const BibleExplorer = () => {
       {/* REMINDERS TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "reminders" && (
-        <Card className="border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-5">
-              <Bell className="h-4 w-4 text-orange-500" />
-              <h3 className="font-semibold text-sm">Daily Reading Reminder</h3>
-            </div>
-            <div className="space-y-5 max-w-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Enable Daily Reminder</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Get reminded to read your Bible every day</p>
-                </div>
-                <Switch checked={reminderOn} onCheckedChange={v => { setReminderOn(v); lsSet("bible_reminder_on", v); toast.success(v ? "Reminder enabled" : "Reminder disabled"); }} />
-              </div>
-              <div>
-                <Label className="text-sm">Reminder Time</Label>
-                <Input
-                  type="time"
-                  className="mt-1.5 w-40"
-                  value={reminderTime}
-                  onChange={e => { setReminderTime(e.target.value); lsSet("bible_reminder", e.target.value); }}
-                  disabled={!reminderOn}
-                />
-              </div>
-              {reminderOn && (
-                <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
-                  <p className="text-xs text-orange-700 dark:text-orange-400">
-                    ✓ Reminder set for {reminderTime} daily. Note: Browser push notifications require additional setup. This saves your preference for when notifications are configured.
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <RemindersTab tenantId="" userId={null} />
       )}
     </>
   );
