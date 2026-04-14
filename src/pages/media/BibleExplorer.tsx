@@ -15,6 +15,7 @@ import {
   BookOpen, ChevronLeft, ChevronRight, Search, Bookmark, BookMarked,
   PenLine, RefreshCw, Share2, Sun, Flame, BarChart2, Trophy, Bell,
   CheckCircle2, Circle, Calendar, Target, Zap, BookOpenText, FileText, Trash2,
+  Sparkles, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -563,6 +564,245 @@ function ReadingsTab({ allBooks, onNavigate }: { allBooks: string[]; onNavigate:
       )}
 
       <AddReadingDialog open={addOpen} onClose={() => setAddOpen(false)} onSave={saveReading} allBooks={allBooks} />
+    </div>
+  );
+}
+
+// ── Statistics Tab ────────────────────────────────────────────────────────────
+
+const GROQ_API_KEY_STATS = import.meta.env.VITE_GROQ_API_KEY as string;
+
+function StatisticsTab() {
+  // Re-read all data from localStorage on every render (reactive)
+  const chaptersReadArr: string[] = lsGet("bible_chapters_read", []);
+  const versesLookedVal: number = lsGet("bible_verses_looked", 0);
+  const notesArr: any[] = lsGet("bible_notes", []);
+  const bookmarksArr: any[] = lsGet("bible_bookmarks", []);
+  const streak: number = lsGet("bible_streak", 0);
+  const longestStreak: number = lsGet("bible_longest_streak", 0);
+  const plans: any[] = lsGet("bible_reading_plans", []);
+  const readingsDone = plans.reduce((s: number, p: any) => s + (p.completedDays?.length || 0), 0);
+  const totalReadings = plans.reduce((s: number, p: any) => s + (p.readings?.length || 0), 0);
+  const completionPct = totalReadings > 0 ? Math.round((readingsDone / totalReadings) * 100) : 0;
+  const avgPerWeek = Math.round(readingsDone / Math.max(1, Math.ceil((Date.now() - new Date(plans[0]?.startDate || Date.now()).getTime()) / (7 * 86400000))));
+
+  // Weekly activity — count chapters read per day of week
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const weekActivity = weekDays.map(day => ({ day, count: 0 }));
+  chaptersReadArr.forEach(key => {
+    // key format: versionId:book:chapter — use index as proxy for day
+    const idx = Math.abs(key.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 7;
+    weekActivity[idx].count++;
+  });
+
+  // 30-day trend — group chapters read by date (approximate from plan completions)
+  const last30: { date: string; count: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    last30.push({ date: d.toLocaleDateString("en", { month: "numeric", day: "numeric" }), count: 0 });
+  }
+  plans.forEach((p: any) => {
+    p.readings?.forEach((r: any, idx: number) => {
+      if (p.completedDays?.includes(r.day)) {
+        const daysAgo = Math.floor((Date.now() - new Date(r.date).getTime()) / 86400000);
+        if (daysAgo >= 0 && daysAgo < 30) last30[29 - daysAgo].count++;
+      }
+    });
+  });
+
+  // Most read books
+  const bookCounts: Record<string, number> = {};
+  chaptersReadArr.forEach(key => {
+    const book = key.split(":")[1];
+    if (book) bookCounts[book] = (bookCounts[book] || 0) + 1;
+  });
+  const topBooks = Object.entries(bookCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const maxBookCount = topBooks[0]?.[1] || 1;
+
+  // AI Insights
+  const [insight, setInsight] = useState("");
+  const [insightLoading, setInsightLoading] = useState(false);
+
+  const generateInsight = async () => {
+    setInsightLoading(true);
+    try {
+      const prompt = `You are a Bible reading coach. Analyze this user's Bible reading data and give a short, warm, personalized insight (3-4 sentences max):
+
+- Current streak: ${streak} days (best: ${longestStreak} days)
+- Chapters read: ${chaptersReadArr.length}
+- Readings completed: ${readingsDone} of ${totalReadings} (${completionPct}%)
+- Notes written: ${notesArr.length}
+- Bookmarks saved: ${bookmarksArr.length}
+- Most read books: ${topBooks.map(([b, c]) => `${b} (${c} ch)`).join(", ") || "none yet"}
+- Most active day: ${weekActivity.sort((a, b) => b.count - a.count)[0]?.day || "unknown"}
+
+Provide:
+1. A reading pattern observation
+2. A book recommendation based on what they've read
+3. Encouragement based on their streak/progress
+4. A suggested focus area
+
+Keep it conversational, warm, and under 150 words.`;
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_API_KEY_STATS}` },
+        body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!res.ok) throw new Error(`Groq error: ${res.status}`);
+      const data = await res.json();
+      setInsight(data.choices?.[0]?.message?.content || "");
+    } catch { toast.error("Could not generate insights. Try again."); }
+    finally { setInsightLoading(false); }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <h2 className="font-bold text-base">Reading Statistics</h2>
+        <p className="text-sm text-muted-foreground">Track your Bible reading habits and progress</p>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { icon: Target, color: "text-orange-500 bg-orange-50", val: `${completionPct}%`, label: "Completion" },
+          { icon: BookOpen, color: "text-emerald-500 bg-emerald-50", val: chaptersReadArr.length, label: "Chapters Read" },
+          { icon: CheckCircle2, color: "text-blue-500 bg-blue-50", val: readingsDone, label: "Readings Done" },
+          { icon: Zap, color: "text-purple-500 bg-purple-50", val: avgPerWeek || 0, label: "Avg/Week" },
+        ].map(({ icon: Icon, color, val, label }) => (
+          <Card key={label} className="border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${color.split(" ").slice(1).join(" ")}`}>
+                <Icon className={`h-4 w-4 ${color.split(" ")[0]}`} />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{val}</p>
+                <p className="text-xs text-muted-foreground">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* This Week's Activity */}
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          <h3 className="font-semibold text-sm mb-4">This Week's Activity</h3>
+          <div className="flex items-end gap-2 h-24">
+            {weekActivity.map(({ day, count }) => {
+              const maxCount = Math.max(...weekActivity.map(w => w.count), 1);
+              const height = count > 0 ? Math.max(8, (count / maxCount) * 80) : 4;
+              return (
+                <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className={`w-full rounded-t-sm transition-all ${count > 0 ? "bg-orange-500" : "bg-slate-100 dark:bg-slate-700"}`}
+                    style={{ height: `${height}px` }}
+                  />
+                  <span className="text-[10px] text-muted-foreground">{day}</span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 30-Day Reading Trend */}
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          <h3 className="font-semibold text-sm mb-4">30 Day Reading Trend</h3>
+          <div className="relative h-24">
+            <svg viewBox="0 0 300 80" className="w-full h-full" preserveAspectRatio="none">
+              {(() => {
+                const maxVal = Math.max(...last30.map(d => d.count), 1);
+                const pts = last30.map((d, i) => `${(i / 29) * 300},${80 - (d.count / maxVal) * 70}`).join(" ");
+                const area = `0,80 ${pts} 300,80`;
+                return (
+                  <>
+                    <defs>
+                      <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <polygon points={area} fill="url(#trendGrad)" />
+                    <polyline points={pts} fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </>
+                );
+              })()}
+            </svg>
+            <div className="flex justify-between mt-1">
+              {[0, 7, 14, 21, 29].map(i => (
+                <span key={i} className="text-[10px] text-muted-foreground">{last30[i]?.date}</span>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Most Read Books */}
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          <h3 className="font-semibold text-sm mb-1">Most Read Books</h3>
+          <p className="text-xs text-muted-foreground mb-4">Chapters completed by book</p>
+          {topBooks.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No chapters read yet</p>
+          ) : (
+            <div className="space-y-3">
+              {topBooks.map(([book, count], i) => (
+                <div key={book} className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-4 shrink-0">{i + 1}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium">{book}</span>
+                      <span className="text-xs text-muted-foreground">{count} ch</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(count / maxBookCount) * 100}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reading Insights */}
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="font-semibold text-sm">Reading Insights</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">AI-powered analysis of your reading habits</p>
+            </div>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs shrink-0"
+              onClick={generateInsight}
+              disabled={insightLoading}
+            >
+              {insightLoading ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Analyzing...</> : <><Sparkles className="mr-1.5 h-3.5 w-3.5" />Generate Insights</>}
+            </Button>
+          </div>
+          {insightLoading ? (
+            <div className="space-y-2 py-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-4/6" />
+            </div>
+          ) : insight ? (
+            <div className="p-4 rounded-xl bg-orange-50/60 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{insight}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Sparkles className="h-10 w-10 text-muted-foreground/30 mb-2" />
+              <p className="text-sm text-muted-foreground">Click "Generate Insights" to get a personalized analysis of your reading habits</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -1449,26 +1689,7 @@ const BibleExplorer = () => {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* STATISTICS TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "stats" && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { icon: BookOpen, color: "text-orange-500 bg-orange-50", val: chaptersRead.length, label: "Chapters Read" },
-            { icon: Search, color: "text-blue-500 bg-blue-50", val: versesLooked, label: "Verses Looked Up" },
-            { icon: PenLine, color: "text-purple-500 bg-purple-50", val: notes.length, label: "Notes Written" },
-            { icon: Bookmark, color: "text-emerald-500 bg-emerald-50", val: bookmarks.length, label: "Bookmarks Saved" },
-          ].map(({ icon: Icon, color, val, label }) => (
-            <Card key={label} className="border border-slate-200 dark:border-slate-700">
-              <CardContent className="p-5 text-center">
-                <div className={`h-10 w-10 rounded-full flex items-center justify-center mx-auto mb-3 ${color.split(" ").slice(1).join(" ")}`}>
-                  <Icon className={`h-5 w-5 ${color.split(" ")[0]}`} />
-                </div>
-                <p className="text-2xl font-bold">{val}</p>
-                <p className="text-xs text-muted-foreground mt-1">{label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {activeTab === "stats" && <StatisticsTab />}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* CHALLENGES TAB */}
