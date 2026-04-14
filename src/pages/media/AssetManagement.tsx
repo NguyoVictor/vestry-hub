@@ -24,7 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   Package, Plus, Search, Pencil, Trash2, Wrench, ClipboardList,
   TrendingDown, Download, Upload, Image as ImageIcon, CheckCircle,
-  Loader2, Box, ChevronDown,
+  Loader2, Box, ChevronDown, TriangleAlert, RotateCcw,
 } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -45,6 +45,7 @@ const statusColor: Record<string, string> = {
   scheduled: "bg-blue-100 text-blue-700",
   completed: "bg-emerald-100 text-emerald-700",
   overdue: "bg-red-100 text-red-700",
+  returned: "bg-slate-100 text-slate-600",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -231,54 +232,109 @@ function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
 }
 
 // ── Release Request Dialog ────────────────────────────────────────────────────
-function ReleaseRequestDialog({ open, onClose, tenantId, assets, onSuccess }: any) {
-  const [assetId, setAssetId] = useState("");
-  const [requestedBy, setRequestedBy] = useState("");
-  const [purpose, setPurpose] = useState("");
-  const [dateNeeded, setDateNeeded] = useState("");
-  const [returnDate, setReturnDate] = useState("");
-  const [notes, setNotes] = useState("");
+function ReleaseRequestDialog({ open, onClose, tenantId, assets, editing, onSuccess }: any) {
+  const [assetId, setAssetId] = useState(editing?.asset_id || "");
+  const [requestedBy, setRequestedBy] = useState(editing?.requested_by || "");
+  const [purpose, setPurpose] = useState(editing?.purpose || "");
+  const [dateNeeded, setDateNeeded] = useState(editing?.date_needed || "");
+  const [returnDate, setReturnDate] = useState(editing?.return_date || "");
+  const [notes, setNotes] = useState(editing?.notes || "");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
+  // Reset form when dialog opens with new editing target
+  const prevOpen = useRef(false);
+  if (open !== prevOpen.current) {
+    prevOpen.current = open;
+    if (open) {
+      setAssetId(editing?.asset_id || "");
+      setRequestedBy(editing?.requested_by || "");
+      setPurpose(editing?.purpose || "");
+      setDateNeeded(editing?.date_needed || "");
+      setReturnDate(editing?.return_date || "");
+      setNotes(editing?.notes || "");
+      setErrors({});
+    }
+  }
+
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!assetId) e.assetId = "Asset is required";
+    if (!requestedBy.trim()) e.requestedBy = "Requester name is required";
+    if (!dateNeeded) e.dateNeeded = "Date Needed is required";
+    if (!returnDate) e.returnDate = "Return Date is required";
+    if (dateNeeded && returnDate && returnDate <= dateNeeded)
+      e.returnDate = "Return Date must be after Date Needed";
+    return e;
+  };
+
   const handleSubmit = async () => {
-    if (!assetId || !requestedBy) { toast.error("Asset and requester are required"); return; }
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    setErrors({});
     setSaving(true);
     try {
-      const { error } = await supabase.from(TABLES.ASSET_RELEASE_REQUESTS).insert({
+      const payload = {
         tenant_id: tenantId, asset_id: assetId, requested_by: requestedBy,
-        purpose: purpose || null, date_needed: dateNeeded || null,
-        return_date: returnDate || null, notes: notes || null, status: "pending",
-      });
-      if (error) throw error;
-      toast.success("Release request submitted");
+        purpose: purpose || null, date_needed: dateNeeded,
+        return_date: returnDate, notes: notes || null,
+      };
+      if (editing?.id) {
+        const { error } = await supabase.from(TABLES.ASSET_RELEASE_REQUESTS).update(payload).eq("id", editing.id);
+        if (error) throw error;
+        toast.success("Request updated");
+      } else {
+        const { error } = await supabase.from(TABLES.ASSET_RELEASE_REQUESTS).insert({ ...payload, status: "pending" });
+        if (error) throw error;
+        toast.success("Release request submitted");
+      }
       onSuccess(); onClose();
     } catch (err: any) { toast.error(err.message); }
     finally { setSaving(false); }
   };
 
+  const field = (key: string) => errors[key]
+    ? "border-red-500 focus-visible:ring-red-500"
+    : "";
+
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>New Release Request</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{editing?.id ? "Edit Release Request" : "New Release Request"}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3 mt-2">
           <div>
-            <Label>Asset *</Label>
-            <Select value={assetId} onValueChange={setAssetId}>
-              <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select asset..." /></SelectTrigger>
+            <Label>Asset <span className="text-red-500">*</span></Label>
+            <Select value={assetId} onValueChange={v => { setAssetId(v); setErrors(p => ({ ...p, assetId: "" })); }}>
+              <SelectTrigger className={`mt-1.5 ${field("assetId")}`}><SelectValue placeholder="Select asset..." /></SelectTrigger>
               <SelectContent>{assets.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
             </Select>
+            {errors.assetId && <p className="text-xs text-red-500 mt-1">{errors.assetId}</p>}
           </div>
           <div>
-            <Label>Requested By *</Label>
-            <Input className="mt-1.5" placeholder="Member name" value={requestedBy} onChange={e => setRequestedBy(e.target.value)} />
+            <Label>Requested By <span className="text-red-500">*</span></Label>
+            <Input className={`mt-1.5 ${field("requestedBy")}`} placeholder="Member name" value={requestedBy}
+              onChange={e => { setRequestedBy(e.target.value); if (e.target.value.trim()) setErrors(p => ({ ...p, requestedBy: "" })); }} />
+            {errors.requestedBy && <p className="text-xs text-red-500 mt-1">{errors.requestedBy}</p>}
           </div>
           <div>
             <Label>Purpose</Label>
             <Textarea className="mt-1.5 resize-none" rows={2} value={purpose} onChange={e => setPurpose(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Date Needed</Label><Input type="date" className="mt-1.5" value={dateNeeded} onChange={e => setDateNeeded(e.target.value)} /></div>
-            <div><Label>Return Date</Label><Input type="date" className="mt-1.5" value={returnDate} onChange={e => setReturnDate(e.target.value)} /></div>
+            <div>
+              <Label>Date Needed <span className="text-red-500">*</span></Label>
+              <Input type="date" className={`mt-1.5 ${field("dateNeeded")}`} value={dateNeeded}
+                onChange={e => { setDateNeeded(e.target.value); setErrors(p => ({ ...p, dateNeeded: "", returnDate: "" })); }} />
+              {errors.dateNeeded && <p className="text-xs text-red-500 mt-1">{errors.dateNeeded}</p>}
+            </div>
+            <div>
+              <Label>Return Date <span className="text-red-500">*</span></Label>
+              <Input type="date" className={`mt-1.5 ${field("returnDate")}`} value={returnDate}
+                onChange={e => { setReturnDate(e.target.value); setErrors(p => ({ ...p, returnDate: "" })); }} />
+              {errors.returnDate && <p className="text-xs text-red-500 mt-1">{errors.returnDate}</p>}
+            </div>
           </div>
           <div>
             <Label>Notes</Label>
@@ -287,7 +343,8 @@ function ReleaseRequestDialog({ open, onClose, tenantId, assets, onSuccess }: an
           <div className="flex gap-3 pt-1">
             <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSubmit} disabled={saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Submit
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {editing?.id ? "Save Changes" : "Submit"}
             </Button>
           </div>
         </div>
@@ -399,6 +456,8 @@ export default function AssetManagement() {
   const [editingAsset, setEditingAsset] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<any>(null);
+  const [deleteRequestTarget, setDeleteRequestTarget] = useState<any>(null);
   const [maintDialogOpen, setMaintDialogOpen] = useState(false);
 
   // ── Queries ──────────────────────────────────────────────────────────────
@@ -476,6 +535,27 @@ export default function AssetManagement() {
     },
     onError: (err: any) => toast.error(err.message),
   });
+
+  // ── Delete release request ────────────────────────────────────────────────
+  const deleteRequestMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(TABLES.ASSET_RELEASE_REQUESTS).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["asset-release-requests", tenantId] });
+      toast.success("Request deleted");
+      setDeleteRequestTarget(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  // ── Compute effective status (auto-overdue) ───────────────────────────────
+  const effectiveStatus = (r: any): string => {
+    if (r.status === "returned" || r.status === "rejected") return r.status;
+    if (r.return_date && new Date(r.return_date) < new Date() && r.status !== "returned") return "overdue";
+    return r.status;
+  };
 
   // ── Derived stats ─────────────────────────────────────────────────────────
   const totalAssets = assets.length;
@@ -708,7 +788,7 @@ export default function AssetManagement() {
         <TabsContent value="requests">
           <div className="flex justify-between items-center mb-4">
             <p className="text-sm text-muted-foreground">{requests.length} request{requests.length !== 1 ? "s" : ""}</p>
-            <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setReleaseDialogOpen(true)}>
+            <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => { setEditingRequest(null); setReleaseDialogOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" />New Request
             </Button>
           </div>
@@ -735,23 +815,25 @@ export default function AssetManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                  {requests.map((r: any) => (
-                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{(r.church_assets as any)?.name || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{r.requested_by || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
-                        {r.date_needed ? format(new Date(r.date_needed), "dd MMM yyyy") : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
-                        {r.return_date ? format(new Date(r.return_date), "dd MMM yyyy") : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[r.status] || "bg-slate-100 text-slate-700"}`}>
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {r.status === "pending" && (
+                  {requests.map((r: any) => {
+                    const status = effectiveStatus(r);
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-4 py-3 font-medium">{(r.church_assets as any)?.name || "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{r.requested_by || "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
+                          {r.date_needed ? format(new Date(r.date_needed), "dd MMM yyyy") : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                          {r.return_date ? format(new Date(r.return_date), "dd MMM yyyy") : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[status] || "bg-slate-100 text-slate-700"}`}>
+                            {status === "overdue" && <TriangleAlert className="h-3 w-3" />}
+                            {status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -759,18 +841,39 @@ export default function AssetManagement() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => updateRequestStatus.mutate({ id: r.id, status: "approved" })}>
-                                <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />Approve
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => updateRequestStatus.mutate({ id: r.id, status: "rejected" })} className="text-red-600">
-                                <Trash2 className="mr-2 h-4 w-4" />Reject
+                              {/* Edit — always available unless returned */}
+                              {status !== "returned" && (
+                                <DropdownMenuItem onClick={() => { setEditingRequest(r); setReleaseDialogOpen(true); }}>
+                                  <Pencil className="mr-2 h-4 w-4" />Edit
+                                </DropdownMenuItem>
+                              )}
+                              {/* Approve / Reject — pending only */}
+                              {r.status === "pending" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => updateRequestStatus.mutate({ id: r.id, status: "approved" })}>
+                                    <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />Approve
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateRequestStatus.mutate({ id: r.id, status: "rejected" })} className="text-red-600">
+                                    <Trash2 className="mr-2 h-4 w-4" />Reject
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {/* Mark Returned — approved or overdue */}
+                              {(r.status === "approved" || status === "overdue") && (
+                                <DropdownMenuItem onClick={() => updateRequestStatus.mutate({ id: r.id, status: "returned" })}>
+                                  <RotateCcw className="mr-2 h-4 w-4 text-slate-500" />Mark as Returned
+                                </DropdownMenuItem>
+                              )}
+                              {/* Delete — always */}
+                              <DropdownMenuItem onClick={() => setDeleteRequestTarget(r)} className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -797,13 +900,14 @@ export default function AssetManagement() {
 
       <ReleaseRequestDialog
         open={releaseDialogOpen}
-        onClose={() => setReleaseDialogOpen(false)}
+        onClose={() => { setReleaseDialogOpen(false); setEditingRequest(null); }}
         tenantId={tenantId}
         assets={assets}
+        editing={editingRequest}
         onSuccess={invalidate}
       />
 
-      {/* ── Delete confirm ── */}
+      {/* ── Delete asset confirm ── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={v => { if (!v) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -817,6 +921,27 @@ export default function AssetManagement() {
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Delete release request confirm ── */}
+      <AlertDialog open={!!deleteRequestTarget} onOpenChange={v => { if (!v) setDeleteRequestTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Release Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete the release request for <strong>{(deleteRequestTarget?.church_assets as any)?.name || "this asset"}</strong> by <strong>{deleteRequestTarget?.requested_by}</strong>? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => deleteRequestTarget && deleteRequestMutation.mutate(deleteRequestTarget.id)}
             >
               Delete
             </AlertDialogAction>
