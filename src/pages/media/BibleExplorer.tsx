@@ -574,7 +574,11 @@ const GROQ_API_KEY_STATS = import.meta.env.VITE_GROQ_API_KEY as string;
 
 function StatisticsTab() {
   // Re-read all data from localStorage on every render (reactive)
-  const chaptersReadArr: string[] = lsGet("bible_chapters_read", []);
+  const rawChapters: (string | { key: string; readAt: string })[] = lsGet("bible_chapters_read", []);
+  // Normalise — handle old string format gracefully
+  const chaptersReadArr = rawChapters.map(e =>
+    typeof e === "string" ? { key: e, readAt: null } : e
+  );
   const versesLookedVal: number = lsGet("bible_verses_looked", 0);
   const notesArr: any[] = lsGet("bible_notes", []);
   const bookmarksArr: any[] = lsGet("bible_bookmarks", []);
@@ -586,13 +590,17 @@ function StatisticsTab() {
   const completionPct = totalReadings > 0 ? Math.round((readingsDone / totalReadings) * 100) : 0;
   const avgPerWeek = Math.round(readingsDone / Math.max(1, Math.ceil((Date.now() - new Date(plans[0]?.startDate || Date.now()).getTime()) / (7 * 86400000))));
 
-  // Weekly activity — count chapters read per day of week
+  // Weekly activity — count chapters read per actual day of week using readAt timestamp
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const weekActivity = weekDays.map(day => ({ day, count: 0 }));
-  chaptersReadArr.forEach(key => {
-    // key format: versionId:book:chapter — use index as proxy for day
-    const idx = Math.abs(key.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % 7;
-    weekActivity[idx].count++;
+  const weekAgo = Date.now() - 7 * 86400000;
+  chaptersReadArr.forEach(entry => {
+    if (!entry.readAt) return; // old format — skip, no timestamp
+    const ts = new Date(entry.readAt).getTime();
+    if (ts >= weekAgo) {
+      const dow = new Date(entry.readAt).getDay(); // 0=Sun … 6=Sat
+      weekActivity[dow].count++;
+    }
   });
 
   // 30-day trend — group chapters read by date (approximate from plan completions)
@@ -612,8 +620,8 @@ function StatisticsTab() {
 
   // Most read books
   const bookCounts: Record<string, number> = {};
-  chaptersReadArr.forEach(key => {
-    const book = key.split(":")[1];
+  chaptersReadArr.forEach(entry => {
+    const book = entry.key.split(":")[1];
     if (book) bookCounts[book] = (bookCounts[book] || 0) + 1;
   });
   const topBooks = Object.entries(bookCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -1272,7 +1280,7 @@ const BibleExplorer = () => {
   const [reminderOn, setReminderOn] = useState(() => lsGet("bible_reminder_on", false));
   const [streak, setStreak] = useState(() => lsGet("bible_streak", 0));
   const [longestStreak, setLongestStreak] = useState(() => lsGet("bible_longest_streak", 0));
-  const [chaptersRead, setChaptersRead] = useState<string[]>(() => lsGet("bible_chapters_read", []));
+  const [chaptersRead, setChaptersRead] = useState<{ key: string; readAt: string }[]>(() => lsGet("bible_chapters_read", []));
   const [versesLooked, setVersesLooked] = useState<number>(() => lsGet("bible_verses_looked", 0));
 
   // ── Streak tracking ──
@@ -1324,8 +1332,9 @@ const BibleExplorer = () => {
       setVerses(withText.filter(v => v.text));
       // Track chapter read
       const chKey = `${versionId}:${book}:${chapter}`;
-      if (!chaptersRead.includes(chKey)) {
-        const updated = [...chaptersRead, chKey];
+      if (!chaptersRead.some(e => (typeof e === "string" ? e : e.key) === chKey)) {
+        const entry = { key: chKey, readAt: new Date().toISOString() };
+        const updated = [...chaptersRead, entry];
         setChaptersRead(updated);
         lsSet("bible_chapters_read", updated);
       }
