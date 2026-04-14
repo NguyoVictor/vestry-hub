@@ -15,7 +15,7 @@ import {
   BookOpen, ChevronLeft, ChevronRight, Search, Bookmark, BookMarked,
   PenLine, RefreshCw, Share2, Sun, Flame, BarChart2, Trophy, Bell,
   CheckCircle2, Circle, Calendar, Target, Zap, BookOpenText, FileText, Trash2,
-  Sparkles, Loader2,
+  Sparkles, Loader2, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -1245,6 +1245,231 @@ function ReadingPlannerTab({ onNavigate }: { onNavigate: (book: string, ch: numb
   );
 }
 
+// ── Challenges Tab ────────────────────────────────────────────────────────────
+
+interface CustomChallenge {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  targetType: "chapters" | "days" | "books";
+  targetAmount: number;
+  participants: number;
+  joined: boolean;
+  progress: number;
+  createdAt: string;
+}
+
+function ChallengesTab() {
+  const [challenges, setChallenges] = useState<CustomChallenge[]>(() => lsGet("bible_custom_challenges", []));
+  const [createOpen, setCreateOpen] = useState(false);
+  const [cTitle, setCTitle] = useState("");
+  const [cDesc, setCDesc] = useState("");
+  const [cStart, setCStart] = useState(new Date().toISOString().split("T")[0]);
+  const [cEnd, setCEnd] = useState("");
+  const [cTargetType, setCTargetType] = useState<"chapters" | "days" | "books">("chapters");
+  const [cTargetAmount, setCTargetAmount] = useState("50");
+
+  const resetForm = () => { setCTitle(""); setCDesc(""); setCStart(new Date().toISOString().split("T")[0]); setCEnd(""); setCTargetType("chapters"); setCTargetAmount("50"); };
+
+  const createChallenge = () => {
+    if (!cTitle.trim() || !cEnd) { toast.error("Title and End Date are required"); return; }
+    const c: CustomChallenge = {
+      id: crypto.randomUUID(), title: cTitle, description: cDesc,
+      startDate: cStart, endDate: cEnd,
+      targetType: cTargetType, targetAmount: Number(cTargetAmount) || 50,
+      participants: 0, joined: false, progress: 0,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [c, ...challenges];
+    setChallenges(updated);
+    lsSet("bible_custom_challenges", updated);
+    toast.success("Challenge created!");
+    resetForm();
+    setCreateOpen(false);
+  };
+
+  const deleteChallenge = (id: string) => {
+    const updated = challenges.filter(c => c.id !== id);
+    setChallenges(updated);
+    lsSet("bible_custom_challenges", updated);
+    toast.success("Challenge deleted");
+  };
+
+  const joinChallenge = (id: string) => {
+    const updated = challenges.map(c => c.id === id ? { ...c, joined: true, participants: c.participants + 1 } : c);
+    setChallenges(updated);
+    lsSet("bible_custom_challenges", updated);
+    toast.success("Joined challenge!");
+  };
+
+  const updateProgress = (id: string, delta: number) => {
+    const updated = challenges.map(c => {
+      if (c.id !== id) return c;
+      const newProgress = Math.max(0, Math.min(c.targetAmount, c.progress + delta));
+      return { ...c, progress: newProgress };
+    });
+    setChallenges(updated);
+    lsSet("bible_custom_challenges", updated);
+  };
+
+  const getDaysLeft = (endDate: string) => {
+    const diff = Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000);
+    if (diff < 0) return "Ended";
+    if (diff === 0) return "Last day";
+    return `${diff} days left`;
+  };
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h2 className="font-bold text-base">Reading Challenges</h2>
+          <p className="text-sm text-muted-foreground">Join church-wide reading challenges</p>
+        </div>
+        <Button className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs shrink-0" onClick={() => setCreateOpen(true)}>
+          <span className="mr-1 text-base leading-none">+</span> Create Challenge
+        </Button>
+      </div>
+
+      {/* Challenge list */}
+      {challenges.length === 0 ? (
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Trophy className="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">No challenges yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Create a challenge to get started</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {challenges.map(c => {
+            const pct = Math.round((c.progress / c.targetAmount) * 100);
+            const daysLeft = getDaysLeft(c.endDate);
+            const isEnded = daysLeft === "Ended";
+            const isComplete = c.progress >= c.targetAmount;
+            return (
+              <Card key={c.id} className="border border-slate-200 dark:border-slate-700 shadow-sm">
+                <CardContent className="p-4">
+                  {/* Title row */}
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-amber-500 shrink-0" />
+                      <p className="font-semibold text-sm">{c.title}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isEnded ? "bg-slate-100 text-slate-500" : isComplete ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-orange-700"}`}>
+                        {isComplete ? "Complete!" : daysLeft}
+                      </span>
+                      <button onClick={() => deleteChallenge(c.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Meta row */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-3">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {format(new Date(c.startDate), "MMM d")} – {format(new Date(c.endDate), "MMM d")}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <BookOpen className="h-3.5 w-3.5" />
+                      {c.targetAmount} {c.targetType}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {c.participants} participants
+                    </span>
+                  </div>
+
+                  {c.description && <p className="text-xs text-muted-foreground mb-3">{c.description}</p>}
+
+                  {/* Progress (if joined) */}
+                  {c.joined && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                        <span>{c.progress} / {c.targetAmount} {c.targetType}</span>
+                        <span>{pct}%</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action button */}
+                  {!c.joined ? (
+                    <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white h-9" onClick={() => joinChallenge(c.id)}>
+                      <Users className="h-4 w-4 mr-2" />Join Challenge
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => updateProgress(c.id, 1)}>
+                        +1 {c.targetType === "chapters" ? "Chapter" : c.targetType === "days" ? "Day" : "Book"}
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => updateProgress(c.id, -1)}>−</Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Create Challenge Dialog */}
+      <Dialog open={createOpen} onOpenChange={v => { if (!v) { resetForm(); setCreateOpen(false); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Create Reading Challenge</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Challenge Title *</Label>
+              <Input className="mt-1.5" placeholder="e.g., Summer Bible Reading Challenge" value={cTitle} onChange={e => setCTitle(e.target.value)} />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea className="mt-1.5 resize-none" rows={3} placeholder="Describe the challenge..." value={cDesc} onChange={e => setCDesc(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Start Date</Label>
+                <Input type="date" className="mt-1.5" value={cStart} onChange={e => setCStart(e.target.value)} />
+              </div>
+              <div>
+                <Label>End Date *</Label>
+                <Input type="date" className="mt-1.5" value={cEnd} onChange={e => setCEnd(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Target Type</Label>
+                <Select value={cTargetType} onValueChange={v => setCTargetType(v as any)}>
+                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="chapters">Chapters</SelectItem>
+                    <SelectItem value="days">Days</SelectItem>
+                    <SelectItem value="books">Books</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Target Amount</Label>
+                <Input type="number" className="mt-1.5" min={1} value={cTargetAmount} onChange={e => setCTargetAmount(e.target.value)} />
+              </div>
+            </div>
+            <Button className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white rounded-full" onClick={createChallenge}>
+              Create Challenge
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const BibleExplorer = () => {
@@ -1703,60 +1928,7 @@ const BibleExplorer = () => {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* CHALLENGES TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "challenges" && (
-        <div className="space-y-3">
-          {CHALLENGES.map(c => {
-            const progress = joinedChallenges[c.id] || 0;
-            const joined = c.id in joinedChallenges;
-            const pct = Math.round((progress / c.days) * 100);
-            return (
-              <Card key={c.id} className="border border-slate-200 dark:border-slate-700">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1">
-                      <span className="text-2xl">{c.icon}</span>
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm">{c.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{c.desc}</p>
-                        {joined && (
-                          <div className="mt-2">
-                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                              <span>Day {progress} of {c.days}</span>
-                              <span>{pct}%</span>
-                            </div>
-                            <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                              <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1 shrink-0">
-                      {!joined ? (
-                        <Button size="sm" className="h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white" onClick={() => {
-                          const updated = { ...joinedChallenges, [c.id]: 0 };
-                          setJoinedChallenges(updated);
-                          lsSet("bible_challenges", updated);
-                          toast.success("Challenge joined!");
-                        }}>Join</Button>
-                      ) : (
-                        <>
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                            const updated = { ...joinedChallenges, [c.id]: Math.min(progress + 1, c.days) };
-                            setJoinedChallenges(updated);
-                            lsSet("bible_challenges", updated);
-                          }}>+1 Day</Button>
-                          {progress >= c.days && <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-0">Complete!</Badge>}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      {activeTab === "challenges" && <ChallengesTab />}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* REMINDERS TAB */}
