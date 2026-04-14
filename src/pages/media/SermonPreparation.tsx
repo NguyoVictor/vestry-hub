@@ -372,7 +372,7 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
       const path = `${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: storageErr } = await supabase.storage.from("sermon-archives").upload(path, file);
       if (storageErr) throw storageErr;
-      const { data: { publicUrl } } = supabase.storage.from("sermon-archives").getPublicUrl(path);
+      // Private bucket — store path only, generate signed URLs on demand
       const { data: insertData, error: dbErr } = await supabase.from("sermon_archives" as any).insert({
         tenant_id: tenantId,
         title,
@@ -382,7 +382,7 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
         scripture_references: scriptureRefs || null,
         description: description || null,
         tags: tags || null,
-        file_url: publicUrl,
+        file_url: path,  // store path, not public URL — bucket is private
         file_name: file.name,
         file_size: file.size,
         storage_path: path,
@@ -868,7 +868,16 @@ const SermonPreparation = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {item.file_url && (
-                              <DropdownMenuItem onClick={() => window.open(item.file_url, "_blank")}>
+                              <DropdownMenuItem onClick={async () => {
+                                if (item.storage_path) {
+                                  const { data } = await supabase.storage
+                                    .from("sermon-archives")
+                                    .createSignedUrl(item.storage_path, 60);
+                                  if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                                } else {
+                                  window.open(item.file_url, "_blank");
+                                }
+                              }}>
                                 <Eye className="h-4 w-4 mr-2" />View File
                               </DropdownMenuItem>
                             )}

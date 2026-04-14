@@ -174,9 +174,17 @@ Deno.serve(async (req: Request) => {
       .update({ status: "pending" })
       .eq("id", archiveId);
 
-    // Extract text from the file
+    // Get a signed URL for the file (bucket is private)
+    const { data: signedData, error: signedErr } = await supabase.storage
+      .from("sermon-archives")
+      .createSignedUrl(archive.storage_path || archive.file_url, 300);
+
+    if (signedErr || !signedData?.signedUrl) {
+      throw new Error("Could not generate signed URL for file");
+    }
+
     const rawText = await extractText(
-      archive.file_url,
+      signedData.signedUrl,
       archive.file_name?.split(".").pop()?.toLowerCase() === "pdf" ? "application/pdf"
         : archive.file_name?.split(".").pop()?.toLowerCase() === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         : "text/plain",
