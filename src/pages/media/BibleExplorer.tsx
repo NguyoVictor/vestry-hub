@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   BookOpen, ChevronLeft, ChevronRight, Search, Bookmark, BookMarked,
   PenLine, RefreshCw, Share2, Sun, Flame, BarChart2, Trophy, Bell,
@@ -133,6 +134,219 @@ const TABS = [
   { key: "challenges", label: "Challenges", icon: Trophy },
   { key: "reminders", label: "Reminders", icon: Bell },
 ];
+
+// ── Readings Tab ─────────────────────────────────────────────────────────────
+
+interface Reading {
+  id: string;
+  title: string;
+  book: string;
+  chapterStart: number;
+  verseStart: string;
+  chapterEnd: string;
+  verseEnd: string;
+  theme: string;
+  reflection: string;
+  date: string;
+  published: boolean;
+}
+
+const EMPTY_READING: Omit<Reading, "id"> = {
+  title: "", book: "", chapterStart: 1, verseStart: "", chapterEnd: "", verseEnd: "",
+  theme: "", reflection: "", date: new Date().toISOString().split("T")[0], published: false,
+};
+
+function AddReadingDialog({ open, onClose, onSave, allBooks }: {
+  open: boolean; onClose: () => void; onSave: (r: Reading) => void; allBooks: string[];
+}) {
+  const [form, setForm] = useState({ ...EMPTY_READING });
+
+  const handleCreate = () => {
+    if (!form.title.trim() || !form.book) { toast.error("Title and Book are required"); return; }
+    onSave({ ...form, id: crypto.randomUUID() });
+    setForm({ ...EMPTY_READING });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add Bible Reading</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          {/* Title */}
+          <div>
+            <Label>Title *</Label>
+            <Input className="mt-1.5" placeholder="e.g., Morning Devotional" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+          </div>
+
+          {/* Book + Date */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Book *</Label>
+              <Select value={form.book || undefined} onValueChange={v => setForm(f => ({ ...f, book: v }))}>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select book" /></SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {allBooks.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Reading Date</Label>
+              <Input type="date" className="mt-1.5" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Chapter/Verse range */}
+          <div className="grid grid-cols-4 gap-2">
+            <div>
+              <Label className="text-xs">Chapter Start *</Label>
+              <Input className="mt-1.5 h-9" type="number" min={1} value={form.chapterStart} onChange={e => setForm(f => ({ ...f, chapterStart: Number(e.target.value) }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Verse Start</Label>
+              <Input className="mt-1.5 h-9" placeholder="" value={form.verseStart} onChange={e => setForm(f => ({ ...f, verseStart: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Chapter End</Label>
+              <Input className="mt-1.5 h-9" placeholder="" value={form.chapterEnd} onChange={e => setForm(f => ({ ...f, chapterEnd: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Verse End</Label>
+              <Input className="mt-1.5 h-9" placeholder="" value={form.verseEnd} onChange={e => setForm(f => ({ ...f, verseEnd: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Theme */}
+          <div>
+            <Label>Theme</Label>
+            <Input className="mt-1.5" placeholder="e.g., Faith, Hope, Love" value={form.theme} onChange={e => setForm(f => ({ ...f, theme: e.target.value }))} />
+          </div>
+
+          {/* Reflection */}
+          <div>
+            <Label>Reflection / Commentary</Label>
+            <Textarea className="mt-1.5 resize-none" rows={4} placeholder="Add a reflection or commentary for this reading..." value={form.reflection} onChange={e => setForm(f => ({ ...f, reflection: e.target.value }))} />
+          </div>
+
+          {/* Publish toggle */}
+          <div className="flex items-center gap-3">
+            <Switch checked={form.published} onCheckedChange={v => setForm(f => ({ ...f, published: v }))} />
+            <Label className="text-sm">Publish immediately</Label>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+            <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handleCreate}>Create</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReadingsTab({ allBooks, onNavigate }: { allBooks: string[]; onNavigate: (book: string, ch: number) => void }) {
+  const [readings, setReadings] = useState<Reading[]>(() => lsGet("bible_readings", []));
+  const [addOpen, setAddOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<"published" | "drafts">("published");
+
+  const saveReading = (r: Reading) => {
+    const updated = [r, ...readings];
+    setReadings(updated);
+    lsSet("bible_readings", updated);
+    toast.success(r.published ? "Reading published!" : "Reading saved as draft");
+  };
+
+  const deleteReading = (id: string) => {
+    const updated = readings.filter(r => r.id !== id);
+    setReadings(updated);
+    lsSet("bible_readings", updated);
+    toast.success("Reading deleted");
+  };
+
+  const published = readings.filter(r => r.published);
+  const drafts = readings.filter(r => !r.published);
+  const shown = activeFilter === "published" ? published : drafts;
+
+  return (
+    <div>
+      {/* Header row */}
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h2 className="font-bold text-base">Manage Readings</h2>
+          <p className="text-sm text-muted-foreground">Create and manage daily Bible readings for your congregation</p>
+        </div>
+        <Button className="bg-orange-500 hover:bg-orange-600 text-white shrink-0" onClick={() => setAddOpen(true)}>
+          <span className="mr-1 text-lg leading-none">+</span> Add Reading
+        </Button>
+      </div>
+
+      {/* Published / Drafts filter pills */}
+      <div className="flex gap-2 mb-4">
+        {(["published", "drafts"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              activeFilter === f
+                ? "bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900"
+                : "border-slate-200 dark:border-slate-700 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {f === "published" ? `Published (${published.length})` : `Drafts (${drafts.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {shown.length === 0 ? (
+        <Card className="border border-slate-200 dark:border-slate-700">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <BookOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">No {activeFilter} readings yet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {shown.map(r => {
+            const passage = `${r.book} ${r.chapterStart}${r.verseStart ? `:${r.verseStart}` : ""}${r.chapterEnd ? `–${r.chapterEnd}` : ""}${r.verseEnd ? `:${r.verseEnd}` : ""}`;
+            return (
+              <Card key={r.id} className="border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${r.published ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                          {r.published ? "Published" : "Draft"}
+                        </span>
+                        {r.theme && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-orange-100 text-orange-700">{r.theme}</span>}
+                      </div>
+                      <p className="font-semibold text-sm">{r.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{passage}</p>
+                      {r.date && <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(r.date), "dd MMM yyyy")}</p>}
+                      {r.reflection && <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{r.reflection}</p>}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onNavigate(r.book, r.chapterStart)}>
+                        Read
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteReading(r.id)}>
+                        ✕
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <AddReadingDialog open={addOpen} onClose={() => setAddOpen(false)} onSave={saveReading} allBooks={allBooks} />
+    </div>
+  );
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -430,32 +644,10 @@ const BibleExplorer = () => {
       {/* READINGS TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "readings" && (
-        <Card className="border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="h-4 w-4 text-orange-500" />
-              <h3 className="font-semibold text-sm">Daily Readings</h3>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">Your recent and upcoming Bible readings.</p>
-            <div className="space-y-2">
-              {READING_PLAN.slice(0, 7).map(day => (
-                <div key={day.day} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${planDone.includes(day.day) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                    {day.day}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{day.passage}</p>
-                  </div>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => {
-                    const [b, c] = day.ref.split(".");
-                    const bookName = Object.entries(BOOK_IDS).find(([, id]) => id === b)?.[0];
-                    if (bookName) { setBook(bookName); setChapter(Number(c)); setActiveTab("reader"); }
-                  }}>Read</Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <ReadingsTab
+          allBooks={ALL_BOOKS}
+          onNavigate={(bookName, ch) => { setBook(bookName); setChapter(ch); setActiveTab("reader"); }}
+        />
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
