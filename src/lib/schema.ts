@@ -104,6 +104,7 @@ export const TABLES = {
   MEDIA_PHOTOS: "media_photos",
   CHURCH_ASSETS: "church_assets",
   ASSET_MAINTENANCE: "asset_maintenance",
+  ASSET_RELEASE_REQUESTS: "asset_release_requests",
   LIVESTREAMS: "livestreams",
   AI_TOOL_USAGE: "ai_tool_usage",
 
