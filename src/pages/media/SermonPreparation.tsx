@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PenLine, Search, Trash2, FileText, BookOpen, Sparkles,
   MoreHorizontal, Pencil, Eye, BookMarked, Clock, Users, CalendarDays,
-  Archive, Loader2, Copy, Printer, CheckCircle2,
+  Archive, Loader2, Copy, Printer, CheckCircle2, Upload, Brain, FileCheck,
 } from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +42,11 @@ const STATUS_COLORS: Record<string, string> = {
 const STYLE_PILL = "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300";
 
 const STYLES = ["Expository", "Topical", "Narrative", "Devotional", "Apologetic", "Evangelistic"];
+
+const ARCHIVE_CATEGORIES = [
+  "General", "Church Doctrine", "Salvation", "Faith & Trust", "Prayer",
+  "Worship", "Family & Marriage", "Leadership", "Evangelism", "Discipleship",
+];
 
 // ── Compose Dialog ───────────────────────────────────────────────────────────
 
@@ -331,6 +336,173 @@ function ComposeDialog({ open, onClose, tenantId, userId, onSuccess }: ComposeDi
   );
 }
 
+// ── Upload Archive Dialog ────────────────────────────────────────────────────
+
+interface UploadArchiveDialogProps {
+  open: boolean;
+  onClose: () => void;
+  tenantId: string;
+  userId: string | null;
+  onSuccess: () => void;
+}
+
+function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: UploadArchiveDialogProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("General");
+  const [preacher, setPreacher] = useState("");
+  const [sermonDate, setSermonDate] = useState("");
+  const [scriptureRefs, setScriptureRefs] = useState("");
+  const [description, setDescription] = useState("");
+  const [tags, setTags] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const reset = () => {
+    setFile(null); setTitle(""); setCategory("General"); setPreacher("");
+    setSermonDate(""); setScriptureRefs(""); setDescription(""); setTags("");
+  };
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleUpload = async () => {
+    if (!file || !title.trim()) { toast.error("File and title are required"); return; }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: storageErr } = await supabase.storage.from("sermon-archives").upload(path, file);
+      if (storageErr) throw storageErr;
+      const { data: { publicUrl } } = supabase.storage.from("sermon-archives").getPublicUrl(path);
+      const { error: dbErr } = await supabase.from("sermon_archives" as any).insert({
+        tenant_id: tenantId,
+        title,
+        category,
+        preacher: preacher || null,
+        sermon_date: sermonDate || null,
+        scripture_references: scriptureRefs || null,
+        description: description || null,
+        tags: tags || null,
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        storage_path: path,
+        status: "pending",
+        uploaded_by: userId,
+      });
+      if (dbErr) throw dbErr;
+      toast.success("Sermon archive uploaded successfully");
+      onSuccess();
+      handleClose();
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Upload Sermon Notes</DialogTitle>
+          <p className="text-sm text-muted-foreground">Upload sermon manuscripts, notes, or teaching materials to train the AI</p>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          {/* File picker */}
+          <div>
+            <Label>File *</Label>
+            <div
+              className="mt-1.5 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+              {file ? (
+                <p className="text-sm font-medium text-indigo-600">{file.name}</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-muted-foreground">Click to upload or drag and drop</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">PDF, DOC, DOCX, TXT, MD, RTF (max 50MB)</p>
+                </>
+              )}
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.md,.rtf"
+              className="hidden"
+              onChange={e => setFile(e.target.files?.[0] || null)}
+            />
+          </div>
+
+          {/* Title */}
+          <div>
+            <Label>Title *</Label>
+            <Input className="mt-1.5" placeholder="Sermon or teaching title" value={title} onChange={e => setTitle(e.target.value)} />
+          </div>
+
+          {/* Category + Preacher */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ARCHIVE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Preacher/Teacher</Label>
+              <Input className="mt-1.5" placeholder="Name of speaker" value={preacher} onChange={e => setPreacher(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Date + Scripture */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Sermon Date</Label>
+              <Input className="mt-1.5" type="date" value={sermonDate} onChange={e => setSermonDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Scripture References</Label>
+              <Input className="mt-1.5" placeholder="John 3:16, Romans 8:28" value={scriptureRefs} onChange={e => setScriptureRefs(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              className="mt-1.5 resize-none"
+              rows={3}
+              placeholder="Brief description of the sermon content and themes"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Tags */}
+          <div>
+            <Label>Tags</Label>
+            <Input className="mt-1.5" placeholder="faith, hope, salvation (comma separated)" value={tags} onChange={e => setTags(e.target.value)} />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={handleClose} disabled={uploading}>Cancel</Button>
+            <Button
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={handleUpload}
+              disabled={!file || !title.trim() || uploading}
+            >
+              {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</> : <><Upload className="mr-2 h-4 w-4" />Upload</>}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 const SermonPreparation = () => {
@@ -344,6 +516,9 @@ const SermonPreparation = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewItem, setViewItem] = useState<any>(null);
+  const [uploadArchiveOpen, setUploadArchiveOpen] = useState(false);
+  const [archiveSearch, setArchiveSearch] = useState("");
+  const [archiveCategoryFilter, setArchiveCategoryFilter] = useState("all");
 
   const { data: sermons = [], isLoading } = useQuery({
     queryKey: ["sermons", church.tenantId],
@@ -356,6 +531,36 @@ const SermonPreparation = () => {
       return data || [];
     },
     staleTime: 60000,
+  });
+
+  const { data: archives = [], isLoading: archivesLoading } = useQuery({
+    queryKey: ["sermon_archives", church.tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sermon_archives" as any)
+        .select("*")
+        .eq("tenant_id", church.tenantId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!church.tenantId,
+    staleTime: 60000,
+  });
+
+  const deleteArchiveMut = useMutation({
+    mutationFn: async (item: any) => {
+      if (item.storage_path) {
+        await supabase.storage.from("sermon-archives").remove([item.storage_path]);
+      }
+      const { error } = await supabase.from("sermon_archives" as any).delete().eq("id", item.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sermon_archives"] });
+      toast.success("Archive deleted");
+    },
+    onError: (err: any) => toast.error(err.message),
   });
 
   const deleteMut = useMutation({
@@ -372,6 +577,7 @@ const SermonPreparation = () => {
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["sermons"] });
+  const invalidateArchives = () => qc.invalidateQueries({ queryKey: ["sermon_archives"] });
 
   const filtered = sermons.filter((s: any) => {
     const matchTab = activeTab === "archive" ? s.status === "archived" : s.status !== "archived";
@@ -440,98 +646,236 @@ const SermonPreparation = () => {
         ))}
       </div>
 
-      {/* ── Search + filters ── */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search by title, theme, or scripture..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div className="flex items-center gap-2 ml-auto shrink-0">
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="sermon">Sermons</SelectItem>
-              <SelectItem value="bible_study">Bible Study</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="ready">Ready</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* ── Search + filters (Saved Content tab only) ── */}
+      {activeTab === "saved" && (
+        <>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Search by title, theme, or scripture..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-2 ml-auto shrink-0">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="sermon">Sermons</SelectItem>
+                  <SelectItem value="bible_study">Bible Study</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="ready">Ready</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      {/* ── Content list ── */}
-      {isLoading ? (
-        <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
-      ) : filtered.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-20">
-            <PenLine className="h-16 w-16 text-muted-foreground/30 mb-4" />
-            <h3 className="font-semibold text-lg mb-1">{activeTab === "archive" ? "No archived content" : "No saved content yet"}</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {activeTab === "archive" ? "Archived sermons and studies will appear here." : "Click \"Prepare Sermon/Study\" to generate your first AI-powered sermon or Bible study."}
-            </p>
-            {activeTab === "saved" && (
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setComposeOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />Prepare Sermon/Study
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((item: any) => {
-            const itemType = item.sermon_type || "sermon";
-            const itemStyle = item.style || "expository";
-            return (
-              <Card key={item.id} className="border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_COLORS[itemType] || TYPE_COLORS.sermon}`}>
-                          {itemType === "bible_study" ? "Bible Study" : "Sermon"}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STYLE_PILL}`}>{itemStyle}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[item.status] || STATUS_COLORS.draft}`}>{item.status}</span>
-                        {(item as any).ai_generated && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                            <Sparkles className="h-3 w-3" />AI
-                          </span>
-                        )}
+          {/* ── Content list ── */}
+          {isLoading ? (
+            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+          ) : filtered.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-20">
+                <PenLine className="h-16 w-16 text-muted-foreground/30 mb-4" />
+                <h3 className="font-semibold text-lg mb-1">No saved content yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">Click "Prepare Sermon/Study" to generate your first AI-powered sermon or Bible study.</p>
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setComposeOpen(true)}>
+                  <Sparkles className="mr-2 h-4 w-4" />Prepare Sermon/Study
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((item: any) => {
+                const itemType = item.sermon_type || "sermon";
+                const itemStyle = item.style || "expository";
+                return (
+                  <Card key={item.id} className="border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TYPE_COLORS[itemType] || TYPE_COLORS.sermon}`}>
+                              {itemType === "bible_study" ? "Bible Study" : "Sermon"}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STYLE_PILL}`}>{itemStyle}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[item.status] || STATUS_COLORS.draft}`}>{item.status}</span>
+                            {(item as any).ai_generated && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                                <Sparkles className="h-3 w-3" />AI
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-semibold text-sm leading-snug mb-2">{item.title}</p>
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            {item.scripture_reference && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{item.scripture_reference}</span>}
+                            {item.speaker && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{item.speaker}</span>}
+                            {item.duration && <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{item.duration}</span>}
+                            {item.created_at && <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{format(new Date(item.created_at), "dd MMM yyyy")}</span>}
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewItem(item)}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(item.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <p className="font-semibold text-sm leading-snug mb-2">{item.title}</p>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        {item.scripture_reference && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{item.scripture_reference}</span>}
-                        {item.speaker && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{item.speaker}</span>}
-                        {item.duration && <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{item.duration}</span>}
-                        {item.created_at && <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{format(new Date(item.created_at), "dd MMM yyyy")}</span>}
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setViewItem(item)}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(item.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── AI Training Archive tab ── */}
+      {activeTab === "archive" && (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            {[
+              { icon: FileText, color: "text-orange-500 bg-orange-50 dark:bg-orange-900/20", val: archives.length, label: "Total Archives" },
+              { icon: FileCheck, color: "text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20", val: archives.filter((a: any) => a.status === "processed").length, label: "AI Processed" },
+              { icon: Clock, color: "text-amber-500 bg-amber-50 dark:bg-amber-900/20", val: archives.filter((a: any) => a.status === "pending").length, label: "Pending Processing" },
+            ].map(({ icon: Icon, color, val, label }) => (
+              <Card key={label}>
+                <CardContent className="p-5 flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${color.split(" ").slice(1).join(" ")}`}>
+                    <Icon className={`h-5 w-5 ${color.split(" ")[0]}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{val}</p>
+                    <p className="text-xs text-muted-foreground">{label}</p>
                   </div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+
+          {/* Info card */}
+          <Card className="mb-5 border border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-50/60 to-purple-50/40 dark:from-indigo-900/10 dark:to-purple-900/10">
+            <CardContent className="p-5 flex items-start gap-4">
+              <div className="h-10 w-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                <Brain className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base mb-1">Train AI with Your Church's Voice</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Upload sermon notes, manuscripts, and teaching materials to help the AI understand your church's doctrine, message tone, and delivery style. This enriches AI-generated content to be specific to your church rather than generic.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {["PDF", "Word Documents", "Text Files", "RTF"].map(f => (
+                    <span key={f} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">{f}</span>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Search + category filter + upload button */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9" placeholder="Search archives..." value={archiveSearch} onChange={e => setArchiveSearch(e.target.value)} />
+            </div>
+            <Select value={archiveCategoryFilter} onValueChange={setArchiveCategoryFilter}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {ARCHIVE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white shrink-0" onClick={() => setUploadArchiveOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />Upload Sermon Notes
+            </Button>
+          </div>
+
+          {/* Archive list */}
+          {archivesLoading ? (
+            <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+          ) : (() => {
+            const filteredArchives = archives.filter((a: any) => {
+              const matchCat = archiveCategoryFilter === "all" || a.category === archiveCategoryFilter;
+              const matchSearch = !archiveSearch.trim() ||
+                (a.title || "").toLowerCase().includes(archiveSearch.toLowerCase()) ||
+                (a.preacher || "").toLowerCase().includes(archiveSearch.toLowerCase());
+              return matchCat && matchSearch;
+            });
+            return filteredArchives.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-20">
+                  <BookOpen className="h-16 w-16 text-muted-foreground/30 mb-4" />
+                  <h3 className="font-semibold text-lg mb-1">No sermon archives yet</h3>
+                  <p className="text-sm text-muted-foreground mb-4 text-center max-w-xs">
+                    Upload sermon notes and manuscripts to help the AI understand your church's unique voice and doctrine.
+                  </p>
+                  <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setUploadArchiveOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" />Upload First Archive
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {filteredArchives.map((item: any) => (
+                  <Card key={item.id} className="border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                            <FileText className="h-5 w-5 text-indigo-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">{item.category}</span>
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${item.status === "processed" ? "bg-emerald-100 text-emerald-700" : item.status === "failed" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                                {item.status}
+                              </span>
+                            </div>
+                            <p className="font-semibold text-sm leading-snug">{item.title}</p>
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
+                              {item.preacher && <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{item.preacher}</span>}
+                              {item.sermon_date && <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" />{format(new Date(item.sermon_date), "dd MMM yyyy")}</span>}
+                              {item.scripture_references && <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{item.scripture_references}</span>}
+                              {item.file_name && <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{item.file_name}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {item.file_url && (
+                              <DropdownMenuItem onClick={() => window.open(item.file_url, "_blank")}>
+                                <Eye className="h-4 w-4 mr-2" />View File
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={() => deleteArchiveMut.mutate(item)}>
+                              <Trash2 className="h-4 w-4 mr-2" />Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             );
-          })}
-        </div>
+          })()}
+        </>
       )}
 
       {/* ── View dialog ── */}
@@ -583,6 +927,15 @@ const SermonPreparation = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── Upload Archive dialog ── */}
+      <UploadArchiveDialog
+        open={uploadArchiveOpen}
+        onClose={() => setUploadArchiveOpen(false)}
+        tenantId={church.tenantId!}
+        userId={church.userId}
+        onSuccess={invalidateArchives}
+      />
 
       {/* ── Compose dialog ── */}
       <ComposeDialog
