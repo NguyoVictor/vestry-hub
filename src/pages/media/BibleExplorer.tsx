@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   BookOpen, ChevronLeft, ChevronRight, Search, Bookmark, BookMarked,
   PenLine, RefreshCw, Share2, Sun, Flame, BarChart2, Trophy, Bell,
-  CheckCircle2, Circle, Calendar, Target, Zap, BookOpenText, FileText,
+  CheckCircle2, Circle, Calendar, Target, Zap, BookOpenText, FileText, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -567,6 +567,272 @@ function ReadingsTab({ allBooks, onNavigate }: { allBooks: string[]; onNavigate:
   );
 }
 
+// ── Reading Planner ───────────────────────────────────────────────────────────
+
+const PLAN_TYPES = [
+  { id: "bible_1year", label: "Read Bible in 1 Year", days: 365, description: "Complete Bible in 365 days" },
+  { id: "bible_90days", label: "Read Bible in 90 Days", days: 90, description: "Complete Bible in 90 days" },
+  { id: "nt_30days", label: "New Testament in 30 Days", days: 30, description: "New Testament in 30 days" },
+  { id: "psalms_31days", label: "Psalms in 31 Days", days: 31, description: "All 150 Psalms in 31 days" },
+  { id: "custom", label: "Custom Plan", days: 0, description: "Create your own plan" },
+];
+
+// Generate daily readings for a plan type starting from a date
+function generatePlanReadings(typeId: string, startDate: string): { day: number; passage: string; ref: string; date: string }[] {
+  const start = new Date(startDate);
+  const readings: { day: number; passage: string; ref: string; date: string }[] = [];
+
+  if (typeId === "nt_30days") {
+    const ntPassages = [
+      "Matthew 1-4","Matthew 5-7","Matthew 8-11","Matthew 12-15","Matthew 16-19","Matthew 20-22","Matthew 23-25","Matthew 26-28",
+      "Mark 1-4","Mark 5-8","Mark 9-12","Mark 13-16","Luke 1-3","Luke 4-6","Luke 7-9","Luke 10-12",
+      "Luke 13-16","Luke 17-19","Luke 20-22","Luke 23-24","John 1-3","John 4-6","John 7-9","John 10-12",
+      "John 13-15","John 16-18","John 19-21","Acts 1-4","Acts 5-8","Acts 9-12",
+    ];
+    ntPassages.forEach((p, i) => {
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      readings.push({ day: i + 1, passage: p, ref: p.split(" ")[0].toUpperCase().slice(0, 3) + "." + p.split(" ")[1].split("-")[0], date: d.toISOString().split("T")[0] });
+    });
+  } else if (typeId === "psalms_31days") {
+    const groups = ["1-5","6-10","11-15","16-20","21-25","26-30","31-35","36-40","41-45","46-50","51-55","56-60","61-65","66-70","71-75","76-80","81-85","86-90","91-95","96-100","101-105","106-110","111-115","116-120","121-125","126-130","131-135","136-140","141-145","146-148","149-150"];
+    groups.forEach((g, i) => {
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      readings.push({ day: i + 1, passage: `Psalms ${g}`, ref: `PSA.${g.split("-")[0]}`, date: d.toISOString().split("T")[0] });
+    });
+  } else {
+    // Bible in 1 Year / 90 Days — Genesis through Revelation in chunks
+    const allPassages = [
+      "Genesis 1-3","Genesis 4-6","Genesis 7-9","Genesis 10-12","Genesis 13-15","Genesis 16-18","Genesis 19-21","Genesis 22-24",
+      "Genesis 25-27","Genesis 28-30","Genesis 31-33","Genesis 34-36","Genesis 37-39","Genesis 40-42","Genesis 43-45","Genesis 46-50",
+      "Exodus 1-4","Exodus 5-8","Exodus 9-12","Exodus 13-16","Exodus 17-20","Exodus 21-24","Exodus 25-28","Exodus 29-32","Exodus 33-36","Exodus 37-40",
+      "Leviticus 1-4","Leviticus 5-8","Leviticus 9-12","Leviticus 13-16","Leviticus 17-20","Leviticus 21-24","Leviticus 25-27",
+      "Numbers 1-4","Numbers 5-8","Numbers 9-12","Numbers 13-16","Numbers 17-20","Numbers 21-24","Numbers 25-28","Numbers 29-32","Numbers 33-36",
+      "Deuteronomy 1-4","Deuteronomy 5-8","Deuteronomy 9-12","Deuteronomy 13-16","Deuteronomy 17-20","Deuteronomy 21-24","Deuteronomy 25-28","Deuteronomy 29-34",
+      "Joshua 1-6","Joshua 7-12","Joshua 13-18","Joshua 19-24",
+      "Judges 1-6","Judges 7-12","Judges 13-18","Judges 19-21","Ruth 1-4",
+      "1 Samuel 1-6","1 Samuel 7-12","1 Samuel 13-18","1 Samuel 19-24","1 Samuel 25-31",
+      "2 Samuel 1-6","2 Samuel 7-12","2 Samuel 13-18","2 Samuel 19-24",
+      "1 Kings 1-6","1 Kings 7-12","1 Kings 13-18","1 Kings 19-22",
+      "2 Kings 1-6","2 Kings 7-12","2 Kings 13-18","2 Kings 19-25",
+      "Psalms 1-10","Psalms 11-20","Psalms 21-30","Psalms 31-40","Psalms 41-50",
+      "Psalms 51-60","Psalms 61-70","Psalms 71-80","Psalms 81-90","Psalms 91-100",
+      "Psalms 101-110","Psalms 111-120","Psalms 121-130","Psalms 131-140","Psalms 141-150",
+      "Proverbs 1-6","Proverbs 7-12","Proverbs 13-18","Proverbs 19-24","Proverbs 25-31",
+      "Isaiah 1-6","Isaiah 7-12","Isaiah 13-18","Isaiah 19-24","Isaiah 25-30","Isaiah 31-36","Isaiah 37-42","Isaiah 43-48","Isaiah 49-54","Isaiah 55-60","Isaiah 61-66",
+      "Matthew 1-4","Matthew 5-7","Matthew 8-11","Matthew 12-15","Matthew 16-19","Matthew 20-22","Matthew 23-25","Matthew 26-28",
+      "Mark 1-4","Mark 5-8","Mark 9-12","Mark 13-16",
+      "Luke 1-3","Luke 4-6","Luke 7-9","Luke 10-12","Luke 13-16","Luke 17-19","Luke 20-22","Luke 23-24",
+      "John 1-3","John 4-6","John 7-9","John 10-12","John 13-15","John 16-18","John 19-21",
+      "Acts 1-4","Acts 5-8","Acts 9-12","Acts 13-16","Acts 17-20","Acts 21-24","Acts 25-28",
+      "Romans 1-4","Romans 5-8","Romans 9-12","Romans 13-16",
+      "1 Corinthians 1-6","1 Corinthians 7-11","1 Corinthians 12-16",
+      "2 Corinthians 1-6","2 Corinthians 7-13",
+      "Galatians 1-6","Ephesians 1-6","Philippians 1-4","Colossians 1-4",
+      "1 Thessalonians 1-5","2 Thessalonians 1-3","1 Timothy 1-6","2 Timothy 1-4","Titus 1-3","Philemon 1",
+      "Hebrews 1-6","Hebrews 7-13","James 1-5","1 Peter 1-5","2 Peter 1-3",
+      "1 John 1-5","2 John 1","3 John 1","Jude 1","Revelation 1-6","Revelation 7-12","Revelation 13-18","Revelation 19-22",
+    ];
+    const totalDays = typeId === "bible_90days" ? 90 : 365;
+    const step = Math.ceil(allPassages.length / totalDays);
+    for (let i = 0; i < totalDays; i++) {
+      const chunk = allPassages.slice(i * step, (i + 1) * step);
+      if (chunk.length === 0) break;
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      const passage = chunk.join(", ");
+      const firstBook = chunk[0].split(" ")[0];
+      readings.push({ day: i + 1, passage, ref: firstBook.toUpperCase().slice(0, 3) + ".1", date: d.toISOString().split("T")[0] });
+    }
+  }
+  return readings;
+}
+
+interface PlanData {
+  id: string;
+  name: string;
+  typeId: string;
+  startDate: string;
+  readings: { day: number; passage: string; ref: string; date: string }[];
+  completedDays: number[];
+}
+
+function ReadingPlannerTab({ onNavigate }: { onNavigate: (book: string, ch: number) => void }) {
+  const [plans, setPlans] = useState<PlanData[]>(() => lsGet("bible_reading_plans", []));
+  const [activePlanId, setActivePlanId] = useState<string>(() => lsGet("bible_active_plan_id", ""));
+  const [createOpen, setCreateOpen] = useState(false);
+  const [planName, setPlanName] = useState("");
+  const [planType, setPlanType] = useState("bible_1year");
+  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+
+  const activePlan = plans.find(p => p.id === activePlanId) || plans[0] || null;
+
+  const createPlan = () => {
+    if (!planName.trim()) { toast.error("Plan name is required"); return; }
+    const readings = generatePlanReadings(planType, startDate);
+    const plan: PlanData = { id: crypto.randomUUID(), name: planName, typeId: planType, startDate, readings, completedDays: [] };
+    const updated = [...plans, plan];
+    setPlans(updated);
+    lsSet("bible_reading_plans", updated);
+    setActivePlanId(plan.id);
+    lsSet("bible_active_plan_id", plan.id);
+    setPlanName(""); setPlanType("bible_1year"); setStartDate(new Date().toISOString().split("T")[0]);
+    setCreateOpen(false);
+    toast.success("Reading plan created!");
+  };
+
+  const deletePlan = (id: string) => {
+    const updated = plans.filter(p => p.id !== id);
+    setPlans(updated);
+    lsSet("bible_reading_plans", updated);
+    const newActive = updated[0]?.id || "";
+    setActivePlanId(newActive);
+    lsSet("bible_active_plan_id", newActive);
+  };
+
+  const toggleDay = (day: number) => {
+    if (!activePlan) return;
+    const done = activePlan.completedDays.includes(day);
+    const updated = done ? activePlan.completedDays.filter(d => d !== day) : [...activePlan.completedDays, day];
+    const updatedPlan = { ...activePlan, completedDays: updated };
+    const updatedPlans = plans.map(p => p.id === activePlan.id ? updatedPlan : p);
+    setPlans(updatedPlans);
+    lsSet("bible_reading_plans", updatedPlans);
+  };
+
+  const today = new Date().toISOString().split("T")[0];
+  const todayReading = activePlan?.readings.find(r => r.date === today);
+  const pct = activePlan ? Math.round((activePlan.completedDays.length / activePlan.readings.length) * 100) : 0;
+
+  return (
+    <>
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-orange-500" />
+              <h3 className="font-semibold text-sm">Reading Planner</h3>
+            </div>
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs" onClick={() => setCreateOpen(true)}>
+              <span className="mr-1 text-base leading-none">+</span> New Plan
+            </Button>
+          </div>
+
+          {plans.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <Calendar className="h-12 w-12 text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">No reading plans yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Create a plan to start tracking your Bible reading</p>
+            </div>
+          ) : (
+            <>
+              {/* Plan selector + delete */}
+              <div className="flex items-center gap-2 mb-3">
+                <Select value={activePlanId} onValueChange={v => { setActivePlanId(v); lsSet("bible_active_plan_id", v); }}>
+                  <SelectTrigger className="flex-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {plans.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive shrink-0" onClick={() => activePlan && deletePlan(activePlan.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Progress bar */}
+              {activePlan && (
+                <>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                    <span>Progress</span>
+                    <span>{pct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-1">
+                    <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">{activePlan.completedDays.length} of {activePlan.readings.length} readings completed</p>
+
+                  {/* Today's reading highlight */}
+                  {todayReading && (
+                    <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 p-3 mb-4">
+                      <p className="text-xs font-semibold text-orange-600 mb-1">Today's Reading</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{todayReading.passage}</p>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-orange-600" onClick={() => toggleDay(todayReading.day)}>
+                          {activePlan.completedDays.includes(todayReading.day) ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4" />}
+                          <span className="ml-1">{activePlan.completedDays.includes(todayReading.day) ? "Done" : "Read"}</span>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Full reading list */}
+                  <div className="max-h-[400px] overflow-y-auto space-y-1 pr-1">
+                    {activePlan.readings.map(r => {
+                      const done = activePlan.completedDays.includes(r.day);
+                      const isToday = r.date === today;
+                      return (
+                        <div key={r.day} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${done ? "border-emerald-100 bg-emerald-50/50 dark:bg-emerald-900/10" : isToday ? "border-orange-200 bg-orange-50/30" : "border-slate-100 dark:border-slate-700/50"}`}>
+                          <button onClick={() => toggleDay(r.day)} className="shrink-0">
+                            {done
+                              ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                              : <Circle className="h-4 w-4 text-muted-foreground" />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate ${done ? "line-through text-muted-foreground" : ""}`}>{r.passage}</p>
+                            <p className="text-[10px] text-muted-foreground">{format(new Date(r.date), "MMM d, yyyy")}</p>
+                          </div>
+                          {isToday && <span className="text-[10px] font-semibold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded shrink-0">Today</span>}
+                          <button
+                            className="shrink-0 text-muted-foreground hover:text-orange-600 transition-colors"
+                            onClick={() => {
+                              const bookName = Object.entries(BOOK_IDS).find(([, id]) => id === r.ref.split(".")[0])?.[0];
+                              if (bookName) onNavigate(bookName, Number(r.ref.split(".")[1] || 1));
+                            }}
+                          >
+                            <BookOpen className="h-4 w-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Plan Dialog */}
+      <Dialog open={createOpen} onOpenChange={v => { if (!v) setCreateOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Create Reading Plan</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Plan Name</Label>
+              <Input className="mt-1.5" placeholder="e.g., My 2024 Bible Reading" value={planName} onChange={e => setPlanName(e.target.value)} />
+            </div>
+            <div>
+              <Label>Plan Type</Label>
+              <Select value={planType} onValueChange={setPlanType}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PLAN_TYPES.map(t => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Start Date</Label>
+              <Input type="date" className="mt-1.5" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+            <Button className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white rounded-full" onClick={createPlan}>
+              Create Plan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const BibleExplorer = () => {
@@ -996,42 +1262,9 @@ const BibleExplorer = () => {
       {/* READING PLAN TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "plan" && (
-        <Card className="border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-orange-500" />
-                <h3 className="font-semibold text-sm">30-Day Reading Plan</h3>
-              </div>
-              <Badge variant="secondary" className="text-xs">{planDone.length}/30 complete</Badge>
-            </div>
-            <div className="space-y-2">
-              {READING_PLAN.map(day => {
-                const done = planDone.includes(day.day);
-                return (
-                  <div key={day.day} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${done ? "border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/10" : "border-slate-100 dark:border-slate-700"}`}>
-                    <button onClick={() => {
-                      const updated = done ? planDone.filter(d => d !== day.day) : [...planDone, day.day];
-                      setPlanDone(updated);
-                      lsSet("bible_plan_done", updated);
-                    }}>
-                      {done ? <CheckCircle2 className="h-5 w-5 text-emerald-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
-                    </button>
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Day {day.day}</p>
-                      <p className={`text-sm font-medium ${done ? "line-through text-muted-foreground" : ""}`}>{day.passage}</p>
-                    </div>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
-                      const [b, c] = day.ref.split(".");
-                      const bookName = Object.entries(BOOK_IDS).find(([, id]) => id === b)?.[0];
-                      if (bookName) { setBook(bookName); setChapter(Number(c)); setActiveTab("reader"); }
-                    }}>Read →</Button>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        <ReadingPlannerTab
+          onNavigate={(bookName, ch) => { setBook(bookName); setChapter(ch); setActiveTab("reader"); }}
+        />
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
