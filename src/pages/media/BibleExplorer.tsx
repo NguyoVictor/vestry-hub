@@ -135,6 +135,225 @@ const TABS = [
   { key: "reminders", label: "Reminders", icon: Bell },
 ];
 
+// ── BookmarksTab component ────────────────────────────────────────────────────
+
+type BmEntry = { ref: string; text: string; version: string };
+
+function BookmarksTab({ bookmarks, removeBookmark }: { bookmarks: BmEntry[]; removeBookmark: (ref: string) => void }) {
+  const [bmSearch, setBmSearch] = useState("");
+  const [bmFilter, setBmFilter] = useState<"all" | "favorites" | "notes">("all");
+
+  const filtered = bookmarks.filter(b =>
+    !bmSearch.trim() ||
+    b.ref.toLowerCase().includes(bmSearch.toLowerCase()) ||
+    b.text.toLowerCase().includes(bmSearch.toLowerCase())
+  );
+
+  return (
+    <Card className="border border-slate-200 dark:border-slate-700">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Bookmark className="h-4 w-4 text-orange-500" />
+            <h3 className="font-semibold text-sm">My Bookmarks &amp; Notes</h3>
+          </div>
+          <span className="text-xs text-muted-foreground">{bookmarks.length} saved</span>
+        </div>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input className="pl-8 h-8 text-xs" placeholder="Search bookmarks..." value={bmSearch} onChange={e => setBmSearch(e.target.value)} />
+          </div>
+          <div className="flex items-center gap-1">
+            {(["all", "favorites", "notes"] as const).map(f => (
+              <button key={f} onClick={() => setBmFilter(f)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${bmFilter === f ? "bg-orange-500 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                {f === "favorites" && <span className="text-[10px]">☆</span>}
+                {f === "notes" && <PenLine className="h-3 w-3" />}
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <BookOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {bookmarks.length === 0 ? "No bookmarks yet. Click a verse while reading to save it!" : "No bookmarks match your search."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map((b, i) => (
+              <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-800 transition-colors">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-orange-600 mb-1">{b.ref}<span className="text-muted-foreground font-normal ml-1">· {b.version}</span></p>
+                    <p className="text-sm leading-relaxed">{b.text}</p>
+                  </div>
+                  <button onClick={() => removeBookmark(b.ref)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5">
+                    <span className="text-xs">✕</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── NotesTab component ────────────────────────────────────────────────────────
+
+type NoteEntry = { ref: string; text: string; date: string; title?: string; tags?: string; isPrivate?: boolean };
+
+function NotesTab({ notes, setNotes, versesLooked, setVersesLooked }: {
+  notes: NoteEntry[];
+  setNotes: (n: NoteEntry[]) => void;
+  versesLooked: number;
+  setVersesLooked: (v: number) => void;
+}) {
+  const [noteSearch, setNoteSearch] = useState("");
+  const [addNoteOpen, setAddNoteOpen] = useState(false);
+  const [nTitle, setNTitle] = useState("");
+  const [nBook, setNBook] = useState("");
+  const [nChapter, setNChapter] = useState("1");
+  const [nVerse, setNVerse] = useState("");
+  const [nText, setNText] = useState("");
+  const [nTags, setNTags] = useState("");
+  const [nPrivate, setNPrivate] = useState(true);
+
+  const resetForm = () => { setNTitle(""); setNBook(""); setNChapter("1"); setNVerse(""); setNText(""); setNTags(""); setNPrivate(true); };
+
+  const handleSave = () => {
+    if (!nBook || !nText.trim()) { toast.error("Book and Notes are required"); return; }
+    const ref = `${nBook} ${nChapter}${nVerse ? `:${nVerse}` : ""}`;
+    const entry: NoteEntry = { ref, text: nText, date: format(new Date(), "dd MMM yyyy"), title: nTitle || undefined, tags: nTags || undefined, isPrivate: nPrivate };
+    const updated = [entry, ...notes];
+    setNotes(updated);
+    lsSet("bible_notes", updated);
+    const newCount = versesLooked + 1;
+    setVersesLooked(newCount);
+    lsSet("bible_verses_looked", newCount);
+    toast.success("Note saved!");
+    resetForm();
+    setAddNoteOpen(false);
+  };
+
+  const deleteNote = (i: number) => {
+    const updated = notes.filter((_, idx) => idx !== i);
+    setNotes(updated);
+    lsSet("bible_notes", updated);
+  };
+
+  const filtered = notes.filter(n =>
+    !noteSearch.trim() ||
+    (n.ref || "").toLowerCase().includes(noteSearch.toLowerCase()) ||
+    (n.text || "").toLowerCase().includes(noteSearch.toLowerCase()) ||
+    (n.title || "").toLowerCase().includes(noteSearch.toLowerCase())
+  );
+
+  return (
+    <>
+      <Card className="border border-slate-200 dark:border-slate-700">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <PenLine className="h-4 w-4 text-orange-500" />
+              <h3 className="font-semibold text-sm">Study Notes</h3>
+            </div>
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs" onClick={() => setAddNoteOpen(true)}>
+              <span className="mr-1 text-base leading-none">+</span> Add Note
+            </Button>
+          </div>
+          <div className="relative mb-5">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input className="pl-8 h-8 text-xs" placeholder="Search notes..." value={noteSearch} onChange={e => setNoteSearch(e.target.value)} />
+          </div>
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <FileText className="h-12 w-12 text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">No study notes yet.</p>
+              <p className="text-xs text-muted-foreground mt-1">Click "Add Note" to create your first study note</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((n, i) => (
+                <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-orange-200 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      {n.title && <p className="font-semibold text-sm mb-0.5">{n.title}</p>}
+                      <p className="text-xs font-semibold text-orange-600 mb-1">{n.ref}</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">{n.text}</p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {n.tags && n.tags.split(",").map(t => t.trim()).filter(Boolean).map(t => (
+                          <span key={t} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{t}</span>
+                        ))}
+                        <span className="text-[10px] text-muted-foreground ml-auto">{n.date}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => deleteNote(i)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5">
+                      <span className="text-xs">✕</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={addNoteOpen} onOpenChange={v => { if (!v) { resetForm(); setAddNoteOpen(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Add Study Note</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>Title (optional)</Label>
+              <Input className="mt-1.5" placeholder="e.g., Reflections on Grace" value={nTitle} onChange={e => setNTitle(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Book *</Label>
+                <Select value={nBook || undefined} onValueChange={setNBook}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Book" /></SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {ALL_BOOKS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Chapter *</Label>
+                <Input className="mt-1.5" type="number" min={1} value={nChapter} onChange={e => setNChapter(e.target.value)} />
+              </div>
+              <div>
+                <Label>Verse</Label>
+                <Input className="mt-1.5" placeholder="Optional" value={nVerse} onChange={e => setNVerse(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label>Notes *</Label>
+              <Textarea className="mt-1.5 resize-none" rows={5} placeholder="Write your thoughts, insights, and reflections..." value={nText} onChange={e => setNText(e.target.value)} />
+            </div>
+            <div>
+              <Label>Tags (comma separated)</Label>
+              <Input className="mt-1.5" placeholder="e.g., grace, salvation, faith" value={nTags} onChange={e => setNTags(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={nPrivate} onCheckedChange={setNPrivate} />
+              <Label className="text-sm">Private note</Label>
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => { resetForm(); setAddNoteOpen(false); }}>Cancel</Button>
+              <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSave}>Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // ── Readings Tab ─────────────────────────────────────────────────────────────
 
 interface Reading {
@@ -653,246 +872,21 @@ const BibleExplorer = () => {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* BOOKMARKS TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "bookmarks" && (() => {
-        const [bmSearch, setBmSearch] = useState("");
-        const [bmFilter, setBmFilter] = useState<"all" | "favorites" | "notes">("all");
-
-        const filtered = bookmarks.filter(b => {
-          const matchSearch = !bmSearch.trim() || b.ref.toLowerCase().includes(bmSearch.toLowerCase()) || b.text.toLowerCase().includes(bmSearch.toLowerCase());
-          return matchSearch;
-        });
-
-        return (
-          <Card className="border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-5">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Bookmark className="h-4 w-4 text-orange-500" />
-                  <h3 className="font-semibold text-sm">My Bookmarks &amp; Notes</h3>
-                </div>
-                <span className="text-xs text-muted-foreground">{bookmarks.length} saved</span>
-              </div>
-
-              {/* Search + filter row */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    className="pl-8 h-8 text-xs"
-                    placeholder="Search bookmarks..."
-                    value={bmSearch}
-                    onChange={e => setBmSearch(e.target.value)}
-                  />
-                </div>
-                <div className="flex items-center gap-1">
-                  {(["all", "favorites", "notes"] as const).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setBmFilter(f)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                        bmFilter === f
-                          ? "bg-orange-500 text-white"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      {f === "favorites" && <span className="text-[10px]">☆</span>}
-                      {f === "notes" && <PenLine className="h-3 w-3" />}
-                      {f.charAt(0).toUpperCase() + f.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Content */}
-              {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16">
-                  <BookOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    {bookmarks.length === 0
-                      ? "No bookmarks yet. Click a verse while reading to save it!"
-                      : "No bookmarks match your search."}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filtered.map((b, i) => (
-                    <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-800 transition-colors">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-orange-600 mb-1">
-                            {b.ref}
-                            <span className="text-muted-foreground font-normal ml-1">· {b.version}</span>
-                          </p>
-                          <p className="text-sm leading-relaxed">{b.text}</p>
-                        </div>
-                        <button
-                          onClick={() => removeBookmark(b.ref)}
-                          className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
-                        >
-                          <span className="text-xs">✕</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })()}
+      {activeTab === "bookmarks" && (
+        <BookmarksTab bookmarks={bookmarks} removeBookmark={removeBookmark} />
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* NOTES TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "notes" && (() => {
-        const [noteSearch, setNoteSearch] = useState("");
-        const [addNoteOpen, setAddNoteOpen] = useState(false);
-        const [nTitle, setNTitle] = useState("");
-        const [nBook, setNBook] = useState("");
-        const [nChapter, setNChapter] = useState("1");
-        const [nVerse, setNVerse] = useState("");
-        const [nText, setNText] = useState("");
-        const [nTags, setNTags] = useState("");
-        const [nPrivate, setNPrivate] = useState(true);
-
-        const resetNoteForm = () => { setNTitle(""); setNBook(""); setNChapter("1"); setNVerse(""); setNText(""); setNTags(""); setNPrivate(true); };
-
-        const handleSaveNote = () => {
-          if (!nBook || !nText.trim()) { toast.error("Book and Notes are required"); return; }
-          const ref = `${nBook} ${nChapter}${nVerse ? `:${nVerse}` : ""}`;
-          const entry = { ref, text: nText, date: format(new Date(), "dd MMM yyyy"), title: nTitle || undefined, tags: nTags || undefined, isPrivate: nPrivate };
-          const updated = [entry, ...notes];
-          setNotes(updated);
-          lsSet("bible_notes", updated);
-          const newCount = versesLooked + 1;
-          setVersesLooked(newCount);
-          lsSet("bible_verses_looked", newCount);
-          toast.success("Note saved!");
-          resetNoteForm();
-          setAddNoteOpen(false);
-        };
-
-        const deleteNote = (i: number) => {
-          const updated = notes.filter((_, idx) => idx !== i);
-          setNotes(updated);
-          lsSet("bible_notes", updated);
-        };
-
-        const filtered = notes.filter(n =>
-          !noteSearch.trim() ||
-          (n.ref || "").toLowerCase().includes(noteSearch.toLowerCase()) ||
-          (n.text || "").toLowerCase().includes(noteSearch.toLowerCase()) ||
-          (n.title || "").toLowerCase().includes(noteSearch.toLowerCase())
-        );
-
-        return (
-          <>
-            <Card className="border border-slate-200 dark:border-slate-700">
-              <CardContent className="p-5">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <PenLine className="h-4 w-4 text-orange-500" />
-                    <h3 className="font-semibold text-sm">Study Notes</h3>
-                  </div>
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-white h-8 text-xs" onClick={() => setAddNoteOpen(true)}>
-                    <span className="mr-1 text-base leading-none">+</span> Add Note
-                  </Button>
-                </div>
-
-                {/* Search */}
-                <div className="relative mb-5">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input className="pl-8 h-8 text-xs" placeholder="Search notes..." value={noteSearch} onChange={e => setNoteSearch(e.target.value)} />
-                </div>
-
-                {/* Content */}
-                {filtered.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16">
-                    <FileText className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                    <p className="text-sm text-muted-foreground">No study notes yet.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Click "Add Note" to create your first study note</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filtered.map((n, i) => (
-                      <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-800 transition-colors">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            {n.title && <p className="font-semibold text-sm mb-0.5">{n.title}</p>}
-                            <p className="text-xs font-semibold text-orange-600 mb-1">{n.ref}</p>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">{n.text}</p>
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              {n.tags && n.tags.split(",").map(t => t.trim()).filter(Boolean).map(t => (
-                                <span key={t} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{t}</span>
-                              ))}
-                              <span className="text-[10px] text-muted-foreground ml-auto">{n.date}</span>
-                            </div>
-                          </div>
-                          <button onClick={() => deleteNote(i)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5">
-                            <span className="text-xs">✕</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Add Study Note Dialog */}
-            <Dialog open={addNoteOpen} onOpenChange={v => { if (!v) { resetNoteForm(); setAddNoteOpen(false); } }}>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Add Study Note</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-2">
-                  <div>
-                    <Label>Title (optional)</Label>
-                    <Input className="mt-1.5" placeholder="e.g., Reflections on Grace" value={nTitle} onChange={e => setNTitle(e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <Label>Book *</Label>
-                      <Select value={nBook || undefined} onValueChange={setNBook}>
-                        <SelectTrigger className="mt-1.5"><SelectValue placeholder="Book" /></SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          {ALL_BOOKS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Chapter *</Label>
-                      <Input className="mt-1.5" type="number" min={1} value={nChapter} onChange={e => setNChapter(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label>Verse</Label>
-                      <Input className="mt-1.5" placeholder="Optional" value={nVerse} onChange={e => setNVerse(e.target.value)} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Notes *</Label>
-                    <Textarea className="mt-1.5 resize-none" rows={5} placeholder="Write your thoughts, insights, and reflections..." value={nText} onChange={e => setNText(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label>Tags (comma separated)</Label>
-                    <Input className="mt-1.5" placeholder="e.g., grace, salvation, faith" value={nTags} onChange={e => setNTags(e.target.value)} />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={nPrivate} onCheckedChange={setNPrivate} />
-                    <Label className="text-sm">Private note</Label>
-                  </div>
-                  <div className="flex gap-3 pt-1">
-                    <Button variant="outline" className="flex-1" onClick={() => { resetNoteForm(); setAddNoteOpen(false); }}>Cancel</Button>
-                    <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSaveNote}>Save</Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </>
-        );
-      })()}
+      {activeTab === "notes" && (
+        <NotesTab
+          notes={notes}
+          setNotes={(n) => { setNotes(n); }}
+          versesLooked={versesLooked}
+          setVersesLooked={setVersesLooked}
+        />
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* SEARCH TAB */}
