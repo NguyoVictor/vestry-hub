@@ -653,39 +653,94 @@ const BibleExplorer = () => {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* BOOKMARKS TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "bookmarks" && (
-        <Card className="border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Bookmark className="h-4 w-4 text-orange-500" />
-              <h3 className="font-semibold text-sm">Bookmarks</h3>
-              <Badge variant="secondary" className="text-xs ml-auto">{bookmarks.length}</Badge>
-            </div>
-            {bookmarks.length === 0 ? (
-              <div className="text-center py-12">
-                <Bookmark className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">No bookmarks yet. Hover over a verse in the Reader and click the bookmark icon.</p>
+      {activeTab === "bookmarks" && (() => {
+        const [bmSearch, setBmSearch] = useState("");
+        const [bmFilter, setBmFilter] = useState<"all" | "favorites" | "notes">("all");
+
+        const filtered = bookmarks.filter(b => {
+          const matchSearch = !bmSearch.trim() || b.ref.toLowerCase().includes(bmSearch.toLowerCase()) || b.text.toLowerCase().includes(bmSearch.toLowerCase());
+          return matchSearch;
+        });
+
+        return (
+          <Card className="border border-slate-200 dark:border-slate-700">
+            <CardContent className="p-5">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Bookmark className="h-4 w-4 text-orange-500" />
+                  <h3 className="font-semibold text-sm">My Bookmarks &amp; Notes</h3>
+                </div>
+                <span className="text-xs text-muted-foreground">{bookmarks.length} saved</span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {bookmarks.map((b, i) => (
-                  <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-xs font-semibold text-orange-600 mb-1">{b.ref} <span className="text-muted-foreground font-normal">· {b.version}</span></p>
-                        <p className="text-sm leading-relaxed">{b.text}</p>
+
+              {/* Search + filter row */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    className="pl-8 h-8 text-xs"
+                    placeholder="Search bookmarks..."
+                    value={bmSearch}
+                    onChange={e => setBmSearch(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  {(["all", "favorites", "notes"] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setBmFilter(f)}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        bmFilter === f
+                          ? "bg-orange-500 text-white"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {f === "favorites" && <span className="text-[10px]">☆</span>}
+                      {f === "notes" && <PenLine className="h-3 w-3" />}
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Content */}
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <BookOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    {bookmarks.length === 0
+                      ? "No bookmarks yet. Click a verse while reading to save it!"
+                      : "No bookmarks match your search."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filtered.map((b, i) => (
+                    <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-800 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-orange-600 mb-1">
+                            {b.ref}
+                            <span className="text-muted-foreground font-normal ml-1">· {b.version}</span>
+                          </p>
+                          <p className="text-sm leading-relaxed">{b.text}</p>
+                        </div>
+                        <button
+                          onClick={() => removeBookmark(b.ref)}
+                          className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
+                        >
+                          <span className="text-xs">✕</span>
+                        </button>
                       </div>
-                      <button onClick={() => removeBookmark(b.ref)} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
-                        <span className="text-xs">✕</span>
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* NOTES TAB */}
