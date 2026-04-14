@@ -1495,7 +1495,8 @@ function RemindersTab({ tenantId, userId }: { tenantId: string; userId: string |
 
   // Export plan state
   const plans: any[] = lsGet("bible_reading_plans", []);
-  const activePlan = plans[0] || null;
+  const [exportPlanId, setExportPlanId] = useState<string>(plans[0]?.id || "");
+  const selectedExportPlan = plans.find((p: any) => p.id === exportPlanId) || plans[0] || null;
 
   const toggleDay = (d: number) => {
     const updated = days.includes(d) ? days.filter(x => x !== d) : [...days, d];
@@ -1552,15 +1553,35 @@ function RemindersTab({ tenantId, userId }: { tenantId: string; userId: string |
     toast.success("Link copied! Share it with friends to read together.");
   };
 
-  const handleExportPDF = () => {
-    if (!activePlan) { toast.error("No reading plan to export"); return; }
-    const win = window.open("", "_blank");
-    if (!win) return;
-    const rows = activePlan.readings.map((r: any) =>
-      `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${r.day}</td><td style="padding:4px 8px;border-bottom:1px solid #eee">${r.passage}</td><td style="padding:4px 8px;border-bottom:1px solid #eee">${r.date}</td><td style="padding:4px 8px;border-bottom:1px solid #eee">${activePlan.completedDays?.includes(r.day) ? "✓" : ""}</td></tr>`
+  const handleExportPDF = (mode: "print" | "download") => {
+    if (!selectedExportPlan) { toast.error("No reading plan to export"); return; }
+    const rows = selectedExportPlan.readings.map((r: any) =>
+      `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#6b7280">${r.day}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:500">${r.passage}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#6b7280">${r.date}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;color:#10b981">${selectedExportPlan.completedDays?.includes(r.day) ? "✓" : ""}</td></tr>`
     ).join("");
-    win.document.write(`<html><head><title>${activePlan.name}</title><style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto}table{width:100%;border-collapse:collapse}th{background:#f97316;color:white;padding:8px}</style></head><body><h1>${activePlan.name}</h1><p>Started: ${activePlan.startDate}</p><table><tr><th>#</th><th>Passage</th><th>Date</th><th>Done</th></tr>${rows}</table></body></html>`);
-    win.document.close(); win.print();
+    const completedCount = selectedExportPlan.completedDays?.length || 0;
+    const totalCount = selectedExportPlan.readings?.length || 0;
+    const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const html = `<!DOCTYPE html><html><head><title>${selectedExportPlan.name}</title><style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#1a1a1a}.header{background:linear-gradient(135deg,#f97316,#fb923c);color:white;padding:24px;border-radius:8px;margin-bottom:24px}.header h1{margin:0;font-size:22px}.header p{margin:6px 0 0;opacity:0.85;font-size:14px}.stats{display:flex;gap:16px;margin-bottom:24px}.stat{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 20px;text-align:center}.stat .val{font-size:24px;font-weight:bold;color:#f97316}.stat .lbl{font-size:12px;color:#6b7280;margin-top:2px}table{width:100%;border-collapse:collapse}th{background:#f97316;color:white;padding:10px;text-align:left}tr:nth-child(even){background:#fafafa}@media print{.header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="header"><h1>📖 ${selectedExportPlan.name}</h1><p>Started: ${selectedExportPlan.startDate} · ${completedCount} of ${totalCount} readings completed (${pct}%)</p></div><div class="stats"><div class="stat"><div class="val">${totalCount}</div><div class="lbl">Total Readings</div></div><div class="stat"><div class="val">${completedCount}</div><div class="lbl">Completed</div></div><div class="stat"><div class="val">${pct}%</div><div class="lbl">Progress</div></div></div><table><tr><th>#</th><th>Passage</th><th>Date</th><th>Done</th></tr>${rows}</table></body></html>`;
+
+    if (mode === "download") {
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selectedExportPlan.name.replace(/\s+/g, "-")}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Reading plan downloaded!");
+    } else {
+      const win = window.open("", "_blank");
+      if (!win) return;
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    }
   };
 
   return (
@@ -1658,23 +1679,33 @@ function RemindersTab({ tenantId, userId }: { tenantId: string; userId: string |
               <p className="text-sm font-semibold">Export Reading Plan</p>
             </div>
             <p className="text-xs text-muted-foreground mb-3">Download or print your reading schedule</p>
-            {activePlan ? (
+            {plans.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No reading plan created yet. Go to Reading Plan tab to create one.</p>
+            ) : (
               <>
-                <div className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm mb-2">{activePlan.name}</div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  {activePlan.completedDays?.length || 0} of {activePlan.readings?.length || 0} readings completed
-                </p>
+                {/* Plan selector dropdown */}
+                <Select value={exportPlanId} onValueChange={setExportPlanId}>
+                  <SelectTrigger className="w-full h-9 text-sm mb-2"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {plans.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedExportPlan && (
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {selectedExportPlan.completedDays?.length || 0} of {selectedExportPlan.readings?.length || 0} readings completed
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportPDF}>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleExportPDF("download")}>
                     <FileText className="h-3.5 w-3.5 mr-1.5" />Export PDF
                   </Button>
-                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportPDF}>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleExportPDF("print")}>
                     <span className="mr-1.5">🖨️</span>Print
                   </Button>
                 </div>
               </>
-            ) : (
-              <p className="text-xs text-muted-foreground">No reading plan created yet. Go to Reading Plan tab to create one.</p>
             )}
           </CardContent>
         </Card>
