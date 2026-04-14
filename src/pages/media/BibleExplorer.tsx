@@ -883,35 +883,54 @@ const BibleExplorer = () => {
           <CardContent className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <Search className="h-4 w-4 text-orange-500" />
-              <h3 className="font-semibold text-sm">Search the Bible</h3>
+              <h3 className="font-semibold text-sm">Bible Search</h3>
             </div>
-            <div className="flex gap-2 mb-4">
+
+            {/* Version + search bar + button row */}
+            <div className="flex items-center gap-2 mb-5">
+              <Select value={versionId} onValueChange={setVersionId}>
+                <SelectTrigger className="w-44 h-9 text-xs shrink-0"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {VERSIONS.map(v => <SelectItem key={v.id} value={v.id} className="text-xs">{v.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <Input
-                className="flex-1 text-sm"
-                placeholder="Search for a word or phrase..."
+                className="flex-1 h-9 text-sm"
+                placeholder="Search for words or phrases..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleSearch()}
               />
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSearch} disabled={searching}>
-                {searching ? "Searching..." : "Search"}
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white h-9 shrink-0" onClick={handleSearch} disabled={searching}>
+                <Search className="h-4 w-4 mr-1.5" />{searching ? "Searching..." : "Search"}
               </Button>
             </div>
+
+            {/* Results / states */}
             {searching ? (
               <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
             ) : searchResults.length > 0 ? (
               <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">{searchResults.length} results</p>
+                <p className="text-xs text-muted-foreground">{searchResults.length} results for "{searchQuery}"</p>
                 {searchResults.map((r: any, i: number) => (
-                  <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+                  <div key={i} className="p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:border-orange-200 transition-colors">
                     <p className="text-xs font-semibold text-orange-600 mb-1">{r.reference}</p>
-                    <p className="text-sm">{stripHtml(r.text || r.content || "")}</p>
+                    <p className="text-sm leading-relaxed">{stripHtml(r.text || r.content || "")}</p>
                   </div>
                 ))}
               </div>
             ) : searchQuery && !searching ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No results found.</p>
-            ) : null}
+              <div className="flex flex-col items-center justify-center py-14">
+                <BookOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">No verses found for "{searchQuery}"</p>
+                <p className="text-xs text-muted-foreground mt-1">Try a different word or phrase</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-14">
+                <BookOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">Enter a search term to find verses</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -926,23 +945,47 @@ const BibleExplorer = () => {
               <BookMarked className="h-4 w-4 text-orange-500" />
               <h3 className="font-semibold text-sm">Verse Lookup</h3>
             </div>
-            <div className="flex gap-2 mb-4">
+
+            {/* Input row: reference + version + search button */}
+            <div className="flex items-center gap-2 mb-1">
               <Input
-                className="flex-1 text-sm"
-                placeholder="e.g. John 3:16"
+                className="flex-1 h-9 text-sm"
+                placeholder="Enter reference (e.g., John 3:16, Psalm 23)"
                 value={lookupRef}
                 onChange={e => setLookupRef(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleLookup()}
               />
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleLookup} disabled={looking}>
-                {looking ? "Looking up..." : "Lookup"}
+              <Select value={versionId} onValueChange={setVersionId}>
+                <SelectTrigger className="w-20 h-9 text-xs shrink-0"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {VERSIONS.map(v => (
+                    <SelectItem key={v.id} value={v.id} className="text-xs">
+                      {v.label.match(/\(([^)]+)\)/)?.[1] || v.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white h-9 w-9 p-0 shrink-0" onClick={handleLookup} disabled={looking}>
+                <Search className="h-4 w-4" />
               </Button>
             </div>
-            {lookupResult && (
+            <p className="text-xs text-muted-foreground mb-5">
+              Examples: "John 3:16", "Psalm 23:1-6", "Romans 8:28", "Genesis 1"
+            </p>
+
+            {/* Result / empty states */}
+            {looking ? (
+              <div className="space-y-2"><Skeleton className="h-5 w-full" /><Skeleton className="h-4 w-48" /></div>
+            ) : lookupResult ? (
               <div className="p-4 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10">
                 <p className="text-xs font-semibold text-orange-600 mb-2">{lookupResult.ref}</p>
                 <p className="text-base leading-relaxed italic">"{lookupResult.text}"</p>
                 <p className="text-xs text-muted-foreground mt-2">{versionLabel}</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-14">
+                <BookOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                <p className="text-sm text-muted-foreground">Enter a Bible reference to look up a verse</p>
               </div>
             )}
           </CardContent>
