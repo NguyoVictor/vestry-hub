@@ -881,6 +881,22 @@ const SermonPreparation = () => {
                                 <Eye className="h-4 w-4 mr-2" />View File
                               </DropdownMenuItem>
                             )}
+                            {(item.status === "pending" || item.status === "failed") && (
+                              <DropdownMenuItem onClick={async () => {
+                                toast.info("Retrying AI processing...");
+                                const { error } = await supabase.functions.invoke("process-sermon-archive", {
+                                  body: { archiveId: item.id },
+                                });
+                                if (error) {
+                                  toast.error("Retry failed — check logs");
+                                } else {
+                                  toast.success("Processing complete!");
+                                  qc.invalidateQueries({ queryKey: ["sermon_archives"] });
+                                }
+                              }}>
+                                <Brain className="h-4 w-4 mr-2" />Retry Processing
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => deleteArchiveMut.mutate(item)}>
                               <Trash2 className="h-4 w-4 mr-2" />Delete
