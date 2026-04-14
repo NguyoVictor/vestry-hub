@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { supabase } from "@/integrations/supabase/client";
+import { useChurch } from "@/contexts/ChurchContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1811,6 +1813,7 @@ function RemindersTab({ tenantId, userId }: { tenantId: string; userId: string |
 // ── Main component ────────────────────────────────────────────────────────────
 
 const BibleExplorer = () => {
+  const church = useChurch();
   const [activeTab, setActiveTab] = useState("reader");
 
   // Reader state
@@ -2272,7 +2275,7 @@ const BibleExplorer = () => {
       {/* REMINDERS TAB */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === "reminders" && (
-        <RemindersTab tenantId="" userId={null} />
+        <RemindersTab tenantId={church.tenantId || ""} userId={church.userId || null} />
       )}
     </>
   );
