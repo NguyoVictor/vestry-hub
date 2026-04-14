@@ -1,6 +1,4 @@
-Need to install the following packages:
-supabase@2.89.1
-Ok to proceed? (y) export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -4891,6 +4889,84 @@ export type Database = {
           },
         ]
       }
+      sermon_archives: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          extracted_text: string | null
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          preacher: string | null
+          scripture_references: string | null
+          sermon_date: string | null
+          status: string | null
+          storage_path: string | null
+          tags: string | null
+          tenant_id: string
+          title: string
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          extracted_text?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          preacher?: string | null
+          scripture_references?: string | null
+          sermon_date?: string | null
+          status?: string | null
+          storage_path?: string | null
+          tags?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          extracted_text?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          preacher?: string | null
+          scripture_references?: string | null
+          sermon_date?: string | null
+          status?: string | null
+          storage_path?: string | null
+          tags?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sermon_archives_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sermon_archives_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sermon_series: {
         Row: {
           cover_image_url: string | null
@@ -4940,45 +5016,93 @@ export type Database = {
       }
       sermons: {
         Row: {
+          additional_instructions: string | null
+          ai_generated: boolean | null
+          audience: string | null
+          audio_file_path: string | null
           audio_url: string | null
           created_at: string | null
+          created_by: string | null
+          doc_file_path: string | null
+          draft_notes: string | null
+          duration: string | null
           id: string
+          introduction: string | null
           is_published: boolean | null
+          manuscript: string | null
           notes: string | null
           preacher_id: string | null
           scripture_reference: string | null
           series: string | null
           sermon_date: string | null
+          sermon_type: string | null
+          speaker: string | null
+          status: string | null
+          style: string | null
           tenant_id: string
+          thumbnail_path: string | null
           title: string
+          updated_at: string | null
           video_url: string | null
         }
         Insert: {
+          additional_instructions?: string | null
+          ai_generated?: boolean | null
+          audience?: string | null
+          audio_file_path?: string | null
           audio_url?: string | null
           created_at?: string | null
+          created_by?: string | null
+          doc_file_path?: string | null
+          draft_notes?: string | null
+          duration?: string | null
           id?: string
+          introduction?: string | null
           is_published?: boolean | null
+          manuscript?: string | null
           notes?: string | null
           preacher_id?: string | null
           scripture_reference?: string | null
           series?: string | null
           sermon_date?: string | null
+          sermon_type?: string | null
+          speaker?: string | null
+          status?: string | null
+          style?: string | null
           tenant_id: string
+          thumbnail_path?: string | null
           title: string
+          updated_at?: string | null
           video_url?: string | null
         }
         Update: {
+          additional_instructions?: string | null
+          ai_generated?: boolean | null
+          audience?: string | null
+          audio_file_path?: string | null
           audio_url?: string | null
           created_at?: string | null
+          created_by?: string | null
+          doc_file_path?: string | null
+          draft_notes?: string | null
+          duration?: string | null
           id?: string
+          introduction?: string | null
           is_published?: boolean | null
+          manuscript?: string | null
           notes?: string | null
           preacher_id?: string | null
           scripture_reference?: string | null
           series?: string | null
           sermon_date?: string | null
+          sermon_type?: string | null
+          speaker?: string | null
+          status?: string | null
+          style?: string | null
           tenant_id?: string
+          thumbnail_path?: string | null
           title?: string
+          updated_at?: string | null
           video_url?: string | null
         }
         Relationships: [
@@ -6615,3 +6739,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

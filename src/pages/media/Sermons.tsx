@@ -80,14 +80,32 @@ function AddSermonDialog({ open, onClose, tenantId, userId, editing, onSuccess }
     if (!title.trim()) { toast.error("Title is required"); return; }
     setSaving(true);
     try {
+      // Upload thumbnail → public bucket → getPublicUrl
       let thumbnailUrl = editing?.thumbnail_url || null;
+      let thumbnailPath = editing?.thumbnail_path || null;
       if (thumbnailFile) {
-        const path = `${tenantId}/thumbnails/${Date.now()}-${thumbnailFile.name}`;
-        const { error: upErr } = await supabase.storage.from("church-media").upload(path, thumbnailFile);
+        thumbnailPath = `${tenantId}/${Date.now()}-${thumbnailFile.name}`;
+        const { error: upErr } = await supabase.storage.from("sermon-thumbnails").upload(thumbnailPath, thumbnailFile);
         if (!upErr) {
-          const { data: { publicUrl } } = supabase.storage.from("church-media").getPublicUrl(path);
+          const { data: { publicUrl } } = supabase.storage.from("sermon-thumbnails").getPublicUrl(thumbnailPath);
           thumbnailUrl = publicUrl;
         }
+      }
+
+      // Upload audio file → private bucket → store path for signed URL generation
+      let resolvedAudioUrl = audioUrl || null;
+      let audioFilePath = editing?.audio_file_path || null;
+      if (audioFile) {
+        audioFilePath = `${tenantId}/${Date.now()}-${audioFile.name}`;
+        const { error: audioErr } = await supabase.storage.from("sermon-audio").upload(audioFilePath, audioFile);
+        if (!audioErr) resolvedAudioUrl = null; // path stored separately; signed URL generated on read
+      }
+
+      // Upload document → private bucket → store path for signed URL generation
+      let docFilePath = editing?.doc_file_path || null;
+      if (docFile) {
+        docFilePath = `${tenantId}/${Date.now()}-${docFile.name}`;
+        await supabase.storage.from("sermon-documents").upload(docFilePath, docFile);
       }
 
       const payload: any = {
@@ -100,8 +118,11 @@ function AddSermonDialog({ open, onClose, tenantId, userId, editing, onSuccess }
         notes: author || null,
         is_published: isPublished,
         thumbnail_url: thumbnailUrl,
+        thumbnail_path: thumbnailPath,
         video_url: videoUrl || null,
-        audio_url: audioUrl || null,
+        audio_url: resolvedAudioUrl,
+        audio_file_path: audioFilePath,
+        doc_file_path: docFilePath,
         manuscript: sermonNotes || null,
       };
 
