@@ -24,7 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import {
   Package, Plus, Search, Pencil, Trash2, Wrench, ClipboardList,
   TrendingDown, Download, Upload, Image as ImageIcon, CheckCircle,
-  Loader2, Box, ChevronDown, TriangleAlert, RotateCcw,
+  Loader2, Box, ChevronDown, TriangleAlert, RotateCcw, X,
 } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -857,7 +857,7 @@ export default function AssetManagement() {
                                     <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />Approve
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => updateRequestStatus.mutate({ id: r.id, status: "rejected" })} className="text-red-600">
-                                    <Trash2 className="mr-2 h-4 w-4" />Reject
+                                    <X className="mr-2 h-4 w-4" />Reject
                                   </DropdownMenuItem>
                                 </>
                               )}
