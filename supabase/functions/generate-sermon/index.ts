@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,8 +35,6 @@ const STYLE_INSTRUCTIONS: Record<string, string> = {
     "Build toward a clear, warm salvation message and invitation at the end.",
 };
 
-// ── Audience instructions ─────────────────────────────────────────────────────
-
 const AUDIENCE_INSTRUCTIONS: Record<string, string> = {
   "general congregation":
     "Write for a mixed-age, inclusive congregation. Use broad applications that speak to all life stages.",
@@ -59,8 +58,6 @@ const AUDIENCE_INSTRUCTIONS: Record<string, string> = {
     "leadership principles, stewardship of responsibility, and equipping language.",
 };
 
-// ── Duration instructions ─────────────────────────────────────────────────────
-
 const DURATION_INSTRUCTIONS: Record<string, string> = {
   "15 minutes":
     "This is a SHORT sermon (15 minutes). Write a brief outline with exactly 2 main points. " +
@@ -76,11 +73,24 @@ const DURATION_INSTRUCTIONS: Record<string, string> = {
     "Include extensive illustrations, sub-points, and application sections. Total content should be 2500-3000 words.",
 };
 
-// ── Prompt builder ────────────────────────────────────────────────────────────
+function generateMainPointsTemplate(duration: string): string {
+  const count = duration === "15 minutes" ? 2 : duration === "60 minutes" ? 5 : duration === "45 minutes" ? 4 : 3;
+  return Array.from({ length: count }, (_, i) =>
+    `MAIN POINT ${i + 1}:\n[Point title and explanation]\n\nScripture Support:\n[Key verse(s) for this point]\n\nIllustration:\n[Story or real-life example]\n\nApplication:\n[Practical takeaway for the listener]`
+  ).join("\n\n");
+}
+
+function generateBibleStudyTemplate(duration: string): string {
+  const count = duration === "15 minutes" ? 2 : duration === "60 minutes" ? 5 : duration === "45 minutes" ? 4 : 3;
+  return Array.from({ length: count }, (_, i) =>
+    `STUDY SECTION ${i + 1}:\n[Section title and key teaching]\n\nKey Verse:\n[Scripture reference and text]\n\nExplanation:\n[What this passage means in context]\n\nApplication:\n[How this applies to daily life]`
+  ).join("\n\n");
+}
 
 function buildPrompt(params: {
   type: string; style: string; theme: string; scripture: string;
   audience: string; duration: string; draftNotes: string; instructions: string;
+  churchContext: string;
 }): string {
   const isSermon = params.type === "sermon";
   const styleKey = params.style.toLowerCase();
@@ -95,6 +105,10 @@ function buildPrompt(params: {
     ? `\nMANDATORY PASTOR REQUIREMENTS — you MUST incorporate ALL of the following exactly as specified:\n` +
       (params.draftNotes ? `Draft Notes: ${params.draftNotes}\n` : "") +
       (params.instructions ? `Additional Instructions: ${params.instructions}\n` : "")
+    : "";
+
+  const churchContextSection = params.churchContext
+    ? `\nCHURCH VOICE & DOCTRINE CONTEXT:\nThe following is extracted from this church's own sermon archives. Use this to match their specific doctrine, tone, language patterns, and delivery style:\n\n${params.churchContext}\n`
     : "";
 
   return `You are an expert ${isSermon ? "sermon" : "Bible study"} writer for a Christian church.
@@ -113,7 +127,7 @@ ${audienceGuide}
 
 LENGTH AND DEPTH:
 ${durationGuide}
-
+${churchContextSection}
 CONTENT DETAILS:
 - Type: ${isSermon ? "Full Sermon" : "Bible Study Guide"}
 - Theme/Topic: ${params.theme || "Not specified — choose a relevant theme from the scripture"}
@@ -143,36 +157,6 @@ PREACHER'S NOTES:
 [Key delivery reminders, timing suggestions, and any special notes for the pastor]`;
 }
 
-function generateMainPointsTemplate(duration: string): string {
-  const count = duration === "15 minutes" ? 2 : duration === "60 minutes" ? 5 : duration === "45 minutes" ? 4 : 3;
-  return Array.from({ length: count }, (_, i) => `MAIN POINT ${i + 1}:
-[Point title and explanation]
-
-Scripture Support:
-[Key verse(s) for this point]
-
-Illustration:
-[Story or real-life example]
-
-Application:
-[Practical takeaway for the listener]`).join("\n\n");
-}
-
-function generateBibleStudyTemplate(duration: string): string {
-  const count = duration === "15 minutes" ? 2 : duration === "60 minutes" ? 5 : duration === "45 minutes" ? 4 : 3;
-  return Array.from({ length: count }, (_, i) => `STUDY SECTION ${i + 1}:
-[Section title and key teaching]
-
-Key Verse:
-[Scripture reference and text]
-
-Explanation:
-[What this passage means in context]
-
-Application:
-[How this applies to daily life]`).join("\n\n");
-}
-
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -188,6 +172,29 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Fetch processed sermon archives for this tenant to inject as church context
+    let churchContext = "";
+    if (params.tenantId) {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      const { data: archives } = await supabase
+        .from("sermon_archives")
+        .select("title, category, extracted_text")
+        .eq("tenant_id", params.tenantId)
+        .eq("status", "processed")
+        .not("extracted_text", "is", null)
+        .limit(5); // Use up to 5 archives to stay within token limits
+
+      if (archives && archives.length > 0) {
+        churchContext = archives
+          .map((a: any) => `[Archive: ${a.title} — Category: ${a.category}]\n${a.extracted_text}`)
+          .join("\n\n---\n\n")
+          .slice(0, 6000); // Cap at 6000 chars to leave room for the prompt
+      }
+    }
+
     const prompt = buildPrompt({
       type: params.type || "sermon",
       style: params.style || "Expository",
@@ -197,6 +204,7 @@ Deno.serve(async (req: Request) => {
       duration: params.duration || "30 minutes",
       draftNotes: params.draftNotes || "",
       instructions: params.instructions || "",
+      churchContext,
     });
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {

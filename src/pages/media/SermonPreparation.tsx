@@ -87,7 +87,7 @@ function ComposeDialog({ open, onClose, tenantId, userId, onSuccess }: ComposeDi
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-sermon", {
-        body: { type, style, theme, scripture, audience, duration, draftNotes, instructions },
+        body: { type, style, theme, scripture, audience, duration, draftNotes, instructions, tenantId },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message);
       const content: string = data.content;
@@ -373,7 +373,7 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
       const { error: storageErr } = await supabase.storage.from("sermon-archives").upload(path, file);
       if (storageErr) throw storageErr;
       const { data: { publicUrl } } = supabase.storage.from("sermon-archives").getPublicUrl(path);
-      const { error: dbErr } = await supabase.from("sermon_archives" as any).insert({
+      const { data: insertData, error: dbErr } = await supabase.from("sermon_archives" as any).insert({
         tenant_id: tenantId,
         title,
         category,
@@ -388,11 +388,21 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
         storage_path: path,
         status: "pending",
         uploaded_by: userId,
-      });
+      }).select();
       if (dbErr) throw dbErr;
-      toast.success("Sermon archive uploaded successfully");
+
+      // Kick off AI processing in the background — don't await so UI closes immediately
+      toast.success("Uploaded! AI is processing your archive...");
       onSuccess();
       handleClose();
+
+      // Fire-and-forget: process the archive asynchronously
+      supabase.functions.invoke("process-sermon-archive", {
+        body: { archiveId: (insertData as any)?.[0]?.id },
+      }).then(() => {
+        // Invalidate so the status updates when the user is still on the page
+        onSuccess();
+      }).catch(() => {/* silent — status will show "pending" until manually retried */});
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
     } finally {
