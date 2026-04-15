@@ -179,7 +179,7 @@ function PreviewModal({ state, onClose, onDownload }: {
         <span className={`p-1.5 rounded-md ${meta.bg}`}><Icon className={`h-4 w-4 ${meta.color}`} /></span>
         <h2 className="font-semibold text-sm flex-1 truncate">{resource.title}</h2>
         {hasDownloadable && (
-          <Button size="sm" variant="outline" className="gap-1.5 border-slate-600 text-white hover:bg-slate-700 hover:text-white" onClick={onDownload}>
+          <Button size="sm" className="gap-1.5 bg-white/10 border border-white/30 text-white hover:bg-white/20 hover:text-white" onClick={onDownload}>
             <Download className="h-3.5 w-3.5" /> Download
           </Button>
         )}
