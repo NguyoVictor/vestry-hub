@@ -326,15 +326,39 @@ export default function DiscipleshipResources() {
   // ─── Validation ─────────────────────────────────────────────────────────────
   function validate() {
     const errors: Record<string, string> = {};
-    if (!form.title.trim()) errors.title = "Title is required";
-    if (form.resource_type === "link") {
-      if (!form.external_url.trim()) errors.external_url = "URL is required";
-      else if (!form.external_url.startsWith("http")) errors.external_url = "Must start with http:// or https://";
+
+    if (!form.title.trim()) {
+      errors.title = "Title is required";
+    } else if (form.title.trim().length < 3) {
+      errors.title = "Title must be at least 3 characters";
     }
+
+    if (form.resource_type === "link") {
+      if (!form.external_url.trim()) {
+        errors.external_url = "A URL is required for link resources";
+      } else if (!/^https?:\/\/.+/.test(form.external_url.trim())) {
+        errors.external_url = "Must be a valid URL starting with http:// or https://";
+      }
+    }
+
     if (form.resource_type === "video" && !form.video_url.trim() && !videoFile) {
       errors.video_url = "Provide a YouTube/Vimeo URL or upload a video file";
     }
+
+    if (form.resource_type === "video" && form.video_url.trim() && !/^https?:\/\/.+/.test(form.video_url.trim())) {
+      errors.video_url = "Must be a valid URL starting with http:// or https://";
+    }
+
+    if (form.duration_minutes !== "" && Number(form.duration_minutes) < 0) {
+      errors.duration_minutes = "Duration cannot be negative";
+    }
+
     setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      toast.error("Please fix the highlighted fields before saving");
+    }
+
     return Object.keys(errors).length === 0;
   }
 
@@ -357,16 +381,25 @@ export default function DiscipleshipResources() {
     mutationFn: async () => {
       setUploading(true);
       try {
+        // Map resource_type → legacy "type" column (NOT NULL, needs a value)
+        const legacyTypeMap: Record<ResourceType, string> = {
+          document: "document",
+          video:    "video",
+          link:     "external_link",
+          lesson:   "document",
+        };
+
         const payload: Record<string, unknown> = {
-          title:           form.title.trim(),
-          description:     form.description.trim() || null,
-          resource_type:   form.resource_type,
-          category_id:     form.category_id || null,
-          sequence_order:  Number(form.sequence_order) || 0,
+          title:            form.title.trim(),
+          description:      form.description.trim() || null,
+          resource_type:    form.resource_type,
+          type:             legacyTypeMap[form.resource_type], // satisfy NOT NULL constraint
+          category_id:      form.category_id || null,
+          sequence_order:   Number(form.sequence_order) || 0,
           duration_minutes: form.duration_minutes !== "" ? Number(form.duration_minutes) : null,
-          is_required:     form.is_required,
-          is_published:    form.is_published,
-          tenant_id:       tenantId,
+          is_required:      form.is_required,
+          is_published:     form.is_published,
+          tenant_id:        tenantId,
         };
 
         if (form.resource_type === "document") {
@@ -408,7 +441,7 @@ export default function DiscipleshipResources() {
       queryClient.invalidateQueries({ queryKey: ["discipleship-resources", tenantId] });
       setAddResourceOpen(false);
       resetForm();
-      toast.success("Resource created");
+      toast.success("Resource created successfully");
     },
     onError: (err: Error) => toast.error(err.message || "Failed to create resource"),
   });
@@ -705,7 +738,15 @@ export default function DiscipleshipResources() {
               </div>
               <div className="space-y-1.5">
                 <Label>Duration (minutes)</Label>
-                <Input type="number" placeholder="Optional" value={form.duration_minutes} onChange={e => setField("duration_minutes", e.target.value)} min={0} />
+                <Input
+                  type="number"
+                  placeholder="Optional"
+                  value={form.duration_minutes}
+                  onChange={e => setField("duration_minutes", e.target.value)}
+                  min={0}
+                  className={formErrors.duration_minutes ? "border-red-400" : ""}
+                />
+                {formErrors.duration_minutes && <p className="text-xs text-red-500">{formErrors.duration_minutes}</p>}
               </div>
             </div>
 
