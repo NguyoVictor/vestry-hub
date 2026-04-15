@@ -1,242 +1,355 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Upload, FolderPlus, Image as ImageIcon, FileText, Folder, MoreVertical, Download, Trash2, Search, LayoutGrid, List, HardDrive, Clock, Plus } from "lucide-react";
-import { useChurch } from "@/contexts/ChurchContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useChurch } from "@/contexts/ChurchContext";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Palette, ExternalLink, Plus, Unlink, Loader2, ImageOff, RefreshCw, Sparkles,
+} from "lucide-react";
 
-const GraphicsStudio = () => {
-  const church = useChurch();
-  const qc = useQueryClient();
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
+const CANVA_REDIRECT_URI = import.meta.env.VITE_CANVA_REDIRECT_URI as string;
 
-  const { data: folders = [], isLoading: foldersLoading } = useQuery({
-    queryKey: ["media_folders", church.tenantId],
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface CanvaDesign {
+  id: string;
+  title: string;
+  thumbnail?: { url: string };
+  urls: { edit_url: string; view_url: string };
+  updated_at: number; // unix seconds
+}
+
+// ── Helper: get auth header from current session ──────────────────────────────
+async function getAuthHeader(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Not authenticated");
+  return `Bearer ${session.access_token}`;
+}
+
+// ── Hook: get valid access token (auto-refresh if near expiry) ────────────────
+function useCanvaToken(tenantId: string, userId: string) {
+  return useQuery({
+    queryKey: ["canva-token", tenantId, userId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("media_folders")
-        .select("*")
-        .order("name");
+        .from("canva_tokens")
+        .select("access_token, refresh_token, expires_at")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
       if (error) throw error;
-      return data || [];
-    },
-  });
+      if (!data) return null;
 
-  const { data: assets = [], isLoading: assetsLoading } = useQuery({
-    queryKey: ["media_assets", church.tenantId, selectedFolder],
-    queryFn: async () => {
-      let q = supabase.from("media_assets").select("*").eq("tenant_id", church.tenantId!).order("created_at", { ascending: false });
-      if (selectedFolder) q = q.eq("folder_id", selectedFolder);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const createFolder = useMutation({
-    mutationFn: async (name: string) => {
-      const { error } = await supabase.from("media_folders").insert({ tenant_id: church.tenantId, name });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["media_folders"] });
-      toast.success("Folder created");
-      setFolderDialogOpen(false);
-      setNewFolderName("");
-    },
-  });
-
-  const deleteAsset = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("media_assets").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["media_assets"] });
-      toast.success("Asset deleted");
-    },
-  });
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-
-    for (const file of Array.from(files)) {
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} exceeds 10MB limit`);
-        continue;
+      // Refresh if expiring within 5 minutes
+      const expiresAt = new Date(data.expires_at).getTime();
+      if (expiresAt - Date.now() < 5 * 60 * 1000) {
+        const authHeader = await getAuthHeader();
+        const { data: refreshed, error: fnErr } = await supabase.functions.invoke("canva-oauth", {
+          body: { action: "refresh", tenant_id: tenantId },
+          headers: { Authorization: authHeader },
+        });
+        if (fnErr) throw fnErr;
+        return refreshed.access_token as string;
       }
-      const path = `${church.tenantId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("church-media").upload(path, file);
-      if (uploadError) { toast.error(`Failed to upload ${file.name}`); continue; }
 
-      const { data: { publicUrl } } = supabase.storage.from("church-media").getPublicUrl(path);
-      await supabase.from("media_assets").insert({
-        tenant_id: church.tenantId,
-        folder_id: selectedFolder,
-        name: file.name,
-        file_url: publicUrl,
-        file_type: file.type,
-        file_size: file.size,
-        uploaded_by: church.userId,
+      return data.access_token as string;
+    },
+    enabled: !!tenantId && !!userId,
+    staleTime: 4 * 60 * 1000,
+    retry: false,
+  });
+}
+
+// ── Hook: fetch Canva designs ─────────────────────────────────────────────────
+function useCanvaDesigns(accessToken: string | null | undefined) {
+  return useQuery({
+    queryKey: ["canva-designs", accessToken?.slice(-8)],
+    queryFn: async () => {
+      const res = await fetch("https://api.canva.com/rest/v1/designs?ownership=owned&limit=50", {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Canva API error ${res.status}`);
+      }
+      const json = await res.json();
+      return (json.items ?? []) as CanvaDesign[];
+    },
+    enabled: !!accessToken,
+    staleTime: 300_000,
+  });
+}
+
+// ── Connect screen ────────────────────────────────────────────────────────────
+function ConnectCanva({ tenantId, onConnected }: { tenantId: string; onConnected: () => void }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleConnect = async () => {
+    setLoading(true);
+    try {
+      const authHeader = await getAuthHeader();
+      const { data, error } = await supabase.functions.invoke("canva-oauth", {
+        body: { action: "authorize", tenant_id: tenantId },
+        headers: { Authorization: authHeader },
+      });
+      if (error) throw error;
+      window.location.href = data.url;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to start Canva authorization");
+      setLoading(false);
     }
-    qc.invalidateQueries({ queryKey: ["media_assets"] });
-    toast.success("Files uploaded");
-    setUploadOpen(false);
   };
 
-  const filtered = assets.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  const defaultFolders = ["Flyers", "Banners", "Social Media", "Logos", "Backgrounds", "Miscellaneous"];
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center max-w-md mx-auto">
+      <div className="h-20 w-20 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mb-6">
+        <Palette className="h-10 w-10 text-indigo-600" />
+      </div>
+      <h2 className="text-2xl font-bold mb-2">Connect Canva</h2>
+      <p className="text-muted-foreground mb-8 leading-relaxed">
+        Link your Canva account to create and manage church graphics — flyers, banners, social posts — directly from Vestry.
+      </p>
+      <Button
+        size="lg"
+        className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+        onClick={handleConnect}
+        disabled={loading}
+      >
+        {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+        {loading ? "Redirecting to Canva…" : "Connect Canva Account"}
+      </Button>
+      <p className="text-xs text-muted-foreground mt-4">
+        You'll be redirected to Canva to authorise access. No passwords are stored.
+      </p>
+    </div>
+  );
+}
+
+// ── Design card ───────────────────────────────────────────────────────────────
+function DesignCard({ design }: { design: CanvaDesign }) {
+  return (
+    <Card className="border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+      <div className="aspect-video bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
+        {design.thumbnail?.url ? (
+          <img
+            src={design.thumbnail.url}
+            alt={design.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <ImageOff className="h-8 w-8 text-muted-foreground/30" />
+          </div>
+        )}
+      </div>
+      <CardContent className="p-4">
+        <p className="font-medium truncate mb-1">{design.title || "Untitled Design"}</p>
+        <p className="text-xs text-muted-foreground mb-3">
+          {design.updated_at
+            ? `Updated ${format(new Date(design.updated_at * 1000), "d MMM yyyy")}`
+            : "—"}
+        </p>
+        <a
+          href={design.urls.edit_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open in Canva
+        </a>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+export default function GraphicsStudio() {
+  const { tenantId, userId } = useChurch();
+  const queryClient = useQueryClient();
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+
+  const { data: accessToken, isLoading: tokenLoading, refetch: refetchToken } = useCanvaToken(tenantId, userId);
+  const isConnected = !!accessToken;
+
+  const { data: designs = [], isLoading: designsLoading, refetch: refetchDesigns, error: designsError } = useCanvaDesigns(accessToken);
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      const authHeader = await getAuthHeader();
+      const { error } = await supabase.functions.invoke("canva-oauth", {
+        body: { action: "disconnect", tenant_id: tenantId },
+        headers: { Authorization: authHeader },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["canva-token"] });
+      queryClient.invalidateQueries({ queryKey: ["canva-designs"] });
+      toast.success("Canva disconnected");
+      setDisconnectOpen(false);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const handleCreateDesign = async () => {
+    if (!accessToken) return;
+    // Open Canva home — user creates a new design from there
+    window.open("https://www.canva.com/create/", "_blank");
+  };
+
+  if (tokenLoading) {
+    return (
+      <>
+        <Helmet><title>Graphics Studio — Vestry</title></Helmet>
+        <PageHeader title="Graphics Studio" subtitle="Create and manage church graphics with Canva" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} className="border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <Skeleton className="aspect-video w-full" />
+              <CardContent className="p-4 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <Helmet><title>Graphics Studio — Vestry</title></Helmet>
+
       <PageHeader
         title="Graphics Studio"
-        subtitle="Upload and manage your church design assets"
+        subtitle="Create and manage church graphics with Canva"
         action={
-          <div className="flex gap-2">
-            <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm"><FolderPlus className="mr-2 h-4 w-4" />Create Folder</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Create Folder</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                  <div><Label>Folder Name</Label><Input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="Enter folder name" /></div>
-                  <Button onClick={() => createFolder.mutate(newFolderName)} disabled={!newFolderName.trim()}>Create</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-            <Button size="sm" onClick={() => setUploadOpen(true)}><Upload className="mr-2 h-4 w-4" />Upload Assets</Button>
-          </div>
+          isConnected ? (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1.5 inline-block" />
+                Canva Connected
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetchDesigns()}
+                disabled={designsLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${designsLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={handleCreateDesign}
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Create New Design
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-red-600"
+                onClick={() => setDisconnectOpen(true)}
+              >
+                <Unlink className="h-4 w-4 mr-1.5" />
+                Disconnect
+              </Button>
+            </div>
+          ) : null
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card><CardContent className="pt-5"><div className="flex items-center gap-3"><div className="rounded-lg bg-primary/10 p-2.5"><ImageIcon className="h-5 w-5 text-primary" /></div><div><p className="text-2xl font-bold">{assets.length}</p><p className="text-sm text-muted-foreground">Total Assets</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-5"><div className="flex items-center gap-3"><div className="rounded-lg bg-emerald-500/10 p-2.5"><HardDrive className="h-5 w-5 text-emerald-500" /></div><div><p className="text-2xl font-bold">{(assets.reduce((s, a) => s + (Number(a.file_size) || 0), 0) / 1024 / 1024).toFixed(1)} MB</p><p className="text-sm text-muted-foreground">Storage Used</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-5"><div className="flex items-center gap-3"><div className="rounded-lg bg-amber-500/10 p-2.5"><Clock className="h-5 w-5 text-amber-500" /></div><div><p className="text-2xl font-bold">{assets.filter(a => { const d = new Date(a.created_at); const week = new Date(); week.setDate(week.getDate() - 7); return d > week; }).length}</p><p className="text-sm text-muted-foreground">Added This Week</p></div></div></CardContent></Card>
-      </div>
-
-      <div className="flex gap-6">
-        <div className="hidden lg:block w-56 shrink-0">
-          <h3 className="text-sm font-semibold mb-3">Folders</h3>
-          <ScrollArea className="h-[500px]">
-            <div className="space-y-1">
-              <button onClick={() => setSelectedFolder(null)} className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${!selectedFolder ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"}`}>
-                <Folder className="h-4 w-4" />All Assets
-              </button>
-              {defaultFolders.map(name => {
-                const folder = folders.find((f: any) => f.name === name);
-                return (
-                  <button key={name} onClick={() => setSelectedFolder(folder?.id || name)} className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${selectedFolder === (folder?.id || name) ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"}`}>
-                    <Folder className="h-4 w-4" />{name}
-                  </button>
-                );
-              })}
-              {folders.filter((f: any) => !defaultFolders.includes(f.name)).map((f: any) => (
-                <button key={f.id} onClick={() => setSelectedFolder(f.id)} className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${selectedFolder === f.id ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"}`}>
-                  <Folder className="h-4 w-4" />{f.name}
-                </button>
+      {!isConnected ? (
+        <ConnectCanva tenantId={tenantId} onConnected={() => refetchToken()} />
+      ) : (
+        <>
+          {/* Designs grid */}
+          {designsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Card key={i} className="border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  <Skeleton className="aspect-video w-full" />
+                  <CardContent className="p-4 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          </ScrollArea>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search assets..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" /></div>
-            <Button variant="outline" size="icon" onClick={() => setViewMode(v => v === "grid" ? "list" : "grid")}>{viewMode === "grid" ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}</Button>
-          </div>
-
-          {assetsLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)}</div>
-          ) : filtered.length === 0 ? (
-            <Card><CardContent className="flex flex-col items-center justify-center py-16"><ImageIcon className="h-16 w-16 text-muted-foreground/30 mb-4" /><h3 className="font-semibold text-lg">No assets yet</h3><p className="text-sm text-muted-foreground mt-1">Upload your first design asset</p><Button className="mt-4" onClick={() => setUploadOpen(true)}><Upload className="mr-2 h-4 w-4" />Upload Assets</Button></CardContent></Card>
-          ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {filtered.map(asset => (
-                <div key={asset.id} className="group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-shadow">
-                  <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
-                    {asset.file_type?.startsWith("image") ? (
-                      <img src={asset.file_url} alt={asset.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <FileText className="h-10 w-10 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="p-2">
-                    <p className="text-xs font-medium truncate">{asset.name}</p>
-                    <p className="text-xs text-muted-foreground">{((Number(asset.file_size) || 0) / 1024).toFixed(0)} KB</p>
-                  </div>
-                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="secondary" size="icon" className="h-7 w-7"><MoreVertical className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => window.open(asset.file_url, "_blank")}><Download className="mr-2 h-4 w-4" />Download</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => deleteAsset.mutate(asset.id)}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              ))}
+          ) : designsError ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <ImageOff className="h-12 w-12 text-muted-foreground/30 mb-3" />
+              <p className="font-medium text-muted-foreground">Failed to load designs</p>
+              <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
+                {(designsError as Error).message}
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetchDesigns()}>
+                <RefreshCw className="h-4 w-4 mr-1.5" />Try again
+              </Button>
+            </div>
+          ) : designs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Palette className="h-12 w-12 text-muted-foreground/30 mb-3" />
+              <p className="font-medium text-muted-foreground">No designs yet</p>
+              <p className="text-sm text-muted-foreground/70 mt-1 mb-4">
+                Create your first church graphic in Canva
+              </p>
+              <Button
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={handleCreateDesign}
+              >
+                <Plus className="h-4 w-4 mr-1.5" />Create New Design
+              </Button>
             </div>
           ) : (
-            <Card>
-              <CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b"><th className="text-left p-3 font-medium">Name</th><th className="text-left p-3 font-medium">Type</th><th className="text-left p-3 font-medium">Size</th><th className="text-left p-3 font-medium">Date</th><th className="p-3" /></tr></thead>
-                  <tbody>
-                    {filtered.map(asset => (
-                      <tr key={asset.id} className="border-b hover:bg-muted/50">
-                        <td className="p-3 font-medium">{asset.name}</td>
-                        <td className="p-3"><Badge variant="secondary">{asset.file_type?.split("/")[1] || "file"}</Badge></td>
-                        <td className="p-3 text-muted-foreground">{((Number(asset.file_size) || 0) / 1024).toFixed(0)} KB</td>
-                        <td className="p-3 text-muted-foreground">{new Date(asset.created_at).toLocaleDateString()}</td>
-                        <td className="p-3"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteAsset.mutate(asset.id)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+            <>
+              <p className="text-sm text-muted-foreground mb-4">{designs.length} design{designs.length !== 1 ? "s" : ""}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {designs.map(d => <DesignCard key={d.id} design={d} />)}
+              </div>
+            </>
           )}
-        </div>
-      </div>
+        </>
+      )}
 
-      <Sheet open={uploadOpen} onOpenChange={setUploadOpen}>
-        <SheetContent className="sm:max-w-lg">
-          <SheetHeader><SheetTitle>Upload Assets</SheetTitle></SheetHeader>
-          <div className="mt-6 space-y-6">
-            <div className="border-2 border-dashed rounded-lg p-8 text-center">
-              <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <p className="text-sm font-medium">Drag files here or click to browse</p>
-              <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WEBP, SVG, PDF — Max 10MB each</p>
-              <Input type="file" multiple accept="image/*,.pdf,.svg" onChange={handleFileUpload} className="mt-4" />
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Disconnect confirm */}
+      <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Canva</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove your Canva connection from Vestry. Your designs in Canva won't be affected. You can reconnect at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => disconnectMutation.mutate()}
+              disabled={disconnectMutation.isPending}
+            >
+              {disconnectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
-};
-
-export default GraphicsStudio;
+}

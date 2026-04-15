@@ -135,6 +135,10 @@ export const TABLES = {
   BIBLE_NOTES: "bible_notes",
   BIBLE_HIGHLIGHTS: "bible_highlights",
   BIBLE_FAVORITES: "bible_favorites",
+
+  // Canva integration
+  CANVA_TOKENS: "canva_tokens",
+  CANVA_OAUTH_STATE: "canva_oauth_state",
 } as const;
 
 // ─── Column Names ─────────────────────────────────────────────────────────────

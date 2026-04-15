@@ -843,6 +843,77 @@ export type Database = {
           },
         ]
       }
+      canva_oauth_state: {
+        Row: {
+          code_verifier: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          state: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          code_verifier: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          state: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          code_verifier?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          state?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      canva_tokens: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          refresh_token: string | null
+          tenant_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          refresh_token?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canva_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_code: string | null
@@ -1420,63 +1491,94 @@ export type Database = {
           assignment_count: number | null
           author: string | null
           category: string | null
+          category_id: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           duration_label: string | null
+          duration_minutes: number | null
           external_url: string | null
           file_url: string | null
           id: string
           is_downloadable: boolean | null
+          is_published: boolean | null
+          is_required: boolean | null
+          lesson_content: string | null
           recommended_stages: number[] | null
+          resource_type: string | null
+          sequence_order: number | null
           tags: string[] | null
           tenant_id: string
           thumbnail_url: string | null
           title: string
           type: string
           updated_at: string | null
+          video_url: string | null
         }
         Insert: {
           assignment_count?: number | null
           author?: string | null
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           duration_label?: string | null
+          duration_minutes?: number | null
           external_url?: string | null
           file_url?: string | null
           id?: string
           is_downloadable?: boolean | null
+          is_published?: boolean | null
+          is_required?: boolean | null
+          lesson_content?: string | null
           recommended_stages?: number[] | null
+          resource_type?: string | null
+          sequence_order?: number | null
           tags?: string[] | null
           tenant_id: string
           thumbnail_url?: string | null
           title: string
           type: string
           updated_at?: string | null
+          video_url?: string | null
         }
         Update: {
           assignment_count?: number | null
           author?: string | null
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           duration_label?: string | null
+          duration_minutes?: number | null
           external_url?: string | null
           file_url?: string | null
           id?: string
           is_downloadable?: boolean | null
+          is_published?: boolean | null
+          is_required?: boolean | null
+          lesson_content?: string | null
           recommended_stages?: number[] | null
+          resource_type?: string | null
+          sequence_order?: number | null
           tags?: string[] | null
           tenant_id?: string
           thumbnail_url?: string | null
           title?: string
           type?: string
           updated_at?: string | null
+          video_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "discipleship_resources_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "resource_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "discipleship_resources_created_by_fkey"
             columns: ["created_by"]
@@ -4720,6 +4822,35 @@ export type Database = {
           },
         ]
       }
+      resource_categories: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_collections: {
         Row: {
           cover_image_url: string | null
@@ -6835,3 +6966,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

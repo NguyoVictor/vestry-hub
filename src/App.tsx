@@ -13,6 +13,7 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import MemberLogin from "./pages/auth/MemberLogin";
 import AuthCallback from "./pages/auth/AuthCallback";
+import CanvaCallback from "./pages/auth/CanvaCallback";
 import Onboarding from "./pages/Onboarding";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ChurchPublicPage from "./pages/ChurchPublicPage";
@@ -58,6 +59,7 @@ const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"))
 // Media pages
 const AssetManagementPage = lazy(() => import("./pages/media/AssetManagement"));
 const SongLibraryPage = lazy(() => import("./pages/media/SongLibrary"));
+const GraphicsStudioPage = lazy(() => import("./pages/media/GraphicsStudio"));
 const ChurchMediaPage = lazy(() => import("./pages/media/ChurchMedia"));
 const SermonPreparationPage = lazy(() => import("./pages/media/SermonPreparation"));
 const BibleExplorerPage = lazy(() => import("./pages/media/BibleExplorer"));
@@ -154,7 +156,7 @@ const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", 
 const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
 const GROWTH_PATHS = ["/discipleship", "/discipleship/graduates", "/discipleship-resources", "/outreach", "/resources-store", "/training"];
 const ADMIN_PATHS = ["/reports", "/branches"];
-const MEDIA_PATHS = ["/church-media", "/asset-management", "/song-library", "/sermon-preparation", "/bible-explorer", "/sermons"];
+const MEDIA_PATHS = ["/church-media", "/asset-management", "/song-library", "/graphics-studio", "/sermon-preparation", "/bible-explorer", "/sermons"];
 
 const App = () => (
   <Sentry.ErrorBoundary fallback={<div className="flex items-center justify-center min-h-screen p-12 text-muted-foreground">Something went wrong. Please refresh the page.</div>}>
@@ -170,6 +172,7 @@ const App = () => (
             <Route path="/auth/signin" element={<SignIn />} />
             <Route path="/auth/signup" element={<SignUp />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/canva/callback" element={<CanvaCallback />} />
             <Route path="/member-login" element={<Navigate to="/member/login" replace />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/church/:slug" element={<ChurchPublicPage />} />
@@ -232,6 +235,7 @@ const App = () => (
                 <Route path="/church-media" element={<Suspense fallback={<Fallback />}><ChurchMediaPage /></Suspense>} />
                 <Route path="/asset-management" element={<Suspense fallback={<Fallback />}><AssetManagementPage /></Suspense>} />
                 <Route path="/song-library" element={<Suspense fallback={<Fallback />}><SongLibraryPage /></Suspense>} />
+                <Route path="/graphics-studio" element={<Suspense fallback={<Fallback />}><GraphicsStudioPage /></Suspense>} />
                 <Route path="/sermon-preparation" element={<Suspense fallback={<Fallback />}><SermonPreparationPage /></Suspense>} />
                 <Route path="/bible-explorer" element={<Suspense fallback={<Fallback />}><BibleExplorerPage /></Suspense>} />
                 <Route path="/sermons" element={<Suspense fallback={<Fallback />}><SermonsPage /></Suspense>} />
