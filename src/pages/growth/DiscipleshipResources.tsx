@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import {
   BookOpen, FileText, Video, Link as LinkIcon, GraduationCap,
   Search, Plus, Trash2, Upload, FolderOpen, Eye, Download, X,
-  CheckCircle2, MoreVertical, Pencil,
+  CheckCircle2, MoreVertical, Pencil, Loader2, ExternalLink,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -98,17 +98,15 @@ function parseStoredUrl(stored: string): { value: string; originalName: string }
 async function resolveUrl(stored: string, bucket: "resources" | "church-video" = "resources"): Promise<string | null> {
   const { value } = parseStoredUrl(stored);
   if (value.startsWith("http")) return value;
-  // Private path — generate signed URL
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(value, 3600);
   if (error || !data) return null;
   return data.signedUrl;
 }
 
-/** Trigger a named download without opening a new tab */
+/** Trigger a named download — uses original filename stored after the pipe */
 async function downloadFile(stored: string, fallbackName: string, bucket: "resources" | "church-video" = "resources") {
   const { value, originalName } = parseStoredUrl(stored);
   let href: string;
-
   if (value.startsWith("http")) {
     href = value;
   } else {
@@ -116,14 +114,234 @@ async function downloadFile(stored: string, fallbackName: string, bucket: "resou
     if (error || !data) { toast.error("Could not generate download link"); return; }
     href = data.signedUrl;
   }
-
+  // Use the original filename, not the UUID storage path
+  const filename = originalName && originalName !== "download" ? originalName : fallbackName;
   const a = document.createElement("a");
   a.href = href;
-  a.download = originalName || fallbackName;
-  a.target = "_blank";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+
+/** Detect file extension from stored path or original name */
+function getFileExt(stored: string): string {
+  const { value, originalName } = parseStoredUrl(stored);
+  const name = originalName !== "download" ? originalName : value;
+  return name.split(".").pop()?.toLowerCase() || "";
+}
+
+// ─── Preview Modal ────────────────────────────────────────────────────────────
+interface PreviewState {
+  resource: Resource;
+  resolvedUrl: string | null;
+}
+
+function PreviewModal({ state, onClose, onDownload }: {
+  state: PreviewState | null;
+  onClose: () => void;
+  onDownload: () => void;
+}) {
+  const [iframeLoading, setIframeLoading] = useState(true);
+  const [linkBlocked, setLinkBlocked]     = useState(false);
+
+  if (!state) return null;
+  const { resource, resolvedUrl } = state;
+  const meta = TYPE_META[resource.resource_type] || TYPE_META.document;
+  const Icon = meta.icon;
+
+  const ext = resource.file_url ? getFileExt(resource.file_url) : "";
+  const isDocx = ["doc", "docx", "ppt", "pptx"].includes(ext);
+  const isPdf  = ext === "pdf";
+  const isImg  = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+  const isVid  = ["mp4", "webm", "mov"].includes(ext);
+
+  // For uploaded videos the video_url may be a public URL
+  const videoSrc = resource.video_url ? parseStoredUrl(resource.video_url).value : null;
+  const isYouTube = videoSrc && (videoSrc.includes("youtube.com") || videoSrc.includes("youtu.be"));
+  const isVimeo   = videoSrc && videoSrc.includes("vimeo.com");
+
+  function getYouTubeEmbed(url: string) {
+    const match = url.match(/(?:v=|youtu\.be\/)([^&?/]+)/);
+    return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1` : url;
+  }
+  function getVimeoEmbed(url: string) {
+    const match = url.match(/vimeo\.com\/(\d+)/);
+    return match ? `https://player.vimeo.com/video/${match[1]}?autoplay=1` : url;
+  }
+
+  const hasDownloadable = !!(resource.file_url || (resource.video_url && !isYouTube && !isVimeo));
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/80" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-slate-900 text-white shrink-0">
+        <span className={`p-1.5 rounded-md ${meta.bg}`}><Icon className={`h-4 w-4 ${meta.color}`} /></span>
+        <h2 className="font-semibold text-sm flex-1 truncate">{resource.title}</h2>
+        {hasDownloadable && (
+          <Button size="sm" variant="outline" className="gap-1.5 border-slate-600 text-white hover:bg-slate-700 hover:text-white" onClick={onDownload}>
+            <Download className="h-3.5 w-3.5" /> Download
+          </Button>
+        )}
+        <button onClick={onClose} className="p-1.5 rounded-md hover:bg-slate-700 transition-colors ml-1">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-hidden relative bg-slate-950">
+
+        {/* ── Lesson text ── */}
+        {resource.resource_type === "lesson" && !resolvedUrl && (
+          <div className="h-full overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto">
+            <div className="prose prose-invert prose-sm max-w-none">
+              <p className="text-slate-200 leading-relaxed whitespace-pre-wrap text-base">
+                {resource.lesson_content || "No lesson content provided."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Lesson with attached file — fall through to file preview below ── */}
+
+        {/* ── PDF ── */}
+        {resolvedUrl && isPdf && (
+          <>
+            {iframeLoading && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            )}
+            <iframe
+              src={resolvedUrl}
+              className="w-full h-full border-0"
+              title={resource.title}
+              onLoad={() => setIframeLoading(false)}
+            />
+          </>
+        )}
+
+        {/* ── Word / PowerPoint → Google Docs viewer ── */}
+        {resolvedUrl && isDocx && (
+          <>
+            {iframeLoading && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto" />
+                  <p className="text-slate-400 text-sm">Loading document preview…</p>
+                </div>
+              </div>
+            )}
+            <iframe
+              src={`https://docs.google.com/viewer?url=${encodeURIComponent(resolvedUrl)}&embedded=true`}
+              className="w-full h-full border-0"
+              title={resource.title}
+              onLoad={() => setIframeLoading(false)}
+            />
+          </>
+        )}
+
+        {/* ── Image ── */}
+        {resolvedUrl && isImg && (
+          <div className="h-full flex items-center justify-center p-4">
+            <img src={resolvedUrl} alt={resource.title} className="max-h-full max-w-full object-contain rounded-lg" />
+          </div>
+        )}
+
+        {/* ── Uploaded video file ── */}
+        {resolvedUrl && isVid && (
+          <div className="h-full flex items-center justify-center p-4">
+            <video src={resolvedUrl} controls autoPlay className="max-h-full max-w-full rounded-lg" />
+          </div>
+        )}
+
+        {/* ── YouTube embed ── */}
+        {resource.resource_type === "video" && isYouTube && videoSrc && (
+          <iframe
+            src={getYouTubeEmbed(videoSrc)}
+            className="w-full h-full border-0"
+            title={resource.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        )}
+
+        {/* ── Vimeo embed ── */}
+        {resource.resource_type === "video" && isVimeo && videoSrc && (
+          <iframe
+            src={getVimeoEmbed(videoSrc)}
+            className="w-full h-full border-0"
+            title={resource.title}
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        )}
+
+        {/* ── External link ── */}
+        {resource.resource_type === "link" && resource.external_url && (
+          <>
+            {iframeLoading && !linkBlocked && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            )}
+            {!linkBlocked ? (
+              <iframe
+                src={resource.external_url}
+                className="w-full h-full border-0"
+                title={resource.title}
+                onLoad={() => setIframeLoading(false)}
+                onError={() => setLinkBlocked(true)}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center space-y-4 max-w-sm">
+                  <LinkIcon className="h-12 w-12 text-slate-500 mx-auto" />
+                  <p className="text-slate-300 font-medium">This site can't be embedded</p>
+                  <p className="text-slate-500 text-sm">The website has blocked iframe embedding (X-Frame-Options).</p>
+                  <Button variant="outline" className="gap-2 border-slate-600 text-white hover:bg-slate-700"
+                    onClick={() => window.open(resource.external_url!, "_blank")}>
+                    <ExternalLink className="h-4 w-4" /> Open in new tab
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Lesson with attached file ── */}
+        {resource.resource_type === "lesson" && resolvedUrl && (
+          <div className="h-full flex flex-col">
+            {resource.lesson_content && (
+              <div className="p-4 bg-slate-800 border-b border-slate-700 max-h-40 overflow-y-auto">
+                <p className="text-slate-200 text-sm whitespace-pre-wrap leading-relaxed">{resource.lesson_content}</p>
+              </div>
+            )}
+            <div className="flex-1 relative">
+              {iframeLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                </div>
+              )}
+              {isPdf && <iframe src={resolvedUrl} className="w-full h-full border-0" title={resource.title} onLoad={() => setIframeLoading(false)} />}
+              {isDocx && <iframe src={`https://docs.google.com/viewer?url=${encodeURIComponent(resolvedUrl)}&embedded=true`} className="w-full h-full border-0" title={resource.title} onLoad={() => setIframeLoading(false)} />}
+              {isImg && <div className="h-full flex items-center justify-center p-4"><img src={resolvedUrl} alt={resource.title} className="max-h-full max-w-full object-contain rounded-lg" /></div>}
+              {isVid && <div className="h-full flex items-center justify-center p-4"><video src={resolvedUrl} controls autoPlay className="max-h-full max-w-full rounded-lg" /></div>}
+            </div>
+          </div>
+        )}
+
+        {/* ── Lesson text only (no file) ── */}
+        {resource.resource_type === "lesson" && !resolvedUrl && resource.lesson_content && (
+          <div className="h-full overflow-y-auto p-6 md:p-10 max-w-3xl mx-auto">
+            <p className="text-slate-200 leading-relaxed whitespace-pre-wrap text-base">{resource.lesson_content}</p>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -221,10 +439,9 @@ function ResourceItemCard({ resource, categoryName, onView, onEdit, onDelete }: 
   const meta = TYPE_META[resource.resource_type] || TYPE_META.document;
   const Icon = meta.icon;
 
-  // Determine which stored field holds the file
-  const storedFile = resource.file_url || null;
+  const storedFile  = resource.file_url || null;
   const storedVideo = resource.video_url || null;
-  const storedLink = resource.external_url || null;
+  const storedLink  = resource.external_url || null;
   const hasDownloadable = !!(storedFile || storedVideo);
   const isLink = resource.resource_type === "link" && storedLink;
 
@@ -297,9 +514,9 @@ function ResourceItemCard({ resource, categoryName, onView, onEdit, onDelete }: 
 
       {/* Actions */}
       <div className="flex gap-2 mt-auto">
-        <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={handleView}>
+        <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={onView}>
           <Eye className="h-3.5 w-3.5" />
-          {isLink ? "Open Link" : "View"}
+          {resource.resource_type === "link" ? "Open Link" : "View"}
         </Button>
         {hasDownloadable && (
           <Button size="sm" variant="outline" className="gap-1.5 px-3" onClick={handleDownload} title="Download">
@@ -464,8 +681,8 @@ export default function DiscipleshipResources() {
   const [categoriesOpen, setCategoriesOpen]   = useState(false);
   const [addResourceOpen, setAddResourceOpen] = useState(false);
   const [editResource, setEditResource]       = useState<Resource | null>(null);
-  const [viewResource, setViewResource]       = useState<Resource | null>(null);
   const [deleteTarget, setDeleteTarget]       = useState<Resource | null>(null);
+  const [previewState, setPreviewState]       = useState<PreviewState | null>(null);
   const [search, setSearch]                   = useState("");
   const [typeFilter, setTypeFilter]           = useState("all");
   const [categoryFilter, setCategoryFilter]   = useState("all");
@@ -667,6 +884,48 @@ export default function DiscipleshipResources() {
   function handleSubmit() { if (validate()) createResource.mutate(); }
   function handleUpdate() { if (validate()) updateResource.mutate(); }
 
+  // ─── Open preview modal ──────────────────────────────────────────────────────
+  async function openPreview(r: Resource) {
+    // For lesson with no file, just show text — no URL needed
+    if (r.resource_type === "lesson" && !r.file_url) {
+      setPreviewState({ resource: r, resolvedUrl: null });
+      return;
+    }
+    // For external links, no resolution needed
+    if (r.resource_type === "link") {
+      setPreviewState({ resource: r, resolvedUrl: r.external_url || null });
+      return;
+    }
+    // For video URLs (YouTube/Vimeo), pass through as-is
+    if (r.video_url) {
+      const { value } = parseStoredUrl(r.video_url);
+      if (value.startsWith("http")) {
+        setPreviewState({ resource: r, resolvedUrl: value });
+        return;
+      }
+      // Uploaded video file — resolve public URL
+      const url = await resolveUrl(r.video_url, "church-video");
+      setPreviewState({ resource: r, resolvedUrl: url });
+      return;
+    }
+    // Documents / lesson attachments — resolve signed URL
+    if (r.file_url) {
+      const url = await resolveUrl(r.file_url, "resources");
+      if (!url) { toast.error("Could not load file"); return; }
+      setPreviewState({ resource: r, resolvedUrl: url });
+      return;
+    }
+    // Fallback — open with no URL (lesson text only)
+    setPreviewState({ resource: r, resolvedUrl: null });
+  }
+
+  async function handlePreviewDownload() {
+    if (!previewState) return;
+    const r = previewState.resource;
+    if (r.video_url) await downloadFile(r.video_url, r.title, "church-video");
+    else if (r.file_url) await downloadFile(r.file_url, r.title, "resources");
+  }
+
   const categoryMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
   return (
     <>
@@ -754,7 +1013,7 @@ export default function DiscipleshipResources() {
             <ResourceItemCard
               key={r.id} resource={r}
               categoryName={r.category_id ? categoryMap[r.category_id] : undefined}
-              onView={() => setViewResource(r)}
+              onView={() => openPreview(r)}
               onEdit={() => openEdit(r)}
               onDelete={() => setDeleteTarget(r)}
             />
@@ -842,78 +1101,12 @@ export default function DiscipleshipResources() {
         </DialogContent>
       </Dialog>
 
-      {/* ── View Resource ── */}
-      <Dialog open={!!viewResource} onOpenChange={o => { if (!o) setViewResource(null); }}>
-        <DialogContent className="max-w-lg">
-          {viewResource && (() => {
-            const meta = TYPE_META[viewResource.resource_type] || TYPE_META.document;
-            const Icon = meta.icon;
-            const storedFile  = viewResource.file_url || null;
-            const storedVideo = viewResource.video_url || null;
-            const storedLink  = viewResource.external_url || null;
-            const hasDownloadable = !!(storedFile || storedVideo);
-
-            async function handleView() {
-              if (storedLink) { window.open(storedLink, "_blank"); return; }
-              if (storedVideo) {
-                const url = await resolveUrl(storedVideo, "church-video");
-                if (url) window.open(url, "_blank"); else toast.error("Could not open video");
-                return;
-              }
-              if (storedFile) {
-                const url = await resolveUrl(storedFile, "resources");
-                if (url) window.open(url, "_blank"); else toast.error("Could not open file");
-              }
-            }
-
-            async function handleDownload() {
-              if (storedVideo) await downloadFile(storedVideo, viewResource.title, "church-video");
-              else if (storedFile) await downloadFile(storedFile, viewResource.title, "resources");
-            }
-
-            return (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <span className={`p-1.5 rounded-md ${meta.bg}`}><Icon className={`h-4 w-4 ${meta.color}`} /></span>
-                    {viewResource.title}
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-2">
-                  {viewResource.description && <p className="text-sm text-muted-foreground">{viewResource.description}</p>}
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">{meta.label}</Badge>
-                    {viewResource.category_id && categoryMap[viewResource.category_id] && (
-                      <Badge variant="outline">{categoryMap[viewResource.category_id]}</Badge>
-                    )}
-                    {viewResource.duration_minutes && <Badge variant="outline">{viewResource.duration_minutes} min</Badge>}
-                    {viewResource.is_required && <Badge className="bg-amber-100 text-amber-700">Required</Badge>}
-                    {!viewResource.is_published && <Badge variant="outline" className="text-slate-400">Draft</Badge>}
-                  </div>
-                  {viewResource.lesson_content && (
-                    <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
-                      {viewResource.lesson_content}
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    {(storedFile || storedVideo || storedLink) && (
-                      <Button variant="outline" className="flex-1 gap-2" onClick={handleView}>
-                        <Eye className="h-4 w-4" />
-                        {storedLink ? "Open Link" : "View File"}
-                      </Button>
-                    )}
-                    {hasDownloadable && (
-                      <Button variant="outline" className="gap-2 px-4" onClick={handleDownload} title="Download">
-                        <Download className="h-4 w-4" /> Download
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      {/* ── Preview Modal (full-screen overlay) ── */}
+      <PreviewModal
+        state={previewState}
+        onClose={() => setPreviewState(null)}
+        onDownload={handlePreviewDownload}
+      />
 
       {/* ── Delete Confirm ── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={o => { if (!o) setDeleteTarget(null); }}>
