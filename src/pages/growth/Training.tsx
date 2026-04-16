@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { CourseProgressCard, Course, Enrollment } from "@/components/growth/CourseProgressCard";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { BookCheck, Plus, Search, GraduationCap, Users, Award } from "lucide-react";
+import { BookCheck, Plus, Search, GraduationCap, Users, Award, Pencil, Upload } from "lucide-react";
 
 const CATEGORIES = ["leadership", "pastoral_care", "administration", "worship_ministry", "childrens_ministry", "youth_ministry", "finance", "communications", "technology", "personal_development", "other"];
 const DIFFICULTIES = ["beginner", "intermediate", "advanced"];
@@ -32,8 +32,25 @@ const defaultCourseForm = {
   certificate_title: "Certificate of Completion", status: "draft" as string,
 };
 
+// ─── Time-based greeting ──────────────────────────────────────────────────────
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return "Good morning ☀️";
+  if (h >= 12 && h < 17) return "Good afternoon 🌤️";
+  if (h >= 17 && h < 21) return "Good evening 🌙";
+  return "Good night 🌙";
+}
+
+// ─── Action tiles ─────────────────────────────────────────────────────────────
+const ACTION_TILES = [
+  { id: "create", icon: Pencil,   title: "Create",  subtitle: "a resource" },
+  { id: "search", icon: Search,   title: "Search",  subtitle: "for resources" },
+  { id: "upload", icon: Upload,   title: "Upload",  subtitle: "& enhance your content" },
+] as const;
+type TileId = typeof ACTION_TILES[number]["id"];
+
 export default function Training() {
-  const { tenantId, userId } = useChurch();
+  const { tenantId, userId, userFirstName } = useChurch();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [courseSheet, setCourseSheet] = useState(false);
@@ -42,6 +59,9 @@ export default function Training() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [activeTile, setActiveTile] = useState<TileId>("create");
+
+  const greeting = useMemo(() => getGreeting(), []);
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ["training-courses", tenantId],
@@ -130,6 +150,47 @@ export default function Training() {
         subtitle="Staff development courses and learning management"
         action={<Button onClick={() => navigate("/training/new")}><Plus className="h-4 w-4 mr-1" />Create Course</Button>}
       />
+
+      {/* ── Greeting + Action Tiles ── */}
+      <div className="mb-6 rounded-2xl overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #fff7f0 0%, #ffe8d6 50%, #ffd6b8 100%)" }}>
+        <div className="px-6 pt-6 pb-2 text-center">
+          <p className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
+            {greeting}, {userFirstName || "there"} 👋 Let's get started.
+          </p>
+        </div>
+
+        {/* Tiles */}
+        <div className="flex items-center justify-center gap-3 px-6 pb-6 pt-4 flex-wrap">
+          {ACTION_TILES.map(({ id, icon: Icon, title, subtitle }) => {
+            const isActive = activeTile === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTile(id)}
+                className={`
+                  relative flex flex-col items-center gap-1.5 px-8 py-4 rounded-xl
+                  bg-white border transition-all duration-150 min-w-[140px]
+                  ${isActive
+                    ? "border-orange-400 shadow-md"
+                    : "border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300"
+                  }
+                `}
+              >
+                <Icon className={`h-5 w-5 ${isActive ? "text-orange-500" : "text-slate-500"}`} />
+                <span className={`text-sm font-semibold leading-none ${isActive ? "text-orange-500" : "text-slate-700"}`}>
+                  {title}
+                </span>
+                <span className="text-xs text-slate-400 leading-none">{subtitle}</span>
+                {/* Orange underline for active */}
+                {isActive && (
+                  <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-orange-400" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <Tabs defaultValue="my-learning">
         <TabsList className="mb-4">
