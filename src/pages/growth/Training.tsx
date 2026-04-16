@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
 import { CourseProgressCard, Course, Enrollment } from "@/components/growth/CourseProgressCard";
+import CreateResourceModal from "@/components/training/CreateResourceModal";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BookCheck, Plus, Search, GraduationCap, Users, Award, Pencil, Upload } from "lucide-react";
@@ -60,6 +61,7 @@ export default function Training() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [activeTile, setActiveTile] = useState<TileId>("create");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const greeting = useMemo(() => getGreeting(), []);
 
@@ -148,7 +150,11 @@ export default function Training() {
       <PageHeader
         title="Training"
         subtitle="Staff development courses and learning management"
-        action={<Button onClick={() => navigate("/training/new")}><Plus className="h-4 w-4 mr-1" />Create Course</Button>}
+        action={
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" />Create Course
+          </Button>
+        }
       />
 
       {/* ── Greeting + Action Tiles ── */}
@@ -191,6 +197,81 @@ export default function Training() {
           })}
         </div>
       </div>
+
+      {/* ── Resource Type Cards (shown when Create tile is active) ── */}
+      {activeTile === "create" && (
+        <div className="mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Assessment — clickable */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center transition-all hover:border-indigo-400 hover:shadow-md hover:scale-105 cursor-pointer"
+            >
+              <div className="bg-emerald-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
+                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-100">Assessment</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Quick & interactive questions</p>
+              </div>
+            </button>
+
+            {/* Presentation — disabled */}
+            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
+              <div className="bg-orange-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
+                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-100">Presentation</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Slides with questions and whiteboard</p>
+              </div>
+            </div>
+
+            {/* Video — disabled */}
+            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
+              <div className="bg-pink-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
+                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-100">Video</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Questions at key points in the video</p>
+              </div>
+            </div>
+
+            {/* Passage — disabled */}
+            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
+              <div className="bg-blue-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
+                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-100">Passage</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Questions based on a passage</p>
+              </div>
+            </div>
+
+            {/* Flashcards — disabled */}
+            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
+              <div className="bg-purple-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
+                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-800 dark:text-slate-100">Flashcards</p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Questions on front, answers on back</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="my-learning">
         <TabsList className="mb-4">
@@ -349,6 +430,9 @@ export default function Training() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Create Resource Modal */}
+      <CreateResourceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </>
   );
 }
