@@ -1,11 +1,34 @@
 import { useState } from "react";
-import { X, Upload, Sparkles, ChevronRight, FileText } from "lucide-react";
+import { X, Upload, Sparkles, ChevronRight, FileText, ChevronLeft, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import ResourceTypeCard from "./ResourceTypeCard";
 import QuizBuilder from "./QuizBuilder";
 
-type ModalStep = "create-type" | "resource-type" | "quiz-builder";
+type ModalStep = "create-type" | "ai-config" | "quiz-builder";
+
+const GRADE_LEVELS = [
+  "Kindergarten", "1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade",
+  "6th grade", "7th grade", "8th grade", "9th grade", "10th grade", "11th grade",
+  "12th grade", "University", "Professional Development", "Vocational Training",
+];
+
+const LANGUAGES = [
+  "English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch",
+  "Russian", "Chinese", "Japanese", "Korean", "Arabic", "Hindi", "Swahili",
+];
+
+const DOK_LEVELS: { level: 1 | 2 | 3; label: string; tooltip: string }[] = [
+  { level: 1, label: "Level 1", tooltip: "Recall" },
+  { level: 2, label: "Level 2", tooltip: "Skill/Concept" },
+  { level: 3, label: "Level 3", tooltip: "Strategic Thinking" },
+];
+
+const QUESTION_COUNTS: ("auto" | number)[] = ["auto", 10, 15, 20, 30];
 
 interface CreateResourceModalProps {
   isOpen: boolean;
@@ -15,12 +38,20 @@ interface CreateResourceModalProps {
 export default function CreateResourceModal({ isOpen, onClose }: CreateResourceModalProps) {
   const [modalStep, setModalStep] = useState<ModalStep>("create-type");
   const [aiTopic, setAiTopic] = useState("");
+  const [gradeLevel, setGradeLevel] = useState("");
+  const [dokLevel, setDokLevel] = useState<1 | 2 | 3>(1);
+  const [numQuestions, setNumQuestions] = useState<"auto" | number>("auto");
+  const [outputLang, setOutputLang] = useState("English");
 
   if (!isOpen) return null;
 
   function handleReset() {
     setModalStep("create-type");
     setAiTopic("");
+    setGradeLevel("");
+    setDokLevel(1);
+    setNumQuestions("auto");
+    setOutputLang("English");
   }
 
   function handleClose() {
@@ -36,9 +67,18 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
       >
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+          {/* Back button */}
+          {modalStep !== "create-type" && (
+            <button
+              onClick={() => setModalStep(modalStep === "quiz-builder" ? "ai-config" : "create-type")}
+              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" /> Go Back
+            </button>
+          )}
+          <h2 className={`text-xl font-bold text-slate-800 dark:text-slate-100 ${modalStep === "create-type" ? "" : "flex-1 text-center"}`}>
             {modalStep === "create-type" && "How would you like to get started?"}
-            {modalStep === "resource-type" && "What would you like to create?"}
+            {modalStep === "ai-config" && "Create with prompt or text"}
             {modalStep === "quiz-builder" && "Create Assessment"}
           </h2>
           <button
@@ -79,7 +119,7 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Generate with AI */}
                 <button
-                  onClick={() => setModalStep("quiz-builder")}
+                  onClick={() => setModalStep("ai-config")}
                   className="group relative p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 hover:shadow-lg hover:scale-105 transition-all text-left"
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -125,7 +165,123 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
             </div>
           )}
 
-          {/* ── Step 2: Quiz Builder ── */}
+          {/* ── Step 2: AI Configuration ── */}
+          {modalStep === "ai-config" && (
+            <div className="space-y-6 max-w-2xl mx-auto">
+              {/* Topic input */}
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Enter a topic or paste content..."
+                  value={aiTopic}
+                  onChange={e => setAiTopic(e.target.value)}
+                  rows={6}
+                  className="resize-none text-base"
+                />
+              </div>
+
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Customise your assessment</h3>
+
+                {/* Grade level */}
+                <div className="grid grid-cols-[140px_1fr] gap-4 items-center mb-5">
+                  <Label className="text-sm text-slate-600 dark:text-slate-400">Grade level</Label>
+                  <Select value={gradeLevel} onValueChange={setGradeLevel}>
+                    <SelectTrigger><SelectValue placeholder="Select a grade" /></SelectTrigger>
+                    <SelectContent>
+                      {GRADE_LEVELS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* DOK Level */}
+                <div className="grid grid-cols-[140px_1fr] gap-4 items-center mb-5">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-sm text-slate-600 dark:text-slate-400">Depth of knowledge (DOK)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-slate-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-sm p-4">
+                          <p className="font-semibold mb-2">A framework for understanding the complexity of tasks:</p>
+                          <p className="text-xs mb-2"><strong>DOK Level 1 – Recall:</strong> Simple recall of facts, terms, or basic concepts.</p>
+                          <p className="text-xs mb-2"><strong>DOK Level 2 – Skill/Concept:</strong> Applies knowledge or procedures to solve problems.</p>
+                          <p className="text-xs"><strong>DOK Level 3 – Strategic Thinking:</strong> Involves deep understanding, reasoning, and complex decision-making.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex gap-2">
+                    {DOK_LEVELS.map(({ level, label, tooltip }) => (
+                      <TooltipProvider key={level}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => setDokLevel(level)}
+                              className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all
+                                ${dokLevel === level
+                                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                                  : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                                }`}
+                            >
+                              {label}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="font-semibold">{tooltip}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Number of questions */}
+                <div className="grid grid-cols-[140px_1fr] gap-4 items-center mb-5">
+                  <Label className="text-sm text-slate-600 dark:text-slate-400">Number of questions</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {QUESTION_COUNTS.map(count => (
+                      <button
+                        key={count}
+                        onClick={() => setNumQuestions(count)}
+                        className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all capitalize
+                          ${numQuestions === count
+                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                            : "border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                          }`}
+                      >
+                        {count === "auto" ? "Automatic" : count}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Output language */}
+                <div className="grid grid-cols-[140px_1fr] gap-4 items-center mb-5">
+                  <Label className="text-sm text-slate-600 dark:text-slate-400">Output language</Label>
+                  <Select value={outputLang} onValueChange={setOutputLang}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGES.map(lang => <SelectItem key={lang} value={lang}>{lang}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Next button */}
+              <div className="flex justify-end pt-4">
+                <Button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-8"
+                  onClick={() => setModalStep("quiz-builder")}
+                  disabled={!aiTopic.trim()}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Quiz Builder ── */}
           {modalStep === "quiz-builder" && (
             <QuizBuilder aiTopic={aiTopic} onClose={handleClose} />
           )}
