@@ -1,15 +1,13 @@
 import { useState, useRef } from "react";
 import {
   ArrowLeft, Settings, Wand2, Search, Plus, X, Clock, Star,
-  Image, Video, CheckSquare, List, ToggleLeft, PenLine,
-  FileText, GripVertical, ChevronDown, Trash2, CheckCircle2,
+  Image, Video, GripVertical, Trash2, CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-
+import QuizSettingsModal, { QuizSettings } from "./QuizSettingsModal";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type QuestionType =
   | "multiple_choice" | "multi_select" | "true_false" | "fill_blanks"
@@ -257,6 +255,17 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [hoveredType, setHoveredType] = useState<QTypeDef | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [quizSettings, setQuizSettings] = useState<QuizSettings>({
+    title: "Untitled Quiz",
+    subject: "",
+    grade: "",
+    language: "English",
+    visibility: "public",
+    teachingGoals: [],
+    coverImagePath: "",
+    coverImageUrl: "",
+  });
   const titleRef = useRef<HTMLInputElement>(null);
 
   const hasQuestions = questions.length > 0;
@@ -303,7 +312,7 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
           <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
         </button>
 
-        {/* Editable title */}
+        {/* Editable title — click opens Settings modal */}
         {editingTitle ? (
           <input
             ref={titleRef}
@@ -312,12 +321,12 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
             onBlur={() => setEditingTitle(false)}
             onKeyDown={e => { if (e.key === "Enter") setEditingTitle(false); }}
             autoFocus
-            className="border border-indigo-400 rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 min-w-[180px]"
+            className="border border-orange-400 rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 min-w-[180px]"
           />
         ) : (
           <button
-            onClick={() => setEditingTitle(true)}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-indigo-400 transition-colors"
+            onClick={() => { setQuizSettings(s => ({ ...s, title })); setSettingsOpen(true); }}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-orange-400 transition-colors"
           >
             {title}
           </button>
@@ -326,7 +335,10 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
         <div className="flex-1" />
 
         {/* Right actions */}
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+        <button
+          onClick={() => { setQuizSettings(s => ({ ...s, title })); setSettingsOpen(true); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+        >
           <Settings className="h-4 w-4" /> Settings
         </button>
         <button
@@ -459,6 +471,17 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
           <Search className="h-5 w-5" />
         </button>
       </div>
+
+      {/* ── Quiz Settings Modal ── */}
+      <QuizSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={quizSettings}
+        onSave={saved => {
+          setQuizSettings(saved);
+          setTitle(saved.title || "Untitled Quiz");
+        }}
+      />
     </div>
   );
 }
