@@ -20,6 +20,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Progress } from "@/components/ui/progress";
 import { CourseProgressCard, Course, Enrollment } from "@/components/growth/CourseProgressCard";
 import CreateResourceModal from "@/components/training/CreateResourceModal";
+import QuizCreator from "@/components/training/QuizCreator";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BookCheck, Plus, Search, GraduationCap, Users, Award, Pencil, Upload } from "lucide-react";
@@ -62,6 +63,7 @@ export default function Training() {
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [activeTile, setActiveTile] = useState<TileId>("create");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showQuizCreator, setShowQuizCreator] = useState(false);
 
   const greeting = useMemo(() => getGreeting(), []);
 
@@ -432,7 +434,16 @@ export default function Training() {
       </Sheet>
 
       {/* Create Resource Modal */}
-      <CreateResourceModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <CreateResourceModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onStartFromScratch={() => { setIsModalOpen(false); setShowQuizCreator(true); }}
+      />
+
+      {/* Full-page Quiz Creator */}
+      {showQuizCreator && (
+        <QuizCreator onBack={() => setShowQuizCreator(false)} />
+      )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Upload, Sparkles, ChevronRight, FileText, ChevronLeft, Info } from "lucide-react";
+import { X, Upload, Sparkles, ChevronRight, FileText, ChevronLeft, Info, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import ResourceTypeCard from "./ResourceTypeCard";
 import QuizBuilder from "./QuizBuilder";
 
-type ModalStep = "create-type" | "ai-config" | "categories-curriculum" | "quiz-builder";
+type ModalStep = "create-type" | "ai-config" | "categories-curriculum" | "scratch-builder" | "quiz-builder";
 
 const GRADE_LEVELS = [
   "Kindergarten", "1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade",
@@ -30,12 +30,38 @@ const DOK_LEVELS: { level: 1 | 2 | 3; label: string; tooltip: string }[] = [
 
 const QUESTION_COUNTS: ("auto" | number)[] = ["auto", 10, 15, 20, 30];
 
+// ─── Question Type Section ────────────────────────────────────────────────────
+interface QType { label: string; color: string; icon: string }
+function QuestionTypeSection({ title, types, onSelect }: { title: string; types: QType[]; onSelect: (t: string) => void }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{title}</p>
+      <div className="grid grid-cols-3 gap-2">
+        {types.map(({ label, color, icon }) => (
+          <button
+            key={label}
+            onClick={() => onSelect(label)}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-indigo-400 hover:shadow-sm hover:scale-105 transition-all text-left"
+          >
+            <span className={`${color} h-7 w-7 rounded-md flex items-center justify-center text-white text-sm shrink-0`}>
+              {icon}
+            </span>
+            <span className="text-sm text-slate-700 dark:text-slate-300 leading-tight">{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
 interface CreateResourceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onStartFromScratch: () => void;
 }
 
-export default function CreateResourceModal({ isOpen, onClose }: CreateResourceModalProps) {
+export default function CreateResourceModal({ isOpen, onClose, onStartFromScratch }: CreateResourceModalProps) {
   const [modalStep, setModalStep] = useState<ModalStep>("create-type");
   const [aiTopic, setAiTopic] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
@@ -73,6 +99,7 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
               onClick={() => {
                 if (modalStep === "ai-config") setModalStep("create-type");
                 else if (modalStep === "categories-curriculum") setModalStep("create-type");
+                else if (modalStep === "scratch-builder") setModalStep("create-type");
                 else if (modalStep === "quiz-builder") setModalStep("create-type");
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
@@ -87,6 +114,7 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
             {modalStep === "create-type" && "How would you like to get started?"}
             {modalStep === "ai-config" && "Create with prompt or text"}
             {modalStep === "categories-curriculum" && "Create with Categories or Curriculum"}
+            {modalStep === "scratch-builder" && "Start from Scratch"}
             {modalStep === "quiz-builder" && "Create Assessment"}
           </h2>
 
@@ -159,7 +187,7 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
 
                 {/* Start from Scratch */}
                 <button
-                  onClick={() => setModalStep("quiz-builder")}
+                  onClick={() => { handleClose(); onStartFromScratch(); }}
                   className="group relative p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 hover:shadow-lg hover:scale-105 transition-all text-left"
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -335,6 +363,82 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
                   ))}
                 </div>
               </button>
+            </div>
+          )}
+
+          {/* ── Step: Start from Scratch — Question Type Picker ── */}
+          {modalStep === "scratch-builder" && (
+            <div className="space-y-6 max-w-2xl mx-auto">
+              {/* Search bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search for quizzes on any topic..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded-md bg-slate-100 dark:bg-slate-700 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">
+                  Search quizzes →
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500 flex items-center gap-1">
+                  Question types <span className="text-slate-400">🖱 Hover to preview</span>
+                </p>
+              </div>
+
+              {/* Basic */}
+              <QuestionTypeSection title="Basic" types={[
+                { label: "Multiple choice",  color: "bg-indigo-500",  icon: "☑" },
+                { label: "Multi-select",     color: "bg-teal-500",    icon: "✔" },
+                { label: "True or false",    color: "bg-pink-500",    icon: "⊘" },
+                { label: "Fill in the blanks", color: "bg-orange-500", icon: "✏" },
+                { label: "Open ended",       color: "bg-slate-500",   icon: "≡" },
+                { label: "Passage",          color: "bg-red-500",     icon: "📄" },
+              ]} onSelect={() => setModalStep("quiz-builder")} />
+
+              {/* Interactive & higher order */}
+              <QuestionTypeSection title="Interactive & higher order" types={[
+                { label: "Drag and drop",  color: "bg-green-500",  icon: "✋" },
+                { label: "Dropdown",       color: "bg-emerald-500",icon: "▼" },
+                { label: "Categorize",     color: "bg-yellow-500", icon: "⊞" },
+                { label: "Reorder",        color: "bg-lime-500",   icon: "↕" },
+                { label: "Match",          color: "bg-cyan-500",   icon: "⇄" },
+              ]} onSelect={() => setModalStep("quiz-builder")} />
+
+              {/* Visual learning */}
+              <QuestionTypeSection title="Visual learning" types={[
+                { label: "Labeling",  color: "bg-red-400",    icon: "🏷" },
+                { label: "Hotspot",   color: "bg-orange-400", icon: "🎯" },
+              ]} onSelect={() => setModalStep("quiz-builder")} />
+
+              {/* Open ended */}
+              <QuestionTypeSection title="Open ended" types={[
+                { label: "Draw",           color: "bg-blue-500",   icon: "✏" },
+                { label: "Video response", color: "bg-blue-600",   icon: "🎥" },
+                { label: "Audio response", color: "bg-indigo-400", icon: "🔊" },
+                { label: "Poll",           color: "bg-slate-500",  icon: "📊" },
+                { label: "Word cloud",     color: "bg-sky-500",    icon: "☁" },
+              ]} onSelect={() => setModalStep("quiz-builder")} />
+
+              {/* Other */}
+              <QuestionTypeSection title="Other" types={[
+                { label: "Slide", color: "bg-slate-400", icon: "🖥" },
+              ]} onSelect={() => setModalStep("quiz-builder")} />
+
+              {/* Import */}
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Import existing files</p>
+                <div className="flex gap-3">
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                    <span>⊞</span> Spreadsheet
+                  </button>
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                    <span>📋</span> Google Forms
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
