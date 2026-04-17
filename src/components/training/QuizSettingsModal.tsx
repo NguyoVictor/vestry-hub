@@ -17,8 +17,9 @@ const SUBJECTS = [
 ];
 
 const GRADES = [
-  "All Ages", "Children (5-10)", "Youth (11-17)",
-  "Young Adults (18-25)", "Adults (26+)", "Seniors (60+)",
+  "Kindergarten", "1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade",
+  "6th grade", "7th grade", "8th grade", "9th grade", "10th grade", "11th grade",
+  "12th grade", "University", "Professional Development", "Vocational Training",
 ];
 
 const LANGUAGES = [
