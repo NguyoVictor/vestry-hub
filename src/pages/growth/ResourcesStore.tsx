@@ -548,6 +548,312 @@ function ResourcesTab({ tenantId, currency }: { tenantId: string; currency: (n: 
   );
 }
 
+// ─── Bundles Tab ──────────────────────────────────────────────────────────────
+function BundlesTab({ tenantId, formatCurrency }: { tenantId: string; formatCurrency: (n: number) => string }) {
+  const queryClient = useQueryClient();
+  const { userId } = useChurch();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editBundle, setEditBundle] = useState<any>(null);
+  const [bundleForm, setBundleForm] = useState({
+    name: "", description: "",
+    product_ids: [] as string[],
+    bundle_price: "0", member_discount: "0",
+    is_featured: false, is_active: true,
+  });
+  const [productSearch, setProductSearch] = useState("");
+  const [productDropOpen, setProductDropOpen] = useState(false);
+
+  const { data: bundles = [], isLoading } = useQuery({
+    queryKey: ["store-bundles", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.STORE_BUNDLES).select("*").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300000,
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ["store-products-admin", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.STORE_PRODUCTS).select("id, name, price").eq(COLS.TENANT_ID, tenantId).eq("status", "active");
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300000,
+  });
+
+  // Compute original total from selected products
+  const selectedProducts = products.filter((p: any) => bundleForm.product_ids.includes(p.id));
+  const originalTotal = selectedProducts.reduce((s: number, p: any) => s + Number(p.price || 0), 0);
+
+  function openAdd() {
+    setBundleForm({ name: "", description: "", product_ids: [], bundle_price: "0", member_discount: "0", is_featured: false, is_active: true });
+    setEditBundle(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(b: any) {
+    setBundleForm({
+      name: b.name || "",
+      description: b.description || "",
+      product_ids: b.product_ids || [],
+      bundle_price: String(b.bundle_price || 0),
+      member_discount: String(b.member_discount || 0),
+      is_featured: b.is_featured || false,
+      is_active: b.is_active ?? true,
+    });
+    setEditBundle(b);
+    setModalOpen(true);
+  }
+
+  function toggleProduct(id: string) {
+    setBundleForm(f => ({
+      ...f,
+      product_ids: f.product_ids.includes(id)
+        ? f.product_ids.filter(x => x !== id)
+        : [...f.product_ids, id],
+    }));
+  }
+
+  const filteredProducts = products.filter((p: any) =>
+    p.name.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        name: bundleForm.name.trim(),
+        description: bundleForm.description || null,
+        product_ids: bundleForm.product_ids,
+        original_price: originalTotal,
+        bundle_price: Number(bundleForm.bundle_price) || 0,
+        member_discount: Number(bundleForm.member_discount) || 0,
+        is_featured: bundleForm.is_featured,
+        is_active: bundleForm.is_active,
+        tenant_id: tenantId,
+        created_by: userId,
+      };
+      if (editBundle) {
+        const { error } = await supabase.from(TABLES.STORE_BUNDLES).update(payload).eq(COLS.ID, editBundle.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from(TABLES.STORE_BUNDLES).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["store-bundles", tenantId] });
+      setModalOpen(false);
+      toast.success(editBundle ? "Bundle updated" : "Bundle created");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to save bundle"),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(TABLES.STORE_BUNDLES).delete().eq(COLS.ID, id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["store-bundles", tenantId] });
+      toast.success("Bundle deleted");
+    },
+    onError: () => toast.error("Failed to delete bundle"),
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex justify-end">
+        <Button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
+          <Plus className="h-4 w-4" /> Create Bundle
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              {["Name", "Items", "Original Price", "Bundle Price", "Sales", "Status", "Actions"].map(h => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={7} className="text-center py-10 text-slate-400 text-sm">Loading…</td></tr>
+            ) : bundles.length === 0 ? (
+              <tr><td colSpan={7} className="text-center py-10 text-slate-400 text-sm">No bundles yet. Create bundles to offer discounted resource packages.</td></tr>
+            ) : (
+              bundles.map((b: any) => (
+                <tr key={b.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{b.name}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{b.product_ids?.length || 0}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{formatCurrency(b.original_price)}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{formatCurrency(b.bundle_price)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{b.sales_count || 0}</td>
+                  <td className="px-4 py-3">
+                    <Badge className={`text-xs ${b.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                      {b.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(b)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 transition-colors">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => remove.mutate(b.id)} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create / Edit Bundle Modal */}
+      <Dialog open={modalOpen} onOpenChange={o => { setModalOpen(o); if (!o) { setEditBundle(null); setProductSearch(""); setProductDropOpen(false); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editBundle ? "Edit Bundle" : "Create Bundle"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Bundle Name */}
+            <div className="space-y-1.5">
+              <Label>Bundle Name <span className="text-red-500">*</span></Label>
+              <Input
+                value={bundleForm.name}
+                onChange={e => setBundleForm(f => ({ ...f, name: e.target.value }))}
+                className="border-orange-300 focus-visible:ring-orange-400"
+                autoFocus
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea
+                value={bundleForm.description}
+                onChange={e => setBundleForm(f => ({ ...f, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+
+            {/* Select Resources */}
+            <div className="space-y-1.5">
+              <Label>Select Resources</Label>
+              <div className="relative">
+                <Input
+                  placeholder="Search and select resources..."
+                  value={productSearch}
+                  onChange={e => { setProductSearch(e.target.value); setProductDropOpen(true); }}
+                  onFocus={() => setProductDropOpen(true)}
+                />
+                {productDropOpen && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredProducts.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-slate-400">No resources found</p>
+                    ) : (
+                      filteredProducts.map((p: any) => (
+                        <label key={p.id} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={bundleForm.product_ids.includes(p.id)}
+                            onChange={() => toggleProduct(p.id)}
+                            className="rounded border-slate-300 text-indigo-600"
+                          />
+                          <span className="text-sm flex-1">{p.name}</span>
+                          <span className="text-xs text-slate-400">{formatCurrency(p.price)}</span>
+                        </label>
+                      ))
+                    )}
+                    <button
+                      className="w-full px-3 py-2 text-xs text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 text-left border-t border-slate-100 dark:border-slate-700"
+                      onClick={() => setProductDropOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected chips */}
+              {bundleForm.product_ids.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {selectedProducts.map((p: any) => (
+                    <span key={p.id} className="flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-xs text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      {p.name}
+                      <button onClick={() => toggleProduct(p.id)} className="text-indigo-400 hover:text-red-500 transition-colors">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Original total — uses church currency */}
+              <p className="text-xs text-slate-500">
+                Original total: <span className="font-medium">{formatCurrency(originalTotal)}</span>
+              </p>
+            </div>
+
+            {/* Bundle Price + Member Discount */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Bundle Price <span className="text-red-500">*</span></Label>
+                <Input
+                  type="number"
+                  value={bundleForm.bundle_price}
+                  onChange={e => setBundleForm(f => ({ ...f, bundle_price: e.target.value }))}
+                  min={0}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Member Discount (%)</Label>
+                <Input
+                  type="number"
+                  value={bundleForm.member_discount}
+                  onChange={e => setBundleForm(f => ({ ...f, member_discount: e.target.value }))}
+                  min={0}
+                  max={100}
+                />
+              </div>
+            </div>
+
+            {/* Toggles */}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Switch checked={bundleForm.is_featured} onCheckedChange={v => setBundleForm(f => ({ ...f, is_featured: v }))} />
+                <Label className="cursor-pointer">Featured</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={bundleForm.is_active} onCheckedChange={v => setBundleForm(f => ({ ...f, is_active: v }))} />
+                <Label className="cursor-pointer">Active</Label>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => save.mutate()}
+                disabled={!bundleForm.name.trim() || save.isPending}
+              >
+                {save.isPending ? "Saving…" : editBundle ? "Save" : "Create"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Categories Tab ───────────────────────────────────────────────────────────
 function CategoriesTab({ tenantId }: { tenantId: string }) {
   const queryClient = useQueryClient();
@@ -909,7 +1215,7 @@ export default function ResourcesStore() {
 
       {activeTab === "resources"  && <ResourcesTab tenantId={tenantId} currency={format} />}
       {activeTab === "categories" && <CategoriesTab tenantId={tenantId} />}
-      {activeTab === "bundles"    && <EmptyTab icon={Layers}       label="Bundles" />}
+      {activeTab === "bundles"    && <BundlesTab tenantId={tenantId} formatCurrency={format} />}
       {activeTab === "coupons"    && <EmptyTab icon={Ticket}       label="Coupons" />}
       {activeTab === "shipping"   && <EmptyTab icon={Truck}        label="Shipping settings" />}
       {activeTab === "orders"     && <EmptyTab icon={ClipboardList}label="Orders" />}
