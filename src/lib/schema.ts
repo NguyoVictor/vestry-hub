@@ -117,6 +117,7 @@ export const TABLES = {
   STORE_PRODUCTS: "store_products",
   STORE_CATEGORIES: "store_categories",
   STORE_BUNDLES: "store_bundles",
+  STORE_COUPONS: "store_coupons",
   STORE_ORDERS: "store_orders",
   ORDER_ITEMS: "order_items",
   RESOURCES: "resources",                  // spec said "training_courses" in some places

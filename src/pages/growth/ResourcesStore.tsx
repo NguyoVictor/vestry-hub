@@ -548,6 +548,287 @@ function ResourcesTab({ tenantId, currency }: { tenantId: string; currency: (n: 
   );
 }
 
+// ─── Coupons Tab ──────────────────────────────────────────────────────────────
+function CouponsTab({ tenantId }: { tenantId: string }) {
+  const queryClient = useQueryClient();
+  const { userId } = useChurch();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editCoupon, setEditCoupon] = useState<any>(null);
+  const [form, setForm] = useState({
+    code: "", description: "",
+    discount_type: "percentage" as "percentage" | "fixed",
+    discount_value: "10",
+    min_order_amount: "0",
+    max_uses: "",
+    start_date: "", end_date: "",
+    is_active: true,
+  });
+
+  const { data: coupons = [], isLoading } = useQuery({
+    queryKey: ["store-coupons", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.STORE_COUPONS).select("*").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300000,
+  });
+
+  function openAdd() {
+    setForm({ code: "", description: "", discount_type: "percentage", discount_value: "10", min_order_amount: "0", max_uses: "", start_date: "", end_date: "", is_active: true });
+    setEditCoupon(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(c: any) {
+    setForm({
+      code: c.code || "",
+      description: c.description || "",
+      discount_type: c.discount_type || "percentage",
+      discount_value: String(c.discount_value || 10),
+      min_order_amount: String(c.min_order_amount || 0),
+      max_uses: c.max_uses ? String(c.max_uses) : "",
+      start_date: c.start_date || "",
+      end_date: c.end_date || "",
+      is_active: c.is_active ?? true,
+    });
+    setEditCoupon(c);
+    setModalOpen(true);
+  }
+
+  function setField(k: string, v: any) { setForm(f => ({ ...f, [k]: v })); }
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        code: form.code.trim().toUpperCase(),
+        description: form.description || null,
+        discount_type: form.discount_type,
+        discount_value: Number(form.discount_value) || 0,
+        min_order_amount: Number(form.min_order_amount) || 0,
+        max_uses: form.max_uses ? Number(form.max_uses) : null,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+        is_active: form.is_active,
+        tenant_id: tenantId,
+        created_by: userId,
+      };
+      if (editCoupon) {
+        const { error } = await supabase.from(TABLES.STORE_COUPONS).update(payload).eq(COLS.ID, editCoupon.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from(TABLES.STORE_COUPONS).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["store-coupons", tenantId] });
+      setModalOpen(false);
+      toast.success(editCoupon ? "Coupon updated" : "Coupon created");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to save coupon"),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(TABLES.STORE_COUPONS).delete().eq(COLS.ID, id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["store-coupons", tenantId] });
+      toast.success("Coupon deleted");
+    },
+    onError: () => toast.error("Failed to delete coupon"),
+  });
+
+  function formatDiscount(c: any) {
+    return c.discount_type === "percentage" ? `${c.discount_value}%` : `${c.discount_value} off`;
+  }
+
+  function formatValidPeriod(c: any) {
+    if (!c.start_date && !c.end_date) return "No limit";
+    if (c.start_date && c.end_date) return `${c.start_date} → ${c.end_date}`;
+    if (c.start_date) return `From ${c.start_date}`;
+    return `Until ${c.end_date}`;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex justify-end">
+        <Button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
+          <Plus className="h-4 w-4" /> Create Coupon
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              {["Code", "Discount", "Min Order", "Usage", "Valid Period", "Status", "Actions"].map(h => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={7} className="text-center py-10 text-slate-400 text-sm">Loading…</td></tr>
+            ) : coupons.length === 0 ? (
+              <tr><td colSpan={7} className="text-center py-10 text-slate-400 text-sm">No coupons yet. Create your first discount code.</td></tr>
+            ) : (
+              coupons.map((c: any) => (
+                <tr key={c.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <td className="px-4 py-3 font-mono font-semibold text-slate-800 dark:text-slate-100">{c.code}</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{formatDiscount(c)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{c.min_order_amount > 0 ? c.min_order_amount : "—"}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                    {c.uses_count || 0}{c.max_uses ? ` / ${c.max_uses}` : " / ∞"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs">{formatValidPeriod(c)}</td>
+                  <td className="px-4 py-3">
+                    <Badge className={`text-xs ${c.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                      {c.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 transition-colors">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => remove.mutate(c.id)} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create / Edit Coupon Modal */}
+      <Dialog open={modalOpen} onOpenChange={o => { setModalOpen(o); if (!o) setEditCoupon(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editCoupon ? "Edit Coupon" : "Create Coupon"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Coupon Code */}
+            <div className="space-y-1.5">
+              <Label>Coupon Code <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="SUMMER20"
+                value={form.code}
+                onChange={e => setField("code", e.target.value.toUpperCase())}
+                className="font-mono border-orange-300 focus-visible:ring-orange-400"
+                autoFocus
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Input
+                placeholder="Summer sale discount"
+                value={form.description}
+                onChange={e => setField("description", e.target.value)}
+              />
+            </div>
+
+            {/* Discount Type + Value */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Discount Type</Label>
+                <Select value={form.discount_type} onValueChange={v => setField("discount_type", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Discount Value <span className="text-red-500">*</span></Label>
+                <Input
+                  type="number"
+                  value={form.discount_value}
+                  onChange={e => setField("discount_value", e.target.value)}
+                  min={0}
+                  max={form.discount_type === "percentage" ? 100 : undefined}
+                />
+              </div>
+            </div>
+
+            {/* Min Order + Max Uses */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Min Order Amount</Label>
+                <Input
+                  type="number"
+                  value={form.min_order_amount}
+                  onChange={e => setField("min_order_amount", e.target.value)}
+                  min={0}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Max Uses</Label>
+                <Input
+                  type="number"
+                  placeholder="Unlimited"
+                  value={form.max_uses}
+                  onChange={e => setField("max_uses", e.target.value)}
+                  min={1}
+                />
+              </div>
+            </div>
+
+            {/* Start + End Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Start Date</Label>
+                <Input
+                  type="date"
+                  value={form.start_date}
+                  onChange={e => setField("start_date", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>End Date</Label>
+                <Input
+                  type="date"
+                  value={form.end_date}
+                  onChange={e => setField("end_date", e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Active toggle */}
+            <div className="flex items-center gap-2">
+              <Switch checked={form.is_active} onCheckedChange={v => setField("is_active", v)} />
+              <Label className="cursor-pointer">Active</Label>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => save.mutate()}
+                disabled={!form.code.trim() || !form.discount_value || save.isPending}
+              >
+                {save.isPending ? "Saving…" : editCoupon ? "Save" : "Create"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Bundles Tab ──────────────────────────────────────────────────────────────
 function BundlesTab({ tenantId, formatCurrency }: { tenantId: string; formatCurrency: (n: number) => string }) {
   const queryClient = useQueryClient();
@@ -1216,7 +1497,7 @@ export default function ResourcesStore() {
       {activeTab === "resources"  && <ResourcesTab tenantId={tenantId} currency={format} />}
       {activeTab === "categories" && <CategoriesTab tenantId={tenantId} />}
       {activeTab === "bundles"    && <BundlesTab tenantId={tenantId} formatCurrency={format} />}
-      {activeTab === "coupons"    && <EmptyTab icon={Ticket}       label="Coupons" />}
+      {activeTab === "coupons"    && <CouponsTab tenantId={tenantId} />}
       {activeTab === "shipping"   && <EmptyTab icon={Truck}        label="Shipping settings" />}
       {activeTab === "orders"     && <EmptyTab icon={ClipboardList}label="Orders" />}
       {activeTab === "refunds"    && <EmptyTab icon={RotateCcw}    label="Refunds" />}
