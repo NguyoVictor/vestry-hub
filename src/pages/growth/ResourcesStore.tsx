@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -21,34 +23,24 @@ import {
 const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:8080";
 
 function StoreQRModal({ open, onClose, tenantId }: { open: boolean; onClose: () => void; tenantId: string }) {
-  const [copied, setCopied] = useState(false);
+  const qrRef = useRef<SVGSVGElement>(null);
   const storeUrl = `${BASE_URL}/store/${tenantId}`;
 
   function copy() {
     navigator.clipboard.writeText(storeUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
     toast.success("Link copied to clipboard");
   }
 
   function downloadQR() {
-    const svg = document.getElementById("store-qr-svg")?.querySelector("svg");
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement("canvas");
-    canvas.width = 300; canvas.height = 300;
-    const ctx = canvas.getContext("2d")!;
-    const img = new Image();
-    img.onload = () => {
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, 300, 300);
-      ctx.drawImage(img, 0, 0, 300, 300);
-      const a = document.createElement("a");
-      a.download = "resource-store-qr.png";
-      a.href = canvas.toDataURL("image/png");
-      a.click();
-    };
-    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+    if (!qrRef.current) return;
+    const svg = new XMLSerializer().serializeToString(qrRef.current);
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "resource-store-qr.svg";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function share() {
@@ -58,47 +50,46 @@ function StoreQRModal({ open, onClose, tenantId }: { open: boolean; onClose: () 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Resource Store QR</DialogTitle>
         </DialogHeader>
-
-        {/* QR code */}
-        <div id="store-qr-svg" className="flex flex-col items-center justify-center gap-3 p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 w-full">
-          <QRCodeSVG value={storeUrl} size={180} includeMargin />
-          <p className="text-xs text-slate-500">Scan to browse our resource store</p>
-        </div>
-
-        {/* Link */}
-        <div className="space-y-1.5">
-          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Link</p>
-          <div className="flex items-center gap-2 border border-orange-300 rounded-lg px-3 py-2 bg-orange-50 dark:bg-orange-900/10">
-            <span className="flex-1 text-xs font-mono text-slate-700 dark:text-slate-300 truncate">{storeUrl}</span>
-            <button onClick={copy} className="shrink-0 text-slate-500 hover:text-slate-700 transition-colors">
-              {copied ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-            </button>
+        <div className="space-y-4 mt-2">
+          {/* QR code — same pattern as Sermons page */}
+          <div className="flex flex-col items-center p-6 bg-white rounded-xl border border-slate-200">
+            <QRCodeSVG ref={qrRef} value={storeUrl} size={180} level="H" includeMargin />
+            <p className="text-xs text-muted-foreground mt-3">Scan to browse our resource store</p>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={downloadQR}>
-            <Download className="h-3.5 w-3.5" /> Download QR
-          </Button>
-          <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={share}>
-            <Share2 className="h-3.5 w-3.5" /> Share Link
-          </Button>
-        </div>
+          {/* Link */}
+          <div>
+            <Label className="text-xs text-muted-foreground">Link</Label>
+            <div className="flex gap-2 mt-1">
+              <Input value={storeUrl} readOnly className="text-xs font-mono" />
+              <Button variant="outline" size="icon" onClick={copy}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
-        {/* How to use */}
-        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 space-y-1">
-          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">How to use</p>
-          <ul className="text-xs text-slate-500 space-y-0.5">
-            <li>• Display at resource tables</li>
-            <li>• Include in announcements</li>
-            <li>• Share with members</li>
-            <li>• Quick access to digital resources</li>
-          </ul>
+          {/* Actions */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="sm" onClick={downloadQR}>
+              <Download className="mr-2 h-4 w-4" /> Download QR
+            </Button>
+            <Button variant="outline" size="sm" onClick={share}>
+              <Share2 className="mr-2 h-4 w-4" /> Share Link
+            </Button>
+          </div>
+
+          {/* How to use */}
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground">How to use</p>
+            <p>• Display at resource tables</p>
+            <p>• Include in announcements</p>
+            <p>• Share with members</p>
+            <p>• Quick access to digital resources</p>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
