@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import ResourceTypeCard from "./ResourceTypeCard";
 import QuizBuilder from "./QuizBuilder";
 
-type ModalStep = "create-type" | "ai-config" | "quiz-builder";
+type ModalStep = "create-type" | "ai-config" | "categories-curriculum" | "quiz-builder";
 
 const GRADE_LEVELS = [
   "Kindergarten", "1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade",
@@ -67,23 +67,33 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
       >
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          {/* Back button */}
-          {modalStep !== "create-type" && (
+          {/* Back button — only shown when not on first step */}
+          {modalStep !== "create-type" ? (
             <button
-              onClick={() => setModalStep(modalStep === "quiz-builder" ? "ai-config" : "create-type")}
-              className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+              onClick={() => {
+                if (modalStep === "ai-config") setModalStep("create-type");
+                else if (modalStep === "categories-curriculum") setModalStep("create-type");
+                else if (modalStep === "quiz-builder") setModalStep("create-type");
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               <ChevronLeft className="h-4 w-4" /> Go Back
             </button>
+          ) : (
+            <div className="w-24" /> /* spacer to keep title centered */
           )}
-          <h2 className={`text-xl font-bold text-slate-800 dark:text-slate-100 ${modalStep === "create-type" ? "" : "flex-1 text-center"}`}>
+
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 text-center flex-1">
             {modalStep === "create-type" && "How would you like to get started?"}
             {modalStep === "ai-config" && "Create with prompt or text"}
+            {modalStep === "categories-curriculum" && "Create with Categories or Curriculum"}
             {modalStep === "quiz-builder" && "Create Assessment"}
           </h2>
+
+          {/* X — always closes modal entirely */}
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="w-24 flex justify-end p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             <X className="h-5 w-5 text-slate-500" />
           </button>
@@ -137,7 +147,7 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
 
                 {/* Create with Categories or Curriculum */}
                 <button
-                  onClick={() => setModalStep("quiz-builder")}
+                  onClick={() => setModalStep("categories-curriculum")}
                   className="group relative p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 hover:shadow-lg hover:scale-105 transition-all text-left"
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -281,7 +291,54 @@ export default function CreateResourceModal({ isOpen, onClose }: CreateResourceM
             </div>
           )}
 
-          {/* ── Step 3: Quiz Builder ── */}
+          {/* ── Step: Categories or Curriculum ── */}
+          {modalStep === "categories-curriculum" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+              {/* Categories card */}
+              <button
+                onClick={() => setModalStep("quiz-builder")}
+                className="group relative p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 hover:shadow-lg hover:scale-105 transition-all text-left min-h-[180px] flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">Categories</h3>
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <p className="text-sm text-slate-500">All subjects and grades</p>
+                </div>
+                <div className="mt-4 flex gap-2 flex-wrap">
+                  {["Faith", "Leadership", "Worship", "Pastoral Care", "Youth"].map(tag => (
+                    <span key={tag} className="text-xs px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </button>
+
+              {/* Curriculum card */}
+              <button
+                onClick={() => setModalStep("quiz-builder")}
+                className="group relative p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-400 hover:shadow-lg hover:scale-105 transition-all text-left min-h-[180px] flex flex-col justify-between overflow-hidden"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">Curriculum</h3>
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <p className="text-sm text-slate-500">Structured learning paths</p>
+                </div>
+                <div className="mt-4 flex gap-2 flex-wrap">
+                  {["New Members", "Discipleship", "Ministry Training", "Bible Study"].map(tag => (
+                    <span key={tag} className="text-xs px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* ── Step: Quiz Builder ── */}
           {modalStep === "quiz-builder" && (
             <QuizBuilder aiTopic={aiTopic} onClose={handleClose} />
           )}
