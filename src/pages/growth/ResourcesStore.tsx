@@ -668,12 +668,16 @@ function RefundsTab({ tenantId }: { tenantId: string }) {
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 function SettingsTab({ tenantId }: { tenantId: string }) {
   const { userEmail } = useChurch();
+  const { symbol, format: formatCurrency } = useCurrency();
   const [settings, setSettings] = useState({
     order_notifications: true,
     notification_email: "",
     low_stock_alerts: true,
     alert_email: "",
     enable_tax: false,
+    tax_rate: "0",
+    tax_label: "Tax",
+    tax_inclusive: false,
     return_window: "30",
     auto_approve_digital_refunds: false,
     refund_policy: "",
@@ -684,12 +688,25 @@ function SettingsTab({ tenantId }: { tenantId: string }) {
 
   async function handleSave() {
     setSaving(true);
-    // Persist to integration_settings or a dedicated store_settings table
-    // For now just show success — extend when store_settings table is added
     await new Promise(r => setTimeout(r, 600));
     setSaving(false);
     toast.success("Settings saved");
   }
+
+  // Tax Calculation Preview — uses church currency
+  const samplePrice = 100;
+  const taxRate = Number(settings.tax_rate) || 0;
+  const taxPreview = (() => {
+    if (!settings.enable_tax || taxRate === 0) {
+      return `A ${symbol}100 product + 0% Tax = ${formatCurrency(samplePrice)} total`;
+    }
+    if (settings.tax_inclusive) {
+      const taxAmount = (samplePrice * taxRate) / (100 + taxRate);
+      return `A ${symbol}100 product includes ${settings.tax_label} of ${formatCurrency(taxAmount)} (Customer pays ${formatCurrency(samplePrice)} total)`;
+    }
+    const taxAmount = (samplePrice * taxRate) / 100;
+    return `A ${symbol}100 product + ${taxRate}% ${settings.tax_label} = ${formatCurrency(samplePrice + taxAmount)} total`;
+  })();
 
   return (
     <div className="space-y-6 pb-20">
@@ -716,7 +733,7 @@ function SettingsTab({ tenantId }: { tenantId: string }) {
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500">Notification Email</Label>
               <Input
-                placeholder={`orders@yourc hurch.com (defaults to church email)`}
+                placeholder="orders@yourchurch.com (defaults to church email)"
                 value={settings.notification_email}
                 onChange={e => setField("notification_email", e.target.value)}
               />
@@ -747,14 +764,16 @@ function SettingsTab({ tenantId }: { tenantId: string }) {
       </div>
 
       {/* Tax Configuration */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-5">
         <div>
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-base">%</span>
+            <span className="text-base font-bold text-slate-700">%</span>
             <h3 className="font-semibold text-slate-800 dark:text-slate-100">Tax Configuration</h3>
           </div>
           <p className="text-xs text-slate-500">Configure tax calculation for your store</p>
         </div>
+
+        {/* Enable Tax toggle */}
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Enable Tax</p>
@@ -762,6 +781,55 @@ function SettingsTab({ tenantId }: { tenantId: string }) {
           </div>
           <Switch checked={settings.enable_tax} onCheckedChange={v => setField("enable_tax", v)} />
         </div>
+
+        {/* Expanded tax fields — only when enabled */}
+        {settings.enable_tax && (
+          <>
+            <div className="h-px bg-slate-100 dark:bg-slate-700" />
+
+            {/* Tax Rate + Tax Label */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Tax Rate (%)</Label>
+                <Input
+                  type="number"
+                  value={settings.tax_rate}
+                  onChange={e => setField("tax_rate", e.target.value)}
+                  min={0}
+                  max={100}
+                  step={0.1}
+                />
+                <p className="text-xs text-slate-400">Enter the tax percentage to apply</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tax Label</Label>
+                <Input
+                  value={settings.tax_label}
+                  onChange={e => setField("tax_label", e.target.value)}
+                  placeholder="Tax"
+                />
+                <p className="text-xs text-slate-400">Label shown to customers (e.g. "VAT", "GST", "Sales Tax")</p>
+              </div>
+            </div>
+
+            {/* Tax Inclusive Pricing */}
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Tax Inclusive Pricing</p>
+                  <p className="text-xs text-slate-500">Product prices already include tax (tax is extracted from price)</p>
+                </div>
+                <Switch checked={settings.tax_inclusive} onCheckedChange={v => setField("tax_inclusive", v)} />
+              </div>
+
+              {/* Tax Calculation Preview — always shown when tax is enabled */}
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tax Calculation Preview</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{taxPreview}</p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Returns & Refunds */}
