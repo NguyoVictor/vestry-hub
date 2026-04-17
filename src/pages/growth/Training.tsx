@@ -21,6 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { CourseProgressCard, Course, Enrollment } from "@/components/growth/CourseProgressCard";
 import CreateResourceModal from "@/components/training/CreateResourceModal";
 import QuizCreator from "@/components/training/QuizCreator";
+import LibraryView from "@/components/training/LibraryView";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BookCheck, Plus, Search, GraduationCap, Users, Award, Pencil, Upload } from "lucide-react";
@@ -279,6 +280,7 @@ export default function Training() {
         <TabsList className="mb-4">
           <TabsTrigger value="my-learning">My Learning</TabsTrigger>
           <TabsTrigger value="library">Course Library</TabsTrigger>
+          <TabsTrigger value="creator-library">Library</TabsTrigger>
         </TabsList>
 
         <TabsContent value="my-learning" className="space-y-6">
@@ -387,6 +389,15 @@ export default function Training() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* ── Library Tab ── */}
+        <TabsContent value="creator-library">
+          <LibraryView
+            onCreateAssessment={() => {
+              setIsModalOpen(true);
+            }}
+          />
         </TabsContent>
       </Tabs>
 

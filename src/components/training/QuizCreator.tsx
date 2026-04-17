@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import QuizSettingsModal, { QuizSettings } from "./QuizSettingsModal";
+import LibraryView from "./LibraryView";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type QuestionType =
   | "multiple_choice" | "multi_select" | "true_false" | "fill_blanks"
@@ -256,6 +257,8 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
   const [hoveredType, setHoveredType] = useState<QTypeDef | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
   const [findPanelOpen, setFindPanelOpen] = useState(false);
   const [findSearch, setFindSearch] = useState("");
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
@@ -516,7 +519,9 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
             <>
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
                 <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex-1 text-sm">Find questions</h3>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                <button
+                  onClick={() => setIsLibraryOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                   <Plus className="h-3.5 w-3.5" /> Add from library
                 </button>
                 <button onClick={() => setFindPanelOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600">
@@ -572,7 +577,9 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
               {/* Header */}
               <div className="flex items-center gap-2 px-4 py-4 shrink-0">
                 <h3 className="font-bold text-slate-800 dark:text-slate-100 flex-1 text-base">Find questions</h3>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors whitespace-nowrap">
+                <button
+                  onClick={() => setIsLibraryOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors whitespace-nowrap">
                   <Plus className="h-3.5 w-3.5" /> Add from library
                 </button>
                 <button
@@ -609,7 +616,10 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
 
               {/* Search in my library row */}
               <div className="px-4 py-1 shrink-0">
-                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left">
+                <button
+                  onClick={() => setIsLibraryOpen(true)}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left"
+                >
                   <svg className="h-5 w-5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
@@ -626,6 +636,26 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
           )}
         </div>
       </div>
+
+      {/* ── Library Overlay ── */}
+      {isLibraryOpen && (
+        <div className="fixed inset-0 z-[60] flex">
+          {/* Dark backdrop */}
+          <div className="flex-1 bg-black/50" onClick={() => setIsLibraryOpen(false)} />
+          {/* Panel */}
+          <div className="w-full md:w-3/4 bg-white dark:bg-slate-800 rounded-l-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
+              <button onClick={() => setIsLibraryOpen(false)} className="h-8 w-8 rounded-lg border border-slate-200 dark:border-slate-600 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Library</span>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <LibraryView onCreateAssessment={() => setIsLibraryOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Quiz Settings Modal ── */}
       <QuizSettingsModal
