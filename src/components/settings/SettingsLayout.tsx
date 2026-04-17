@@ -1,13 +1,14 @@
-import { NavLink, Outlet, Navigate, useLocation } from "react-router-dom";
+import { NavLink, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   Settings, Eye, Palette, Phone, GitBranch, LayoutGrid, Smartphone,
   Users, UserCheck, ClipboardList, ShieldCheck,
   CreditCard, Banknote, Heart, Receipt,
   SlidersHorizontal, CalendarCheck, Bell, MessageSquare, Wrench, Globe,
-  Lock, Scale, Database, BadgeCheck,
+  Lock, Scale, Database, BadgeCheck, QrCode, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 
 const NAV_GROUPS = [
   {
@@ -66,6 +67,7 @@ const ALL_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
 export const SettingsLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   if (location.pathname === "/settings") return <Navigate to="/settings/general" replace />;
 
   const SidebarContent = () => (
@@ -139,8 +141,34 @@ export const SettingsLayout = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900">
-        <Outlet />
+      <div className="flex-1 min-w-0 overflow-y-auto bg-slate-50 dark:bg-slate-900">
+        {/* Quick Links & QR Codes banner */}
+        <div className="px-6 pt-6 pb-0">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-4 flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                <QrCode className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Quick Links & QR Codes</p>
+                <p className="text-xs text-slate-500">Generate and share QR codes for easy access to church features</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={() => navigate("/settings/qr-codes")}
+            >
+              <QrCode className="h-3.5 w-3.5" />
+              Manage QR Codes
+              <ExternalLink className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+        <div className="px-6 pb-6">
+          <Outlet />
+        </div>
       </div>
     </div>
   );
