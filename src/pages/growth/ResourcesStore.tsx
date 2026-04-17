@@ -119,13 +119,8 @@ const RESOURCE_TYPE_GROUPS = [
 
 const ALL_RESOURCE_TYPES = RESOURCE_TYPE_GROUPS.flatMap(g => g.options);
 
-const RESOURCE_CATEGORIES = [
-  "No Category", "Books", "Audio", "Video", "Study Materials",
-  "Merchandise", "Digital Download", "Kids & Youth", "Worship", "Other",
-];
-
 const defaultForm = {
-  name: "", type: "eBook" as string, category: "No Category",
+  name: "", type: "eBook" as string, category: "none",
   short_description: "", description: "",
   pricing: "fixed" as string, price: "", member_discount: "0",
   sku: "", stock_quantity: "0", status: "active",
@@ -164,10 +159,27 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
 }) {
   const queryClient = useQueryClient();
   const { userId } = useChurch();
+
+  // Fetch dynamic categories for this tenant
+  const { data: categories = [] } = useQuery({
+    queryKey: ["store-categories", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.STORE_CATEGORIES)
+        .select("id, name")
+        .eq(COLS.TENANT_ID, tenantId)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
+  });
   const [form, setForm] = useState(() => editProduct ? {
     name: editProduct.name || "",
     type: editProduct.product_type || "eBook",
-    category: editProduct.category || "No Category",
+    category: editProduct.category || "none",
     short_description: editProduct.short_description || "",
     description: editProduct.description || "",
     pricing: editProduct.pricing || "fixed",
@@ -194,7 +206,7 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       const payload: Record<string, any> = {
         name: form.name.trim(),
         product_type: form.type,
-        category: form.category === "No Category" ? null : form.category.toLowerCase().replace(/ /g, "_"),
+        category: form.category === "none" || !form.category ? null : form.category,
         short_description: form.short_description || null,
         description: form.description || null,
         pricing: form.pricing,
@@ -284,9 +296,15 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
             <div className="space-y-1.5">
               <Label>Category</Label>
               <Select value={form.category} onValueChange={v => setField("category", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="No Category" /></SelectTrigger>
                 <SelectContent>
-                  {RESOURCE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  <SelectItem value="none">No Category</SelectItem>
+                  {categories.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                  {categories.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-slate-400">No categories yet — create them in the Categories tab</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -530,6 +548,204 @@ function ResourcesTab({ tenantId, currency }: { tenantId: string; currency: (n: 
   );
 }
 
+// ─── Categories Tab ───────────────────────────────────────────────────────────
+function CategoriesTab({ tenantId }: { tenantId: string }) {
+  const queryClient = useQueryClient();
+  const { userId } = useChurch();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editCat, setEditCat] = useState<any>(null);
+  const [catForm, setCatForm] = useState({ name: "", slug: "", description: "", is_active: true });
+
+  const { data: categories = [], isLoading } = useQuery({
+    queryKey: ["store-categories", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.STORE_CATEGORIES)
+        .select("*")
+        .eq(COLS.TENANT_ID, tenantId)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
+  });
+
+  function toSlug(name: string) {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  }
+
+  function openAdd() {
+    setCatForm({ name: "", slug: "", description: "", is_active: true });
+    setEditCat(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(c: any) {
+    setCatForm({ name: c.name, slug: c.slug, description: c.description || "", is_active: c.is_active });
+    setEditCat(c);
+    setModalOpen(true);
+  }
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        name: catForm.name.trim(),
+        slug: catForm.slug || toSlug(catForm.name),
+        description: catForm.description || null,
+        is_active: catForm.is_active,
+        tenant_id: tenantId,
+      };
+      if (editCat) {
+        const { error } = await supabase.from(TABLES.STORE_CATEGORIES).update(payload).eq(COLS.ID, editCat.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from(TABLES.STORE_CATEGORIES).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["store-categories", tenantId] });
+      setModalOpen(false);
+      toast.success(editCat ? "Category updated" : "Category created");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to save category"),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from(TABLES.STORE_CATEGORIES).delete().eq(COLS.ID, id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["store-categories", tenantId] });
+      toast.success("Category deleted");
+    },
+    onError: () => toast.error("Failed to delete category"),
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex justify-end">
+        <Button onClick={openAdd} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
+          <Plus className="h-4 w-4" /> Add Category
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              {["Name", "Slug", "Description", "Status", "Actions"].map(h => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={5} className="text-center py-10 text-slate-400 text-sm">Loading…</td></tr>
+            ) : categories.length === 0 ? (
+              <tr><td colSpan={5} className="text-center py-10 text-slate-400 text-sm">No categories yet. Add categories to organize your resources.</td></tr>
+            ) : (
+              categories.map((c: any) => (
+                <tr key={c.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                  <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{c.name}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs">{c.slug}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400 max-w-xs truncate">{c.description || "—"}</td>
+                  <td className="px-4 py-3">
+                    <Badge className={`text-xs ${c.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                      {c.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(c)} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 transition-colors">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => remove.mutate(c.id)} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add / Edit Category Modal */}
+      <Dialog open={modalOpen} onOpenChange={o => { setModalOpen(o); if (!o) setEditCat(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editCat ? "Edit Category" : "Add Category"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label>Name <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder=""
+                value={catForm.name}
+                onChange={e => {
+                  const name = e.target.value;
+                  setCatForm(f => ({ ...f, name, slug: toSlug(name) }));
+                }}
+                className="border-orange-300 focus-visible:ring-orange-400"
+                autoFocus
+              />
+            </div>
+
+            {/* Slug */}
+            <div className="space-y-1.5">
+              <Label>Slug</Label>
+              <Input
+                placeholder="auto-generated from name"
+                value={catForm.slug}
+                onChange={e => setCatForm(f => ({ ...f, slug: e.target.value }))}
+                className="font-mono text-sm text-slate-500"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea
+                value={catForm.description}
+                onChange={e => setCatForm(f => ({ ...f, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+
+            {/* Active toggle */}
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={catForm.is_active}
+                onCheckedChange={v => setCatForm(f => ({ ...f, is_active: v }))}
+              />
+              <Label className="cursor-pointer">Active</Label>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => save.mutate()}
+                disabled={!catForm.name.trim() || save.isPending}
+              >
+                {save.isPending ? "Saving…" : editCat ? "Save" : "Create"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, iconColor }: { icon: React.ElementType; label: string; value: string | number; iconColor: string }) {
   return (
@@ -692,7 +908,7 @@ export default function ResourcesStore() {
       )}
 
       {activeTab === "resources"  && <ResourcesTab tenantId={tenantId} currency={format} />}
-      {activeTab === "categories" && <EmptyTab icon={FolderOpen}   label="Categories" />}
+      {activeTab === "categories" && <CategoriesTab tenantId={tenantId} />}
       {activeTab === "bundles"    && <EmptyTab icon={Layers}       label="Bundles" />}
       {activeTab === "coupons"    && <EmptyTab icon={Ticket}       label="Coupons" />}
       {activeTab === "shipping"   && <EmptyTab icon={Truck}        label="Shipping settings" />}
