@@ -24,7 +24,7 @@ import { MemberPortalLayout } from "./components/layout/MemberPortalLayout";
 import { SettingsLayout } from "./components/settings/SettingsLayout";
 import { allNavItems } from "./config/navigation";
 import { lazy, Suspense } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Settings } from "lucide-react";
 
 // Dashboard — lazy loaded
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -75,6 +75,7 @@ const TrainingCourseBuilder = lazy(() => import("./pages/growth/TrainingCourseBu
 const TrainingCourseDetail = lazy(() => import("./pages/growth/TrainingCourseDetail"));
 
 // Settings pages
+const GeneralSettings = lazy(() => import("./pages/settings/GeneralSettings"));
 const ChurchProfile = lazy(() => import("./pages/settings/ChurchProfile"));
 const ServicesModules = lazy(() => import("./pages/settings/ServicesModules"));
 const RolesPermissions = lazy(() => import("./pages/settings/RolesPermissions"));
@@ -241,16 +242,28 @@ const App = () => (
                 <Route path="/sermons" element={<Suspense fallback={<Fallback />}><SermonsPage /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
-                  <Route index element={<Navigate to="/settings/profile" replace />} />
+                  <Route index element={<Navigate to="/settings/general" replace />} />
+                  <Route path="general" element={<Suspense fallback={<Fallback />}><GeneralSettings /></Suspense>} />
                   <Route path="profile" element={<Suspense fallback={<Fallback />}><ChurchProfile /></Suspense>} />
                   <Route path="services" element={<Suspense fallback={<Fallback />}><ServicesModules /></Suspense>} />
+                  <Route path="modules" element={<Suspense fallback={<Fallback />}><ServicesModules /></Suspense>} />
                   <Route path="roles" element={<Suspense fallback={<Fallback />}><RolesPermissions /></Suspense>} />
+                  <Route path="access-control" element={<Suspense fallback={<Fallback />}><RolesPermissions /></Suspense>} />
                   <Route path="notifications" element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
                   <Route path="billing" element={<Suspense fallback={<Fallback />}><Billing /></Suspense>} />
                   <Route path="security" element={<Suspense fallback={<Fallback />}><Security /></Suspense>} />
                   <Route path="integrations" element={<Suspense fallback={<Fallback />}><Integrations /></Suspense>} />
                   <Route path="seo" element={<Suspense fallback={<Fallback />}><SeoPublicPage /></Suspense>} />
                   <Route path="member-app" element={<Suspense fallback={<Fallback />}><MemberAppSettings /></Suspense>} />
+                  {/* New sidebar routes — empty states for now */}
+                  {["vision","branding","contact","branches","users","staff","registration","payments","giving","tax","preferences","attendance","whatsapp","service-requests","privacy","legal","backup","verification"].map(slug => (
+                    <Route key={slug} path={slug} element={
+                      <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+                        <Settings className="h-10 w-10" />
+                        <p className="text-sm font-medium capitalize">{slug.replace(/-/g, " ")} settings coming soon</p>
+                      </div>
+                    } />
+                  ))}
                 </Route>
                 {/* Remaining placeholder routes */}
                 {allNavItems
