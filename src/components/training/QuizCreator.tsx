@@ -258,6 +258,18 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [findPanelOpen, setFindPanelOpen] = useState(false);
   const [findSearch, setFindSearch] = useState("");
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [searchPanelQuery, setSearchPanelQuery] = useState("");
+
+  // Only one panel open at a time
+  function toggleFindPanel() {
+    setFindPanelOpen(p => { if (!p) setSearchPanelOpen(false); return !p; });
+  }
+  function toggleSearchPanel() {
+    setSearchPanelOpen(p => { if (!p) setFindPanelOpen(false); return !p; });
+  }
+
+  const anyPanelOpen = findPanelOpen || searchPanelOpen;
   const [quizSettings, setQuizSettings] = useState<QuizSettings>({
     title: "Untitled Quiz",
     subject: "",
@@ -466,12 +478,14 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
         )}
         </div>
 
-        {/* ── Floating icon buttons — fixed, shift left when panel open ── */}
+        {/* ── Floating icon buttons — fixed, shift left when any panel open ── */}
         <div
           className="fixed top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[51] transition-all duration-300"
-          style={{ right: findPanelOpen ? "376px" : "16px" }}
-        >          <button
-            onClick={() => setFindPanelOpen(p => !p)}
+          style={{ right: anyPanelOpen ? "396px" : "16px" }}
+        >
+          {/* Wand — AI generate panel */}
+          <button
+            onClick={toggleFindPanel}
             className={`h-10 w-10 rounded-xl border shadow-md flex items-center justify-center transition-all
               ${findPanelOpen
                 ? "bg-indigo-600 border-indigo-600 text-white"
@@ -480,49 +494,43 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
           >
             <Wand2 className="h-5 w-5" />
           </button>
-          <button className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-400 transition-colors">
+          {/* Search — Find questions panel */}
+          <button
+            onClick={toggleSearchPanel}
+            className={`h-10 w-10 rounded-xl border shadow-md flex items-center justify-center transition-all
+              ${searchPanelOpen
+                ? "bg-indigo-600 border-indigo-600 text-white"
+                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:border-indigo-400"
+              }`}
+          >
             <Search className="h-5 w-5" />
           </button>
         </div>
 
-        {/* ── Slide-in Find Questions panel ── */}
+        {/* ── Slide-in: AI Generate panel (wand) ── */}
         <div
-          className={`shrink-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden transition-all duration-300 ease-in-out`}
-          style={{ width: findPanelOpen ? 360 : 0, opacity: findPanelOpen ? 1 : 0 }}
+          className="shrink-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+          style={{ width: findPanelOpen ? 380 : 0, opacity: findPanelOpen ? 1 : 0 }}
         >
           {findPanelOpen && (
             <>
-              {/* Panel header */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
                 <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex-1 text-sm">Find questions</h3>
                 <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                   <Plus className="h-3.5 w-3.5" /> Add from library
                 </button>
-                <button
-                  onClick={() => setFindPanelOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600"
-                >
+                <button onClick={() => setFindPanelOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600">
                   <X className="h-4 w-4" />
                 </button>
               </div>
-
-              {/* Search bar */}
               <div className="px-4 py-3 shrink-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search for questions on any topic"
-                    value={findSearch}
-                    onChange={e => setFindSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
+                  <input type="text" placeholder="Search for questions on any topic" value={findSearch} onChange={e => setFindSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
                 </div>
               </div>
-
-              {/* Empty state */}
               <div className="flex-1 flex flex-col items-center justify-center px-6 gap-4">
-                {/* Illustration */}
                 <div className="w-40 h-32 relative">
                   <div className="absolute inset-0 flex items-end justify-center gap-2">
                     <div className="w-20 h-24 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex flex-col gap-1.5 p-2">
@@ -540,22 +548,80 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
                     </div>
                   </div>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">
-                  Find lesson slides, questions, interactive videos on any topic
-                </p>
-
-                {/* Divider */}
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">Find lesson slides, questions, interactive videos on any topic</p>
                 <div className="flex items-center gap-3 w-full">
                   <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                   <span className="text-xs text-slate-400">or</span>
                   <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                 </div>
-
-                {/* Generate with AI */}
                 <button className="flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors">
                   <Wand2 className="h-4 w-4" /> Generate with AI
                 </button>
               </div>
+            </>
+          )}
+        </div>
+
+        {/* ── Slide-in: Find Questions panel (search icon) ── */}
+        <div
+          className="shrink-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+          style={{ width: searchPanelOpen ? 380 : 0, opacity: searchPanelOpen ? 1 : 0 }}
+        >
+          {searchPanelOpen && (
+            <>
+              {/* Header */}
+              <div className="flex items-center gap-2 px-4 py-4 shrink-0">
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 flex-1 text-base">Find questions</h3>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors whitespace-nowrap">
+                  <Plus className="h-3.5 w-3.5" /> Add from library
+                </button>
+                <button
+                  onClick={() => setSearchPanelOpen(false)}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-slate-500"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Search input */}
+              <div className="px-4 pb-4 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search for questions on any topic"
+                    value={searchPanelQuery}
+                    onChange={e => setSearchPanelQuery(e.target.value)}
+                    className="w-full pl-10 pr-9 py-2.5 rounded-full border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:border-indigo-400"
+                  />
+                  {searchPanelQuery && (
+                    <button onClick={() => setSearchPanelQuery("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="mx-4 h-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+              {/* Search in my library row */}
+              <div className="px-4 py-1 shrink-0">
+                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left">
+                  <svg className="h-5 w-5 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  <span className="text-sm text-slate-700 dark:text-slate-300 flex-1">Search in my library</span>
+                  <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Empty area — light grey fill */}
+              <div className="flex-1 bg-slate-50 dark:bg-slate-900/20" />
             </>
           )}
         </div>
