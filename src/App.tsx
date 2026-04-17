@@ -76,6 +76,7 @@ const TrainingCourseDetail = lazy(() => import("./pages/growth/TrainingCourseDet
 
 // Settings pages
 const GeneralSettings = lazy(() => import("./pages/settings/GeneralSettings"));
+const VisionMission = lazy(() => import("./pages/settings/VisionMission"));
 const QRCodesPage = lazy(() => import("./pages/settings/QRCodes"));
 const ChurchProfile = lazy(() => import("./pages/settings/ChurchProfile"));
 const ServicesModules = lazy(() => import("./pages/settings/ServicesModules"));
@@ -245,6 +246,7 @@ const App = () => (
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/general" replace />} />
                   <Route path="general" element={<Suspense fallback={<Fallback />}><GeneralSettings /></Suspense>} />
+                  <Route path="vision" element={<Suspense fallback={<Fallback />}><VisionMission /></Suspense>} />
                   <Route path="qr-codes" element={<Suspense fallback={<Fallback />}><QRCodesPage /></Suspense>} />
                   <Route path="profile" element={<Suspense fallback={<Fallback />}><ChurchProfile /></Suspense>} />
                   <Route path="services" element={<Suspense fallback={<Fallback />}><ServicesModules /></Suspense>} />
