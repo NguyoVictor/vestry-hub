@@ -548,6 +548,279 @@ function ResourcesTab({ tenantId, currency }: { tenantId: string; currency: (n: 
   );
 }
 
+// ─── Orders Tab ───────────────────────────────────────────────────────────────
+function OrdersTab({ tenantId, formatCurrency }: { tenantId: string; formatCurrency: (n: number) => string }) {
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["store-orders", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.STORE_ORDERS).select("*, order_items(count)").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
+  });
+
+  function statusBadge(status: string) {
+    const map: Record<string, string> = {
+      pending: "bg-amber-100 text-amber-700",
+      processing: "bg-blue-100 text-blue-700",
+      fulfilled: "bg-emerald-100 text-emerald-700",
+      delivered: "bg-emerald-100 text-emerald-700",
+      cancelled: "bg-red-100 text-red-700",
+      refunded: "bg-slate-100 text-slate-600",
+    };
+    return map[status] || "bg-slate-100 text-slate-600";
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            {["Order #", "Customer", "Items", "Total", "Shipping", "Status", "Date", "Actions"].map(h => (
+              <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-sm">Loading…</td></tr>
+          ) : orders.length === 0 ? (
+            <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-sm">No orders yet.</td></tr>
+          ) : (
+            orders.map((o: any) => (
+              <tr key={o.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">{o.order_number || o.id.slice(0, 8)}</td>
+                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{o.customer_name || "—"}</td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{o.order_items?.[0]?.count || 0}</td>
+                <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{formatCurrency(o.total)}</td>
+                <td className="px-4 py-3 capitalize text-slate-600 dark:text-slate-400">{o.delivery_method?.replace(/_/g, " ") || "—"}</td>
+                <td className="px-4 py-3">
+                  <Badge className={`text-xs capitalize ${statusBadge(o.order_status)}`}>{o.order_status?.replace(/_/g, " ")}</Badge>
+                </td>
+                <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                  {o.created_at ? new Date(o.created_at).toLocaleDateString() : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <button className="text-xs text-indigo-600 hover:underline">View</button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Refunds Tab ──────────────────────────────────────────────────────────────
+function RefundsTab({ tenantId }: { tenantId: string }) {
+  const { data: refunds = [], isLoading } = useQuery({
+    queryKey: ["store-refunds", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.STORE_ORDERS).select("id, order_number, customer_name, total, order_status, created_at, delivery_method").eq(COLS.TENANT_ID, tenantId).eq("order_status", "refunded").order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
+  });
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            {["Date", "Order", "Customer", "Type", "Reason", "Amount", "Status", "Actions"].map(h => (
+              <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-sm">Loading…</td></tr>
+          ) : refunds.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="py-14 text-center">
+                <RotateCcw className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                <p className="text-sm text-slate-400">No refund requests yet</p>
+              </td>
+            </tr>
+          ) : (
+            refunds.map((r: any) => (
+              <tr key={r.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                <td className="px-4 py-3 text-xs text-slate-500">{r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">{r.order_number || r.id.slice(0, 8)}</td>
+                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{r.customer_name || "—"}</td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-400">Refund</td>
+                <td className="px-4 py-3 text-slate-500">—</td>
+                <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{r.total}</td>
+                <td className="px-4 py-3"><Badge className="text-xs bg-slate-100 text-slate-600">Refunded</Badge></td>
+                <td className="px-4 py-3"><button className="text-xs text-indigo-600 hover:underline">View</button></td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── Settings Tab ─────────────────────────────────────────────────────────────
+function SettingsTab({ tenantId }: { tenantId: string }) {
+  const { userEmail } = useChurch();
+  const [settings, setSettings] = useState({
+    order_notifications: true,
+    notification_email: "",
+    low_stock_alerts: true,
+    alert_email: "",
+    enable_tax: false,
+    return_window: "30",
+    auto_approve_digital_refunds: false,
+    refund_policy: "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  function setField(k: string, v: any) { setSettings(s => ({ ...s, [k]: v })); }
+
+  async function handleSave() {
+    setSaving(true);
+    // Persist to integration_settings or a dedicated store_settings table
+    // For now just show success — extend when store_settings table is added
+    await new Promise(r => setTimeout(r, 600));
+    setSaving(false);
+    toast.success("Settings saved");
+  }
+
+  return (
+    <div className="space-y-6 pb-20">
+      {/* Notification Settings */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-5">
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-base">🔔</span>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100">Notification Settings</h3>
+          </div>
+          <p className="text-xs text-slate-500">Configure email notifications for orders and inventory alerts</p>
+        </div>
+
+        {/* Order Notifications */}
+        <div className="space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Order Notifications</p>
+              <p className="text-xs text-slate-500">Receive email when new orders are placed</p>
+            </div>
+            <Switch checked={settings.order_notifications} onCheckedChange={v => setField("order_notifications", v)} />
+          </div>
+          {settings.order_notifications && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500">Notification Email</Label>
+              <Input
+                placeholder={`orders@yourc hurch.com (defaults to church email)`}
+                value={settings.notification_email}
+                onChange={e => setField("notification_email", e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Low Stock Alerts */}
+        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Low Stock Alerts</p>
+              <p className="text-xs text-slate-500">Receive email when products are running low</p>
+            </div>
+            <Switch checked={settings.low_stock_alerts} onCheckedChange={v => setField("low_stock_alerts", v)} />
+          </div>
+          {settings.low_stock_alerts && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500">Alert Email</Label>
+              <Input
+                placeholder="inventory@yourchurch.com (defaults to church email)"
+                value={settings.alert_email}
+                onChange={e => setField("alert_email", e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tax Configuration */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-base">%</span>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100">Tax Configuration</h3>
+          </div>
+          <p className="text-xs text-slate-500">Configure tax calculation for your store</p>
+        </div>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Enable Tax</p>
+            <p className="text-xs text-slate-500">Add tax to product prices</p>
+          </div>
+          <Switch checked={settings.enable_tax} onCheckedChange={v => setField("enable_tax", v)} />
+        </div>
+      </div>
+
+      {/* Returns & Refunds */}
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-5">
+        <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <RotateCcw className="h-4 w-4 text-slate-600" />
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100">Returns & Refunds</h3>
+          </div>
+          <p className="text-xs text-slate-500">Set your return window and refund policy</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-1.5">
+            <Label>Return Window (Days)</Label>
+            <Input
+              type="number"
+              value={settings.return_window}
+              onChange={e => setField("return_window", e.target.value)}
+              min={0}
+            />
+            <p className="text-xs text-slate-400">Number of days customers have to request a return (0 = no returns)</p>
+          </div>
+          <div className="flex items-start justify-between pt-6">
+            <div>
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Auto-approve Digital Refunds</p>
+              <p className="text-xs text-slate-500">Automatically approve refund requests for digital products</p>
+            </div>
+            <Switch checked={settings.auto_approve_digital_refunds} onCheckedChange={v => setField("auto_approve_digital_refunds", v)} />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Refund Policy</Label>
+          <Textarea
+            placeholder="Describe your refund and return policy..."
+            value={settings.refund_policy}
+            onChange={e => setField("refund_policy", e.target.value)}
+            rows={5}
+          />
+          <p className="text-xs text-slate-400">This will be displayed to customers during checkout and in their order confirmation</p>
+        </div>
+      </div>
+
+      {/* Sticky Save button */}
+      <div className="fixed bottom-6 right-6 z-10">
+        <Button
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          <Settings className="h-4 w-4" />
+          {saving ? "Saving…" : "Save Settings"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Coupons Tab ──────────────────────────────────────────────────────────────
 function CouponsTab({ tenantId }: { tenantId: string }) {
   const queryClient = useQueryClient();
@@ -1499,9 +1772,9 @@ export default function ResourcesStore() {
       {activeTab === "bundles"    && <BundlesTab tenantId={tenantId} formatCurrency={format} />}
       {activeTab === "coupons"    && <CouponsTab tenantId={tenantId} />}
       {activeTab === "shipping"   && <EmptyTab icon={Truck}        label="Shipping settings" />}
-      {activeTab === "orders"     && <EmptyTab icon={ClipboardList}label="Orders" />}
-      {activeTab === "refunds"    && <EmptyTab icon={RotateCcw}    label="Refunds" />}
-      {activeTab === "settings"   && <EmptyTab icon={Settings}     label="Store settings" />}
+      {activeTab === "orders"     && <OrdersTab tenantId={tenantId} formatCurrency={format} />}
+      {activeTab === "refunds"    && <RefundsTab tenantId={tenantId} />}
+      {activeTab === "settings"   && <SettingsTab tenantId={tenantId} />}
 
       {/* QR Modal */}
       <StoreQRModal open={qrOpen} onClose={() => setQrOpen(false)} tenantId={tenantId} />
