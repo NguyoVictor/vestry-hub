@@ -256,6 +256,8 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
   const [hoveredType, setHoveredType] = useState<QTypeDef | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [findPanelOpen, setFindPanelOpen] = useState(false);
+  const [findSearch, setFindSearch] = useState("");
   const [quizSettings, setQuizSettings] = useState<QuizSettings>({
     title: "Untitled Quiz",
     subject: "",
@@ -359,26 +361,28 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
         </button>
       </div>
 
-      {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto relative">
-        <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+      {/* ── Body: main content + slide-in panel ── */}
+      <div className="flex-1 flex overflow-hidden">
 
-          {/* Added questions */}
-          {questions.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                Questions ({questions.length})
-              </h2>
-              {questions.map(q => (
-                <QuestionEditor
-                  key={q.id}
-                  question={q}
-                  onChange={updated => updateQuestion(q.id, updated)}
-                  onDelete={() => deleteQuestion(q.id)}
-                />
-              ))}
-            </div>
-          )}
+        {/* Main scrollable content */}
+        <div className="flex-1 overflow-y-auto relative transition-all duration-300">          <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+            {/* Added questions */}
+            {questions.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  Questions ({questions.length})
+                </h2>
+                {questions.map(q => (
+                  <QuestionEditor
+                    key={q.id}
+                    question={q}
+                    onChange={updated => updateQuestion(q.id, updated)}
+                    onDelete={() => deleteQuestion(q.id)}
+                  />
+                ))}
+              </div>
+            )}
 
           {/* Question type picker card */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-6">
@@ -453,23 +457,108 @@ export default function QuizCreator({ onBack }: QuizCreatorProps) {
         {/* ── Hover preview tooltip ── */}
         {hoveredType && (
           <div
-            className="fixed z-50 bg-slate-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl pointer-events-none max-w-[180px]"
+            className="fixed z-[55] bg-slate-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl pointer-events-none max-w-[180px]"
             style={{ left: tooltipPos.x + 10, top: tooltipPos.y - 40 }}
           >
             <p className="font-semibold mb-0.5">{hoveredType.label}</p>
             <p className="text-slate-300">{hoveredType.preview}</p>
           </div>
         )}
-      </div>
+        </div>
 
-      {/* ── Right floating panel ── */}
-      <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-        <button className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-400 transition-colors">
-          <Wand2 className="h-5 w-5" />
-        </button>
-        <button className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-400 transition-colors">
-          <Search className="h-5 w-5" />
-        </button>
+        {/* ── Floating icon buttons — fixed, shift left when panel open ── */}
+        <div
+          className="fixed top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[51] transition-all duration-300"
+          style={{ right: findPanelOpen ? "376px" : "16px" }}
+        >          <button
+            onClick={() => setFindPanelOpen(p => !p)}
+            className={`h-10 w-10 rounded-xl border shadow-md flex items-center justify-center transition-all
+              ${findPanelOpen
+                ? "bg-indigo-600 border-indigo-600 text-white"
+                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:border-indigo-400"
+              }`}
+          >
+            <Wand2 className="h-5 w-5" />
+          </button>
+          <button className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-400 transition-colors">
+            <Search className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* ── Slide-in Find Questions panel ── */}
+        <div
+          className={`shrink-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden transition-all duration-300 ease-in-out`}
+          style={{ width: findPanelOpen ? 360 : 0, opacity: findPanelOpen ? 1 : 0 }}
+        >
+          {findPanelOpen && (
+            <>
+              {/* Panel header */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex-1 text-sm">Find questions</h3>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                  <Plus className="h-3.5 w-3.5" /> Add from library
+                </button>
+                <button
+                  onClick={() => setFindPanelOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Search bar */}
+              <div className="px-4 py-3 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search for questions on any topic"
+                    value={findSearch}
+                    onChange={e => setFindSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+              </div>
+
+              {/* Empty state */}
+              <div className="flex-1 flex flex-col items-center justify-center px-6 gap-4">
+                {/* Illustration */}
+                <div className="w-40 h-32 relative">
+                  <div className="absolute inset-0 flex items-end justify-center gap-2">
+                    <div className="w-20 h-24 rounded-lg bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex flex-col gap-1.5 p-2">
+                      <div className="h-2 w-full rounded bg-slate-200 dark:bg-slate-600" />
+                      <div className="h-2 w-3/4 rounded bg-slate-200 dark:bg-slate-600" />
+                      <div className="h-2 w-full rounded bg-slate-200 dark:bg-slate-600" />
+                      <div className="h-2 w-1/2 rounded bg-slate-200 dark:bg-slate-600" />
+                    </div>
+                    <div className="w-16 h-20 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 flex flex-col gap-1.5 p-2 mb-2">
+                      <div className="h-2 w-full rounded bg-orange-200 dark:bg-orange-700" />
+                      <div className="h-2 w-3/4 rounded bg-orange-200 dark:bg-orange-700" />
+                      <div className="h-6 w-full rounded bg-orange-300 dark:bg-orange-600 mt-1 flex items-center justify-center">
+                        <Search className="h-3 w-3 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+                  Find lesson slides, questions, interactive videos on any topic
+                </p>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 w-full">
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  <span className="text-xs text-slate-400">or</span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                </div>
+
+                {/* Generate with AI */}
+                <button className="flex items-center gap-2 px-5 py-2.5 rounded-full border-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors">
+                  <Wand2 className="h-4 w-4" /> Generate with AI
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Quiz Settings Modal ── */}
