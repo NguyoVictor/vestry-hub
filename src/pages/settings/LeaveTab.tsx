@@ -26,7 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  CalendarDays, Plus, Trash2, CheckCircle, XCircle, Users, Pencil,
+  CalendarDays, Plus, Trash2, CheckCircle, XCircle, Users, Pencil, UserCircle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,6 +35,8 @@ export interface StaffRow {
   job_title: string | null;
   custom_position: string | null;
   status: string | null;
+  annual_leave_days: number | null;
+  sick_leave_days: number | null;
   members?: { first_name: string | null; last_name: string | null } | null;
 }
 
@@ -692,38 +694,162 @@ function LeaveRequestsTab({ tenantId, staffList }: { tenantId: string; staffList
 }
 
 // ─── Leave Balances Sub-tab ───────────────────────────────────────────────────
-function ProgressBar({ used, total }: { used: number; total: number }) {
+function ProgressBar({ used, total, color }: { used: number; total: number; color: string }) {
   const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
   return (
     <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
-      <div
-        className="bg-orange-500 h-1.5 rounded-full transition-all"
-        style={{ width: `${pct}%` }}
-      />
+      <div className={`${color} h-1.5 rounded-full transition-all`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-function BalanceCell({ used, total }: { used: number; total: number }) {
+function BalanceCell({ used, total, color }: { used: number; total: number; color: string }) {
   return (
-    <div className="min-w-[80px]">
+    <div className="min-w-[90px]">
       <p className="text-xs text-slate-600 font-medium">{used} / {total} days</p>
-      <ProgressBar used={used} total={total} />
+      <ProgressBar used={used} total={total} color={color} />
     </div>
   );
 }
 
-function LeaveBalancesTab({ tenantId }: { tenantId: string }) {
+const YEARS_LIST = Array.from({ length: 11 }, (_, i) => 2020 + i);
+
+// ─── Edit Balance Modal ───────────────────────────────────────────────────────
+interface EditBalanceModalProps {
+  open: boolean;
+  onClose: () => void;
+  balance: LeaveBalance | null;
+  onSuccess: () => void;
+}
+
+function EditBalanceModal({ open, onClose, balance, onSuccess }: EditBalanceModalProps) {
+  const qc = useQueryClient();
+  const [fields, setFields] = useState({
+    annual_leave_total: 0, annual_leave_used: 0,
+    sick_leave_total: 0, sick_leave_used: 0,
+    maternity_leave_total: 0, maternity_leave_used: 0,
+    paternity_leave_total: 0, paternity_leave_used: 0,
+    compassionate_leave_total: 0, compassionate_leave_used: 0,
+    unpaid_leave_total: 0, unpaid_leave_used: 0,
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  // Sync fields when balance changes
+  useState(() => {
+    if (balance) {
+      setFields({
+        annual_leave_total: balance.annual_leave_total,
+        annual_leave_used: balance.annual_leave_used,
+        sick_leave_total: balance.sick_leave_total,
+        sick_leave_used: balance.sick_leave_used,
+        maternity_leave_total: balance.maternity_leave_total,
+        maternity_leave_used: balance.maternity_leave_used,
+        paternity_leave_total: balance.paternity_leave_total,
+        paternity_leave_used: balance.paternity_leave_used,
+        compassionate_leave_total: balance.compassionate_leave_total,
+        compassionate_leave_used: balance.compassionate_leave_used,
+        unpaid_leave_total: balance.unpaid_leave_total,
+        unpaid_leave_used: balance.unpaid_leave_used,
+      });
+    }
+  });
+
+  const set = (key: keyof typeof fields, val: string) =>
+    setFields(prev => ({ ...prev, [key]: parseInt(val) || 0 }));
+
+  const handleSave = async () => {
+    if (!balance) return;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from(TABLES.STAFF_LEAVE_BALANCES)
+        .update(fields as never)
+        .eq("id", balance.id);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["leave-balances"] });
+      toast.success("Leave balance updated successfully!");
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to update balance.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const name = balance ? staffName(balance.payroll_staff) : "";
+
+  const leaveRows: { label: string; totalKey: keyof typeof fields; usedKey: keyof typeof fields }[] = [
+    { label: "Annual Leave",        totalKey: "annual_leave_total",        usedKey: "annual_leave_used" },
+    { label: "Sick Leave",          totalKey: "sick_leave_total",          usedKey: "sick_leave_used" },
+    { label: "Maternity Leave",     totalKey: "maternity_leave_total",     usedKey: "maternity_leave_used" },
+    { label: "Paternity Leave",     totalKey: "paternity_leave_total",     usedKey: "paternity_leave_used" },
+    { label: "Compassionate Leave", totalKey: "compassionate_leave_total", usedKey: "compassionate_leave_used" },
+    { label: "Unpaid Leave",        totalKey: "unpaid_leave_total",        usedKey: "unpaid_leave_used" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">Edit Leave Balance — {name}</DialogTitle>
+        </DialogHeader>
+        {balance && (
+          <p className="text-xs text-slate-500 -mt-1">Year: <span className="font-medium text-slate-700">{balance.year}</span></p>
+        )}
+        <div className="space-y-4 pt-1">
+          {leaveRows.map(row => (
+            <div key={row.label} className="space-y-1.5">
+              <p className="text-sm font-medium text-slate-700">{row.label}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-500">Total Days</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={fields[row.totalKey]}
+                    onChange={e => set(row.totalKey, e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-slate-500">Used Days</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={fields[row.usedKey]}
+                    onChange={e => set(row.usedKey, e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSave} disabled={submitting}>
+            {submitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LeaveBalancesTab({ tenantId, staffList }: { tenantId: string; staffList: StaffRow[] }) {
+  const qc = useQueryClient();
   const currentYear = new Date().getFullYear();
+  const [selYear, setSelYear] = useState(String(currentYear));
+  const [editBalance, setEditBalance] = useState<LeaveBalance | null>(null);
+  const [initializing, setInitializing] = useState(false);
 
   const { data: balances = [], isLoading } = useQuery<LeaveBalance[]>({
-    queryKey: ["leave-balances", tenantId],
+    queryKey: ["leave-balances", tenantId, selYear],
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.STAFF_LEAVE_BALANCES)
-        .select("*, payroll_staff:staff_id(job_title, custom_position, members(first_name, last_name))")
+        .select("*, payroll_staff:staff_id(job_title, custom_position, annual_leave_days, sick_leave_days, members(first_name, last_name))")
         .eq("org_id", tenantId)
-        .eq("year", currentYear)
+        .eq("year", parseInt(selYear))
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as LeaveBalance[];
@@ -731,53 +857,145 @@ function LeaveBalancesTab({ tenantId }: { tenantId: string }) {
     staleTime: 300_000,
   });
 
+  const handleInitialize = async () => {
+    const activeStaff = staffList.filter(s => s.status?.toLowerCase() === "active");
+    if (activeStaff.length === 0) { toast.error("No active staff members found."); return; }
+
+    if (balances.length > 0) {
+      const confirmed = window.confirm(
+        `Leave balances for ${selYear} already exist. Reinitialize?`
+      );
+      if (!confirmed) return;
+      await supabase
+        .from(TABLES.STAFF_LEAVE_BALANCES)
+        .delete()
+        .eq("org_id", tenantId)
+        .eq("year", parseInt(selYear));
+    }
+
+    setInitializing(true);
+    try {
+      const rows = activeStaff.map(s => ({
+        staff_id: s.id,
+        annual_leave_total: s.annual_leave_days ?? 14,
+        annual_leave_used: 0,
+        sick_leave_total: s.sick_leave_days ?? 10,
+        sick_leave_used: 0,
+        maternity_leave_total: 90,
+        maternity_leave_used: 0,
+        paternity_leave_total: 14,
+        paternity_leave_used: 0,
+        compassionate_leave_total: 3,
+        compassionate_leave_used: 0,
+        unpaid_leave_total: 0,
+        unpaid_leave_used: 0,
+        org_id: tenantId,
+        year: parseInt(selYear),
+      }));
+
+      const { error } = await supabase.from(TABLES.STAFF_LEAVE_BALANCES).insert(rows as never);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["leave-balances", tenantId, selYear] });
+      toast.success(`Leave balances initialized for ${activeStaff.length} staff member${activeStaff.length !== 1 ? "s" : ""}.`);
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to initialize balances.");
+    } finally {
+      setInitializing(false);
+    }
+  };
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-      {isLoading ? (
-        <div className="p-4 space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-        </div>
-      ) : balances.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-400">
-          <Users className="h-8 w-8" />
-          <p className="text-sm font-medium">No leave balances yet.</p>
-          <p className="text-xs">Add staff members to see their leave balances.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                {["Staff Member", "Annual Leave", "Sick Leave", "Maternity Leave", "Paternity Leave", "Compassionate Leave", "Unpaid Leave"].map(h => (
-                  <TableHead key={h} className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {balances.map(b => (
-                <TableRow key={b.id} className="hover:bg-slate-50/50">
-                  <TableCell>
-                    <p className="text-sm font-medium text-slate-800">{staffName(b.payroll_staff)}</p>
-                    <p className="text-xs text-slate-400">{staffPosition(b.payroll_staff)}</p>
-                  </TableCell>
-                  <TableCell><BalanceCell used={b.annual_leave_used} total={b.annual_leave_total} /></TableCell>
-                  <TableCell><BalanceCell used={b.sick_leave_used} total={b.sick_leave_total} /></TableCell>
-                  <TableCell><BalanceCell used={b.maternity_leave_used} total={b.maternity_leave_total} /></TableCell>
-                  <TableCell><BalanceCell used={b.paternity_leave_used} total={b.paternity_leave_total} /></TableCell>
-                  <TableCell><BalanceCell used={b.compassionate_leave_used} total={b.compassionate_leave_total} /></TableCell>
-                  <TableCell>
-                    <div className="min-w-[80px]">
-                      <p className="text-xs text-slate-600 font-medium">{b.unpaid_leave_used} days used</p>
-                      <p className="text-xs text-slate-400">Unlimited</p>
-                    </div>
-                  </TableCell>
+    <>
+      {/* Action row */}
+      <div className="flex items-center justify-between mb-3">
+        <Select value={selYear} onValueChange={setSelYear}>
+          <SelectTrigger className="w-28 h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {YEARS_LIST.map(y => (
+              <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 text-slate-600"
+          onClick={handleInitialize}
+          disabled={initializing}
+        >
+          <UserCircle className="h-4 w-4" />
+          {initializing ? "Initializing..." : "Initialize Balances"}
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : balances.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-400">
+            <Users className="h-8 w-8" />
+            <p className="text-sm font-medium">No leave balances for {selYear}.</p>
+            <p className="text-xs">Click "Initialize Balances" to create them.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  {["Staff Member", "Annual Leave", "Sick Leave", "Maternity Leave", "Paternity Leave", "Compassionate Leave", "Unpaid Leave", "Actions"].map(h => (
+                    <TableHead key={h} className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</TableHead>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
+              </TableHeader>
+              <TableBody>
+                {balances.map(b => (
+                  <TableRow key={b.id} className="hover:bg-slate-50/50">
+                    <TableCell>
+                      <p className="text-sm font-medium text-slate-800">{staffName(b.payroll_staff)}</p>
+                      <p className="text-xs text-slate-400">{staffPosition(b.payroll_staff)}</p>
+                    </TableCell>
+                    <TableCell><BalanceCell used={b.annual_leave_used} total={b.annual_leave_total} color="bg-blue-500" /></TableCell>
+                    <TableCell><BalanceCell used={b.sick_leave_used} total={b.sick_leave_total} color="bg-red-500" /></TableCell>
+                    <TableCell><BalanceCell used={b.maternity_leave_used} total={b.maternity_leave_total} color="bg-pink-500" /></TableCell>
+                    <TableCell><BalanceCell used={b.paternity_leave_used} total={b.paternity_leave_total} color="bg-teal-500" /></TableCell>
+                    <TableCell><BalanceCell used={b.compassionate_leave_used} total={b.compassionate_leave_total} color="bg-purple-500" /></TableCell>
+                    <TableCell>
+                      <div className="min-w-[90px]">
+                        <p className="text-xs text-slate-600 font-medium">{b.unpaid_leave_used} days used</p>
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
+                          <div className="bg-slate-400 h-1.5 rounded-full" style={{ width: b.unpaid_leave_used > 0 ? "40%" : "0%" }} />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        title="Edit balance"
+                        className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                        onClick={() => setEditBalance(b)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      <EditBalanceModal
+        open={!!editBalance}
+        onClose={() => setEditBalance(null)}
+        balance={editBalance}
+        onSuccess={() => {}}
+      />
+    </>
   );
 }
 
@@ -964,7 +1182,7 @@ export function LeaveTab({ staffList }: { staffList: StaffRow[] }) {
           <LeaveRequestsTab tenantId={tenantId} staffList={staffList} />
         </TabsContent>
         <TabsContent value="balances">
-          <LeaveBalancesTab tenantId={tenantId} />
+          <LeaveBalancesTab tenantId={tenantId} staffList={staffList} />
         </TabsContent>
         <TabsContent value="absences">
           <AbsencesTab tenantId={tenantId} staffList={staffList} />
