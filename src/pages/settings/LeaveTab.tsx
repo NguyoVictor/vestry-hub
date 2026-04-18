@@ -108,6 +108,7 @@ const LEAVE_TYPES = [
   "Paternity Leave",
   "Compassionate Leave",
   "Unpaid Leave",
+  "Other",
 ] as const;
 
 type LeaveType = typeof LEAVE_TYPES[number];
@@ -184,6 +185,7 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
   const qc = useQueryClient();
   const [staffId, setStaffId]       = useState("");
   const [leaveType, setLeaveType]   = useState<LeaveType>("Annual Leave");
+  const [otherLeaveType, setOtherLeaveType] = useState("");
   const [startDate, setStartDate]   = useState("");
   const [endDate, setEndDate]       = useState("");
   const [reason, setReason]         = useState("");
@@ -197,7 +199,7 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
   const coverOptions = activeStaff.filter(s => s.id !== staffId);
 
   const handleClose = () => {
-    setStaffId(""); setLeaveType("Annual Leave"); setStartDate(""); setEndDate("");
+    setStaffId(""); setLeaveType("Annual Leave"); setOtherLeaveType(""); setStartDate(""); setEndDate("");
     setReason(""); setCoverStaffId(""); setCoverNotes("");
     onClose();
   };
@@ -207,14 +209,19 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
     if (!startDate)  { toast.error("Start date is required."); return; }
     if (!endDate)    { toast.error("End date is required."); return; }
     if (endDate < startDate) { toast.error("End date must be on or after start date."); return; }
+    if (leaveType === "Other" && !otherLeaveType.trim()) {
+      toast.error("Please specify the leave type.");
+      return;
+    }
 
     setSubmitting(true);
     try {
       const dur = calcDuration(startDate, endDate);
+      const resolvedLeaveType = leaveType === "Other" ? otherLeaveType.trim() : leaveType;
 
       const { error } = await supabase.from(TABLES.STAFF_LEAVE_REQUESTS).insert({
         staff_id: staffId,
-        leave_type: leaveType,
+        leave_type: resolvedLeaveType,
         start_date: startDate,
         end_date: endDate,
         duration_days: dur,
@@ -227,14 +234,14 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
 
       if (error) throw error;
 
-      // Deduct from leave balance
-      const leaveColMap: Record<LeaveType, string> = {
-        "Annual Leave":       "annual_leave_used",
-        "Sick Leave":         "sick_leave_used",
-        "Maternity Leave":    "maternity_leave_used",
-        "Paternity Leave":    "paternity_leave_used",
-        "Compassionate Leave":"compassionate_leave_used",
-        "Unpaid Leave":       "unpaid_leave_used",
+      // Deduct from leave balance (only for known leave types, not "Other")
+      const leaveColMap: Record<string, string> = {
+        "Annual Leave":        "annual_leave_used",
+        "Sick Leave":          "sick_leave_used",
+        "Maternity Leave":     "maternity_leave_used",
+        "Paternity Leave":     "paternity_leave_used",
+        "Compassionate Leave": "compassionate_leave_used",
+        "Unpaid Leave":        "unpaid_leave_used",
       };
       const usedCol = leaveColMap[leaveType];
       const year = new Date(startDate).getFullYear();
@@ -305,6 +312,15 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
                 ))}
               </SelectContent>
             </Select>
+            {leaveType === "Other" && (
+              <Input
+                className="mt-2"
+                placeholder="Specify leave type..."
+                value={otherLeaveType}
+                onChange={e => setOtherLeaveType(e.target.value)}
+                autoFocus
+              />
+            )}
           </div>
 
           {/* Start + End Date */}
