@@ -34,6 +34,7 @@ import {
   RefreshCw, Plus,
 } from "lucide-react";
 import { LeaveTab } from "./LeaveTab";
+import { PositionsTab } from "./PositionsTab";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const WORK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -1338,9 +1339,7 @@ const StaffPage = () => {
           <LeaveTab staffList={staffList} />
         </TabsContent>
         <TabsContent value="positions">
-          <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
-            <Briefcase className="h-10 w-10" /><p className="text-sm font-medium">Positions coming soon</p>
-          </div>
+          <PositionsTab />
         </TabsContent>
         <TabsContent value="tasks">
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
