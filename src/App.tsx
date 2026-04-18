@@ -88,6 +88,7 @@ const RolesPermissions = lazy(() => import("./pages/settings/RolesPermissions"))
 const UsersPage = lazy(() => import("./pages/settings/Users"));
 const StaffPage = lazy(() => import("./pages/settings/Staff"));
 const RegistrationSettings = lazy(() => import("./pages/settings/Registration"));
+const PreferencesSettings = lazy(() => import("./pages/settings/Preferences"));
 const Notifications = lazy(() => import("./pages/settings/Notifications"));
 const Billing = lazy(() => import("./pages/settings/Billing"));
 const Security = lazy(() => import("./pages/settings/Security"));
@@ -275,8 +276,10 @@ const App = () => (
                   <Route path="staff" element={<Suspense fallback={<Fallback />}><StaffPage /></Suspense>} />
                   {/* Registration settings — real page */}
                   <Route path="registration" element={<Suspense fallback={<Fallback />}><RegistrationSettings /></Suspense>} />
+                  {/* Preferences settings — real page */}
+                  <Route path="preferences" element={<Suspense fallback={<Fallback />}><PreferencesSettings /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
-                  {["branding","payments","giving","tax","preferences","attendance","whatsapp","service-requests","privacy","legal","backup","verification"].map(slug => (
+                  {["branding","payments","giving","tax","attendance","whatsapp","service-requests","privacy","legal","backup","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
                       <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
                         <Settings className="h-10 w-10" />

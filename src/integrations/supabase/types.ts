@@ -6711,7 +6711,10 @@ export type Database = {
           about: string | null
           accent_color: string | null
           address: string | null
+          afternoon_service_time: string
+          allow_self_checkout: boolean
           app_slug: string | null
+          auto_generate_member_ids: boolean
           average_attendance: number | null
           church_code: string | null
           city: string | null
@@ -6723,15 +6726,20 @@ export type Database = {
           custom_domain: string | null
           default_language: string | null
           denomination: string | null
+          early_riser_time: string
+          enable_checkin: boolean
           enabled_modules: Json | null
           facebook_url: string | null
+          fiscal_year_start_month: number
           founded_year: number | null
           id: string
           instagram_url: string | null
           invite_code: string | null
           invite_code_uses: number
           logo: string | null
+          member_id_prefix: string
           mission_statement: string | null
+          morning_service_time: string
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
@@ -6763,7 +6771,10 @@ export type Database = {
           about?: string | null
           accent_color?: string | null
           address?: string | null
+          afternoon_service_time?: string
+          allow_self_checkout?: boolean
           app_slug?: string | null
+          auto_generate_member_ids?: boolean
           average_attendance?: number | null
           church_code?: string | null
           city?: string | null
@@ -6775,15 +6786,20 @@ export type Database = {
           custom_domain?: string | null
           default_language?: string | null
           denomination?: string | null
+          early_riser_time?: string
+          enable_checkin?: boolean
           enabled_modules?: Json | null
           facebook_url?: string | null
+          fiscal_year_start_month?: number
           founded_year?: number | null
           id: string
           instagram_url?: string | null
           invite_code?: string | null
           invite_code_uses?: number
           logo?: string | null
+          member_id_prefix?: string
           mission_statement?: string | null
+          morning_service_time?: string
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
@@ -6815,7 +6831,10 @@ export type Database = {
           about?: string | null
           accent_color?: string | null
           address?: string | null
+          afternoon_service_time?: string
+          allow_self_checkout?: boolean
           app_slug?: string | null
+          auto_generate_member_ids?: boolean
           average_attendance?: number | null
           church_code?: string | null
           city?: string | null
@@ -6827,15 +6846,20 @@ export type Database = {
           custom_domain?: string | null
           default_language?: string | null
           denomination?: string | null
+          early_riser_time?: string
+          enable_checkin?: boolean
           enabled_modules?: Json | null
           facebook_url?: string | null
+          fiscal_year_start_month?: number
           founded_year?: number | null
           id?: string
           instagram_url?: string | null
           invite_code?: string | null
           invite_code_uses?: number
           logo?: string | null
+          member_id_prefix?: string
           mission_statement?: string | null
+          morning_service_time?: string
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
