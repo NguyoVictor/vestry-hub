@@ -6660,6 +6660,8 @@ export type Database = {
           founded_year: number | null
           id: string
           instagram_url: string | null
+          invite_code: string | null
+          invite_code_uses: number
           logo: string | null
           mission_statement: string | null
           name: string
@@ -6710,6 +6712,8 @@ export type Database = {
           founded_year?: number | null
           id: string
           instagram_url?: string | null
+          invite_code?: string | null
+          invite_code_uses?: number
           logo?: string | null
           mission_statement?: string | null
           name: string
@@ -6760,6 +6764,8 @@ export type Database = {
           founded_year?: number | null
           id?: string
           instagram_url?: string | null
+          invite_code?: string | null
+          invite_code_uses?: number
           logo?: string | null
           mission_statement?: string | null
           name?: string
