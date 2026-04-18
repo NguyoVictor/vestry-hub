@@ -7020,6 +7020,41 @@ export type Database = {
           },
         ]
       }
+      user_role_overrides: {
+        Row: {
+          created_at: string
+          id: string
+          member_id: string
+          role: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_id: string
+          role: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_id?: string
+          role?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_role_overrides_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar: string | null

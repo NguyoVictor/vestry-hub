@@ -17,6 +17,7 @@ import {
   GitBranch, Layers, HandHelping, User, Check, X, ChevronRight,
 } from "lucide-react";
 import { FeaturePermissions } from "./FeaturePermissions";
+import { UserOverrides } from "./UserOverrides";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function randomCode(len = 8): string {
@@ -358,7 +359,7 @@ const RolesPermissions = () => {
               <FeaturePermissions />
             </TabsContent>
             <TabsContent value="overrides">
-              <ComingSoonTab label="User Overrides" />
+              <UserOverrides />
             </TabsContent>
           </Tabs>
         </div>
