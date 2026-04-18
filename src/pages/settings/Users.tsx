@@ -27,9 +27,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Users, Shield, Search, Plus, Key, Pencil, Trash2,
+  Users, Shield, Search, Plus, Key, Pencil, Trash2, CheckCircle2,
 } from "lucide-react";
-import RolesPermissions from "./RolesPermissions";
 
 // ─── Role config ──────────────────────────────────────────────────────────────
 const ROLES = [
@@ -387,6 +386,165 @@ function EditUserModal({ user, onClose, onSuccess }: EditUserModalProps) {
   );
 }
 
+// ─── Role Permissions Overview ────────────────────────────────────────────────
+
+const ROLE_CARDS = [
+  {
+    label: "Church Admin",
+    desc: "Full access to all features",
+    pill: "bg-orange-100 text-orange-600 border-orange-200",
+  },
+  {
+    label: "General Overseer",
+    desc: "Highest church authority",
+    pill: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+  {
+    label: "Senior Pastor",
+    desc: "Pastoral oversight and approvals",
+    pill: "bg-orange-50 text-orange-500 border-orange-100",
+  },
+  {
+    label: "Pastor",
+    desc: "Ministry management access",
+    pill: "bg-purple-100 text-purple-600 border-purple-200",
+  },
+  {
+    label: "Assistant Pastor",
+    desc: "Limited pastoral access",
+    pill: "bg-purple-50 text-purple-500 border-purple-100",
+  },
+  {
+    label: "Accountant",
+    desc: "Financial management access",
+    pill: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+  {
+    label: "Leader",
+    desc: "Group and ministry leadership",
+    pill: "bg-blue-50 text-blue-500 border-blue-100",
+  },
+  {
+    label: "Studio Operator",
+    desc: "EasyLive Studio production access only",
+    pill: "bg-emerald-50 text-emerald-600 border-emerald-100",
+  },
+  {
+    label: "Member",
+    desc: "Basic member access",
+    pill: "bg-slate-100 text-slate-500 border-slate-200",
+  },
+];
+
+// Capability matrix — null = "–", true = full check, string = custom label
+type CellValue = true | null | string;
+
+interface CapabilityRow {
+  capability: string;
+  churchAdmin: CellValue;
+  seniorPastor: CellValue;
+  pastor: CellValue;
+  accountant: CellValue;
+  leader: CellValue;
+  member: CellValue;
+}
+
+const CAPABILITIES: CapabilityRow[] = [
+  { capability: "Manage Users",      churchAdmin: true,  seniorPastor: true,  pastor: null,           accountant: null,           leader: null,  member: null },
+  { capability: "View Members",      churchAdmin: true,  seniorPastor: true,  pastor: true,           accountant: true,           leader: true,  member: "Limited" },
+  { capability: "Record Attendance", churchAdmin: true,  seniorPastor: true,  pastor: true,           accountant: null,           leader: true,  member: null },
+  { capability: "Financial Access",  churchAdmin: true,  seniorPastor: true,  pastor: "Configurable", accountant: true,           leader: null,  member: null },
+  { capability: "Manage Events",     churchAdmin: true,  seniorPastor: true,  pastor: true,           accountant: null,           leader: true,  member: null },
+  { capability: "Church Settings",   churchAdmin: true,  seniorPastor: true,  pastor: null,           accountant: null,           leader: null,  member: null },
+];
+
+const COMPARISON_COLS = [
+  { key: "churchAdmin",  label: "Church Admin" },
+  { key: "seniorPastor", label: "Senior Pastor" },
+  { key: "pastor",       label: "Pastor" },
+  { key: "accountant",   label: "Accountant" },
+  { key: "leader",       label: "Leader" },
+  { key: "member",       label: "Member" },
+] as const;
+
+function CapabilityCell({ value }: { value: CellValue }) {
+  if (value === null) {
+    return <span className="text-slate-300 text-base select-none">–</span>;
+  }
+  if (value === true) {
+    return <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />;
+  }
+  return <span className="text-xs text-slate-500 font-medium">{value}</span>;
+}
+
+function RolesOverview() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+          <Shield className="h-5 w-5 text-orange-500" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-slate-800">Role Permissions Overview</h2>
+          <p className="text-xs text-slate-500">Understanding what each role can access</p>
+        </div>
+      </div>
+
+      {/* Role cards grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {ROLE_CARDS.map(card => (
+          <div
+            key={card.label}
+            className="rounded-lg border border-slate-200 bg-white p-4 space-y-2 hover:border-slate-300 transition-colors"
+          >
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${card.pill}`}>
+              {card.label}
+            </span>
+            <p className="text-sm text-slate-600">{card.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Capabilities comparison table */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-slate-800">Role Capabilities Comparison</h3>
+        <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide min-w-[160px]">
+                  Capability
+                </TableHead>
+                {COMPARISON_COLS.map(col => (
+                  <TableHead
+                    key={col.key}
+                    className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center whitespace-nowrap"
+                  >
+                    {col.label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {CAPABILITIES.map((row, i) => (
+                <TableRow key={row.capability} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                  <TableCell className="text-sm font-medium text-slate-700">{row.capability}</TableCell>
+                  {COMPARISON_COLS.map(col => (
+                    <TableCell key={col.key} className="text-center">
+                      <CapabilityCell value={row[col.key]} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Users Page ──────────────────────────────────────────────────────────
 const UsersPage = () => {
   const church = useChurch();
@@ -681,7 +839,7 @@ const UsersPage = () => {
 
         {/* ── ROLES TAB ── */}
         <TabsContent value="roles">
-          <RolesPermissions />
+          <RolesOverview />
         </TabsContent>
       </Tabs>
 
