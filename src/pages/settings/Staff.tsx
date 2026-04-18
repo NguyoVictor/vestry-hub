@@ -33,6 +33,7 @@ import {
   UserPlus, Pencil, Trash2, Eye, EyeOff, Users, FileText, Printer,
   RefreshCw, Plus,
 } from "lucide-react";
+import { LeaveTab } from "./LeaveTab";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const WORK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -1334,9 +1335,7 @@ const StaffPage = () => {
         <TabsContent value="staff"><StaffTab /></TabsContent>
         <TabsContent value="payroll"><PayrollTab staffList={staffList} /></TabsContent>
         <TabsContent value="leave">
-          <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
-            <CalendarDays className="h-10 w-10" /><p className="text-sm font-medium">Leave coming soon</p>
-          </div>
+          <LeaveTab staffList={staffList} />
         </TabsContent>
         <TabsContent value="positions">
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">

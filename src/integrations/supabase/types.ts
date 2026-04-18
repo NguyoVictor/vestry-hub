@@ -5659,6 +5659,208 @@ export type Database = {
           },
         ]
       }
+      staff_absences: {
+        Row: {
+          absence_date: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          reason: string | null
+          staff_id: string
+          status: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          absence_date: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          staff_id: string
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          absence_date?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          reason?: string | null
+          staff_id?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_absences_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_absences_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_leave_balances: {
+        Row: {
+          annual_leave_total: number | null
+          annual_leave_used: number | null
+          compassionate_leave_total: number | null
+          compassionate_leave_used: number | null
+          created_at: string | null
+          id: string
+          maternity_leave_total: number | null
+          maternity_leave_used: number | null
+          paternity_leave_total: number | null
+          paternity_leave_used: number | null
+          sick_leave_total: number | null
+          sick_leave_used: number | null
+          staff_id: string
+          tenant_id: string
+          unpaid_leave_used: number | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          annual_leave_total?: number | null
+          annual_leave_used?: number | null
+          compassionate_leave_total?: number | null
+          compassionate_leave_used?: number | null
+          created_at?: string | null
+          id?: string
+          maternity_leave_total?: number | null
+          maternity_leave_used?: number | null
+          paternity_leave_total?: number | null
+          paternity_leave_used?: number | null
+          sick_leave_total?: number | null
+          sick_leave_used?: number | null
+          staff_id: string
+          tenant_id: string
+          unpaid_leave_used?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Update: {
+          annual_leave_total?: number | null
+          annual_leave_used?: number | null
+          compassionate_leave_total?: number | null
+          compassionate_leave_used?: number | null
+          created_at?: string | null
+          id?: string
+          maternity_leave_total?: number | null
+          maternity_leave_used?: number | null
+          paternity_leave_total?: number | null
+          paternity_leave_used?: number | null
+          sick_leave_total?: number | null
+          sick_leave_used?: number | null
+          staff_id?: string
+          tenant_id?: string
+          unpaid_leave_used?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_leave_balances_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_leave_balances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_leave_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cover_notes: string | null
+          cover_staff_id: string | null
+          created_at: string | null
+          duration_days: number | null
+          end_date: string
+          id: string
+          leave_type: string
+          reason: string | null
+          staff_id: string
+          start_date: string
+          status: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cover_notes?: string | null
+          cover_staff_id?: string | null
+          created_at?: string | null
+          duration_days?: number | null
+          end_date: string
+          id?: string
+          leave_type: string
+          reason?: string | null
+          staff_id: string
+          start_date: string
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cover_notes?: string | null
+          cover_staff_id?: string | null
+          created_at?: string | null
+          duration_days?: number | null
+          end_date?: string
+          id?: string
+          leave_type?: string
+          reason?: string | null
+          staff_id?: string
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_leave_requests_cover_staff_id_fkey"
+            columns: ["cover_staff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_leave_requests_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_leave_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_payroll: {
         Row: {
           allowances: number

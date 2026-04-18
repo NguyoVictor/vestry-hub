@@ -129,6 +129,9 @@ export const TABLES = {
 
   // Analytics & Settings
   STAFF_PAYROLL: "staff_payroll",
+  STAFF_LEAVE_REQUESTS: "staff_leave_requests",
+  STAFF_LEAVE_BALANCES: "staff_leave_balances",
+  STAFF_ABSENCES: "staff_absences",
   SAVED_REPORTS: "saved_reports",
   PRAYER_REQUESTS: "prayer_requests",
   ACTIVITY_LOG: "activity_log",
