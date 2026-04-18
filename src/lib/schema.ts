@@ -134,6 +134,7 @@ export const TABLES = {
   STAFF_ABSENCES: "staff_absences",
   STAFF_POSITIONS: "staff_positions",
   STAFF_TASKS: "staff_tasks",
+  FEATURE_PERMISSIONS: "feature_permissions",
   SAVED_REPORTS: "saved_reports",
   PRAYER_REQUESTS: "prayer_requests",
   ACTIVITY_LOG: "activity_log",

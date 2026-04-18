@@ -2245,6 +2245,36 @@ export type Database = {
           },
         ]
       }
+      feature_permissions: {
+        Row: {
+          access_level: string
+          created_at: string
+          feature: string
+          id: string
+          role: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_level?: string
+          created_at?: string
+          feature: string
+          id?: string
+          role: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_level?: string
+          created_at?: string
+          feature?: string
+          id?: string
+          role?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fellowship_members: {
         Row: {
           fellowship_id: string

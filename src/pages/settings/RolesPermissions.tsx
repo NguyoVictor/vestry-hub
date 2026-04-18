@@ -16,6 +16,7 @@ import {
   UserCircle, Copy, RefreshCw, ShieldCheck, Crown, Building2,
   GitBranch, Layers, HandHelping, User, Check, X, ChevronRight,
 } from "lucide-react";
+import { FeaturePermissions } from "./FeaturePermissions";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function randomCode(len = 8): string {
@@ -354,7 +355,7 @@ const RolesPermissions = () => {
               <RolesOverview currentRole={currentRole} />
             </TabsContent>
             <TabsContent value="permissions">
-              <ComingSoonTab label="Feature Permissions" />
+              <FeaturePermissions />
             </TabsContent>
             <TabsContent value="overrides">
               <ComingSoonTab label="User Overrides" />
