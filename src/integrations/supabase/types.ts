@@ -6668,6 +6668,7 @@ export type Database = {
           phone: string | null
           post_code: string | null
           primary_color: string | null
+          registration_enabled: boolean
           require_post_code: boolean | null
           senior_pastor: string | null
           service_days: string[] | null
@@ -6717,6 +6718,7 @@ export type Database = {
           phone?: string | null
           post_code?: string | null
           primary_color?: string | null
+          registration_enabled?: boolean
           require_post_code?: boolean | null
           senior_pastor?: string | null
           service_days?: string[] | null
@@ -6766,6 +6768,7 @@ export type Database = {
           phone?: string | null
           post_code?: string | null
           primary_color?: string | null
+          registration_enabled?: boolean
           require_post_code?: boolean | null
           senior_pastor?: string | null
           service_days?: string[] | null

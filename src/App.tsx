@@ -87,6 +87,7 @@ const ServicesModules = lazy(() => import("./pages/settings/ServicesModules"));
 const RolesPermissions = lazy(() => import("./pages/settings/RolesPermissions"));
 const UsersPage = lazy(() => import("./pages/settings/Users"));
 const StaffPage = lazy(() => import("./pages/settings/Staff"));
+const RegistrationSettings = lazy(() => import("./pages/settings/Registration"));
 const Notifications = lazy(() => import("./pages/settings/Notifications"));
 const Billing = lazy(() => import("./pages/settings/Billing"));
 const Security = lazy(() => import("./pages/settings/Security"));
@@ -131,6 +132,7 @@ const IncidentManagement = lazy(() => import("./pages/security/IncidentManagemen
 
 // Public pages
 const VisitorRegistration = lazy(() => import("./pages/VisitorRegistration"));
+const MemberRegistration = lazy(() => import("./pages/MemberRegistration"));
 
 // Communications pages
 const CommunicationsPage = lazy(() => import("./pages/communications/Communications"));
@@ -186,6 +188,7 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/church/:slug" element={<ChurchPublicPage />} />
             <Route path="/visitor-registration/:churchId" element={<Suspense fallback={<Fallback />}><VisitorRegistration /></Suspense>} />
+            <Route path="/member-registration/:orgId" element={<Suspense fallback={<Fallback />}><MemberRegistration /></Suspense>} />
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
@@ -270,8 +273,10 @@ const App = () => (
                   <Route path="modules" element={<Suspense fallback={<Fallback />}><ModulesSettings /></Suspense>} />
                   <Route path="users" element={<Suspense fallback={<Fallback />}><UsersPage /></Suspense>} />
                   <Route path="staff" element={<Suspense fallback={<Fallback />}><StaffPage /></Suspense>} />
+                  {/* Registration settings — real page */}
+                  <Route path="registration" element={<Suspense fallback={<Fallback />}><RegistrationSettings /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
-                  {["branding","registration","payments","giving","tax","preferences","attendance","whatsapp","service-requests","privacy","legal","backup","verification"].map(slug => (
+                  {["branding","payments","giving","tax","preferences","attendance","whatsapp","service-requests","privacy","legal","backup","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
                       <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
                         <Settings className="h-10 w-10" />
