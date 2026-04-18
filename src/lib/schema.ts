@@ -133,6 +133,7 @@ export const TABLES = {
   STAFF_LEAVE_BALANCES: "staff_leave_balances",
   STAFF_ABSENCES: "staff_absences",
   STAFF_POSITIONS: "staff_positions",
+  STAFF_TASKS: "staff_tasks",
   SAVED_REPORTS: "saved_reports",
   PRAYER_REQUESTS: "prayer_requests",
   ACTIVITY_LOG: "activity_log",
