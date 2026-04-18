@@ -1,0 +1,675 @@
+import { Helmet } from "react-helmet-async";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useChurch } from "@/contexts/ChurchContext";
+import { TABLES, COLS } from "@/lib/schema";
+import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Users, Shield, Search, Plus, Key, Pencil, Trash2, ChevronDown,
+} from "lucide-react";
+import RolesPermissions from "./RolesPermissions";
+
+// ─── Role config ──────────────────────────────────────────────────────────────
+const ROLES = [
+  { value: "church_admin",      label: "Church Admin",      color: "bg-orange-100 text-orange-700 border-orange-200" },
+  { value: "general_overseer",  label: "General Overseer",  color: "bg-slate-100 text-slate-600 border-slate-200" },
+  { value: "pastor",            label: "Pastor",            color: "bg-purple-100 text-purple-700 border-purple-200" },
+  { value: "staff_leader",      label: "Staff",             color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { value: "volunteer",         label: "Volunteer",         color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { value: "member",            label: "Member",            color: "bg-slate-100 text-slate-500 border-slate-200" },
+  { value: "super_admin",       label: "Super Admin",       color: "bg-red-100 text-red-700 border-red-200" },
+  { value: "guest",             label: "Guest",             color: "bg-slate-100 text-slate-400 border-slate-200" },
+] as const;
+
+type RoleValue = typeof ROLES[number]["value"];
+
+function getRoleConfig(role: string) {
+  return ROLES.find(r => r.value === role) ?? { label: role, color: "bg-slate-100 text-slate-500 border-slate-200" };
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface UserRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  status: string;
+  last_login_at: string | null;
+  avatar_url: string | null;
+  tenant_id: string;
+}
+
+interface MemberRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+}
+
+interface BranchRow {
+  id: string;
+  name: string;
+}
+
+// ─── Add User Modal ───────────────────────────────────────────────────────────
+interface AddUserModalProps {
+  open: boolean;
+  onClose: () => void;
+  branches: BranchRow[];
+  tenantId: string;
+  onSuccess: () => void;
+}
+
+function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserModalProps) {
+  const [memberSearch, setMemberSearch] = useState("");
+  const [selectedMember, setSelectedMember] = useState<MemberRow | null>(null);
+  const [role, setRole] = useState<RoleValue>("member");
+  const [branchId, setBranchId] = useState<string>("");
+  const [sendInvite, setSendInvite] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Search members
+  const { data: memberResults } = useQuery({
+    queryKey: ["member-search", tenantId, memberSearch],
+    queryFn: async () => {
+      if (memberSearch.trim().length < 2) return [];
+      const { data } = await supabase
+        .from(TABLES.MEMBERS)
+        .select("id, first_name, last_name, email")
+        .eq(COLS.TENANT_ID, tenantId)
+        .or(`first_name.ilike.%${memberSearch}%,last_name.ilike.%${memberSearch}%,email.ilike.%${memberSearch}%`)
+        .limit(8);
+      return (data ?? []) as MemberRow[];
+    },
+    staleTime: 30_000,
+    enabled: memberSearch.trim().length >= 2,
+  });
+
+  const handleSelectMember = (m: MemberRow) => {
+    setSelectedMember(m);
+    setMemberSearch(`${m.first_name ?? ""} ${m.last_name ?? ""}`.trim());
+    setDropdownOpen(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedMember) {
+      toast.error("Please select a member first.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.functions.invoke("invite-user", {
+        body: {
+          memberId: selectedMember.id,
+          email: selectedMember.email,
+          role,
+          branchId: branchId || null,
+          sendInvite,
+          tenantId,
+        },
+      });
+      if (error) throw error;
+      const name = `${selectedMember.first_name ?? ""} ${selectedMember.last_name ?? ""}`.trim();
+      toast.success(sendInvite ? `Invitation sent to ${name}!` : `${name} added as user.`);
+      onSuccess();
+      handleClose();
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to add user.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setMemberSearch("");
+    setSelectedMember(null);
+    setRole("member");
+    setBranchId("");
+    setSendInvite(true);
+    setDropdownOpen(false);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && handleClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">Add User</DialogTitle>
+          <DialogDescription className="text-sm text-slate-500">
+            Select a registered member to add as a user with permissions.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 pt-1">
+          {/* Search Member */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">
+              Search Member <span className="text-red-500">*</span>
+            </Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                className="pl-9"
+                placeholder="Search by name or email..."
+                value={memberSearch}
+                onChange={e => {
+                  setMemberSearch(e.target.value);
+                  setSelectedMember(null);
+                  setDropdownOpen(true);
+                }}
+                onFocus={() => memberSearch.length >= 2 && setDropdownOpen(true)}
+              />
+              {dropdownOpen && memberResults && memberResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+                  {memberResults.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="w-full px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                      onClick={() => handleSelectMember(m)}
+                    >
+                      <p className="text-sm font-medium text-slate-800">
+                        {`${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—"}
+                      </p>
+                      <p className="text-xs text-slate-400">{m.email ?? "No email"}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Role */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">
+              Role <span className="text-red-500">*</span>
+            </Label>
+            <Select value={role} onValueChange={v => setRole(v as RoleValue)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLES.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Branch Assignment */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Branch Assignment</Label>
+            <div className="space-y-2 rounded-md border border-slate-200 p-3">
+              {branches.length === 0 ? (
+                <p className="text-xs text-slate-400">No branches found.</p>
+              ) : (
+                branches.map(b => (
+                  <label key={b.id} className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="branch"
+                      value={b.id}
+                      checked={branchId === b.id}
+                      onChange={() => setBranchId(b.id)}
+                      className="accent-orange-500"
+                    />
+                    <span className="text-sm text-slate-700">{b.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+            <p className="text-xs text-slate-400">Leave empty to grant access to all branches.</p>
+          </div>
+
+          {/* Send Email Invitation */}
+          <div className="flex items-center justify-between rounded-md border border-slate-200 p-3">
+            <div>
+              <p className="text-sm font-medium text-slate-800">Send Email Invitation</p>
+              <p className="text-xs text-slate-400">Send an email to invite this user to join</p>
+            </div>
+            <Switch
+              checked={sendInvite}
+              onCheckedChange={setSendInvite}
+              className="data-[state=checked]:bg-orange-500"
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" onClick={handleClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-orange-500 hover:bg-orange-600 text-white"
+            onClick={handleSubmit}
+            disabled={submitting || !selectedMember}
+          >
+            {submitting ? "Sending..." : "Send Invitation"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Edit User Modal ──────────────────────────────────────────────────────────
+interface EditUserModalProps {
+  user: UserRow | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function EditUserModal({ user, onClose, onSuccess }: EditUserModalProps) {
+  const [role, setRole] = useState<string>(user?.role ?? "member");
+  const [status, setStatus] = useState<string>(user?.status ?? "active");
+  const [saving, setSaving] = useState(false);
+  const qc = useQueryClient();
+
+  if (!user) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from(TABLES.USERS)
+        .update({ role, status } as never)
+        .eq(COLS.ID, user.id);
+      if (error) throw error;
+      toast.success("User updated.");
+      qc.invalidateQueries({ queryKey: ["settings-users"] });
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to update user.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!user} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Edit User</DialogTitle>
+          <DialogDescription>
+            Update role and status for {user.first_name} {user.last_name}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Role</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ROLES.map(r => (
+                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main Users Page ──────────────────────────────────────────────────────────
+const UsersPage = () => {
+  const church = useChurch();
+  const qc = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+
+  // Fetch users
+  const { data: users = [], isLoading: usersLoading } = useQuery<UserRow[]>({
+    queryKey: ["settings-users", church.tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.USERS)
+        .select("id, first_name, last_name, email, role, status, last_login_at, avatar_url, tenant_id")
+        .eq(COLS.TENANT_ID, church.tenantId)
+        .order(COLS.CREATED_AT, { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as UserRow[];
+    },
+    staleTime: 300_000,
+  });
+
+  // Fetch branches
+  const { data: branches = [] } = useQuery<BranchRow[]>({
+    queryKey: ["branches-list", church.tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.BRANCHES)
+        .select("id, name")
+        .eq(COLS.TENANT_ID, church.tenantId)
+        .eq("is_active", true)
+        .order("name");
+      return (data ?? []) as BranchRow[];
+    },
+    staleTime: 300_000,
+  });
+
+  // Delete user mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase.functions.invoke("update-user-role", {
+        body: { action: "deactivate", targetUserId: userId },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
+      toast.success("User removed.");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to remove user."),
+  });
+
+  // Reset password
+  const handleResetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      });
+      if (error) throw error;
+      toast.success(`Password reset email sent to ${email}.`);
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to send reset email.");
+    }
+  };
+
+  // Filtered users
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return users;
+    return users.filter(u =>
+      `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q)
+    );
+  }, [users, search]);
+
+  const adminCount = users.filter(u => u.role === "church_admin" || u.role === "super_admin").length;
+
+  const formatLastLogin = (ts: string | null) => {
+    if (!ts) return "Never";
+    try { return formatDistanceToNow(new Date(ts), { addSuffix: true }); }
+    catch { return "Unknown"; }
+  };
+
+  const getInitials = (u: UserRow) =>
+    `${u.first_name?.[0] ?? ""}${u.last_name?.[0] ?? ""}`.toUpperCase() || "?";
+
+  return (
+    <>
+      <Helmet><title>Users & Permissions — Vestry</title></Helmet>
+
+      <Tabs defaultValue="users" className="w-full">
+        {/* Tab nav */}
+        <TabsList className="mb-6 bg-slate-100 p-1 rounded-lg w-auto">
+          <TabsTrigger value="users" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Users className="h-4 w-4" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Shield className="h-4 w-4" />
+            Roles
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── USERS TAB ── */}
+        <TabsContent value="users" className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+                <Users className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-slate-800">Users &amp; Permissions</h2>
+                <p className="text-xs text-slate-500">Manage user accounts and their access permissions</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                {adminCount}/{users.length} Admins
+              </span>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+                size="sm"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Add User
+              </Button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              className="pl-9"
+              placeholder="Search by name, email, or role..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Table */}
+          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">User</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Branch(es)</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Last Login</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {usersLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><div className="flex items-center gap-3"><Skeleton className="h-8 w-8 rounded-full" /><div className="space-y-1"><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-36" /></div></div></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24 rounded-full" /></TableCell>
+                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                      <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-7 w-20 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-16 text-center">
+                      <div className="flex flex-col items-center gap-2 text-slate-400">
+                        <Users className="h-8 w-8" />
+                        <p className="text-sm font-medium">No users found</p>
+                        <p className="text-xs">
+                          {search ? "Try a different search term." : "Add your first user to get started."}
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(user => {
+                    const roleConfig = getRoleConfig(user.role);
+                    const isCurrentUser = user.id === church.userId;
+                    return (
+                      <TableRow key={user.id} className="hover:bg-slate-50/50">
+                        {/* User */}
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-600">
+                              {getInitials(user)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">
+                                {user.first_name} {user.last_name}
+                                {isCurrentUser && <span className="ml-1.5 text-xs text-slate-400">(you)</span>}
+                              </p>
+                              <p className="text-xs text-slate-400">{user.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        {/* Role */}
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${roleConfig.color}`}>
+                            {roleConfig.label}
+                          </span>
+                        </TableCell>
+                        {/* Branch */}
+                        <TableCell className="hidden md:table-cell">
+                          <span className="text-sm text-slate-500">
+                            {branches.length > 0 ? branches[0].name : "All branches"}
+                          </span>
+                        </TableCell>
+                        {/* Status */}
+                        <TableCell>
+                          {user.status === "active" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 border border-emerald-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 border border-slate-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                              {user.status === "suspended" ? "Suspended" : "Inactive"}
+                            </span>
+                          )}
+                        </TableCell>
+                        {/* Last Login */}
+                        <TableCell className="hidden sm:table-cell">
+                          <span className="text-sm text-slate-500">{formatLastLogin(user.last_login_at)}</span>
+                        </TableCell>
+                        {/* Actions */}
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Reset password */}
+                            <button
+                              title="Reset password"
+                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                              onClick={() => handleResetPassword(user.email)}
+                            >
+                              <Key className="h-4 w-4" />
+                            </button>
+                            {/* Edit */}
+                            <button
+                              title="Edit user"
+                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                              onClick={() => setEditUser(user)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            {/* Delete */}
+                            {!isCurrentUser && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    title="Delete user"
+                                    className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remove {user.first_name}?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will revoke their access to the church dashboard. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-red-500 hover:bg-red-600 text-white"
+                                      onClick={() => deleteMutation.mutate(user.id)}
+                                    >
+                                      Remove
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        {/* ── ROLES TAB ── */}
+        <TabsContent value="roles">
+          <RolesPermissions />
+        </TabsContent>
+      </Tabs>
+
+      {/* Modals */}
+      <AddUserModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        branches={branches}
+        tenantId={church.tenantId}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] })}
+      />
+      <EditUserModal
+        user={editUser}
+        onClose={() => setEditUser(null)}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] })}
+      />
+    </>
+  );
+};
+
+export default UsersPage;
+
