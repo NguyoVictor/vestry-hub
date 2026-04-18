@@ -6717,6 +6717,12 @@ export type Database = {
           afternoon_service_time: string
           allow_self_checkout: boolean
           app_slug: string | null
+          at_api_key: string | null
+          at_low_balance_alert: boolean
+          at_low_balance_threshold: number
+          at_sender_id: string | null
+          at_sms_enabled: boolean
+          at_username: string | null
           auto_generate_member_ids: boolean
           average_attendance: number | null
           checkin_minutes_after: number
@@ -6750,11 +6756,37 @@ export type Database = {
           mission_statement: string | null
           morning_service_time: string
           name: string
+          notif_anniversary: boolean
+          notif_appt_confirmation: boolean
+          notif_appt_reminder: boolean
+          notif_appt_status_change: boolean
+          notif_asset_approval: boolean
+          notif_asset_return: boolean
+          notif_birthday: boolean
+          notif_donation_confirmation: boolean
+          notif_event_cancellation: boolean
+          notif_event_reminder_1d: boolean
+          notif_event_reminder_3d: boolean
+          notif_event_reminder_7d: boolean
+          notif_followup_assignment: boolean
+          notif_group_announcement: boolean
+          notif_group_meeting_reminder: boolean
+          notif_milestone: boolean
+          notif_pledge_reminder: boolean
+          notif_recurring_donation: boolean
+          notif_service_reminder: boolean
+          notif_service_request: boolean
+          notif_task_assigned: boolean
+          notif_task_due_soon: boolean
+          notif_task_overdue: boolean
+          notif_volunteer_assignment: boolean
+          notif_welcome: boolean
           onboarding_completed: boolean | null
           onboarding_step: number | null
           phone: string | null
           post_code: string | null
           primary_color: string | null
+          push_notifications_enabled: boolean
           qr_checkin_enabled: boolean
           registration_enabled: boolean
           require_post_code: boolean | null
@@ -6787,6 +6819,12 @@ export type Database = {
           afternoon_service_time?: string
           allow_self_checkout?: boolean
           app_slug?: string | null
+          at_api_key?: string | null
+          at_low_balance_alert?: boolean
+          at_low_balance_threshold?: number
+          at_sender_id?: string | null
+          at_sms_enabled?: boolean
+          at_username?: string | null
           auto_generate_member_ids?: boolean
           average_attendance?: number | null
           checkin_minutes_after?: number
@@ -6820,11 +6858,37 @@ export type Database = {
           mission_statement?: string | null
           morning_service_time?: string
           name: string
+          notif_anniversary?: boolean
+          notif_appt_confirmation?: boolean
+          notif_appt_reminder?: boolean
+          notif_appt_status_change?: boolean
+          notif_asset_approval?: boolean
+          notif_asset_return?: boolean
+          notif_birthday?: boolean
+          notif_donation_confirmation?: boolean
+          notif_event_cancellation?: boolean
+          notif_event_reminder_1d?: boolean
+          notif_event_reminder_3d?: boolean
+          notif_event_reminder_7d?: boolean
+          notif_followup_assignment?: boolean
+          notif_group_announcement?: boolean
+          notif_group_meeting_reminder?: boolean
+          notif_milestone?: boolean
+          notif_pledge_reminder?: boolean
+          notif_recurring_donation?: boolean
+          notif_service_reminder?: boolean
+          notif_service_request?: boolean
+          notif_task_assigned?: boolean
+          notif_task_due_soon?: boolean
+          notif_task_overdue?: boolean
+          notif_volunteer_assignment?: boolean
+          notif_welcome?: boolean
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
           phone?: string | null
           post_code?: string | null
           primary_color?: string | null
+          push_notifications_enabled?: boolean
           qr_checkin_enabled?: boolean
           registration_enabled?: boolean
           require_post_code?: boolean | null
@@ -6857,6 +6921,12 @@ export type Database = {
           afternoon_service_time?: string
           allow_self_checkout?: boolean
           app_slug?: string | null
+          at_api_key?: string | null
+          at_low_balance_alert?: boolean
+          at_low_balance_threshold?: number
+          at_sender_id?: string | null
+          at_sms_enabled?: boolean
+          at_username?: string | null
           auto_generate_member_ids?: boolean
           average_attendance?: number | null
           checkin_minutes_after?: number
@@ -6890,11 +6960,37 @@ export type Database = {
           mission_statement?: string | null
           morning_service_time?: string
           name?: string
+          notif_anniversary?: boolean
+          notif_appt_confirmation?: boolean
+          notif_appt_reminder?: boolean
+          notif_appt_status_change?: boolean
+          notif_asset_approval?: boolean
+          notif_asset_return?: boolean
+          notif_birthday?: boolean
+          notif_donation_confirmation?: boolean
+          notif_event_cancellation?: boolean
+          notif_event_reminder_1d?: boolean
+          notif_event_reminder_3d?: boolean
+          notif_event_reminder_7d?: boolean
+          notif_followup_assignment?: boolean
+          notif_group_announcement?: boolean
+          notif_group_meeting_reminder?: boolean
+          notif_milestone?: boolean
+          notif_pledge_reminder?: boolean
+          notif_recurring_donation?: boolean
+          notif_service_reminder?: boolean
+          notif_service_request?: boolean
+          notif_task_assigned?: boolean
+          notif_task_due_soon?: boolean
+          notif_task_overdue?: boolean
+          notif_volunteer_assignment?: boolean
+          notif_welcome?: boolean
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
           phone?: string | null
           post_code?: string | null
           primary_color?: string | null
+          push_notifications_enabled?: boolean
           qr_checkin_enabled?: boolean
           registration_enabled?: boolean
           require_post_code?: boolean | null

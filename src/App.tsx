@@ -90,7 +90,7 @@ const StaffPage = lazy(() => import("./pages/settings/Staff"));
 const RegistrationSettings = lazy(() => import("./pages/settings/Registration"));
 const PreferencesSettings = lazy(() => import("./pages/settings/Preferences"));
 const AttendanceSettingsPage = lazy(() => import("./pages/settings/AttendanceSettings"));
-const Notifications = lazy(() => import("./pages/settings/Notifications"));
+const NotificationsSettingsPage = lazy(() => import("./pages/settings/NotificationsSettings"));
 const Billing = lazy(() => import("./pages/settings/Billing"));
 const Security = lazy(() => import("./pages/settings/Security"));
 const Integrations = lazy(() => import("./pages/settings/Integrations"));
@@ -265,7 +265,6 @@ const App = () => (
                   <Route path="modules" element={<Suspense fallback={<Fallback />}><ServicesModules /></Suspense>} />
                   <Route path="roles" element={<Suspense fallback={<Fallback />}><RolesPermissions /></Suspense>} />
                   <Route path="access-control" element={<Suspense fallback={<Fallback />}><RolesPermissions /></Suspense>} />
-                  <Route path="notifications" element={<Suspense fallback={<Fallback />}><Notifications /></Suspense>} />
                   <Route path="billing" element={<Suspense fallback={<Fallback />}><Billing /></Suspense>} />
                   <Route path="security" element={<Suspense fallback={<Fallback />}><Security /></Suspense>} />
                   <Route path="integrations" element={<Suspense fallback={<Fallback />}><Integrations /></Suspense>} />
@@ -281,6 +280,8 @@ const App = () => (
                   <Route path="preferences" element={<Suspense fallback={<Fallback />}><PreferencesSettings /></Suspense>} />
                   {/* Attendance settings — real page */}
                   <Route path="attendance" element={<Suspense fallback={<Fallback />}><AttendanceSettingsPage /></Suspense>} />
+                  {/* Notifications settings — real page */}
+                  <Route path="notifications" element={<Suspense fallback={<Fallback />}><NotificationsSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
                   {["branding","payments","giving","tax","whatsapp","service-requests","privacy","legal","backup","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
