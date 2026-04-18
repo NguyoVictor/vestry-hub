@@ -666,33 +666,42 @@ export type Database = {
       }
       branches: {
         Row: {
+          branch_password_hash: string | null
+          branch_username: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
+          last_login_at: string | null
           location: string | null
           name: string
           pastor_id: string | null
           tenant_id: string
         }
         Insert: {
+          branch_password_hash?: string | null
+          branch_username?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_login_at?: string | null
           location?: string | null
           name: string
           pastor_id?: string | null
           tenant_id: string
         }
         Update: {
+          branch_password_hash?: string | null
+          branch_username?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_login_at?: string | null
           location?: string | null
           name?: string
           pastor_id?: string | null
@@ -1539,7 +1548,7 @@ export type Database = {
           tenant_id: string
           thumbnail_url?: string | null
           title: string
-          type: string
+          type?: string
           updated_at?: string | null
           video_url?: string | null
         }
@@ -4498,11 +4507,20 @@ export type Database = {
       payroll_staff: {
         Row: {
           account_number: string | null
+          annual_leave_days: number | null
           bank_name: string | null
+          contract_renewal_date: string | null
           created_at: string | null
+          custom_position: string | null
           deductions: Json | null
+          department: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_relationship: string | null
           employment_type: string | null
+          end_date: string | null
           gross_salary: number
+          health_insurance: boolean | null
           id: string
           job_title: string | null
           member_id: string | null
@@ -4510,19 +4528,37 @@ export type Database = {
           net_salary: number
           notes: string | null
           pay_frequency: string | null
+          payment_day: number | null
           payment_method: string | null
+          pension_contribution: boolean | null
+          probation_end_date: string | null
+          routing_number: string | null
+          sick_leave_days: number | null
+          staff_id_number: string | null
           start_date: string | null
           status: string | null
+          supervisor_id: string | null
+          tax_id: string | null
           tenant_id: string
           updated_at: string | null
+          work_days: string[] | null
         }
         Insert: {
           account_number?: string | null
+          annual_leave_days?: number | null
           bank_name?: string | null
+          contract_renewal_date?: string | null
           created_at?: string | null
+          custom_position?: string | null
           deductions?: Json | null
+          department?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_relationship?: string | null
           employment_type?: string | null
+          end_date?: string | null
           gross_salary: number
+          health_insurance?: boolean | null
           id?: string
           job_title?: string | null
           member_id?: string | null
@@ -4530,19 +4566,37 @@ export type Database = {
           net_salary: number
           notes?: string | null
           pay_frequency?: string | null
+          payment_day?: number | null
           payment_method?: string | null
+          pension_contribution?: boolean | null
+          probation_end_date?: string | null
+          routing_number?: string | null
+          sick_leave_days?: number | null
+          staff_id_number?: string | null
           start_date?: string | null
           status?: string | null
+          supervisor_id?: string | null
+          tax_id?: string | null
           tenant_id: string
           updated_at?: string | null
+          work_days?: string[] | null
         }
         Update: {
           account_number?: string | null
+          annual_leave_days?: number | null
           bank_name?: string | null
+          contract_renewal_date?: string | null
           created_at?: string | null
+          custom_position?: string | null
           deductions?: Json | null
+          department?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_relationship?: string | null
           employment_type?: string | null
+          end_date?: string | null
           gross_salary?: number
+          health_insurance?: boolean | null
           id?: string
           job_title?: string | null
           member_id?: string | null
@@ -4550,13 +4604,30 @@ export type Database = {
           net_salary?: number
           notes?: string | null
           pay_frequency?: string | null
+          payment_day?: number | null
           payment_method?: string | null
+          pension_contribution?: boolean | null
+          probation_end_date?: string | null
+          routing_number?: string | null
+          sick_leave_days?: number | null
+          staff_id_number?: string | null
           start_date?: string | null
           status?: string | null
+          supervisor_id?: string | null
+          tax_id?: string | null
           tenant_id?: string
           updated_at?: string | null
+          work_days?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payroll_staff_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pledge_campaigns: {
         Row: {
@@ -5588,6 +5659,171 @@ export type Database = {
           },
         ]
       }
+      store_bundles: {
+        Row: {
+          bundle_price: number
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          member_discount: number | null
+          name: string
+          original_price: number | null
+          product_ids: string[] | null
+          sales_count: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          bundle_price?: number
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          member_discount?: number | null
+          name: string
+          original_price?: number | null
+          product_ids?: string[] | null
+          sales_count?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          bundle_price?: number
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          member_discount?: number | null
+          name?: string
+          original_price?: number | null
+          product_ids?: string[] | null
+          sales_count?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_bundles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          slug: string
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          slug: string
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          slug?: string
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_coupons: {
+        Row: {
+          code: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          discount_type: string
+          discount_value: number
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          min_order_amount: number | null
+          start_date: string | null
+          tenant_id: string
+          updated_at: string | null
+          uses_count: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_amount?: number | null
+          start_date?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          uses_count?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_amount?: number | null
+          start_date?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          uses_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_coupons_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_orders: {
         Row: {
           created_at: string | null
@@ -6056,10 +6292,12 @@ export type Database = {
           about: string | null
           accent_color: string | null
           address: string | null
+          app_slug: string | null
           average_attendance: number | null
           church_code: string | null
           city: string | null
           contact_email: string | null
+          core_values: string[] | null
           country: string | null
           created_at: string
           currency: string | null
@@ -6072,11 +6310,15 @@ export type Database = {
           id: string
           instagram_url: string | null
           logo: string | null
+          mission_statement: string | null
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
           phone: string | null
+          post_code: string | null
           primary_color: string | null
+          require_post_code: boolean | null
+          senior_pastor: string | null
           service_days: string[] | null
           service_time: string | null
           slug: string
@@ -6090,6 +6332,7 @@ export type Database = {
           timezone: string | null
           twitter_url: string | null
           updated_at: string
+          vision_statement: string | null
           website_url: string | null
           whatsapp_number: string | null
           youtube_url: string | null
@@ -6098,10 +6341,12 @@ export type Database = {
           about?: string | null
           accent_color?: string | null
           address?: string | null
+          app_slug?: string | null
           average_attendance?: number | null
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
+          core_values?: string[] | null
           country?: string | null
           created_at: string
           currency?: string | null
@@ -6114,11 +6359,15 @@ export type Database = {
           id: string
           instagram_url?: string | null
           logo?: string | null
+          mission_statement?: string | null
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
           phone?: string | null
+          post_code?: string | null
           primary_color?: string | null
+          require_post_code?: boolean | null
+          senior_pastor?: string | null
           service_days?: string[] | null
           service_time?: string | null
           slug: string
@@ -6132,6 +6381,7 @@ export type Database = {
           timezone?: string | null
           twitter_url?: string | null
           updated_at: string
+          vision_statement?: string | null
           website_url?: string | null
           whatsapp_number?: string | null
           youtube_url?: string | null
@@ -6140,10 +6390,12 @@ export type Database = {
           about?: string | null
           accent_color?: string | null
           address?: string | null
+          app_slug?: string | null
           average_attendance?: number | null
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
+          core_values?: string[] | null
           country?: string | null
           created_at?: string
           currency?: string | null
@@ -6156,11 +6408,15 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           logo?: string | null
+          mission_statement?: string | null
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
           phone?: string | null
+          post_code?: string | null
           primary_color?: string | null
+          require_post_code?: boolean | null
+          senior_pastor?: string | null
           service_days?: string[] | null
           service_time?: string | null
           slug?: string
@@ -6174,6 +6430,7 @@ export type Database = {
           timezone?: string | null
           twitter_url?: string | null
           updated_at?: string
+          vision_statement?: string | null
           website_url?: string | null
           whatsapp_number?: string | null
           youtube_url?: string | null
@@ -6966,5 +7223,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
