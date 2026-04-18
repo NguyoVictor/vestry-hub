@@ -21,7 +21,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserCircle2, Plus, Search, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { UserCircle2, Plus, Search, Pencil, Trash2, ChevronDown, ShieldCheck } from "lucide-react";
+import { ManagePermissionsModal, type ManageTarget } from "./ManagePermissionsModal";
 
 // ─── Role definitions ─────────────────────────────────────────────────────────
 const OVERRIDE_ROLES: { key: string; label: string; color: string }[] = [
@@ -237,6 +238,7 @@ export function UserOverrides() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editOverride, setEditOverride] = useState<OverrideRow | null>(null);
+  const [manageTarget, setManageTarget] = useState<ManageTarget | null>(null);
 
   const { data: overrides = [], isLoading } = useQuery<OverrideRow[]>({
     queryKey: ["user-role-overrides", tenantId],
@@ -251,6 +253,24 @@ export function UserOverrides() {
     },
     staleTime: 300_000,
   });
+
+  // Fetch which members have custom permission overrides (for summary column)
+  const { data: mpoSummary = [] } = useQuery<{ member_id: string }[]>({
+    queryKey: ["mpo-summary", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.MEMBER_PERMISSION_OVERRIDES)
+        .select("member_id")
+        .eq("tenant_id", tenantId);
+      return (data ?? []) as { member_id: string }[];
+    },
+    staleTime: 60_000,
+  });
+
+  const membersWithCustomPerms = useMemo(
+    () => new Set(mpoSummary.map(r => r.member_id)),
+    [mpoSummary]
+  );
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -326,60 +346,81 @@ export function UserOverrides() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(o => (
-                <TableRow key={o.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
-                  <TableCell>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-wide">
-                      {getMemberName(o)}
-                    </p>
-                    <p className="text-xs text-slate-400">{o.members?.email ?? "—"}</p>
-                  </TableCell>
-                  <TableCell>
-                    <RoleBadge roleKey={o.role} />
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs text-slate-400">Custom role assigned</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        title="Edit role"
-                        className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-                        onClick={() => setEditOverride(o)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <button
-                            title="Remove override"
-                            className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove {getMemberName(o)} from user overrides?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              They will revert to their default member role.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-red-500 hover:bg-red-600 text-white"
-                              onClick={() => deleteMutation.mutate(o.id)}
+              {filtered.map(o => {
+                const hasCustomPerms = membersWithCustomPerms.has(o.member_id);
+                return (
+                  <TableRow key={o.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
+                    <TableCell>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                        {getMemberName(o)}
+                      </p>
+                      <p className="text-xs text-slate-400">{o.members?.email ?? "—"}</p>
+                    </TableCell>
+                    <TableCell>
+                      <RoleBadge roleKey={o.role} />
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-xs ${hasCustomPerms ? "text-orange-600 font-medium" : "text-slate-400"}`}>
+                        {hasCustomPerms ? "Custom permissions set" : "Using defaults"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Manage button */}
+                        <button
+                          title="Manage permissions"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                          onClick={() => setManageTarget({
+                            overrideId: o.id,
+                            memberId: o.member_id,
+                            memberName: getMemberName(o).toUpperCase(),
+                            role: o.role,
+                          })}
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Manage
+                        </button>
+                        {/* Edit role */}
+                        <button
+                          title="Edit role"
+                          className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                          onClick={() => setEditOverride(o)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        {/* Delete */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              title="Remove override"
+                              className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                             >
-                              Remove
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove {getMemberName(o)} from user overrides?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                They will revert to their default member role.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-500 hover:bg-red-600 text-white"
+                                onClick={() => deleteMutation.mutate(o.id)}
+                              >
+                                Remove
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -394,7 +435,7 @@ export function UserOverrides() {
         onSuccess={() => {}}
       />
 
-      {/* Edit modal */}
+      {/* Edit role modal */}
       <AddMemberModal
         open={!!editOverride}
         onClose={() => setEditOverride(null)}
@@ -402,6 +443,15 @@ export function UserOverrides() {
         existingMemberIds={existingMemberIds}
         editOverride={editOverride}
         onSuccess={() => {}}
+      />
+
+      {/* Manage permissions modal */}
+      <ManagePermissionsModal
+        open={!!manageTarget}
+        onClose={() => setManageTarget(null)}
+        tenantId={tenantId}
+        target={manageTarget}
+        onSaved={() => qc.invalidateQueries({ queryKey: ["mpo-summary", tenantId] })}
       />
     </div>
   );

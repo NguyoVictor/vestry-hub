@@ -3539,6 +3539,44 @@ export type Database = {
         }
         Relationships: []
       }
+      member_permission_overrides: {
+        Row: {
+          access_level: string
+          created_at: string
+          feature: string
+          id: string
+          member_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_level?: string
+          created_at?: string
+          feature: string
+          id?: string
+          member_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_level?: string
+          created_at?: string
+          feature?: string
+          id?: string
+          member_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_permission_overrides_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_request_notes: {
         Row: {
           created_at: string | null
