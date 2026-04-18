@@ -5659,6 +5659,78 @@ export type Database = {
           },
         ]
       }
+      staff_payroll: {
+        Row: {
+          allowances: number
+          basic_salary: number
+          created_at: string | null
+          deductions: number
+          id: string
+          month: number
+          net_salary: number | null
+          notes: string | null
+          payment_date: string | null
+          payment_method: string | null
+          reference: string | null
+          staff_id: string
+          status: string
+          tenant_id: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          allowances?: number
+          basic_salary?: number
+          created_at?: string | null
+          deductions?: number
+          id?: string
+          month: number
+          net_salary?: number | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          reference?: string | null
+          staff_id: string
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          allowances?: number
+          basic_salary?: number
+          created_at?: string | null
+          deductions?: number
+          id?: string
+          month?: number
+          net_salary?: number | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          reference?: string | null
+          staff_id?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_payroll_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_payroll_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_bundles: {
         Row: {
           bundle_price: number
@@ -7223,3 +7295,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

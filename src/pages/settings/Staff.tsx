@@ -30,7 +30,8 @@ import {
 } from "@/components/ui/select";
 import {
   UserCheck, DollarSign, CalendarDays, Briefcase, ClipboardList,
-  UserPlus, Pencil, Trash2, Eye, EyeOff, Users,
+  UserPlus, Pencil, Trash2, Eye, EyeOff, Users, FileText, Printer,
+  RefreshCw, Plus,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -820,7 +821,7 @@ function StaffTab() {
   );
 }
 
-// ─── Placeholder tabs ─────────────────────────────────────────────────────────
+// ─── Payroll Types ────────────────────────────────────────────────────────────
 function PlaceholderTab({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
@@ -829,37 +830,527 @@ function PlaceholderTab({ icon: Icon, label }: { icon: React.ElementType; label:
     </div>
   );
 }
+// ─── Payroll Tab ──────────────────────────────────────────────────────────────
+
+interface PayrollRow {
+  id: string;
+  staff_id: string;
+  month: number;
+  year: number;
+  basic_salary: number;
+  allowances: number;
+  deductions: number;
+  net_salary: number;
+  payment_method: string | null;
+  reference: string | null;
+  notes: string | null;
+  status: string;
+  payment_date: string | null;
+  tenant_id: string;
+  payroll_staff?: {
+    job_title: string | null;
+    custom_position: string | null;
+    department: string | null;
+    gross_salary: number;
+    members?: { first_name: string | null; last_name: string | null } | null;
+  } | null;
+}
+
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const YEARS  = Array.from({ length: 11 }, (_, i) => 2020 + i);
+
+function PayrollStatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    paid:    "bg-emerald-50 text-emerald-700 border-emerald-200",
+    pending: "bg-amber-50 text-amber-700 border-amber-200",
+    failed:  "bg-red-50 text-red-600 border-red-200",
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${map[status] ?? "bg-slate-100 text-slate-500 border-slate-200"}`}>
+      {status}
+    </span>
+  );
+}
+
+interface PayslipModalProps {
+  record: PayrollRow | null;
+  onClose: () => void;
+  churchName: string;
+  symbol: string;
+}
+
+function PayslipModal({ record, onClose, churchName, symbol }: PayslipModalProps) {
+  if (!record) return null;
+  const staff = record.payroll_staff;
+  const name = staff?.members ? `${staff.members.first_name ?? ""} ${staff.members.last_name ?? ""}`.trim() : "—";
+  const period = `${MONTHS[record.month - 1]} ${record.year}`;
+
+  return (
+    <Dialog open={!!record} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Payslip — {period}</DialogTitle>
+        </DialogHeader>
+        <div id="payslip-content" className="space-y-4 text-sm">
+          {/* Church header */}
+          <div className="text-center border-b pb-3">
+            <p className="text-base font-bold text-slate-800">{churchName}</p>
+            <p className="text-xs text-slate-500">Payslip for {period}</p>
+          </div>
+          {/* Staff info */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div><span className="text-slate-400">Name:</span> <span className="font-medium">{name}</span></div>
+            <div><span className="text-slate-400">Position:</span> <span className="font-medium">{staff?.custom_position || staff?.job_title || "—"}</span></div>
+            <div><span className="text-slate-400">Department:</span> <span className="font-medium">{staff?.department || "—"}</span></div>
+            <div><span className="text-slate-400">Pay Period:</span> <span className="font-medium">{period}</span></div>
+          </div>
+          {/* Earnings */}
+          <div className="rounded-md border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Earnings</div>
+            <div className="divide-y divide-slate-100">
+              <div className="flex justify-between px-3 py-2 text-sm"><span>Basic Salary</span><span className="font-medium">{symbol} {record.basic_salary.toLocaleString()}</span></div>
+              <div className="flex justify-between px-3 py-2 text-sm"><span>Allowances</span><span className="font-medium">{symbol} {record.allowances.toLocaleString()}</span></div>
+            </div>
+          </div>
+          {/* Deductions */}
+          <div className="rounded-md border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Deductions</div>
+            <div className="px-3 py-2 flex justify-between text-sm"><span>Total Deductions</span><span className="font-medium text-red-600">- {symbol} {record.deductions.toLocaleString()}</span></div>
+          </div>
+          {/* Net */}
+          <div className="flex justify-between items-center rounded-md bg-orange-50 border border-orange-200 px-4 py-3">
+            <span className="font-semibold text-slate-700">Net Salary</span>
+            <span className="text-lg font-bold text-orange-600">{symbol} {record.net_salary.toLocaleString()}</span>
+          </div>
+          {/* Payment info */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div><span className="text-slate-400">Payment Method:</span> <span className="font-medium">{record.payment_method || "—"}</span></div>
+            <div><span className="text-slate-400">Reference:</span> <span className="font-medium">{record.reference || "—"}</span></div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-2 border-t">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Print Payslip
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface PaymentModalProps {
+  open: boolean;
+  onClose: () => void;
+  tenantId: string;
+  staffList: StaffRow[];
+  defaultMonth: number;
+  defaultYear: number;
+  editData?: PayrollRow | null;
+  onSuccess: () => void;
+}
+
+function PaymentModal({ open, onClose, tenantId, staffList, defaultMonth, defaultYear, editData, onSuccess }: PaymentModalProps) {
+  const qc = useQueryClient();
+  const { symbol, code } = useCurrency();
+  const isEdit = !!editData;
+
+  const [staffId, setStaffId]           = useState(editData?.staff_id ?? "");
+  const [month, setMonth]               = useState(String(editData?.month ?? defaultMonth));
+  const [year, setYear]                 = useState(String(editData?.year ?? defaultYear));
+  const [basicSalary, setBasicSalary]   = useState(String(editData?.basic_salary ?? "0"));
+  const [allowances, setAllowances]     = useState(String(editData?.allowances ?? "0"));
+  const [deductions, setDeductions]     = useState(String(editData?.deductions ?? "0"));
+  const [paymentMethod, setPaymentMethod] = useState(editData?.payment_method ?? "");
+  const [reference, setReference]       = useState(editData?.reference ?? "");
+  const [notes, setNotes]               = useState(editData?.notes ?? "");
+  const [submitting, setSubmitting]     = useState(false);
+
+  const net = (parseFloat(basicSalary) || 0) + (parseFloat(allowances) || 0) - (parseFloat(deductions) || 0);
+
+  // Auto-fill salary when staff selected
+  const handleStaffChange = (id: string) => {
+    setStaffId(id);
+    const s = staffList.find(x => x.id === id);
+    if (s) setBasicSalary(String(s.gross_salary ?? 0));
+  };
+
+  const getStaffLabel = (s: StaffRow) =>
+    s.members ? `${s.members.first_name ?? ""} ${s.members.last_name ?? ""}`.trim() : s.job_title ?? s.id;
+
+  const handleSubmit = async () => {
+    if (!staffId) { toast.error("Select a staff member."); return; }
+    setSubmitting(true);
+    try {
+      const payload = {
+        staff_id: staffId, month: parseInt(month), year: parseInt(year),
+        basic_salary: parseFloat(basicSalary) || 0,
+        allowances: parseFloat(allowances) || 0,
+        deductions: parseFloat(deductions) || 0,
+        payment_method: paymentMethod || null,
+        reference: reference || null,
+        notes: notes || null,
+        tenant_id: tenantId,
+      };
+      if (isEdit && editData) {
+        const { error } = await supabase.from("staff_payroll").update(payload as never).eq("id", editData.id);
+        if (error) throw error;
+        toast.success("Payment record updated!");
+      } else {
+        const { error } = await supabase.from("staff_payroll").insert(payload as never);
+        if (error) throw error;
+        toast.success("Payment record created successfully!");
+      }
+      qc.invalidateQueries({ queryKey: ["staff-payroll", tenantId] });
+      onSuccess();
+      onClose();
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to save.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">{isEdit ? "Edit Payment" : "Create Salary Payment"}</DialogTitle>
+          <DialogDescription className="text-sm text-slate-500">Fill in the payment details below.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-1">
+          {/* Staff */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Staff Member <span className="text-red-500">*</span></Label>
+            <Select value={staffId} onValueChange={handleStaffChange}>
+              <SelectTrigger className="focus:ring-orange-400"><SelectValue placeholder="Select staff" /></SelectTrigger>
+              <SelectContent className="max-h-56">
+                {staffList.filter(s => s.status?.toLowerCase() === "active").map(s => (
+                  <SelectItem key={s.id} value={s.id}>{getStaffLabel(s)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Month + Year */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Month</Label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{MONTHS.map((m, i) => <SelectItem key={m} value={String(i+1)}>{m}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Year</Label>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          {/* Salary fields */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Basic Salary ({code})</Label>
+              <Input type="number" min="0" step="0.01" placeholder="0.00" value={basicSalary} onChange={e => setBasicSalary(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Allowances ({code})</Label>
+              <Input type="number" min="0" placeholder="0" value={allowances} onChange={e => setAllowances(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Deductions ({code})</Label>
+              <Input type="number" min="0" placeholder="0" value={deductions} onChange={e => setDeductions(e.target.value)} />
+            </div>
+          </div>
+          {/* Net salary display */}
+          <div className="flex items-center justify-between rounded-md bg-slate-50 border border-slate-200 px-4 py-2.5">
+            <span className="text-sm text-slate-600">Net Salary:</span>
+            <span className="text-sm font-bold text-slate-800">{code} {net.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+          </div>
+          {/* Payment method + reference */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Payment Method</Label>
+              <Input placeholder="Bank Transfer, Cash, etc..." value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Reference</Label>
+              <Input placeholder="Transaction ID" value={reference} onChange={e => setReference(e.target.value)} />
+            </div>
+          </div>
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Notes</Label>
+            <Textarea placeholder="Additional notes..." value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-3 border-t">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Create Payment"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PayrollTab({ staffList }: { staffList: StaffRow[] }) {
+  const church = useChurch();
+  const qc = useQueryClient();
+  const { symbol, code } = useCurrency();
+  const now = new Date();
+  const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1));
+  const [selYear, setSelYear]   = useState(String(now.getFullYear()));
+  const [addOpen, setAddOpen]   = useState(false);
+  const [editRecord, setEditRecord] = useState<PayrollRow | null>(null);
+  const [viewRecord, setViewRecord] = useState<PayrollRow | null>(null);
+  const [generating, setGenerating] = useState(false);
+
+  const { data: records = [], isLoading } = useQuery<PayrollRow[]>({
+    queryKey: ["staff-payroll", church.tenantId, selMonth, selYear],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("staff_payroll")
+        .select("*, payroll_staff(job_title, custom_position, department, gross_salary, members(first_name, last_name))")
+        .eq("tenant_id", church.tenantId)
+        .eq("month", parseInt(selMonth))
+        .eq("year", parseInt(selYear))
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PayrollRow[];
+    },
+    staleTime: 300_000,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("staff_payroll").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff-payroll", church.tenantId] });
+      toast.success("Record deleted.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateStatus = async (id: string, status: string) => {
+    const { error } = await supabase.from("staff_payroll").update({ status, payment_date: status === "paid" ? new Date().toISOString().split("T")[0] : null } as never).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["staff-payroll", church.tenantId] });
+    toast.success(`Marked as ${status}.`);
+  };
+
+  const handleGenerate = async () => {
+    const active = staffList.filter(s => s.status?.toLowerCase() === "active");
+    if (active.length === 0) { toast.error("No active staff members found."); return; }
+    if (records.length > 0) {
+      if (!window.confirm(`Payment records for ${MONTHS[parseInt(selMonth)-1]} ${selYear} already exist. Regenerate?`)) return;
+      await supabase.from("staff_payroll").delete().eq("tenant_id", church.tenantId).eq("month", parseInt(selMonth)).eq("year", parseInt(selYear));
+    }
+    setGenerating(true);
+    try {
+      const rows = active.map(s => ({
+        staff_id: s.id, month: parseInt(selMonth), year: parseInt(selYear),
+        basic_salary: s.gross_salary ?? 0, allowances: 0, deductions: 0,
+        status: "pending", tenant_id: church.tenantId,
+      }));
+      const { error } = await supabase.from("staff_payroll").insert(rows as never);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["staff-payroll", church.tenantId] });
+      toast.success(`Payment records generated for ${active.length} staff members.`);
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to generate.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const getStaffName = (r: PayrollRow) => {
+    const m = r.payroll_staff?.members;
+    return m ? `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() : "—";
+  };
+
+  const monthLabel = MONTHS[parseInt(selMonth) - 1];
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
+            <DollarSign className="h-5 w-5 text-orange-500" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">Payroll Management</h2>
+            <p className="text-xs text-slate-500">Track salary payments and generate payslips.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={selMonth} onValueChange={setSelMonth}>
+            <SelectTrigger className="w-32 h-8 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>{MONTHS.map((m, i) => <SelectItem key={m} value={String(i+1)}>{m}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={selYear} onValueChange={setSelYear}>
+            <SelectTrigger className="w-24 h-8 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>{YEARS.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating} className="gap-1.5">
+            <RefreshCw className={`h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
+            Generate Monthly
+          </Button>
+          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5" onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" /> Add Payment
+          </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        {isLoading ? (
+          <div className="p-4 space-y-3">{Array.from({length:3}).map((_,i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+        ) : records.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-400">
+            <DollarSign className="h-8 w-8" />
+            <p className="text-sm font-medium">No payment records for {monthLabel} {selYear}.</p>
+            <p className="text-xs">Click "Generate Monthly" to create records for all active staff.</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                {["Staff Member","Basic Salary","Allowances","Deductions","Net Salary","Method","Status","Payment Date","Actions"].map(h => (
+                  <TableHead key={h} className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {records.map(r => (
+                <TableRow key={r.id} className="hover:bg-slate-50/50">
+                  <TableCell>
+                    <p className="text-sm font-medium text-slate-800">{getStaffName(r)}</p>
+                    <p className="text-xs text-slate-400">{r.payroll_staff?.custom_position || r.payroll_staff?.job_title || "—"}</p>
+                  </TableCell>
+                  <TableCell className="text-sm">{symbol} {r.basic_salary.toLocaleString()}</TableCell>
+                  <TableCell className="text-sm">{symbol} {r.allowances.toLocaleString()}</TableCell>
+                  <TableCell className="text-sm text-red-600">- {symbol} {r.deductions.toLocaleString()}</TableCell>
+                  <TableCell className="text-sm font-bold text-slate-800">{symbol} {r.net_salary.toLocaleString()}</TableCell>
+                  <TableCell className="text-sm text-slate-500">{r.payment_method || "—"}</TableCell>
+                  <TableCell>
+                    <Select value={r.status} onValueChange={v => updateStatus(r.id, v)}>
+                      <SelectTrigger className="w-28 h-7 text-xs border-0 p-0 shadow-none focus:ring-0">
+                        <PayrollStatusBadge status={r.status} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-500">
+                    {r.payment_date ? format(new Date(r.payment_date), "MMM d, yyyy") : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <button title="View payslip" className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" onClick={() => setViewRecord(r)}>
+                        <FileText className="h-4 w-4" />
+                      </button>
+                      <button title="Edit" className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600" onClick={() => setEditRecord(r)}>
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button title="Delete" className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this payment record?</AlertDialogTitle>
+                            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-500 hover:bg-red-600 text-white" onClick={() => deleteMutation.mutate(r.id)}>Delete</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+
+      <PaymentModal open={addOpen} onClose={() => setAddOpen(false)} tenantId={church.tenantId} staffList={staffList} defaultMonth={parseInt(selMonth)} defaultYear={parseInt(selYear)} onSuccess={() => {}} />
+      <PaymentModal open={!!editRecord} onClose={() => setEditRecord(null)} tenantId={church.tenantId} staffList={staffList} defaultMonth={parseInt(selMonth)} defaultYear={parseInt(selYear)} editData={editRecord} onSuccess={() => {}} />
+      <PayslipModal record={viewRecord} onClose={() => setViewRecord(null)} churchName={church.name} symbol={symbol} />
+    </>
+  );
+}
 
 // ─── Main Staff Page ──────────────────────────────────────────────────────────
-const StaffPage = () => (
-  <>
-    <Helmet><title>Staff — Vestry</title></Helmet>
-    <Tabs defaultValue="staff" className="w-full">
-      <TabsList className="mb-6 bg-slate-100 p-1 rounded-lg w-auto">
-        <TabsTrigger value="staff" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-          <UserCheck className="h-4 w-4" />Staff
-        </TabsTrigger>
-        <TabsTrigger value="payroll" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-          <DollarSign className="h-4 w-4" />Payroll
-        </TabsTrigger>
-        <TabsTrigger value="leave" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-          <CalendarDays className="h-4 w-4" />Leave
-        </TabsTrigger>
-        <TabsTrigger value="positions" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-          <Briefcase className="h-4 w-4" />Positions
-        </TabsTrigger>
-        <TabsTrigger value="tasks" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-          <ClipboardList className="h-4 w-4" />Tasks
-        </TabsTrigger>
-      </TabsList>
+const StaffPage = () => {
+  const church = useChurch();
+  const { data: staffList = [] } = useQuery<StaffRow[]>({
+    queryKey: ["settings-staff", church.tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.PAYROLL_STAFF)
+        .select("*, members(first_name, last_name, email)")
+        .eq(COLS.TENANT_ID, church.tenantId)
+        .order(COLS.CREATED_AT, { ascending: false });
+      return (data ?? []) as StaffRow[];
+    },
+    staleTime: 300_000,
+  });
 
-      <TabsContent value="staff"><StaffTab /></TabsContent>
-      <TabsContent value="payroll"><PlaceholderTab icon={DollarSign} label="Payroll" /></TabsContent>
-      <TabsContent value="leave"><PlaceholderTab icon={CalendarDays} label="Leave" /></TabsContent>
-      <TabsContent value="positions"><PlaceholderTab icon={Briefcase} label="Positions" /></TabsContent>
-      <TabsContent value="tasks"><PlaceholderTab icon={ClipboardList} label="Tasks" /></TabsContent>
-    </Tabs>
-  </>
-);
+  return (
+    <>
+      <Helmet><title>Staff — Vestry</title></Helmet>
+      <Tabs defaultValue="staff" className="w-full">
+        <TabsList className="mb-6 bg-slate-100 p-1 rounded-lg w-auto">
+          <TabsTrigger value="staff" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <UserCheck className="h-4 w-4" />Staff
+          </TabsTrigger>
+          <TabsTrigger value="payroll" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <DollarSign className="h-4 w-4" />Payroll
+          </TabsTrigger>
+          <TabsTrigger value="leave" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <CalendarDays className="h-4 w-4" />Leave
+          </TabsTrigger>
+          <TabsTrigger value="positions" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Briefcase className="h-4 w-4" />Positions
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <ClipboardList className="h-4 w-4" />Tasks
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="staff"><StaffTab /></TabsContent>
+        <TabsContent value="payroll"><PayrollTab staffList={staffList} /></TabsContent>
+        <TabsContent value="leave">
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
+            <CalendarDays className="h-10 w-10" /><p className="text-sm font-medium">Leave coming soon</p>
+          </div>
+        </TabsContent>
+        <TabsContent value="positions">
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
+            <Briefcase className="h-10 w-10" /><p className="text-sm font-medium">Positions coming soon</p>
+          </div>
+        </TabsContent>
+        <TabsContent value="tasks">
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
+            <ClipboardList className="h-10 w-10" /><p className="text-sm font-medium">Tasks coming soon</p>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+};
 
 export default StaffPage;

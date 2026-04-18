@@ -128,6 +128,7 @@ export const TABLES = {
   COURSE_COMMENTS: "course_comments",
 
   // Analytics & Settings
+  STAFF_PAYROLL: "staff_payroll",
   SAVED_REPORTS: "saved_reports",
   PRAYER_REQUESTS: "prayer_requests",
   ACTIVITY_LOG: "activity_log",
