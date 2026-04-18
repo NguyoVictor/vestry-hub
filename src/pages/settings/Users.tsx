@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -28,7 +27,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Users, Shield, Search, Plus, Key, Pencil, Trash2, ChevronDown,
+  Users, Shield, Search, Plus, Key, Pencil, Trash2,
 } from "lucide-react";
 import RolesPermissions from "./RolesPermissions";
 
@@ -90,30 +89,36 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
   const [role, setRole] = useState<RoleValue>("member");
   const [branchId, setBranchId] = useState<string>("");
   const [sendInvite, setSendInvite] = useState(true);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Search members
-  const { data: memberResults } = useQuery({
-    queryKey: ["member-search", tenantId, memberSearch],
+  // Fetch ALL members upfront — filtered client-side
+  const { data: allMembers = [], isLoading: membersLoading } = useQuery({
+    queryKey: ["all-members-for-user-add", tenantId],
     queryFn: async () => {
-      if (memberSearch.trim().length < 2) return [];
       const { data } = await supabase
         .from(TABLES.MEMBERS)
         .select("id, first_name, last_name, email")
         .eq(COLS.TENANT_ID, tenantId)
-        .or(`first_name.ilike.%${memberSearch}%,last_name.ilike.%${memberSearch}%,email.ilike.%${memberSearch}%`)
-        .limit(8);
+        .order(COLS.FIRST_NAME, { ascending: true })
+        .limit(500);
       return (data ?? []) as MemberRow[];
     },
-    staleTime: 30_000,
-    enabled: memberSearch.trim().length >= 2,
+    staleTime: 60_000,
+    enabled: open,
   });
+
+  // Client-side filter
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.toLowerCase().trim();
+    if (!q) return allMembers;
+    return allMembers.filter(m => {
+      const full = `${m.first_name ?? ""} ${m.last_name ?? ""}`.toLowerCase();
+      return full.includes(q) || (m.email ?? "").toLowerCase().includes(q);
+    });
+  }, [allMembers, memberSearch]);
 
   const handleSelectMember = (m: MemberRow) => {
     setSelectedMember(m);
-    setMemberSearch(`${m.first_name ?? ""} ${m.last_name ?? ""}`.trim());
-    setDropdownOpen(false);
   };
 
   const handleSubmit = async () => {
@@ -151,13 +156,12 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
     setRole("member");
     setBranchId("");
     setSendInvite(true);
-    setDropdownOpen(false);
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={v => !v && handleClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">Add User</DialogTitle>
           <DialogDescription className="text-sm text-slate-500">
@@ -171,37 +175,64 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
             <Label className="text-sm font-medium">
               Search Member <span className="text-red-500">*</span>
             </Label>
+            {/* Search input */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
-                className="pl-9"
+                className="pl-9 focus-visible:ring-orange-400"
                 placeholder="Search by name or email..."
                 value={memberSearch}
                 onChange={e => {
                   setMemberSearch(e.target.value);
-                  setSelectedMember(null);
-                  setDropdownOpen(true);
+                  // Clear selection if user edits the search
+                  if (selectedMember) setSelectedMember(null);
                 }}
-                onFocus={() => memberSearch.length >= 2 && setDropdownOpen(true)}
               />
-              {dropdownOpen && memberResults && memberResults.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
-                  {memberResults.map(m => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className="w-full px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
-                      onClick={() => handleSelectMember(m)}
-                    >
-                      <p className="text-sm font-medium text-slate-800">
-                        {`${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—"}
-                      </p>
-                      <p className="text-xs text-slate-400">{m.email ?? "No email"}</p>
-                    </button>
+            </div>
+            {/* Scrollable member list — always visible */}
+            <div className="rounded-md border border-slate-200 overflow-hidden">
+              {membersLoading ? (
+                <div className="p-3 space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-1">
+                      <Skeleton className="h-3.5 w-32" />
+                      <Skeleton className="h-3 w-44" />
+                    </div>
                   ))}
+                </div>
+              ) : filteredMembers.length === 0 ? (
+                <div className="py-6 text-center text-sm text-slate-400">No members found.</div>
+              ) : (
+                <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
+                  {filteredMembers.map(m => {
+                    const isSelected = selectedMember?.id === m.id;
+                    const fullName = `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—";
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => handleSelectMember(m)}
+                        className={`w-full px-4 py-2.5 text-left transition-colors ${
+                          isSelected
+                            ? "bg-orange-50 border-l-2 border-l-orange-500"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <p className={`text-sm font-medium ${isSelected ? "text-orange-700" : "text-slate-800"}`}>
+                          {fullName}
+                        </p>
+                        <p className="text-xs text-slate-400">{m.email ?? "No email"}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
+            {selectedMember && (
+              <p className="text-xs text-orange-600 font-medium">
+                ✓ Selected: {`${selectedMember.first_name ?? ""} ${selectedMember.last_name ?? ""}`.trim()}
+              </p>
+            )}
           </div>
 
           {/* Role */}
