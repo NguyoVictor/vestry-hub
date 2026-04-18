@@ -6709,6 +6709,9 @@ export type Database = {
       tenants: {
         Row: {
           about: string | null
+          absence_alert_recipients: string
+          absence_alerts_enabled: boolean
+          absence_threshold: number
           accent_color: string | null
           address: string | null
           afternoon_service_time: string
@@ -6716,6 +6719,9 @@ export type Database = {
           app_slug: string | null
           auto_generate_member_ids: boolean
           average_attendance: number | null
+          checkin_minutes_after: number
+          checkin_minutes_before: number
+          checkin_window_enabled: boolean
           church_code: string | null
           city: string | null
           contact_email: string | null
@@ -6724,6 +6730,7 @@ export type Database = {
           created_at: string
           currency: string | null
           custom_domain: string | null
+          default_attendance_status: string
           default_language: string | null
           denomination: string | null
           early_riser_time: string
@@ -6736,6 +6743,8 @@ export type Database = {
           instagram_url: string | null
           invite_code: string | null
           invite_code_uses: number
+          location_radius_meters: number
+          location_verification_enabled: boolean
           logo: string | null
           member_id_prefix: string
           mission_statement: string | null
@@ -6746,6 +6755,7 @@ export type Database = {
           phone: string | null
           post_code: string | null
           primary_color: string | null
+          qr_checkin_enabled: boolean
           registration_enabled: boolean
           require_post_code: boolean | null
           senior_pastor: string | null
@@ -6769,6 +6779,9 @@ export type Database = {
         }
         Insert: {
           about?: string | null
+          absence_alert_recipients?: string
+          absence_alerts_enabled?: boolean
+          absence_threshold?: number
           accent_color?: string | null
           address?: string | null
           afternoon_service_time?: string
@@ -6776,6 +6789,9 @@ export type Database = {
           app_slug?: string | null
           auto_generate_member_ids?: boolean
           average_attendance?: number | null
+          checkin_minutes_after?: number
+          checkin_minutes_before?: number
+          checkin_window_enabled?: boolean
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
@@ -6784,6 +6800,7 @@ export type Database = {
           created_at: string
           currency?: string | null
           custom_domain?: string | null
+          default_attendance_status?: string
           default_language?: string | null
           denomination?: string | null
           early_riser_time?: string
@@ -6796,6 +6813,8 @@ export type Database = {
           instagram_url?: string | null
           invite_code?: string | null
           invite_code_uses?: number
+          location_radius_meters?: number
+          location_verification_enabled?: boolean
           logo?: string | null
           member_id_prefix?: string
           mission_statement?: string | null
@@ -6806,6 +6825,7 @@ export type Database = {
           phone?: string | null
           post_code?: string | null
           primary_color?: string | null
+          qr_checkin_enabled?: boolean
           registration_enabled?: boolean
           require_post_code?: boolean | null
           senior_pastor?: string | null
@@ -6829,6 +6849,9 @@ export type Database = {
         }
         Update: {
           about?: string | null
+          absence_alert_recipients?: string
+          absence_alerts_enabled?: boolean
+          absence_threshold?: number
           accent_color?: string | null
           address?: string | null
           afternoon_service_time?: string
@@ -6836,6 +6859,9 @@ export type Database = {
           app_slug?: string | null
           auto_generate_member_ids?: boolean
           average_attendance?: number | null
+          checkin_minutes_after?: number
+          checkin_minutes_before?: number
+          checkin_window_enabled?: boolean
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
@@ -6844,6 +6870,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           custom_domain?: string | null
+          default_attendance_status?: string
           default_language?: string | null
           denomination?: string | null
           early_riser_time?: string
@@ -6856,6 +6883,8 @@ export type Database = {
           instagram_url?: string | null
           invite_code?: string | null
           invite_code_uses?: number
+          location_radius_meters?: number
+          location_verification_enabled?: boolean
           logo?: string | null
           member_id_prefix?: string
           mission_statement?: string | null
@@ -6866,6 +6895,7 @@ export type Database = {
           phone?: string | null
           post_code?: string | null
           primary_color?: string | null
+          qr_checkin_enabled?: boolean
           registration_enabled?: boolean
           require_post_code?: boolean | null
           senior_pastor?: string | null

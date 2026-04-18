@@ -1,0 +1,11 @@
+ALTER TABLE tenants
+  ADD COLUMN IF NOT EXISTS checkin_window_enabled BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS checkin_minutes_before INTEGER NOT NULL DEFAULT 30,
+  ADD COLUMN IF NOT EXISTS checkin_minutes_after INTEGER NOT NULL DEFAULT 60,
+  ADD COLUMN IF NOT EXISTS location_verification_enabled BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS location_radius_meters INTEGER NOT NULL DEFAULT 500,
+  ADD COLUMN IF NOT EXISTS absence_alerts_enabled BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS absence_threshold INTEGER NOT NULL DEFAULT 3,
+  ADD COLUMN IF NOT EXISTS absence_alert_recipients TEXT NOT NULL DEFAULT 'admins_only',
+  ADD COLUMN IF NOT EXISTS qr_checkin_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS default_attendance_status TEXT NOT NULL DEFAULT 'present';;
