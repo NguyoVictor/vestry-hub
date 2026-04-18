@@ -146,15 +146,17 @@ function leaveStatusBadge(status: string) {
   );
 }
 
-function absenceStatusBadge(status: string) {
-  const s = status.toLowerCase();
+function absenceTypeBadge(type: string) {
+  const t = type.toLowerCase();
+  const map: Record<string, string> = {
+    sick:         "bg-red-50 text-red-700 border-red-200",
+    unauthorized: "bg-orange-50 text-orange-700 border-orange-200",
+    emergency:    "bg-purple-50 text-purple-700 border-purple-200",
+    other:        "bg-slate-100 text-slate-600 border-slate-200",
+  };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${
-      s === "excused"
-        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-        : "bg-red-50 text-red-600 border-red-200"
-    }`}>
-      {status}
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${map[t] ?? "bg-slate-100 text-slate-500 border-slate-200"}`}>
+      {type}
     </span>
   );
 }
@@ -410,6 +412,9 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
 }
 
 // ─── Record Absence Modal ─────────────────────────────────────────────────────
+const ABSENCE_TYPES = ["Sick", "Unauthorized", "Emergency", "Other"] as const;
+type AbsenceType = typeof ABSENCE_TYPES[number];
+
 interface AbsenceModalProps {
   open: boolean;
   onClose: () => void;
@@ -422,29 +427,40 @@ interface AbsenceModalProps {
 function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess }: AbsenceModalProps) {
   const qc = useQueryClient();
   const isEdit = !!editData;
+  const today = format(new Date(), "yyyy-MM-dd");
 
   const [staffId, setStaffId]         = useState(editData?.staff_id ?? "");
-  const [absenceDate, setAbsenceDate] = useState(editData?.absence_date ?? "");
+  const [absenceDate, setAbsenceDate] = useState(editData?.absence_date ?? today);
+  const [absenceType, setAbsenceType] = useState<AbsenceType>(
+    (editData?.status as AbsenceType) ?? "Sick"
+  );
+  const [otherType, setOtherType]     = useState("");
   const [reason, setReason]           = useState(editData?.reason ?? "");
-  const [status, setStatus]           = useState(editData?.status ?? "unexcused");
   const [notes, setNotes]             = useState(editData?.notes ?? "");
   const [submitting, setSubmitting]   = useState(false);
 
   const handleClose = () => {
-    if (!isEdit) { setStaffId(""); setAbsenceDate(""); setReason(""); setStatus("unexcused"); setNotes(""); }
+    if (!isEdit) {
+      setStaffId(""); setAbsenceDate(today); setAbsenceType("Sick");
+      setOtherType(""); setReason(""); setNotes("");
+    }
     onClose();
   };
 
   const handleSubmit = async () => {
     if (!staffId)     { toast.error("Please select a staff member."); return; }
-    if (!absenceDate) { toast.error("Absence date is required."); return; }
+    if (!absenceDate) { toast.error("Date is required."); return; }
+    if (absenceType === "Other" && !otherType.trim()) {
+      toast.error("Please specify the absence type."); return;
+    }
     setSubmitting(true);
     try {
+      const resolvedType = absenceType === "Other" ? otherType.trim() : absenceType;
       const payload = {
         staff_id: staffId,
         absence_date: absenceDate,
         reason: reason || null,
-        status,
+        status: resolvedType,
         notes: notes || null,
         org_id: tenantId,
       };
@@ -455,7 +471,7 @@ function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess 
       } else {
         const { error } = await supabase.from(TABLES.STAFF_ABSENCES).insert(payload as never);
         if (error) throw error;
-        toast.success("Absence recorded.");
+        toast.success("Absence recorded successfully!");
       }
       qc.invalidateQueries({ queryKey: ["staff-absences", tenantId] });
       onSuccess();
@@ -473,9 +489,12 @@ function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess 
     <Dialog open={open} onOpenChange={v => !v && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">{isEdit ? "Edit Absence" : "Log Absence"}</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">
+            {isEdit ? "Edit Absence" : "Record Absence"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-1">
+          {/* Staff Member */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Staff Member <span className="text-red-500">*</span></Label>
             <Select value={staffId} onValueChange={setStaffId} disabled={isEdit}>
@@ -487,24 +506,36 @@ function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess 
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Absence Date <span className="text-red-500">*</span></Label>
-            <Input type="date" value={absenceDate} onChange={e => setAbsenceDate(e.target.value)} />
+          {/* Date + Type side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Date <span className="text-red-500">*</span></Label>
+              <Input type="date" value={absenceDate} onChange={e => setAbsenceDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Type <span className="text-red-500">*</span></Label>
+              <Select value={absenceType} onValueChange={v => { setAbsenceType(v as AbsenceType); setOtherType(""); }}>
+                <SelectTrigger className="focus:ring-orange-400"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ABSENCE_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          {/* Other type — smooth slide-down */}
+          <div className={`overflow-hidden transition-all duration-200 ease-in-out ${absenceType === "Other" ? "max-h-16 opacity-100" : "max-h-0 opacity-0"}`}>
+            <Input
+              placeholder="Please specify type..."
+              value={otherType}
+              onChange={e => setOtherType(e.target.value)}
+            />
+          </div>
+          {/* Reason */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Reason</Label>
-            <Input placeholder="Reason for absence..." value={reason} onChange={e => setReason(e.target.value)} />
+            <Input placeholder="Reason for absence" value={reason} onChange={e => setReason(e.target.value)} />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="excused">Excused</SelectItem>
-                <SelectItem value="unexcused">Unexcused</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Notes */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Notes</Label>
             <Textarea placeholder="Additional notes..." value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
@@ -512,8 +543,8 @@ function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess 
         </div>
         <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-2">
           <Button variant="outline" onClick={handleClose} disabled={submitting}>Cancel</Button>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Log Absence"}
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-5" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? "Saving..." : isEdit ? "Save Changes" : "Record Absence"}
           </Button>
         </div>
       </DialogContent>
@@ -1002,7 +1033,7 @@ function LeaveBalancesTab({ tenantId, staffList }: { tenantId: string; staffList
 // ─── Absences Sub-tab ─────────────────────────────────────────────────────────
 function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: StaffRow[] }) {
   const qc = useQueryClient();
-  const [logOpen, setLogOpen]       = useState(false);
+  const [recordOpen, setRecordOpen]   = useState(false);
   const [editAbsence, setEditAbsence] = useState<Absence | null>(null);
 
   const { data: absences = [], isLoading } = useQuery<Absence[]>({
@@ -1038,10 +1069,10 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
         <Button
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
           size="sm"
-          onClick={() => setLogOpen(true)}
+          onClick={() => setRecordOpen(true)}
         >
           <Plus className="h-4 w-4" />
-          Log Absence
+          Record Absence
         </Button>
       </div>
 
@@ -1054,14 +1085,14 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
         ) : absences.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-400">
             <CalendarDays className="h-8 w-8" />
-            <p className="text-sm font-medium">No absences recorded yet.</p>
+            <p className="text-sm font-medium">No absences recorded.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  {["Staff Member", "Date", "Reason", "Status", "Notes", "Actions"].map(h => (
+                  {["Staff Member", "Date", "Type", "Reason", "Notes", "Actions"].map(h => (
                     <TableHead key={h} className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</TableHead>
                   ))}
                 </TableRow>
@@ -1074,14 +1105,14 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
                       <p className="text-xs text-slate-400">{staffPosition(a.payroll_staff)}</p>
                     </TableCell>
                     <TableCell className="text-sm text-slate-600 whitespace-nowrap">
-                      {a.absence_date ? format(parseISO(a.absence_date), "MMM d, yyyy") : "—"}
+                      {a.absence_date ? format(parseISO(a.absence_date), "MMM d, yyyy") : "\u2014"}
                     </TableCell>
-                    <TableCell className="text-sm text-slate-600 max-w-[160px]">
-                      <p className="truncate" title={a.reason ?? ""}>{a.reason || "—"}</p>
+                    <TableCell>{absenceTypeBadge(a.status)}</TableCell>
+                    <TableCell className="max-w-[160px]">
+                      <p className="text-sm text-slate-600 truncate" title={a.reason ?? ""}>{a.reason || "\u2014"}</p>
                     </TableCell>
-                    <TableCell>{absenceStatusBadge(a.status)}</TableCell>
-                    <TableCell className="text-sm text-slate-500 max-w-[160px]">
-                      <p className="truncate" title={a.notes ?? ""}>{a.notes || "—"}</p>
+                    <TableCell className="max-w-[160px]">
+                      <p className="text-sm text-slate-500 truncate" title={a.notes ?? ""}>{a.notes || "\u2014"}</p>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -1094,10 +1125,7 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
                         </button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <button
-                              title="Delete"
-                              className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                            >
+                            <button title="Delete" className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors">
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </AlertDialogTrigger>
@@ -1108,10 +1136,7 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-red-500 hover:bg-red-600 text-white"
-                                onClick={() => deleteMutation.mutate(a.id)}
-                              >
+                              <AlertDialogAction className="bg-red-500 hover:bg-red-600 text-white" onClick={() => deleteMutation.mutate(a.id)}>
                                 Delete
                               </AlertDialogAction>
                             </AlertDialogFooter>
@@ -1128,8 +1153,8 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
       </div>
 
       <AbsenceModal
-        open={logOpen}
-        onClose={() => setLogOpen(false)}
+        open={recordOpen}
+        onClose={() => setRecordOpen(false)}
         tenantId={tenantId}
         staffList={staffList}
         onSuccess={() => {}}
