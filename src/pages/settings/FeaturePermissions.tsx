@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -177,27 +177,18 @@ export function FeaturePermissions() {
       return (data ?? []) as PermRow[];
     },
     staleTime: 300_000,
-    // Seed local state from DB (or defaults if empty)
-    select: (rows) => {
-      const map: Record<string, AccessLevel> = {};
-      // Start with defaults
-      for (const role of ROLES) {
-        for (const feat of FEATURES) {
-          map[`${feat.key}:${role.key}`] = DEFAULTS[role.key]?.[feat.key] ?? "none";
-        }
-      }
-      // Override with saved DB values
-      for (const row of rows) {
-        map[`${row.feature}:${row.role}`] = row.access_level;
-      }
-      // Only seed local state once (when not dirty)
-      setLocal(prev => {
-        if (Object.keys(prev).length === 0) return map;
-        return prev;
-      });
-      return rows;
-    },
   });
+
+  // Seed local state from DB once on first load (only when not dirty)
+  useEffect(() => {
+    if (dirty || saved.length === 0) return;
+    const map: Record<string, AccessLevel> = {};
+    for (const row of saved) {
+      map[`${row.feature}:${row.role}`] = row.access_level;
+    }
+    setLocal(map);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved]);
 
   // Effective values: local overrides defaults
   const effective = useMemo<Record<string, AccessLevel>>(() => {
