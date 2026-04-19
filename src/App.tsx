@@ -150,6 +150,7 @@ const MemberRegistration = lazy(() => import("./pages/MemberRegistration"));
 
 // Communications pages
 const CommunicationsPage = lazy(() => import("./pages/communications/Communications"));
+const ComposeEmailPage = lazy(() => import("./pages/communications/ComposeEmail"));
 const AnnouncementsPage = lazy(() => import("./pages/communications/Announcements"));
 const MemberMessaging = lazy(() => import("./pages/communications/MemberMessaging"));
 const TestimoniesPage = lazy(() => import("./pages/communications/Testimonies"));
@@ -178,7 +179,7 @@ function PageViewTracker() {
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
-const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
+const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/communications/compose", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
 const GROWTH_PATHS = ["/discipleship", "/discipleship/graduates", "/discipleship-resources", "/outreach", "/resources-store", "/training"];
 const ADMIN_PATHS = ["/reports", "/branches"];
 const MEDIA_PATHS = ["/church-media", "/asset-management", "/song-library", "/graphics-studio", "/sermon-preparation", "/bible-explorer", "/sermons"];
@@ -242,6 +243,7 @@ const App = () => (
                 <Route path="/security-centre" element={<Suspense fallback={<Fallback />}><SecurityCentre /></Suspense>} />
                 <Route path="/incident-management" element={<Suspense fallback={<Fallback />}><IncidentManagement /></Suspense>} />
                 <Route path="/communications" element={<Suspense fallback={<Fallback />}><CommunicationsPage /></Suspense>} />
+                <Route path="/communications/compose" element={<Suspense fallback={<Fallback />}><ComposeEmailPage /></Suspense>} />
                 <Route path="/announcements" element={<Suspense fallback={<Fallback />}><AnnouncementsPage /></Suspense>} />
                 <Route path="/member-messaging" element={<Suspense fallback={<Fallback />}><MemberMessaging /></Suspense>} />
                 <Route path="/testimonies" element={<Suspense fallback={<Fallback />}><TestimoniesPage /></Suspense>} />
