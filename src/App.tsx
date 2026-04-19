@@ -98,6 +98,7 @@ const BackupPage = lazy(() => import("./pages/settings/Backup"));
 const LegalSettingsPage = lazy(() => import("./pages/settings/Legal"));
 const GivingSettingsPage = lazy(() => import("./pages/settings/GivingSettings"));
 const TaxSettingsPage = lazy(() => import("./pages/settings/TaxSettings"));
+const CommunicationsSettingsPage = lazy(() => import("./pages/settings/CommunicationsSettings"));
 const DataCompliancePage = lazy(() => import("./pages/DataCompliance"));
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfServicePage = lazy(() => import("./pages/legal/TermsOfService"));
@@ -311,6 +312,8 @@ const App = () => (
                   <Route path="giving" element={<Suspense fallback={<Fallback />}><GivingSettingsPage /></Suspense>} />
                   {/* Tax settings */}
                   <Route path="tax" element={<Suspense fallback={<Fallback />}><TaxSettingsPage /></Suspense>} />
+                  {/* Communications settings */}
+                  <Route path="communications-settings" element={<Suspense fallback={<Fallback />}><CommunicationsSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
                   {["branding","payments","whatsapp","verification"].map(slug => (
                     <Route key={slug} path={slug} element={

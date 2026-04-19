@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmailBranding } from "./EmailBranding";
+import { EmailTemplates } from "./EmailTemplates";
 import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
 
@@ -299,7 +300,7 @@ export default function Communications() {
 
           {/* ── EMAIL TEMPLATES ── */}
           {activeSection === "email_templates" && (
-            <Card><CardContent><ComingSoon icon={LayoutTemplate} title="Email Templates" description="Create reusable email templates for common messages. Coming soon." /></CardContent></Card>
+            <EmailTemplates />
           )}
 
           {/* ── EMAIL AUTOMATION ── */}

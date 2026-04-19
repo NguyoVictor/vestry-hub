@@ -47,7 +47,7 @@ const NAV_GROUPS = [
       { label: "Preferences",      icon: SlidersHorizontal, path: "/settings/preferences" },
       { label: "Attendance",       icon: CalendarCheck,   path: "/settings/attendance" },
       { label: "Notifications",    icon: Bell,            path: "/settings/notifications" },
-      { label: "WhatsApp",         icon: MessageSquare,   path: "/settings/whatsapp" },
+      { label: "Communications",   icon: MessageSquare,   path: "/settings/communications-settings" },
       { label: "Service Requests", icon: Wrench,          path: "/settings/service-requests" },
       { label: "Website",          icon: Globe,           path: "/settings/website" },
     ],
