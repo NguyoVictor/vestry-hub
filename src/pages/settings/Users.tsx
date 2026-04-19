@@ -127,7 +127,7 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
     }
     setSubmitting(true);
     try {
-      const { error } = await supabase.functions.invoke("invite-user", {
+      const { data, error } = await supabase.functions.invoke("invite-user", {
         body: {
           memberId: selectedMember.id,
           email: selectedMember.email,
@@ -137,7 +137,10 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
           tenantId,
         },
       });
-      if (error) throw error;
+      // The function returns { error: "message" } in the body on 400
+      if (error || data?.error) {
+        throw new Error(data?.error ?? error?.message ?? "Failed to add user.");
+      }
       const name = `${selectedMember.first_name ?? ""} ${selectedMember.last_name ?? ""}`.trim();
       toast.success(sendInvite ? `Invitation sent to ${name}!` : `${name} added as user.`);
       onSuccess();

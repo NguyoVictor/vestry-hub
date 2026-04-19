@@ -96,6 +96,7 @@ const WebsitePromoPage = lazy(() => import("./pages/settings/WebsitePromo"));
 const PrivacyPage = lazy(() => import("./pages/settings/Privacy"));
 const BackupPage = lazy(() => import("./pages/settings/Backup"));
 const LegalSettingsPage = lazy(() => import("./pages/settings/Legal"));
+const GivingSettingsPage = lazy(() => import("./pages/settings/GivingSettings"));
 const DataCompliancePage = lazy(() => import("./pages/DataCompliance"));
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfServicePage = lazy(() => import("./pages/legal/TermsOfService"));
@@ -305,8 +306,10 @@ const App = () => (
                   <Route path="backup" element={<Suspense fallback={<Fallback />}><BackupPage /></Suspense>} />
                   {/* Legal */}
                   <Route path="legal" element={<Suspense fallback={<Fallback />}><LegalSettingsPage /></Suspense>} />
+                  {/* Giving settings */}
+                  <Route path="giving" element={<Suspense fallback={<Fallback />}><GivingSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
-                  {["branding","payments","giving","tax","whatsapp","verification"].map(slug => (
+                  {["branding","payments","tax","whatsapp","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
                       <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
                         <Settings className="h-10 w-10" />
