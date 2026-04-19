@@ -92,6 +92,7 @@ const PreferencesSettings = lazy(() => import("./pages/settings/Preferences"));
 const AttendanceSettingsPage = lazy(() => import("./pages/settings/AttendanceSettings"));
 const NotificationsSettingsPage = lazy(() => import("./pages/settings/NotificationsSettings"));
 const ServiceRequestTypesPage = lazy(() => import("./pages/settings/ServiceRequestTypes"));
+const WebsitePromoPage = lazy(() => import("./pages/settings/WebsitePromo"));
 const Billing = lazy(() => import("./pages/settings/Billing"));
 const Security = lazy(() => import("./pages/settings/Security"));
 const Integrations = lazy(() => import("./pages/settings/Integrations"));
@@ -269,7 +270,7 @@ const App = () => (
                   <Route path="billing" element={<Suspense fallback={<Fallback />}><Billing /></Suspense>} />
                   <Route path="security" element={<Suspense fallback={<Fallback />}><Security /></Suspense>} />
                   <Route path="integrations" element={<Suspense fallback={<Fallback />}><Integrations /></Suspense>} />
-                  <Route path="seo" element={<Suspense fallback={<Fallback />}><SeoPublicPage /></Suspense>} />
+                  <Route path="seo" element={<Suspense fallback={<Fallback />}><WebsitePromoPage /></Suspense>} />
                   <Route path="member-app" element={<Suspense fallback={<Fallback />}><MemberAppFeatures /></Suspense>} />
                   <Route path="branches" element={<Suspense fallback={<Fallback />}><BranchCredentials /></Suspense>} />
                   <Route path="modules" element={<Suspense fallback={<Fallback />}><ModulesSettings /></Suspense>} />
@@ -285,6 +286,8 @@ const App = () => (
                   <Route path="notifications" element={<Suspense fallback={<Fallback />}><NotificationsSettingsPage /></Suspense>} />
                   {/* Service Request Types — real page */}
                   <Route path="service-requests" element={<Suspense fallback={<Fallback />}><ServiceRequestTypesPage /></Suspense>} />
+                  {/* Website promo — real page */}
+                  <Route path="website" element={<Suspense fallback={<Fallback />}><WebsitePromoPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
                   {["branding","payments","giving","tax","whatsapp","privacy","legal","backup","verification"].map(slug => (
                     <Route key={slug} path={slug} element={

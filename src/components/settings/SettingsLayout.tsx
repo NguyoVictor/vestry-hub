@@ -49,7 +49,7 @@ const NAV_GROUPS = [
       { label: "Notifications",    icon: Bell,            path: "/settings/notifications" },
       { label: "WhatsApp",         icon: MessageSquare,   path: "/settings/whatsapp" },
       { label: "Service Requests", icon: Wrench,          path: "/settings/service-requests" },
-      { label: "Website",          icon: Globe,           path: "/settings/seo" },
+      { label: "Website",          icon: Globe,           path: "/settings/website" },
     ],
   },
   {
