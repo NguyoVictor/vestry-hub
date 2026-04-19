@@ -73,11 +73,11 @@ export default function DataCompliance() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-lg font-bold text-slate-800">Vestry Hub</span>
             <button
-              onClick={() => navigate("/")}
+              onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-orange-500 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
+              Back
             </button>
           </div>
           <div className="text-center space-y-3">
