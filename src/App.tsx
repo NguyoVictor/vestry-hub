@@ -95,6 +95,9 @@ const ServiceRequestTypesPage = lazy(() => import("./pages/settings/ServiceReque
 const WebsitePromoPage = lazy(() => import("./pages/settings/WebsitePromo"));
 const PrivacyPage = lazy(() => import("./pages/settings/Privacy"));
 const DataCompliancePage = lazy(() => import("./pages/DataCompliance"));
+const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicy"));
+const TermsOfServicePage = lazy(() => import("./pages/legal/TermsOfService"));
+const DataPolicyPage = lazy(() => import("./pages/legal/DataPolicy"));
 const Billing = lazy(() => import("./pages/settings/Billing"));
 const Security = lazy(() => import("./pages/settings/Security"));
 const Integrations = lazy(() => import("./pages/settings/Integrations"));
@@ -196,6 +199,9 @@ const App = () => (
             <Route path="/visitor-registration/:churchId" element={<Suspense fallback={<Fallback />}><VisitorRegistration /></Suspense>} />
             <Route path="/member-registration/:orgId" element={<Suspense fallback={<Fallback />}><MemberRegistration /></Suspense>} />
             <Route path="/data-compliance" element={<Suspense fallback={<Fallback />}><DataCompliancePage /></Suspense>} />
+            <Route path="/privacy-policy" element={<Suspense fallback={<Fallback />}><PrivacyPolicyPage /></Suspense>} />
+            <Route path="/terms-of-service" element={<Suspense fallback={<Fallback />}><TermsOfServicePage /></Suspense>} />
+            <Route path="/data-policy" element={<Suspense fallback={<Fallback />}><DataPolicyPage /></Suspense>} />
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />

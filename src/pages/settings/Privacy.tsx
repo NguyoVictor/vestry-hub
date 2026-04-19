@@ -87,8 +87,6 @@ export default function Privacy() {
 
           <a
             href="/data-compliance"
-            target="_blank"
-            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-orange-500 hover:underline font-medium"
           >
             View Full Compliance Documentation
@@ -190,7 +188,7 @@ export default function Privacy() {
             <div className="pt-0">
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">Data Controller</p>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Your church is the Data Controller for all member personal data. Church Hope acts as a Data Processor on your behalf.
+                Your church is the Data Controller for all member personal data. Vestry Hub acts as a Data Processor on your behalf.
               </p>
             </div>
 

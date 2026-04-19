@@ -73,7 +73,7 @@ export default function DataCompliance() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-lg font-bold text-slate-800">Vestry Hub</span>
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/settings/privacy")}
               className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-orange-500 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -371,8 +371,12 @@ export default function DataCompliance() {
 
         {/* Section 11 — Related Documents */}
         <div className="flex flex-wrap gap-4 justify-center pt-2">
-          {["🔗 Privacy Policy","🔗 Terms of Service","🔗 Data Policy"].map(label => (
-            <a key={label} href="#" className="text-sm text-orange-500 hover:underline font-medium">{label}</a>
+          {[
+            { label: "🔗 Privacy Policy",   href: "/privacy-policy" },
+            { label: "🔗 Terms of Service", href: "/terms-of-service" },
+            { label: "🔗 Data Policy",      href: "/data-policy" },
+          ].map(({ label, href }) => (
+            <a key={label} href={href} className="text-sm text-orange-500 hover:underline font-medium">{label}</a>
           ))}
         </div>
       </div>
