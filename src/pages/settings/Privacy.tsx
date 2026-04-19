@@ -86,7 +86,9 @@ export default function Privacy() {
           </div>
 
           <a
-            href="#"
+            href="/data-compliance"
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-orange-500 hover:underline font-medium"
           >
             View Full Compliance Documentation

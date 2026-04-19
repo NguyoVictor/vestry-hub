@@ -94,6 +94,7 @@ const NotificationsSettingsPage = lazy(() => import("./pages/settings/Notificati
 const ServiceRequestTypesPage = lazy(() => import("./pages/settings/ServiceRequestTypes"));
 const WebsitePromoPage = lazy(() => import("./pages/settings/WebsitePromo"));
 const PrivacyPage = lazy(() => import("./pages/settings/Privacy"));
+const DataCompliancePage = lazy(() => import("./pages/DataCompliance"));
 const Billing = lazy(() => import("./pages/settings/Billing"));
 const Security = lazy(() => import("./pages/settings/Security"));
 const Integrations = lazy(() => import("./pages/settings/Integrations"));
@@ -194,6 +195,7 @@ const App = () => (
             <Route path="/church/:slug" element={<ChurchPublicPage />} />
             <Route path="/visitor-registration/:churchId" element={<Suspense fallback={<Fallback />}><VisitorRegistration /></Suspense>} />
             <Route path="/member-registration/:orgId" element={<Suspense fallback={<Fallback />}><MemberRegistration /></Suspense>} />
+            <Route path="/data-compliance" element={<Suspense fallback={<Fallback />}><DataCompliancePage /></Suspense>} />
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
