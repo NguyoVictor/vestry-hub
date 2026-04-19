@@ -19,10 +19,10 @@ import {
   MessageCircle, BarChart2, CreditCard, Paintbrush, Radio, Bot,
   FlaskConical, Clock, CheckCircle,
 } from "lucide-react";
-import { format } from "date-fns";
-import { toast } from "sonner";
-import { logActivity } from "@/lib/activityLogger";
 import { cn } from "@/lib/utils";
+import { EmailBranding } from "./EmailBranding";
+import { logActivity } from "@/lib/activityLogger";
+import { format } from "date-fns";
 
 // ── Nav structure ────────────────────────────────────────────────────────────
 
@@ -344,7 +344,7 @@ export default function Communications() {
 
           {/* ── BRANDING ── */}
           {activeSection === "branding" && (
-            <Card><CardContent><ComingSoon icon={Paintbrush} title="Branding" description="Customise email headers, footers, and colour schemes. Coming soon." /></CardContent></Card>
+            <EmailBranding />
           )}
 
           {/* ── ADMIN BROADCAST ── */}

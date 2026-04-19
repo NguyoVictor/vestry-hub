@@ -39,6 +39,7 @@ export const TABLES = {
   TAX_SETTINGS: "tax_settings",
   TAX_DEDUCTIBLE_TYPES: "tax_deductible_types",
   TAX_STATEMENTS: "tax_statements",
+  EMAIL_BRANDING: "email_branding",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"
