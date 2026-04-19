@@ -25,9 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-slate-100 text-slate-600",
 };
 
-const REQUEST_TYPES = ["prayer", "counselling", "visitation", "financial_aid", "medical_support", "bereavement", "general"];
-
-const defaultForm = { request_type: "prayer", title: "", description: "", priority: "medium", is_confidential: false };
+const defaultForm = { request_type: "", title: "", description: "", priority: "medium", is_confidential: false };
 
 export default function MemberRequests() {
   const member = useMemberPortal();
@@ -44,6 +42,21 @@ export default function MemberRequests() {
       return data || [];
     },
     staleTime: 60000,
+  });
+
+  // Fetch active service request types from settings
+  const { data: requestTypes = [] } = useQuery<{ internal_name: string; label: string }[]>({
+    queryKey: ["service-request-types-member", member.churchId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_request_types")
+        .select("internal_name, label")
+        .eq("tenant_id", member.churchId)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      return (data ?? []) as { internal_name: string; label: string }[];
+    },
+    staleTime: 300_000,
   });
 
   const openCreate = () => {
@@ -175,11 +188,32 @@ export default function MemberRequests() {
             <div className="space-y-1.5">
               <Label>Request Type</Label>
               <Select value={form.request_type} onValueChange={v => setForm(f => ({ ...f, request_type: v }))}>
-                <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Select request type" /></SelectTrigger>
                 <SelectContent>
-                  {REQUEST_TYPES.map(t => (
-                    <SelectItem key={t} value={t} className="capitalize">{t.replace(/_/g, " ")}</SelectItem>
-                  ))}
+                  {requestTypes.length > 0
+                    ? requestTypes.map(t => (
+                        <SelectItem key={t.internal_name} value={t.internal_name} className="capitalize">{t.label}</SelectItem>
+                      ))
+                    : [
+                        { v: "baby_dedication", l: "Baby Dedication" },
+                        { v: "wedding_ceremony", l: "Wedding Ceremony" },
+                        { v: "funeral_service", l: "Funeral Service" },
+                        { v: "baptism", l: "Baptism" },
+                        { v: "house_blessing", l: "House Blessing" },
+                        { v: "counselling_session", l: "Counselling Session" },
+                        { v: "hospital_visit", l: "Hospital Visit" },
+                        { v: "prayer_request", l: "Prayer Request" },
+                        { v: "prayer", l: "Prayer" },
+                        { v: "counselling", l: "Counselling" },
+                        { v: "visitation", l: "Visitation" },
+                        { v: "financial_aid", l: "Financial Aid" },
+                        { v: "medical_support", l: "Medical Support" },
+                        { v: "bereavement", l: "Bereavement" },
+                        { v: "general", l: "General" },
+                      ].map(t => (
+                        <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>
+                      ))
+                  }
                 </SelectContent>
               </Select>
             </div>

@@ -5479,6 +5479,45 @@ export type Database = {
           },
         ]
       }
+      service_request_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          internal_name: string
+          is_active: boolean
+          is_default: boolean
+          label: string
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          internal_name: string
+          is_active?: boolean
+          is_default?: boolean
+          label: string
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          internal_name?: string
+          is_active?: boolean
+          is_default?: boolean
+          label?: string
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           actual_attendance: number | null

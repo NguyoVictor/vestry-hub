@@ -92,6 +92,30 @@ export default function MemberRequestsPage() {
     staleTime: 60000,
   });
 
+  // Fetch active service request types from settings
+  const { data: serviceRequestTypes = [] } = useQuery<{ internal_name: string; label: string }[]>({
+    queryKey: ["service-request-types-admin", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_request_types")
+        .select("internal_name, label")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      return (data ?? []) as { internal_name: string; label: string }[];
+    },
+    staleTime: 300_000,
+  });
+
+  // Helper: get label for a request_type value
+  const getTypeLabel = (value: string) => {
+    const found = serviceRequestTypes.find(t => t.internal_name === value);
+    if (found) return found.label;
+    // Fallback to old hardcoded types
+    const old = REQUEST_TYPES.find(t => t.value === value);
+    return old ? old.label : value.replace(/_/g, " ");
+  };
+
   const { data: userRecords = [] } = useQuery({
     queryKey: ["users", tenantId],
     queryFn: async () => {
@@ -361,7 +385,7 @@ export default function MemberRequestsPage() {
                         <span className="font-medium text-sm">{name}</span>
                       </div>
                     </TableCell>
-                    <TableCell><span className="text-sm">{typeInfo?.icon} {typeInfo?.label || req.request_type}</span></TableCell>
+                    <TableCell><span className="text-sm">{getTypeLabel(req.request_type)}</span></TableCell>
                     <TableCell className="text-sm">{(req as any).title || "—"}</TableCell>
                     <TableCell><span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${priorityColor}`}>{(req as any).priority || "medium"}</span></TableCell>
                     <TableCell><span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${statusColor}`}>{req.status?.replace(/_/g, " ") || "open"}</span></TableCell>
@@ -410,7 +434,28 @@ export default function MemberRequestsPage() {
               <Label>Request Type</Label>
               <Select value={formData.request_type} onValueChange={v => setFormData(p => ({ ...p, request_type: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{REQUEST_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {serviceRequestTypes.length > 0
+                    ? serviceRequestTypes.map(t => <SelectItem key={t.internal_name} value={t.internal_name}>{t.label}</SelectItem>)
+                    : [
+                        { v: "baby_dedication", l: "Baby Dedication" },
+                        { v: "wedding_ceremony", l: "Wedding Ceremony" },
+                        { v: "funeral_service", l: "Funeral Service" },
+                        { v: "baptism", l: "Baptism" },
+                        { v: "house_blessing", l: "House Blessing" },
+                        { v: "counselling_session", l: "Counselling Session" },
+                        { v: "hospital_visit", l: "Hospital Visit" },
+                        { v: "prayer_request", l: "Prayer Request" },
+                        { v: "prayer", l: "Prayer" },
+                        { v: "counselling", l: "Counselling" },
+                        { v: "visitation", l: "Visitation" },
+                        { v: "financial_aid", l: "Financial Aid" },
+                        { v: "medical_support", l: "Medical Support" },
+                        { v: "bereavement", l: "Bereavement" },
+                        { v: "general", l: "General" },
+                      ].map(t => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)
+                  }
+                </SelectContent>
               </Select>
             </div>
             <div><Label>Title</Label><Input value={formData.title} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} /></div>
