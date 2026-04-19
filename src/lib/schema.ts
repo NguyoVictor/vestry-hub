@@ -138,6 +138,8 @@ export const TABLES = {
   USER_ROLE_OVERRIDES: "user_role_overrides",
   MEMBER_PERMISSION_OVERRIDES: "member_permission_overrides",
   SERVICE_REQUEST_TYPES: "service_request_types",
+  WEBSITE_CONSULTATION_REQUESTS: "website_consultation_requests",
+  WEBSITE_REVIEWS: "website_reviews",
   SAVED_REPORTS: "saved_reports",
   PRAYER_REQUESTS: "prayer_requests",
   ACTIVITY_LOG: "activity_log",

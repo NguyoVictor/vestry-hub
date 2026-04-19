@@ -7633,6 +7633,69 @@ export type Database = {
           },
         ]
       }
+      website_consultation_requests: {
+        Row: {
+          church_name: string | null
+          contact_name: string
+          created_at: string
+          email: string
+          id: string
+          message: string | null
+          phone: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          church_name?: string | null
+          contact_name: string
+          created_at?: string
+          email: string
+          id?: string
+          message?: string | null
+          phone?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          church_name?: string | null
+          contact_name?: string
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string | null
+          phone?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      website_reviews: {
+        Row: {
+          church_name: string
+          created_at: string
+          id: string
+          rating: number
+          review_text: string
+          reviewer_name: string
+          tenant_id: string
+        }
+        Insert: {
+          church_name: string
+          created_at?: string
+          id?: string
+          rating: number
+          review_text: string
+          reviewer_name: string
+          tenant_id: string
+        }
+        Update: {
+          church_name?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          review_text?: string
+          reviewer_name?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
