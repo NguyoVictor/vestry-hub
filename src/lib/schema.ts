@@ -140,6 +140,7 @@ export const TABLES = {
   SERVICE_REQUEST_TYPES: "service_request_types",
   WEBSITE_CONSULTATION_REQUESTS: "website_consultation_requests",
   WEBSITE_REVIEWS: "website_reviews",
+  LEGAL_SIGNATURES: "legal_signatures",
   SAVED_REPORTS: "saved_reports",
   PRAYER_REQUESTS: "prayer_requests",
   ACTIVITY_LOG: "activity_log",

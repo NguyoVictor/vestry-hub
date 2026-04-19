@@ -3130,6 +3130,51 @@ export type Database = {
           },
         ]
       }
+      legal_signatures: {
+        Row: {
+          agreement_key: string
+          agreement_name: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          signature_data: string
+          signature_type: string
+          signed_at: string
+          signer_email: string
+          signer_name: string
+          signer_title: string
+          tenant_id: string
+        }
+        Insert: {
+          agreement_key: string
+          agreement_name: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          signature_data: string
+          signature_type?: string
+          signed_at?: string
+          signer_email: string
+          signer_name: string
+          signer_title: string
+          tenant_id: string
+        }
+        Update: {
+          agreement_key?: string
+          agreement_name?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          signature_data?: string
+          signature_type?: string
+          signed_at?: string
+          signer_email?: string
+          signer_name?: string
+          signer_title?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       lesson_completions: {
         Row: {
           completed_at: string | null
