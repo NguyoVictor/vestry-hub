@@ -36,6 +36,9 @@ export const TABLES = {
   GIVING_RECORDS: "giving_records",       // spec said "donations"
   GIVING_AUDIT_LOG: "giving_audit_log",
   GIVING_CATEGORIES: "giving_categories",
+  TAX_SETTINGS: "tax_settings",
+  TAX_DEDUCTIBLE_TYPES: "tax_deductible_types",
+  TAX_STATEMENTS: "tax_statements",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"

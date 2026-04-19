@@ -6768,6 +6768,153 @@ export type Database = {
           },
         ]
       }
+      tax_deductible_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_deductible: boolean
+          is_system: boolean
+          notes: string | null
+          sort_order: number
+          tenant_id: string
+          type_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_deductible?: boolean
+          is_system?: boolean
+          notes?: string | null
+          sort_order?: number
+          tenant_id: string
+          type_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_deductible?: boolean
+          is_system?: boolean
+          notes?: string | null
+          sort_order?: number
+          tenant_id?: string
+          type_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tax_settings: {
+        Row: {
+          created_at: string
+          fiscal_year_start_day: number
+          fiscal_year_start_month: number
+          id: string
+          is_configured: boolean
+          legal_org_name: string | null
+          receipt_footer: string | null
+          registration_number: string | null
+          registration_type: string | null
+          registration_type_other: string | null
+          signature_name: string | null
+          signature_title: string | null
+          statement_header: string | null
+          tax_address: string | null
+          tax_city: string | null
+          tax_country: string | null
+          tax_postal_code: string | null
+          tax_state: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fiscal_year_start_day?: number
+          fiscal_year_start_month?: number
+          id?: string
+          is_configured?: boolean
+          legal_org_name?: string | null
+          receipt_footer?: string | null
+          registration_number?: string | null
+          registration_type?: string | null
+          registration_type_other?: string | null
+          signature_name?: string | null
+          signature_title?: string | null
+          statement_header?: string | null
+          tax_address?: string | null
+          tax_city?: string | null
+          tax_country?: string | null
+          tax_postal_code?: string | null
+          tax_state?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fiscal_year_start_day?: number
+          fiscal_year_start_month?: number
+          id?: string
+          is_configured?: boolean
+          legal_org_name?: string | null
+          receipt_footer?: string | null
+          registration_number?: string | null
+          registration_type?: string | null
+          registration_type_other?: string | null
+          signature_name?: string | null
+          signature_title?: string | null
+          statement_header?: string | null
+          tax_address?: string | null
+          tax_city?: string | null
+          tax_country?: string | null
+          tax_postal_code?: string | null
+          tax_state?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tax_statements: {
+        Row: {
+          deductible_total: number
+          generated_at: string
+          id: string
+          member_id: string
+          non_deductible_total: number
+          sent_at: string | null
+          statement_data: Json | null
+          status: string
+          tenant_id: string
+          total_giving: number
+          year: number
+        }
+        Insert: {
+          deductible_total?: number
+          generated_at?: string
+          id?: string
+          member_id: string
+          non_deductible_total?: number
+          sent_at?: string | null
+          statement_data?: Json | null
+          status?: string
+          tenant_id: string
+          total_giving?: number
+          year: number
+        }
+        Update: {
+          deductible_total?: number
+          generated_at?: string
+          id?: string
+          member_id?: string
+          non_deductible_total?: number
+          sent_at?: string | null
+          statement_data?: Json | null
+          status?: string
+          tenant_id?: string
+          total_giving?: number
+          year?: number
+        }
+        Relationships: []
+      }
       tenant_seo_settings: {
         Row: {
           created_at: string | null
@@ -8059,5 +8206,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
