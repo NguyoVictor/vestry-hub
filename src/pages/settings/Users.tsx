@@ -308,30 +308,54 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
   );
 }
 
-// ─── Edit User Modal ──────────────────────────────────────────────────────────
+// ─── Edit User Modal (full version) ──────────────────────────────────────────
+const EDIT_ROLES = [
+  "Church Admin", "General Overseer", "Senior Pastor", "Pastor",
+  "Assistant Pastor", "Accountant", "Leader", "Studio Operator", "Other",
+] as const;
+
 interface EditUserModalProps {
   user: UserRow | null;
+  branches: BranchRow[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function EditUserModal({ user, onClose, onSuccess }: EditUserModalProps) {
-  const [role, setRole] = useState<string>(user?.role ?? "member");
-  const [status, setStatus] = useState<string>(user?.status ?? "active");
-  const [saving, setSaving] = useState(false);
+function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProps) {
   const qc = useQueryClient();
+  const [role, setRole] = useState<string>("");
+  const [customRole, setCustomRole] = useState("");
+  const [branchId, setBranchId] = useState<string>("");
+  const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Sync state when user changes
+  useState(() => {
+    if (user) {
+      // Map stored role value to display label
+      const matchedRole = EDIT_ROLES.find(r =>
+        r.toLowerCase().replace(/\s+/g, "_") === user.role ||
+        r.toLowerCase() === user.role.toLowerCase()
+      );
+      setRole(matchedRole ?? "Other");
+      setCustomRole(matchedRole ? "" : user.role);
+      setIsActive(user.status === "active");
+    }
+  });
 
   if (!user) return null;
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const finalRole = role === "Other" ? customRole.trim() : role.toLowerCase().replace(/\s+/g, "_");
+      if (!finalRole) { toast.error("Please specify a role."); setSaving(false); return; }
       const { error } = await supabase
         .from(TABLES.USERS)
-        .update({ role, status } as never)
+        .update({ role: finalRole, status: isActive ? "active" : "inactive" } as never)
         .eq(COLS.ID, user.id);
       if (error) throw error;
-      toast.success("User updated.");
+      toast.success("✅ User updated successfully.");
       qc.invalidateQueries({ queryKey: ["settings-users"] });
       onSuccess();
       onClose();
@@ -342,43 +366,215 @@ function EditUserModal({ user, onClose, onSuccess }: EditUserModalProps) {
     }
   };
 
+  const displayName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() || user.email;
+  const currentBranch = branches.find(b => b.id === branchId);
+
   return (
     <Dialog open={!!user} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
-          <DialogDescription>
-            Update role and status for {user.first_name} {user.last_name}.
-          </DialogDescription>
+          <DialogTitle className="text-lg font-semibold">Edit User</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-4 pt-1">
+          {/* Identity (read-only) */}
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-800">{displayName}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
+          </div>
+
+          {/* Role */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Role</Label>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select value={role} onValueChange={v => { setRole(v); if (v !== "Other") setCustomRole(""); }}>
+              <SelectTrigger className="focus:ring-orange-400"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {ROLES.map(r => (
-                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                ))}
+                {EDIT_ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
               </SelectContent>
             </Select>
+            {/* Other input — smooth slide */}
+            <div className={`overflow-hidden transition-all duration-200 ${role === "Other" ? "max-h-20 opacity-100" : "max-h-0 opacity-0"}`}>
+              <div className="pt-1.5">
+                <Label className="text-xs text-slate-500">Specify <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder="Enter role title"
+                  value={customRole}
+                  onChange={e => setCustomRole(e.target.value)}
+                  className="mt-1 focus:ring-orange-400"
+                />
+              </div>
+            </div>
           </div>
+
+          {/* Branch Assignment */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-medium">Branch Assignment</Label>
+            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+              {branches.length === 0 ? (
+                <p className="text-xs text-slate-400">No branches configured.</p>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="edit-branch" value="" checked={!branchId} onChange={() => setBranchId("")} className="accent-orange-500" />
+                    <span className="text-sm text-slate-600">All branches</span>
+                  </label>
+                  {branches.map(b => (
+                    <label key={b.id} className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="edit-branch" value={b.id} checked={branchId === b.id} onChange={() => setBranchId(b.id)} className="accent-orange-500" />
+                      <span className="text-sm text-slate-700">{b.name}</span>
+                    </label>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Account Status */}
+          <div className="rounded-lg border border-slate-200 p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-800">Account Status</p>
+              <p className="text-xs text-slate-500">User can access the system</p>
+            </div>
+            <Switch checked={isActive} onCheckedChange={setIsActive} className="data-[state=checked]:bg-orange-500" />
           </div>
         </div>
+
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
           <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Fine-Tune Permissions Modal ──────────────────────────────────────────────
+type PermLevel = "default" | "read_only" | "full_access";
+
+const PERM_CATEGORIES = [
+  { key: "member_management",   label: "Member Management",   desc: "View and manage church members" },
+  { key: "financial_records",   label: "Financial Records",   desc: "Access donations, expenses, budgets" },
+  { key: "event_management",    label: "Event Management",    desc: "Create and manage events" },
+  { key: "communication_tools", label: "Communication Tools", desc: "Send emails, SMS, announcements" },
+  { key: "reports_analytics",   label: "Reports & Analytics", desc: "View and generate reports" },
+  { key: "attendance",          label: "Attendance",          desc: "Record and view attendance" },
+  { key: "groups_ministries",   label: "Groups & Ministries", desc: "Manage groups and small groups" },
+  { key: "church_settings",     label: "Church Settings",     desc: "Modify church configuration" },
+] as const;
+
+const PERM_LEVEL_STYLES: Record<PermLevel, string> = {
+  default:     "bg-slate-100 text-slate-600 border-slate-200",
+  read_only:   "bg-blue-50 text-blue-700 border-blue-200",
+  full_access: "bg-emerald-50 text-emerald-700 border-emerald-200",
+};
+
+function PermDropdown({ value, onChange }: { value: PermLevel; onChange: (v: PermLevel) => void }) {
+  return (
+    <Select value={value} onValueChange={v => onChange(v as PermLevel)}>
+      <SelectTrigger className={`w-36 h-8 text-xs rounded-full border ${PERM_LEVEL_STYLES[value]}`}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="default">Default</SelectItem>
+        <SelectItem value="read_only">Read Only</SelectItem>
+        <SelectItem value="full_access">Full Access</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+interface FineTuneModalProps {
+  user: UserRow | null;
+  tenantId: string;
+  onClose: () => void;
+}
+
+function FineTunePermissionsModal({ user, tenantId, onClose }: FineTuneModalProps) {
+  const [perms, setPerms] = useState<Record<string, PermLevel>>(
+    Object.fromEntries(PERM_CATEGORIES.map(c => [c.key, "default"]))
+  );
+  const [saving, setSaving] = useState(false);
+
+  // Load existing overrides
+  const { data: existing = [] } = useQuery<{ permission_key: string; level: string }[]>({
+    queryKey: ["user-fine-perms", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_fine_permissions")
+        .select("permission_key, level")
+        .eq("user_id", user!.id)
+        .eq("tenant_id", tenantId);
+      return (data ?? []) as { permission_key: string; level: string }[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  // Seed local state from DB
+  useState(() => {
+    if (existing.length > 0) {
+      const map: Record<string, PermLevel> = Object.fromEntries(PERM_CATEGORIES.map(c => [c.key, "default"]));
+      for (const row of existing) map[row.permission_key] = row.level as PermLevel;
+      setPerms(map);
+    }
+  });
+
+  if (!user) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const rows = PERM_CATEGORIES.map(c => ({
+        user_id: user.id,
+        tenant_id: tenantId,
+        permission_key: c.key,
+        level: perms[c.key],
+      }));
+      const { error } = await supabase
+        .from("user_fine_permissions")
+        .upsert(rows as never, { onConflict: "user_id,permission_key" });
+      if (error) throw error;
+      toast.success("✅ Permissions updated successfully.");
+      onClose();
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to save permissions.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!user} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">Fine-Tune Permissions</DialogTitle>
+          <p className="text-xs text-slate-500">Override default role permissions for this user.</p>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+          {PERM_CATEGORIES.map((cat, idx) => (
+            <div
+              key={cat.key}
+              className={`flex items-center justify-between gap-4 rounded-xl border border-slate-200 px-4 py-3 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}
+            >
+              <div>
+                <p className="text-sm font-semibold text-slate-800">{cat.label}</p>
+                <p className="text-xs text-slate-400">{cat.desc}</p>
+              </div>
+              <PermDropdown
+                value={perms[cat.key] ?? "default"}
+                onChange={v => setPerms(prev => ({ ...prev, [cat.key]: v }))}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-5" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Permissions"}
           </Button>
         </div>
       </DialogContent>
@@ -552,6 +748,7 @@ const UsersPage = () => {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [fineTuneUser, setFineTuneUser] = useState<UserRow | null>(null);
 
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery<UserRow[]>({
@@ -780,11 +977,11 @@ const UsersPage = () => {
                         {/* Actions */}
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
-                            {/* Reset password */}
+                            {/* Fine-tune permissions */}
                             <button
-                              title="Reset password"
-                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-                              onClick={() => handleResetPassword(user.email)}
+                              title="Fine-tune permissions"
+                              className="rounded p-1.5 text-slate-400 hover:bg-orange-50 hover:text-orange-500 transition-colors"
+                              onClick={() => setFineTuneUser(user)}
                             >
                               <Key className="h-4 w-4" />
                             </button>
@@ -853,8 +1050,14 @@ const UsersPage = () => {
       />
       <EditUserModal
         user={editUser}
+        branches={branches}
         onClose={() => setEditUser(null)}
         onSuccess={() => qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] })}
+      />
+      <FineTunePermissionsModal
+        user={fineTuneUser}
+        tenantId={church.tenantId}
+        onClose={() => setFineTuneUser(null)}
       />
     </>
   );
