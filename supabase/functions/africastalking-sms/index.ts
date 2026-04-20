@@ -46,6 +46,7 @@ Deno.serve(async (req: Request) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
       const testMessage = `This is a test SMS from ${church_name ?? "your church"} via Vestry Hub. Your SMS configuration is working correctly.`;
       const body = new URLSearchParams({ username: at_username, to: admin_phone, message: testMessage });
       if (at_sender_id) body.set("from", at_sender_id);
@@ -58,12 +59,25 @@ Deno.serve(async (req: Request) => {
       const data = await res.json();
       if (!res.ok) throw new Error(`AT error: ${JSON.stringify(data)}`);
 
-      // Log
-      await supabase.from("sms_history").insert({
+      // Log to sms_history
+      const { data: historyRow } = await supabase.from("sms_history").insert({
         tenant_id, message: testMessage, recipient_count: 1,
-        delivered_count: 1, failed_count: 0, status: "sent", is_test: true,
+        delivered_count: 0, failed_count: 0, status: "sent", is_test: true,
         sent_at: new Date().toISOString(),
-      });
+      }).select("id").single();
+
+      // Log recipient with AT message ID
+      const atRecipient = data?.SMSMessageData?.Recipients?.[0];
+      if (historyRow?.id && atRecipient) {
+        await supabase.from("sms_recipients").insert({
+          sms_history_id: historyRow.id,
+          tenant_id,
+          at_message_id: atRecipient.messageId ?? null,
+          phone_number: admin_phone,
+          status: atRecipient.status === "Success" ? "sent" : "failed",
+          network_code: atRecipient.networkCode ?? null,
+        });
+      }
 
       return new Response(JSON.stringify({ ok: true, sent_to: admin_phone }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -91,8 +105,41 @@ Deno.serve(async (req: Request) => {
     let failCount = 0;
     const currency = "KES";
 
+    // Collect per-recipient results for sms_recipients insert
+    const recipientRows: {
+      tenant_id: string;
+      sms_history_id: string;
+      at_message_id: string | null;
+      phone_number: string;
+      status: string;
+      failure_reason: string | null;
+      network_code: string | null;
+    }[] = [];
+
+    // Create the sms_history record first so we have an ID for recipients
+    const { data: historyRow } = await supabase.from("sms_history").insert({
+      tenant_id,
+      message,
+      recipient_count: recipients.length,
+      delivered_count: 0,
+      failed_count: 0,
+      status: "sent",
+      cost: 0,
+      currency,
+      is_test: false,
+      sent_at: new Date().toISOString(),
+    }).select("id").single();
+
+    const historyId = historyRow?.id;
+
     for (const recipient of recipients) {
-      if (!recipient.phone) { failCount++; continue; }
+      if (!recipient.phone) {
+        failCount++;
+        if (historyId) {
+          recipientRows.push({ tenant_id, sms_history_id: historyId, at_message_id: null, phone_number: recipient.phone ?? "unknown", status: "failed", failure_reason: "No phone number", network_code: null });
+        }
+        continue;
+      }
 
       const firstName = recipient.first_name ?? recipient.name?.split(" ")[0] ?? "Friend";
       const lastName = recipient.last_name ?? (recipient.name?.split(" ").slice(1).join(" ") ?? "");
@@ -114,32 +161,57 @@ Deno.serve(async (req: Request) => {
         body,
       });
       const data = await res.json();
+      const atRecipient = data?.SMSMessageData?.Recipients?.[0];
 
-      if (res.ok) {
+      if (res.ok && atRecipient?.status === "Success") {
         successCount++;
-        const msgData = data?.SMSMessageData?.Recipients?.[0];
-        if (msgData?.cost) {
-          const costStr = String(msgData.cost).replace(/[^0-9.]/g, "");
-          totalCost += parseFloat(costStr) || 0;
+        const costStr = String(atRecipient?.cost ?? "0").replace(/[^0-9.]/g, "");
+        totalCost += parseFloat(costStr) || 0;
+        if (historyId) {
+          recipientRows.push({
+            tenant_id,
+            sms_history_id: historyId,
+            at_message_id: atRecipient?.messageId ?? null,
+            phone_number: recipient.phone,
+            status: "sent",
+            failure_reason: null,
+            network_code: atRecipient?.networkCode ?? null,
+          });
         }
       } else {
         failCount++;
+        if (historyId) {
+          recipientRows.push({
+            tenant_id,
+            sms_history_id: historyId,
+            at_message_id: atRecipient?.messageId ?? null,
+            phone_number: recipient.phone,
+            status: "failed",
+            failure_reason: atRecipient?.status ?? "Unknown error",
+            network_code: atRecipient?.networkCode ?? null,
+          });
+        }
       }
     }
 
-    // Log to sms_history
-    await supabase.from("sms_history").insert({
-      tenant_id,
-      message,
-      recipient_count: recipients.length,
-      delivered_count: successCount,
-      failed_count: failCount,
-      status: failCount === recipients.length ? "failed" : successCount === recipients.length ? "sent" : "partial",
-      cost: totalCost,
-      currency,
-      is_test: false,
-      sent_at: new Date().toISOString(),
-    });
+    // Update sms_history with final counts
+    if (historyId) {
+      const finalStatus = failCount === recipients.length ? "failed"
+        : successCount === recipients.length ? "sent"
+        : "partial";
+
+      await supabase.from("sms_history").update({
+        delivered_count: successCount,
+        failed_count: failCount,
+        status: finalStatus,
+        cost: totalCost,
+      }).eq("id", historyId);
+
+      // Bulk insert recipient rows
+      if (recipientRows.length > 0) {
+        await supabase.from("sms_recipients").insert(recipientRows as any);
+      }
+    }
 
     return new Response(JSON.stringify({ ok: true, sent: successCount, failed: failCount, cost: totalCost, currency }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
