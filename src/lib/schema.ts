@@ -50,6 +50,11 @@ export const TABLES = {
   BROADCAST_TEMPLATES: "broadcast_templates",
   ADMIN_BROADCASTS: "admin_broadcasts",
   DEVICE_TOKENS: "device_tokens",
+  WHATSAPP_MESSAGES: "whatsapp_messages",
+  WHATSAPP_TEMPLATES: "whatsapp_templates",
+  WHATSAPP_AUTOMATIONS: "whatsapp_automations",
+  WHATSAPP_CREDITS: "whatsapp_credits",
+  WHATSAPP_CREDIT_TRANSACTIONS: "whatsapp_credit_transactions",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"

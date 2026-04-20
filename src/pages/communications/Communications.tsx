@@ -30,6 +30,7 @@ import { SmsTab } from "./SmsTab";
 import { SmsTemplates } from "./SmsTemplates";
 import { SmsCredits } from "./SmsCredits";
 import { AdminBroadcast } from "./AdminBroadcast";
+import { WhatsAppCloud } from "./whatsapp/WhatsAppCloudMain";
 import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
 
@@ -536,24 +537,9 @@ export default function Communications() {
           {/* ── CREDITS ── */}
           {activeSection === "credits" && <SmsCredits />}
 
-          {/* ── WHATSAPP CLOUD ── */}
-          {activeSection === "whatsapp" && (
-            <Card><CardContent><ComingSoon icon={MessageCircle} title="WhatsApp Cloud" description="Connect your WhatsApp Business account to send messages. Not yet configured." /></CardContent></Card>
-          )}
-
-          {/* ── WA TEMPLATES ── */}
-          {activeSection === "wa_templates" && (
-            <Card><CardContent><ComingSoon icon={LayoutTemplate} title="WA Templates" description="Manage approved WhatsApp message templates. Not yet configured." /></CardContent></Card>
-          )}
-
-          {/* ── WA AUTOMATION ── */}
-          {activeSection === "wa_automation" && (
-            <Card><CardContent><ComingSoon icon={Zap} title="WA Automation" description="Automate WhatsApp messages based on triggers and schedules. Coming soon." /></CardContent></Card>
-          )}
-
-          {/* ── WA REPORT ── */}
-          {activeSection === "wa_report" && (
-            <Card><CardContent><ComingSoon icon={BarChart2} title="WA Report" description="View delivery and engagement reports for WhatsApp messages. Coming soon." /></CardContent></Card>
+          {/* ── WHATSAPP (all WA tabs handled inside WhatsAppCloud component) ── */}
+          {["whatsapp", "wa_templates", "wa_automation", "wa_report"].includes(activeSection) && (
+            <WhatsAppCloud />
           )}
 
           {/* ── BRANDING ── */}
