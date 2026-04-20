@@ -26,6 +26,9 @@ import { cn } from "@/lib/utils";
 import { EmailBranding } from "./EmailBranding";
 import { EmailTemplates } from "./EmailTemplates";
 import { EmailAutomation } from "./EmailAutomation";
+import { SmsTab } from "./SmsTab";
+import { SmsTemplates } from "./SmsTemplates";
+import { SmsCredits } from "./SmsCredits";
 import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
 
@@ -524,14 +527,13 @@ export default function Communications() {
           )}
 
           {/* ── SMS ── */}
-          {activeSection === "sms" && (
-            <Card><CardContent><ComingSoon icon={MessageSquare} title="SMS" description="Send SMS messages to members and visitors. Coming soon." /></CardContent></Card>
-          )}
+          {activeSection === "sms" && <SmsTab />}
 
           {/* ── SMS TEMPLATES ── */}
-          {activeSection === "sms_templates" && (
-            <Card><CardContent><ComingSoon icon={FileText} title="SMS Templates" description="Manage reusable SMS message templates. Coming soon." /></CardContent></Card>
-          )}
+          {activeSection === "sms_templates" && <SmsTemplates />}
+
+          {/* ── CREDITS ── */}
+          {activeSection === "credits" && <SmsCredits />}
 
           {/* ── WHATSAPP CLOUD ── */}
           {activeSection === "whatsapp" && (
@@ -551,11 +553,6 @@ export default function Communications() {
           {/* ── WA REPORT ── */}
           {activeSection === "wa_report" && (
             <Card><CardContent><ComingSoon icon={BarChart2} title="WA Report" description="View delivery and engagement reports for WhatsApp messages. Coming soon." /></CardContent></Card>
-          )}
-
-          {/* ── CREDITS ── */}
-          {activeSection === "credits" && (
-            <Card><CardContent><ComingSoon icon={CreditCard} title="Credits" description="Manage your messaging credits for SMS and WhatsApp. Coming soon." /></CardContent></Card>
           )}
 
           {/* ── BRANDING ── */}

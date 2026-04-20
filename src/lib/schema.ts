@@ -43,6 +43,9 @@ export const TABLES = {
   EMAIL_CATEGORIES: "email_categories",
   EMAIL_TEMPLATES: "email_templates",
   EMAIL_AUTOMATIONS: "email_automations",
+  SMS_SETTINGS: "sms_settings",
+  SMS_HISTORY: "sms_history",
+  SMS_TEMPLATES: "sms_templates",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"

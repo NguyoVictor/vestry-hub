@@ -247,6 +247,110 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
   );
 }
 
+// ─── SMS Settings Tab ─────────────────────────────────────────────────────────
+function SmsSettingsTab({ tenantId }: { tenantId: string }) {
+  const qc = useQueryClient();
+  const [username, setUsername] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [senderId, setSenderId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const { data: existing } = useQuery({
+    queryKey: ["sms-settings-form", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("*").eq("tenant_id", tenantId).maybeSingle();
+      return data as { at_username: string | null; at_api_key: string | null; at_sender_id: string | null; is_configured: boolean } | null;
+    },
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (!existing) return;
+    setUsername(existing.at_username ?? "");
+    setApiKey(existing.at_api_key ?? "");
+    setSenderId(existing.at_sender_id ?? "");
+  }, [existing]);
+
+  const handleSave = async () => {
+    if (!username.trim() || !apiKey.trim()) { toast.error("Username and API Key are required."); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        tenant_id: tenantId,
+        at_username: username.trim(),
+        at_api_key: apiKey.trim(),
+        at_sender_id: senderId.trim() || null,
+        is_configured: true,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from(TABLES.SMS_SETTINGS).upsert(payload as never, { onConflict: "tenant_id" });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["sms-settings-form", tenantId] });
+      qc.invalidateQueries({ queryKey: ["sms-settings", tenantId] });
+      toast.success("✅ SMS settings saved.");
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cardClass = "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 space-y-4 shadow-sm";
+
+  return (
+    <div className="space-y-5">
+      {existing?.is_configured && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
+          <span className="font-medium">✅ SMS is configured</span> — your Africa's Talking credentials are saved.
+        </div>
+      )}
+
+      <div className={cardClass}>
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 shrink-0">
+            <MessageSquare className="h-5 w-5 text-orange-500" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Africa's Talking Credentials</p>
+            <p className="text-xs text-slate-500">Enter your Africa's Talking account details to enable SMS sending</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Username <span className="text-red-500">*</span></Label>
+            <Input placeholder="e.g., sandbox or your AT username" value={username} onChange={e => setUsername(e.target.value)} />
+            <p className="text-xs text-slate-400">Found in your Africa's Talking dashboard under Account → Settings</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">API Key <span className="text-red-500">*</span></Label>
+            <Input type="password" placeholder="Your Africa's Talking API key" value={apiKey} onChange={e => setApiKey(e.target.value)} />
+            <p className="text-xs text-slate-400">Found in your Africa's Talking dashboard under Settings → API Key</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Sender ID <span className="text-slate-400 font-normal">(optional)</span></Label>
+            <Input placeholder="e.g., VESTRY or your church short code" value={senderId} onChange={e => setSenderId(e.target.value)} />
+            <p className="text-xs text-slate-400">Custom sender name shown to recipients. Leave blank to use Africa's Talking default.</p>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-xs text-blue-700 space-y-1">
+          <p className="font-medium">ℹ How to get your credentials:</p>
+          <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
+            <li>Sign up at <a href="https://africastalking.com" target="_blank" rel="noopener noreferrer" className="underline">africastalking.com</a></li>
+            <li>Go to Settings → API Key to copy your key</li>
+            <li>Your username is shown at the top of your dashboard</li>
+          </ol>
+        </div>
+
+        <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving..." : "💾 Save SMS Settings"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CommunicationsSettings() {
   const { tenantId } = useChurch();
@@ -266,12 +370,7 @@ export default function CommunicationsSettings() {
           </TabsContent>
 
           <TabsContent value="sms">
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-10 flex flex-col items-center justify-center gap-3 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50"><MessageSquare className="h-6 w-6 text-orange-500" /></div>
-              <p className="text-base font-semibold text-slate-800 dark:text-slate-100">SMS Settings</p>
-              <p className="text-sm text-slate-500">Configure your SMS provider and settings</p>
-              <p className="text-xs text-slate-400 max-w-sm">SMS configuration coming soon. This section will allow you to connect an SMS provider and manage SMS settings.</p>
-            </div>
+            <SmsSettingsTab tenantId={tenantId} />
           </TabsContent>
 
           <TabsContent value="whatsapp">
