@@ -42,6 +42,7 @@ export const TABLES = {
   EMAIL_BRANDING: "email_branding",
   EMAIL_CATEGORIES: "email_categories",
   EMAIL_TEMPLATES: "email_templates",
+  EMAIL_AUTOMATIONS: "email_automations",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"

@@ -25,6 +25,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { EmailBranding } from "./EmailBranding";
 import { EmailTemplates } from "./EmailTemplates";
+import { EmailAutomation } from "./EmailAutomation";
 import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
 
@@ -519,7 +520,7 @@ export default function Communications() {
 
           {/* ── EMAIL AUTOMATION ── */}
           {activeSection === "email_automation" && (
-            <Card><CardContent><ComingSoon icon={Zap} title="Email Automation" description="Set up automated email sequences triggered by events. Coming soon." /></CardContent></Card>
+            <EmailAutomation />
           )}
 
           {/* ── SMS ── */}
