@@ -4,6 +4,7 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { navigationGroups } from "@/config/navigation";
 import { supabase } from "@/integrations/supabase/client";
 import { TopNavbar } from "./TopNavbar";
+import { useFcmToken } from "@/hooks/useFcmToken";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ChevronLeft, ChevronRight, LogOut, GitBranch, X } from "lucide-react";
@@ -25,6 +26,8 @@ export function setActiveBranch(branch: { id: string; name: string } | null) {
 export const AppLayout = () => {
   const church = useChurch();
   const navigate = useNavigate();
+  // Register FCM token for push notifications
+  useFcmToken(church.userId, church.tenantId);
   const [collapsed, setCollapsed] = useState(() =>
     localStorage.getItem("sidebar_collapsed") === "true"
   );

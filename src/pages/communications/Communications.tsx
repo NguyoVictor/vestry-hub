@@ -29,6 +29,7 @@ import { EmailAutomation } from "./EmailAutomation";
 import { SmsTab } from "./SmsTab";
 import { SmsTemplates } from "./SmsTemplates";
 import { SmsCredits } from "./SmsCredits";
+import { AdminBroadcast } from "./AdminBroadcast";
 import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
 
@@ -562,7 +563,7 @@ export default function Communications() {
 
           {/* ── ADMIN BROADCAST ── */}
           {activeSection === "admin_broadcast" && (
-            <Card><CardContent><ComingSoon icon={Radio} title="Admin Broadcast" description="Send system-wide broadcasts to all church admins. Coming soon." /></CardContent></Card>
+            <AdminBroadcast />
           )}
 
         </div>

@@ -47,6 +47,9 @@ export const TABLES = {
   SMS_HISTORY: "sms_history",
   SMS_TEMPLATES: "sms_templates",
   SMS_RECIPIENTS: "sms_recipients",
+  BROADCAST_TEMPLATES: "broadcast_templates",
+  ADMIN_BROADCASTS: "admin_broadcasts",
+  DEVICE_TOKENS: "device_tokens",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"
