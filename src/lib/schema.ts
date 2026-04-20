@@ -55,6 +55,7 @@ export const TABLES = {
   WHATSAPP_AUTOMATIONS: "whatsapp_automations",
   WHATSAPP_CREDITS: "whatsapp_credits",
   WHATSAPP_CREDIT_TRANSACTIONS: "whatsapp_credit_transactions",
+  QUIZZES: "quizzes",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"
