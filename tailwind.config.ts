@@ -15,6 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "sans-serif"],
+        fredoka: ["Fredoka", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -67,11 +68,21 @@ export default {
           dark: "#1A1A2E",
           white: "#FFFFFF",
         },
+        // Gamified palette
+        quiz: {
+          purple: "#4c1d95",
+          teal:   "#0d9488",
+          pink:   "#db2777",
+          navy:   "#1e1b4b",
+          gold:   "#f59e0b",
+          orange: "#ea580c",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        game: "1.5rem",
       },
       keyframes: {
         "accordion-down": {
@@ -82,10 +93,19 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "border-beam": {
+          "100%": { "offset-distance": "100%" },
+        },
+        shimmer: {
+          "0%, 90%, 100%": { "background-position": "calc(-100% - var(--shimmer-width)) 0" },
+          "30%, 60%": { "background-position": "calc(100% + var(--shimmer-width)) 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "border-beam": "border-beam calc(var(--duration)*1s) infinite linear",
+        shimmer: "shimmer 8s infinite",
       },
     },
   },
