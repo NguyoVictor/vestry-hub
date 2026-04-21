@@ -4,16 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Pencil, Clock, Share2, LayoutList, FolderOpen, Users, Info,
   Search, ChevronDown, Globe, Plus, FileText, Sparkles,
   Play, Share, MoreVertical, Eye, BookmarkPlus, Copy, Archive,
-  UserPlus, Users2, Timer, ArrowRight, X,
+  UserPlus, Users2, Timer,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import AddResourceDropdown from "./AddResourceDropdown";
+import { SessionModeSelector } from "./SessionModeSelector";
 
 interface LibraryViewProps { onCreateAssessment: () => void; }
 interface Quiz {
@@ -64,80 +64,6 @@ function ActivityTypeDropdown() {
         </div>
       )}
     </div>
-  );
-}
-
-// ── Start Now Modal ────────────────────────────────────────────────────────────
-function StartNowModal({ quiz, onClose }: { quiz: Quiz | null; onClose: () => void }) {
-  if (!quiz) return null;
-  return (
-    <Dialog open={!!quiz} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-2xl">
-        <div className="px-6 pt-6 pb-4">
-          <div className="flex items-center justify-between mb-1">
-            <DialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
-              How would you like to host the session?
-            </DialogTitle>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 px-6 pb-6">
-          {/* Student Paced */}
-          <button
-            onClick={() => { toast.success("Student Paced session started!"); onClose(); }}
-            className="group flex flex-col rounded-xl border-2 border-slate-200 dark:border-slate-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all text-left"
-          >
-            <div className="h-36 bg-gradient-to-br from-purple-700 to-purple-900 flex items-center justify-center overflow-hidden">
-              <svg viewBox="0 0 120 100" className="h-28 w-28" fill="none">
-                <circle cx="60" cy="30" r="18" fill="#fff" opacity="0.9"/>
-                <rect x="30" y="52" width="60" height="40" rx="8" fill="#6D28D9" opacity="0.8"/>
-                <rect x="38" y="42" width="44" height="28" rx="4" fill="#fff" opacity="0.15"/>
-                <rect x="42" y="46" width="36" height="20" rx="3" fill="#A78BFA" opacity="0.6"/>
-                <circle cx="60" cy="30" r="10" fill="#DDD6FE"/>
-              </svg>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-base font-bold text-slate-800 dark:text-slate-100">Student paced</p>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-              </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">Students work at their own pace</p>
-            </div>
-          </button>
-
-          {/* Teacher Led */}
-          <button
-            onClick={() => { toast.success("Teacher Led session started!"); onClose(); }}
-            className="group flex flex-col rounded-xl border-2 border-slate-200 dark:border-slate-700 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all text-left"
-          >
-            <div className="h-36 bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center overflow-hidden">
-              <svg viewBox="0 0 120 100" className="h-28 w-28" fill="none">
-                <rect x="20" y="20" width="80" height="50" rx="6" fill="#fff" opacity="0.15"/>
-                <rect x="24" y="24" width="72" height="42" rx="4" fill="#BFDBFE" opacity="0.5"/>
-                <rect x="28" y="28" width="30" height="8" rx="2" fill="#3B82F6"/>
-                <rect x="28" y="40" width="20" height="6" rx="2" fill="#93C5FD"/>
-                <rect x="28" y="50" width="25" height="6" rx="2" fill="#93C5FD"/>
-                <circle cx="85" cy="72" r="12" fill="#F97316" opacity="0.9"/>
-                <circle cx="85" cy="68" r="6" fill="#fff" opacity="0.9"/>
-                <rect x="78" y="76" width="14" height="10" rx="4" fill="#fff" opacity="0.7"/>
-                <circle cx="50" cy="80" r="10" fill="#fff" opacity="0.8"/>
-                <circle cx="50" cy="76" r="5" fill="#BFDBFE"/>
-                <rect x="44" y="83" width="12" height="8" rx="3" fill="#BFDBFE" opacity="0.7"/>
-              </svg>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-base font-bold text-slate-800 dark:text-slate-100">Teacher led</p>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-              </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug">You lead the session, students answer on their devices</p>
-            </div>
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -453,8 +379,19 @@ export default function LibraryView({ onCreateAssessment }: LibraryViewProps) {
       </div>
     </div>
 
-    {/* Start Now Modal */}
-    <StartNowModal quiz={startNowQuiz} onClose={() => setStartNowQuiz(null)} />
+    {/* Session Mode Selector — fullscreen overlay, no redirect */}
+    {startNowQuiz && (
+      <div className="fixed inset-0 z-[100]">
+        <SessionModeSelector
+          quizTitle={startNowQuiz.title}
+          onBack={() => setStartNowQuiz(null)}
+          onSelect={(mode) => {
+            toast.success(`Starting "${startNowQuiz.title}" in ${mode} mode!`);
+            setStartNowQuiz(null);
+          }}
+        />
+      </div>
+    )}
     </>
   );
 }
