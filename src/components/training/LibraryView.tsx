@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Pencil, Clock, Share2, LayoutList, FolderOpen, Users, Info,
   Search, ChevronDown, Globe, Plus, FileText, Sparkles,
   Play, Share, MoreVertical, Eye, BookmarkPlus, Copy, Archive,
-  UserPlus, Users2, Timer,
+  UserPlus, Users2, Timer, ArrowRight, X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -119,8 +120,7 @@ function QuizRow({
           </button>
           {playPopover.open && (
             <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-[60] py-1.5">
-              <button onClick={() => { playPopover.setOpen(false); onStartNow(quiz); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                <Play className="h-4 w-4" />Start now
+              <button onClick={() => { playPopover.setOpen(false); onStartNow(quiz); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">                <Play className="h-4 w-4" />Start now
               </button>
               <button onClick={() => { playPopover.setOpen(false); toast.info("Assign — coming soon"); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                 <Timer className="h-4 w-4" />Assign
@@ -204,6 +204,9 @@ export default function LibraryView({ onCreateAssessment }: LibraryViewProps) {
   const [activitySearch, setActivitySearch] = useState("");
   const [selected, setSelected]     = useState<Set<string>>(new Set());
   const [sortAsc, setSortAsc]       = useState(false);
+  // Step 1: Play → Start Now → opens host modal
+  const [hostModalQuiz, setHostModalQuiz] = useState<Quiz | null>(null);
+  // Step 2: Host modal → Student Paced → opens session mode selector
   const [startNowQuiz, setStartNowQuiz] = useState<Quiz | null>(null);
 
   const MAX_QUIZZES = 20;
@@ -349,7 +352,7 @@ export default function LibraryView({ onCreateAssessment }: LibraryViewProps) {
                   selected={selected.has(quiz.id)}
                   onSelect={toggleSelect}
                   onArchive={handleArchive}
-                  onStartNow={q => setStartNowQuiz(q)}
+                  onStartNow={q => setHostModalQuiz(q)}
                 />
               ))}
             </div>
@@ -379,7 +382,86 @@ export default function LibraryView({ onCreateAssessment }: LibraryViewProps) {
       </div>
     </div>
 
-    {/* Session Mode Selector — fullscreen overlay, no redirect */}
+    {/* Step 2: "How would you like to host?" modal */}
+    <Dialog open={!!hostModalQuiz} onOpenChange={v => !v && setHostModalQuiz(null)}>
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-2xl">
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+          <DialogTitle className="text-xl font-bold text-slate-800">
+            How would you like to host the session?
+          </DialogTitle>
+          <button onClick={() => setHostModalQuiz(null)} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 px-6 pb-6">
+          {/* Student Paced */}
+          <button
+            onClick={() => {
+              const quiz = hostModalQuiz;
+              setHostModalQuiz(null);
+              setStartNowQuiz(quiz);
+            }}
+            className="group flex flex-col rounded-xl border-2 border-slate-200 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all text-left"
+          >
+            <div className="h-36 bg-gradient-to-br from-purple-700 to-purple-900 flex items-center justify-center overflow-hidden">
+              <svg viewBox="0 0 120 100" className="h-28 w-28" fill="none">
+                <circle cx="60" cy="30" r="18" fill="#fff" opacity="0.9"/>
+                <rect x="30" y="52" width="60" height="40" rx="8" fill="#6D28D9" opacity="0.8"/>
+                <rect x="38" y="42" width="44" height="28" rx="4" fill="#fff" opacity="0.15"/>
+                <rect x="42" y="46" width="36" height="20" rx="3" fill="#A78BFA" opacity="0.6"/>
+                <circle cx="60" cy="30" r="10" fill="#DDD6FE"/>
+                <circle cx="56" cy="28" r="2" fill="#7c3aed"/>
+                <circle cx="64" cy="28" r="2" fill="#7c3aed"/>
+                <path d="M56 33 Q60 36 64 33" stroke="#7c3aed" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                <path d="M48 22 Q48 14 60 14 Q72 14 72 22" fill="#6d28d9"/>
+                <rect x="47" y="21" width="26" height="4" rx="2" fill="#5b21b6"/>
+              </svg>
+            </div>
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-base font-bold text-slate-800">Student paced</p>
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+              </div>
+              <p className="text-sm text-slate-500 leading-snug">Students work at their own pace</p>
+            </div>
+          </button>
+
+          {/* Teacher Led */}
+          <button
+            onClick={() => {
+              setHostModalQuiz(null);
+              toast.info("Teacher Led mode — coming soon!");
+            }}
+            className="group flex flex-col rounded-xl border-2 border-slate-200 overflow-hidden hover:border-indigo-400 hover:shadow-lg transition-all text-left"
+          >
+            <div className="h-36 bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center overflow-hidden">
+              <svg viewBox="0 0 120 100" className="h-28 w-28" fill="none">
+                <rect x="20" y="15" width="80" height="55" rx="6" fill="#fff" opacity="0.15"/>
+                <rect x="24" y="19" width="72" height="47" rx="4" fill="#BFDBFE" opacity="0.5"/>
+                <rect x="30" y="25" width="35" height="10" rx="2" fill="#3B82F6"/>
+                <rect x="30" y="40" width="25" height="7" rx="2" fill="#93C5FD"/>
+                <rect x="30" y="52" width="30" height="7" rx="2" fill="#93C5FD"/>
+                <circle cx="88" cy="72" r="13" fill="#F97316" opacity="0.9"/>
+                <circle cx="88" cy="67" r="7" fill="#fff" opacity="0.9"/>
+                <rect x="80" y="77" width="16" height="12" rx="4" fill="#fff" opacity="0.7"/>
+                <circle cx="52" cy="80" r="11" fill="#fff" opacity="0.8"/>
+                <circle cx="52" cy="75" r="6" fill="#BFDBFE"/>
+                <rect x="45" y="84" width="14" height="9" rx="3" fill="#BFDBFE" opacity="0.7"/>
+              </svg>
+            </div>
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-base font-bold text-slate-800">Teacher led</p>
+                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+              </div>
+              <p className="text-sm text-slate-500 leading-snug">You lead the session, students answer on their devices</p>
+            </div>
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Step 3: Session Mode Selector — fullscreen overlay */}
     {startNowQuiz && (
       <div className="fixed inset-0 z-[100]">
         <SessionModeSelector
