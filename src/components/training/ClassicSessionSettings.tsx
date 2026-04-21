@@ -275,7 +275,7 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
   };
 
   return (
-    <div className="min-h-screen bg-[#5c1a4a] flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-[#5c1a4a] flex flex-col">
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-5 py-3 bg-[#4a1239] shrink-0">
         <div className="flex items-center gap-3">
@@ -317,8 +317,8 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
         </div>
       </div>
 
-      {/* ── Scrollable white card ── */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto mx-4 mb-4">
+      {/* ── White card — centered, max 680px ── */}
+      <div ref={scrollRef} className="w-full max-w-[680px] mx-auto px-0 mb-8">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
 
           {/* Assignment Details */}
@@ -364,8 +364,8 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
           {/* More Settings label + sticky tabs */}
           <div className="px-6 pt-5 pb-0">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">More settings</h3>
-            {/* Sticky tab bar */}
-            <div className="sticky top-0 bg-white z-10 flex items-center gap-0 border-b border-slate-200 -mx-6 px-6">
+            {/* Sticky tab bar — sticks to top of viewport on page scroll */}
+            <div className="sticky top-0 bg-white z-20 flex items-center gap-0 border-b border-slate-200 -mx-6 px-6">
               {(["general","mastery","anticheat","gamification"] as TabId[]).map(tab => {
                 const labels: Record<TabId, string> = { general: "General", mastery: "Mastery", anticheat: "Anti-cheating", gamification: "Gamification" };
                 const icons: Record<TabId, React.ElementType> = { general: Settings, mastery: Trophy, anticheat: Shield, gamification: Gamepad2 };
