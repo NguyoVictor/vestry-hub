@@ -6,7 +6,7 @@ import {
   Send, Megaphone, MessageCircle, Quote, BarChart2, Palette, Bot, Mic2,
   BookOpenText, Music, Image as ImageIcon, Package, PenLine, PlayCircle, Radio,
   TrendingUp, GraduationCap, Globe, ShoppingBag, BookCheck, BarChart3,
-  GitBranch, Settings, type LucideIcon,
+  GitBranch, Settings, Baby, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem { title: string; path: string; icon: LucideIcon; }
@@ -21,6 +21,7 @@ export const navigationGroups: NavGroup[] = [
     { title: "Groups", path: "/groups", icon: UsersRound },
     { title: "House Fellowships", path: "/house-fellowships", icon: Home },
     { title: "Families", path: "/families", icon: HeartHandshake },
+    { title: "Children's Ministry", path: "/childrens-ministry", icon: Baby },
     { title: "Visitors", path: "/visitors", icon: UserPlus },
     { title: "Follow-Up Tasks", path: "/follow-up-tasks", icon: ClipboardList },
     { title: "New Converts", path: "/new-converts", icon: Sparkles },

@@ -119,6 +119,7 @@ const Families = lazy(() => import("./pages/people/Families"));
 const Visitors = lazy(() => import("./pages/people/Visitors"));
 const FollowUpTasks = lazy(() => import("./pages/people/FollowUpTasks"));
 const NewConverts = lazy(() => import("./pages/people/NewConverts"));
+const ChildrensMinistry = lazy(() => import("./pages/people/ChildrensMinistry"));
 
 // Finance pages
 const GiveOnline = lazy(() => import("./pages/finance/GiveOnline"));
@@ -176,7 +177,7 @@ function PageViewTracker() {
   return null;
 }
 
-const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts"];
+const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts", "/childrens-ministry"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
 const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", "/board-meetings", "/facility-booking"];
 const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/communications/compose", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
@@ -221,6 +222,7 @@ const App = () => (
                 <Route path="/visitors" element={<Suspense fallback={<Fallback />}><Visitors /></Suspense>} />
                 <Route path="/follow-up-tasks" element={<Suspense fallback={<Fallback />}><FollowUpTasks /></Suspense>} />
                 <Route path="/new-converts" element={<Suspense fallback={<Fallback />}><NewConverts /></Suspense>} />
+                <Route path="/childrens-ministry" element={<Suspense fallback={<Fallback />}><ChildrensMinistry /></Suspense>} />
                 {/* Finance routes */}
                 <Route path="/give-online" element={<Suspense fallback={<Fallback />}><GiveOnline /></Suspense>} />
                 <Route path="/giving-records" element={<Suspense fallback={<Fallback />}><GivingRecords /></Suspense>} />

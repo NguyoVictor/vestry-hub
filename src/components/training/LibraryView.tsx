@@ -466,6 +466,7 @@ export default function LibraryView({ onCreateAssessment }: LibraryViewProps) {
       <div className="fixed inset-0 z-[100]">
         <SessionModeSelector
           quizTitle={startNowQuiz.title}
+          quiz={startNowQuiz}
           onBack={() => setStartNowQuiz(null)}
           onSelect={(mode) => {
             toast.success(`Starting "${startNowQuiz.title}" in ${mode} mode!`);

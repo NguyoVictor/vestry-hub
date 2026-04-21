@@ -2,9 +2,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ClassicSessionSettings } from "./ClassicSessionSettings";
 
 interface SessionModeSelectorProps {
   quizTitle?: string;
+  quiz?: { id: string; title: string; questions: any[]; num_questions?: number | null };
   onBack?: () => void;
   onSelect?: (mode: string) => void;
 }
@@ -343,10 +345,32 @@ function TeamModeCard({ onClick }: { onClick: () => void }) {
 }
 
 // ── Main SessionModeSelector ───────────────────────────────────────────────────
-export function SessionModeSelector({ quizTitle, onBack, onSelect }: SessionModeSelectorProps) {
+export function SessionModeSelector({ quizTitle, quiz, onBack, onSelect }: SessionModeSelectorProps) {
+  const [showClassic, setShowClassic] = useState(false);
+
   const handleSelect = (mode: string) => {
+    if (mode === "classic") { setShowClassic(true); return; }
     onSelect?.(mode);
   };
+
+  // Resolve the real quiz data — use passed quiz object, fall back to title only
+  const resolvedQuiz = {
+    id: quiz?.id ?? "quiz",
+    title: quiz?.title ?? quizTitle ?? "Quiz",
+    questions: Array.isArray(quiz?.questions) ? quiz.questions : [],
+    num_questions: quiz?.num_questions ?? null,
+  };
+
+  // Classic settings — inline, no redirect
+  if (showClassic) {
+    return (
+      <ClassicSessionSettings
+        quiz={resolvedQuiz}
+        onBack={() => setShowClassic(false)}
+        onStart={() => { onSelect?.("classic"); }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
