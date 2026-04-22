@@ -201,8 +201,8 @@ function CalendarViewPanel({ services }: { services: any[] }) {
 }
 
 // ─── Service Card ─────────────────────────────────────────────────────────────
-function ServiceCard({ service, rsvpCount, onEdit, onDelete, onStatusChange }: {
-  service: any; rsvpCount: number;
+function ServiceCard({ service, attendanceCount, onEdit, onDelete, onStatusChange }: {
+  service: any; attendanceCount: number;
   onEdit: () => void; onDelete: () => void;
   onStatusChange: (s: string) => void;
 }) {
@@ -241,7 +241,7 @@ function ServiceCard({ service, rsvpCount, onEdit, onDelete, onStatusChange }: {
           <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
             {service.start_time && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{String(service.start_time).slice(0,5)}</span>}
             {service.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{service.location}</span>}
-            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{rsvpCount} attending</span>
+            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{attendanceCount} attending</span>
           </div>
         </div>
       </div>
@@ -296,22 +296,23 @@ export default function ServicesPage() {
     staleTime: 300_000,
   });
 
-  // Attendance counts (service_rsvps or attendance_records)
+  // Attendance counts from service_attendance table
   const { data: attendanceCounts = {} } = useQuery({
     queryKey: ["service-attendance-counts", tenantId],
     queryFn: async () => {
       const { data } = await supabase
-        .from("attendance_records")
-        .select("session_id")
-        .eq("tenant_id", tenantId!);
+        .from(TABLES.SERVICE_ATTENDANCE)
+        .select("service_id")
+        .eq("tenant_id", tenantId!)
+        .eq("status", "attending");
       const counts: Record<string, number> = {};
       (data || []).forEach((r: any) => {
-        if (r.session_id) counts[r.session_id] = (counts[r.session_id] || 0) + 1;
+        if (r.service_id) counts[r.service_id] = (counts[r.service_id] || 0) + 1;
       });
       return counts;
     },
     enabled: !!tenantId,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["services", tenantId] });
@@ -479,7 +480,7 @@ export default function ServicesPage() {
             <ServiceCard
               key={s.id}
               service={s}
-              rsvpCount={(attendanceCounts as Record<string, number>)[s.id] || 0}
+              attendanceCount={(attendanceCounts as Record<string, number>)[s.id] || 0}
               onEdit={() => openEdit(s)}
               onDelete={() => setDeleteServiceId(s.id)}
               onStatusChange={status => updateStatusMutation.mutate({ id: s.id, status })}
