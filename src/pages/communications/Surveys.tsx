@@ -423,8 +423,8 @@ function SurveyCard({
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button size="sm" variant="outline" className="flex-1 min-w-0" onClick={onViewResponses}>
-            <BarChart className="h-3.5 w-3.5 mr-1.5" />View Responses
+          <Button size="sm" variant="outline" onClick={onViewResponses} className="gap-1.5">
+            <BarChart className="h-3.5 w-3.5" />View Responses
           </Button>
           <Button size="sm" variant="outline" onClick={copyShareLink} title="Copy share link">
             <Link className="h-3.5 w-3.5" />
