@@ -120,6 +120,13 @@ const Visitors = lazy(() => import("./pages/people/Visitors"));
 const FollowUpTasks = lazy(() => import("./pages/people/FollowUpTasks"));
 const NewConverts = lazy(() => import("./pages/people/NewConverts"));
 const ChildrensMinistry = lazy(() => import("./pages/people/ChildrensMinistry"));
+const CMOverview = lazy(() => import("./pages/people/childrens-ministry/CMOverview"));
+const CMCheckin = lazy(() => import("./pages/people/childrens-ministry/CMCheckin"));
+const CMClasses = lazy(() => import("./pages/people/childrens-ministry/CMClasses"));
+const CMChildren = lazy(() => import("./pages/people/childrens-ministry/CMChildren"));
+const CMReports = lazy(() => import("./pages/people/childrens-ministry/CMReports"));
+const CMSettings = lazy(() => import("./pages/people/childrens-ministry/CMSettings"));
+const CMKiosk = lazy(() => import("./pages/people/childrens-ministry/CMKiosk"));
 
 // Finance pages
 const GiveOnline = lazy(() => import("./pages/finance/GiveOnline"));
@@ -157,6 +164,9 @@ const MemberMessaging = lazy(() => import("./pages/communications/MemberMessagin
 const TestimoniesPage = lazy(() => import("./pages/communications/Testimonies"));
 const SurveysPage = lazy(() => import("./pages/communications/Surveys"));
 
+// Design System reference — dev only
+const DesignSystemPage = lazy(() => import("./pages/DesignSystem"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -176,6 +186,13 @@ function PageViewTracker() {
   useEffect(() => { capturePageView(location.pathname); }, [location.pathname]);
   return null;
 }
+
+// Training quiz game routes
+const QuizHostView = lazy(() => import("./pages/training/QuizHostView"));
+const QuizJoinPage = lazy(() => import("./pages/training/QuizJoinPage"));
+const QuizWaitingRoom = lazy(() => import("./pages/training/QuizWaitingRoom"));
+const QuizPlayView = lazy(() => import("./pages/training/QuizPlayView"));
+const QuizResultsView = lazy(() => import("./pages/training/QuizResultsView"));
 
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts", "/childrens-ministry"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
@@ -202,6 +219,11 @@ const App = () => (
             <Route path="/auth/canva/callback" element={<CanvaCallback />} />
             <Route path="/member-login" element={<Navigate to="/member/login" replace />} />
             <Route path="/onboarding" element={<Onboarding />} />
+            {/* Public quiz join routes — no auth required */}
+            <Route path="/join/:joinCode" element={<Suspense fallback={<Fallback />}><QuizJoinPage /></Suspense>} />
+            <Route path="/quiz/waiting/:sessionId/:participantId" element={<Suspense fallback={<Fallback />}><QuizWaitingRoom /></Suspense>} />
+            <Route path="/quiz/play/:sessionId/:participantId" element={<Suspense fallback={<Fallback />}><QuizPlayView /></Suspense>} />
+            <Route path="/quiz/results/:sessionId/:participantId" element={<Suspense fallback={<Fallback />}><QuizResultsView /></Suspense>} />
             <Route path="/church/:slug" element={<ChurchPublicPage />} />
             <Route path="/visitor-registration/:churchId" element={<Suspense fallback={<Fallback />}><VisitorRegistration /></Suspense>} />
             <Route path="/member-registration/:orgId" element={<Suspense fallback={<Fallback />}><MemberRegistration /></Suspense>} />
@@ -209,6 +231,10 @@ const App = () => (
             <Route path="/privacy-policy" element={<Suspense fallback={<Fallback />}><PrivacyPolicyPage /></Suspense>} />
             <Route path="/terms-of-service" element={<Suspense fallback={<Fallback />}><TermsOfServicePage /></Suspense>} />
             <Route path="/data-policy" element={<Suspense fallback={<Fallback />}><DataPolicyPage /></Suspense>} />
+            {/* Design System reference — dev only, not in production nav */}
+            {import.meta.env.DEV && (
+              <Route path="/design-system" element={<Suspense fallback={<Fallback />}><DesignSystemPage /></Suspense>} />
+            )}
             <Route element={<AuthGuard />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
@@ -222,8 +248,16 @@ const App = () => (
                 <Route path="/visitors" element={<Suspense fallback={<Fallback />}><Visitors /></Suspense>} />
                 <Route path="/follow-up-tasks" element={<Suspense fallback={<Fallback />}><FollowUpTasks /></Suspense>} />
                 <Route path="/new-converts" element={<Suspense fallback={<Fallback />}><NewConverts /></Suspense>} />
-                <Route path="/childrens-ministry" element={<Suspense fallback={<Fallback />}><ChildrensMinistry /></Suspense>} />
-                {/* Finance routes */}
+                <Route path="/childrens-ministry" element={<Suspense fallback={<Fallback />}><ChildrensMinistry /></Suspense>}>
+                  <Route index element={<Suspense fallback={<Fallback />}><CMOverview /></Suspense>} />
+                  <Route path="checkin" element={<Suspense fallback={<Fallback />}><CMCheckin /></Suspense>} />
+                  <Route path="classes" element={<Suspense fallback={<Fallback />}><CMClasses /></Suspense>} />
+                  <Route path="children" element={<Suspense fallback={<Fallback />}><CMChildren /></Suspense>} />
+                  <Route path="reports" element={<Suspense fallback={<Fallback />}><CMReports /></Suspense>} />
+                  <Route path="settings" element={<Suspense fallback={<Fallback />}><CMSettings /></Suspense>} />
+                </Route>
+                {/* Kiosk — full screen, outside AppLayout chrome */}
+                <Route path="/childrens-ministry/kiosk" element={<Suspense fallback={<Fallback />}><CMKiosk /></Suspense>} />                {/* Finance routes */}
                 <Route path="/give-online" element={<Suspense fallback={<Fallback />}><GiveOnline /></Suspense>} />
                 <Route path="/giving-records" element={<Suspense fallback={<Fallback />}><GivingRecords /></Suspense>} />
                 <Route path="/pledge-campaigns" element={<Suspense fallback={<Fallback />}><PledgeCampaigns /></Suspense>} />
@@ -258,6 +292,8 @@ const App = () => (
                 <Route path="/outreach/:activityId" element={<Suspense fallback={<Fallback />}><OutreachDetail /></Suspense>} />
                 <Route path="/resources-store" element={<Suspense fallback={<Fallback />}><ResourcesStore /></Suspense>} />
                 <Route path="/training" element={<Suspense fallback={<Fallback />}><Training /></Suspense>} />
+                <Route path="/training/host/:sessionId" element={<Suspense fallback={<Fallback />}><QuizHostView /></Suspense>} />
+                <Route path="/training/host/:sessionId/results" element={<Suspense fallback={<Fallback />}><QuizResultsView /></Suspense>} />
                 <Route path="/training/new" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
                 <Route path="/training/:courseId/edit" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
                 <Route path="/training/:courseId" element={<Suspense fallback={<Fallback />}><TrainingCourseDetail /></Suspense>} />
@@ -335,6 +371,10 @@ const App = () => (
                     <Route key={item.path} path={item.path} element={<PlaceholderPage />} />
                   ))}
               </Route>
+            </Route>
+            {/* Kiosk — full screen, inside AuthGuard but outside AppLayout sidebar */}
+            <Route element={<AuthGuard />}>
+              <Route path="/childrens-ministry/kiosk" element={<Suspense fallback={<Fallback />}><CMKiosk /></Suspense>} />
             </Route>
             <Route path="*" element={<NotFound />} />
             {/* Member Portal — standalone auth pages */}

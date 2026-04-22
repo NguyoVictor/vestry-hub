@@ -56,6 +56,10 @@ export const TABLES = {
   WHATSAPP_CREDITS: "whatsapp_credits",
   WHATSAPP_CREDIT_TRANSACTIONS: "whatsapp_credit_transactions",
   QUIZZES: "quizzes",
+  QUIZ_SESSIONS: "quiz_sessions",
+  QUIZ_PARTICIPANTS: "quiz_participants",
+  QUIZ_ANSWERS: "quiz_answers",
+  QUIZ_EVENTS: "quiz_events",
   EXPENSES: "expenses",                   // spec said "church_expenses"
   BUDGETS: "budgets",
   BUDGET_CATEGORIES: "budget_categories", // spec said "budget_lines"
@@ -176,6 +180,13 @@ export const TABLES = {
   // Canva integration
   CANVA_TOKENS: "canva_tokens",
   CANVA_OAUTH_STATE: "canva_oauth_state",
+
+  // Children's Ministry
+  CHILDREN: "children",
+  CHILDREN_CLASSES: "children_classes",
+  CHILDREN_CHECKINS: "children_checkins",
+  CHILDREN_QR_CODES: "children_qr_codes",
+  CHILDREN_MINISTRY_SETTINGS: "children_ministry_settings",
 } as const;
 
 // ─── Column Names ─────────────────────────────────────────────────────────────

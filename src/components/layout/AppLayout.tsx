@@ -82,20 +82,22 @@ export const AppLayout = () => {
   const userInitials = `${church.userFirstName?.[0] || ""}${church.userLastName?.[0] || ""}`;
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="flex h-full flex-col">
-      <div className={cn("flex items-center gap-3 border-b border-border p-4", !mobile && collapsed && "justify-center")}>
+    <div className="flex h-full flex-col font-jakarta">
+      {/* Church logo / name */}
+      <div className={cn("flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 p-4", !mobile && collapsed && "justify-center")}>
         {church.logoUrl ? (
           <img src={church.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
         ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
             {initials}
           </div>
         )}
         {(mobile || !collapsed) && (
-          <span className="truncate text-sm font-semibold text-foreground">{church.name}</span>
+          <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{church.name}</span>
         )}
       </div>
 
+      {/* Nav items */}
       <div
           ref={mobile ? undefined : sidebarScrollRef}
           onScroll={mobile ? undefined : handleSidebarScroll}
@@ -105,7 +107,7 @@ export const AppLayout = () => {
           <div key={group.label} className="mb-1">
             {(mobile || !collapsed) && (
               <div className="px-4 py-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                   {group.label}
                 </span>
               </div>
@@ -117,10 +119,10 @@ export const AppLayout = () => {
                 onClick={() => mobile && setMobileOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    "mx-2 flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    "mx-2 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                     isActive
-                      ? "border-l-2 border-primary bg-primary/10 font-medium text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400"
+                      : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100",
                     !mobile && collapsed && "justify-center px-2"
                   )
                 }
@@ -133,27 +135,28 @@ export const AppLayout = () => {
         ))}
       </div>
 
-      <div className="border-t border-border p-3">
+      {/* User footer */}
+      <div className="border-t border-slate-200 dark:border-slate-700 p-3">
         {!mobile && (
-          <Button variant="ghost" size="sm" className="mb-2 w-full justify-center" onClick={toggleCollapsed}>
+          <Button variant="ghost" size="sm" className="mb-2 w-full justify-center text-slate-400 hover:text-slate-600" onClick={toggleCollapsed}>
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         )}
         <div className={cn("flex items-center gap-3", !mobile && collapsed && "justify-center")}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-600 dark:bg-orange-950/40 dark:text-orange-400">
             {userInitials}
           </div>
           {(mobile || !collapsed) && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">{church.userName}</p>
-              <p className="truncate text-xs text-muted-foreground">{church.userEmail}</p>
+              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{church.userName}</p>
+              <p className="truncate text-xs text-slate-400">{church.userEmail}</p>
             </div>
           )}
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className={cn("mt-2 w-full text-muted-foreground hover:text-destructive", !mobile && collapsed ? "justify-center" : "justify-start")}
+          className={cn("mt-2 w-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30", !mobile && collapsed ? "justify-center" : "justify-start")}
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" />
@@ -166,7 +169,7 @@ export const AppLayout = () => {
   return (
     <div className="min-h-screen bg-background">
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-40 hidden border-r border-border bg-card transition-all duration-300 lg:flex lg:flex-col",
+        "fixed inset-y-0 left-0 z-40 hidden border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-all duration-300 lg:flex lg:flex-col",
         collapsed ? "w-16" : "w-60"
       )}>
         <SidebarContent />
@@ -198,7 +201,7 @@ export const AppLayout = () => {
           </div>
         )}
         <TopNavbar onMenuClick={() => setMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950 font-jakarta">
           <Outlet />
         </main>
       </div>

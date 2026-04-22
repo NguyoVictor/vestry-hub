@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,53 +54,7 @@ function getActivityMeta(actionType: string) {
   return ACTIVITY_META[actionType] ?? { icon: Activity, color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-800" };
 }
 
-const COLOR_MAP: Record<string, { bg: string; text: string }> = {
-  indigo: { bg: "bg-indigo-100 dark:bg-indigo-950", text: "text-indigo-600" },
-  emerald: { bg: "bg-emerald-100 dark:bg-emerald-950", text: "text-emerald-600" },
-  violet: { bg: "bg-violet-100 dark:bg-violet-950", text: "text-violet-600" },
-  amber: { bg: "bg-amber-100 dark:bg-amber-950", text: "text-amber-600" },
-};
-
-const StatCard = ({ title, value, icon: Icon, color, loading, trend }: {
-  title: string; value: string | number; icon: LucideIcon; color: string; loading: boolean; trend?: number;
-}) => {
-  const colors = COLOR_MAP[color] || COLOR_MAP.indigo;
-  return (
-    <Card>
-      <CardContent className="p-5">
-        {loading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-4 w-24" />
-          </div>
-        ) : (
-          <>
-            <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg ${colors.bg}`}>
-              <Icon className={`h-5 w-5 ${colors.text}`} />
-            </div>
-            <p className="text-3xl font-bold text-foreground">{value}</p>
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{title}</span>
-              {trend !== undefined && (
-                <span className={`inline-flex items-center text-xs font-medium ${
-                  trend > 0 ? "text-emerald-600" : trend < 0 ? "text-red-500" : "text-muted-foreground"
-                }`}>
-                  {trend > 0 ? <ArrowUpRight className="mr-0.5 h-3 w-3" /> :
-                   trend < 0 ? <ArrowDownRight className="mr-0.5 h-3 w-3" /> :
-                   <Minus className="mr-0.5 h-3 w-3" />}
-                  {Math.abs(trend)}%
-                </span>
-              )}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-const CHART_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b"];
+const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6", "#64748b"];
 
 const Dashboard = () => {
   const church = useChurch();
@@ -192,18 +148,38 @@ const Dashboard = () => {
   return (
     <>
       <Helmet><title>Dashboard — Vestry</title></Helmet>
-      <PageHeader title="Dashboard" subtitle={`Welcome back! Here's what's happening at ${church.name}`} />
+      <PageTransition>
+        <PageHeader title="Dashboard" subtitle={`Welcome back! Here's what's happening at ${church.name}`} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Members" value={memberCount ?? 0} icon={Users} color="indigo" loading={membersLoading} />
-        <StatCard title="Giving This Month" value={formatCurrencyFull(givingTotal ?? 0, church.currency)} icon={TrendingUp} color="emerald" loading={givingLoading} />
-        <StatCard title="Upcoming Events" value={eventsCount ?? 0} icon={CalendarDays} color="violet" loading={eventsLoading} />
-        <StatCard title="Active Groups" value={groupCount ?? 0} icon={UsersRound} color="amber" loading={groupsLoading} />
-      </div>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {statsLoading ? (
+            <>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <Skeleton className="h-10 w-10 rounded-xl" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-20" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <StatCard icon={Users}      label="Total Members"      value={memberCount}  color="orange"  />
+              <StatCard icon={TrendingUp} label="Giving This Month"  value={formatCurrencyFull(givingTotal, church.currency)} color="emerald" animate={false} />
+              <StatCard icon={CalendarDays} label="Upcoming Events"  value={eventsCount}  color="blue"    />
+              <StatCard icon={UsersRound} label="Active Groups"      value={groupCount}   color="purple"  />
+            </>
+          )}
+        </div>
 
-      {/* Charts Row */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Charts Row */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-semibold">Giving Overview</CardTitle>
@@ -222,8 +198,8 @@ const Dashboard = () => {
                 <AreaChart data={givingTrend}>
                   <defs>
                     <linearGradient id="givingGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -232,7 +208,7 @@ const Dashboard = () => {
                     tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} />
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
                     formatter={(value: number) => [formatCurrencyFull(value, church.currency), "Total"]} />
-                  <Area type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={2} fill="url(#givingGrad)" />
+                  <Area type="monotone" dataKey="total" stroke="#f97316" strokeWidth={2} fill="url(#givingGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -306,8 +282,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Bottom Row */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Bottom Row */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base font-semibold">Upcoming Events</CardTitle>
@@ -399,52 +375,53 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Donations */}
-      <Card className="mt-6">
-        <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold">Recent Donations</CardTitle>
-          <Button variant="ghost" size="sm" className="text-xs" asChild><Link to="/giving-records">View All</Link></Button>
-        </CardHeader>
-        <CardContent>
-          {donationsLoading ? (
-            <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-          ) : recentDonations?.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead className="hidden sm:table-cell">Method</TableHead>
-                  <TableHead className="hidden md:table-cell">Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentDonations.map(d => (
-                  <TableRow key={d.id} className="hover:bg-muted/50">
-                    <TableCell>
-                      <Badge variant="secondary" className="capitalize">{d.giving_type?.replace(/_/g, " ")}</Badge>
-                    </TableCell>
-                    <TableCell className="font-semibold text-emerald-600">
-                      {formatCurrencyFull(Number(d.amount), d.currency || church.currency)}
-                    </TableCell>
-                    <TableCell className="hidden capitalize sm:table-cell text-muted-foreground">
-                      {d.payment_method?.replace(/_/g, " ")}
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {format(new Date(d.given_at), "d MMM yyyy")}
-                    </TableCell>
+        <Card className="mt-6">
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-semibold">Recent Donations</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs" asChild><Link to="/giving-records">View All</Link></Button>
+          </CardHeader>
+          <CardContent>
+            {donationsLoading ? (
+              <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : recentDonations?.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead className="hidden sm:table-cell">Method</TableHead>
+                    <TableHead className="hidden md:table-cell">Date</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="flex flex-col items-center py-8 text-center">
-              <CreditCard className="mb-2 h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">No donations recorded yet</p>
-              <Button variant="secondary" size="sm" className="mt-3" asChild><Link to="/give-online">Record Giving</Link></Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {recentDonations.map(d => (
+                    <TableRow key={d.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">{d.giving_type?.replace(/_/g, " ")}</Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold text-emerald-600">
+                        {formatCurrencyFull(Number(d.amount), d.currency || church.currency)}
+                      </TableCell>
+                      <TableCell className="hidden capitalize sm:table-cell text-muted-foreground">
+                        {d.payment_method?.replace(/_/g, " ")}
+                      </TableCell>
+                      <TableCell className="hidden text-muted-foreground md:table-cell">
+                        {format(new Date(d.given_at), "d MMM yyyy")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex flex-col items-center py-8 text-center">
+                <CreditCard className="mb-2 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">No donations recorded yet</p>
+                <Button variant="secondary" size="sm" className="mt-3" asChild><Link to="/give-online">Record Giving</Link></Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </PageTransition>
     </>
   );
 };

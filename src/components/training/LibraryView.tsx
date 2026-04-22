@@ -15,6 +15,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import AddResourceDropdown from "./AddResourceDropdown";
 import { SessionModeSelector } from "./SessionModeSelector";
+import { useNavigate } from "react-router-dom";
 
 interface LibraryViewProps { onCreateAssessment: () => void; }
 interface Quiz {
@@ -197,6 +198,7 @@ function CreationTile({ tile, onClick }: { tile: typeof CREATION_TILES[0]; onCli
 // ── Main LibraryView ───────────────────────────────────────────────────────────
 export default function LibraryView({ onCreateAssessment }: LibraryViewProps) {
   const { tenantId, userId } = useChurch();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [activeNav, setActiveNav]   = useState("Created");
   const [activeTab, setActiveTab]   = useState("created");
@@ -468,9 +470,14 @@ export default function LibraryView({ onCreateAssessment }: LibraryViewProps) {
           quizTitle={startNowQuiz.title}
           quiz={startNowQuiz}
           onBack={() => setStartNowQuiz(null)}
-          onSelect={(mode) => {
-            toast.success(`Starting "${startNowQuiz.title}" in ${mode} mode!`);
-            setStartNowQuiz(null);
+          onSelect={(mode, sessionId) => {
+            if (sessionId) {
+              setStartNowQuiz(null);
+              navigate(`/training/host/${sessionId}`);
+            } else {
+              toast.success(`Starting "${startNowQuiz.title}" in ${mode} mode!`);
+              setStartNowQuiz(null);
+            }
           }}
         />
       </div>

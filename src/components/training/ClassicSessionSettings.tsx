@@ -10,11 +10,12 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { generateJoinCode } from "@/lib/quiz-game";
 
 interface ClassicSessionSettingsProps {
   quiz: { id: string; title: string; questions: any[]; num_questions?: number | null };
   onBack: () => void;
-  onStart: (settings: SessionSettings) => void;
+  onStart: (sessionId: string) => void;
 }
 
 interface SessionSettings {
@@ -217,7 +218,7 @@ function ImportClassModal({ open, onClose, onImport, tenantId }: {
 
 // ── Main ClassicSessionSettings ───────────────────────────────────────────────
 export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSessionSettingsProps) {
-  const { tenantId } = useChurch();
+  const { tenantId, userId } = useChurch();
   const [activeTab, setActiveTab] = useState<TabId>("general");
   const [importOpen, setImportOpen] = useState(false);
   const [assignedClass, setAssignedClass] = useState<string | null>(null);
@@ -257,6 +258,42 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
     ? quiz.questions.length
     : ((quiz as any).num_questions ?? 0);
 
+  const [starting, setStarting] = useState(false);
+
+  const handleStart = async () => {
+    setStarting(true);
+    try {
+      // Generate unique join code
+      let joinCode = generateJoinCode();
+      // Ensure uniqueness
+      const { data: existing } = await supabase.from(TABLES.QUIZ_SESSIONS).select("id").eq("join_code", joinCode).eq("status", "waiting").maybeSingle();
+      if (existing) joinCode = generateJoinCode();
+
+      const baseUrl = import.meta.env.VITE_BASE_URL ?? window.location.origin;
+      const joinUrl = `${baseUrl}/join/${joinCode}`;
+
+      const { data: session, error } = await supabase.from(TABLES.QUIZ_SESSIONS).insert({
+        quiz_id: quiz.id,
+        join_code: joinCode,
+        join_url: joinUrl,
+        status: "waiting",
+        host_user_id: userId,
+        tenant_id: tenantId,
+        settings: settings as any,
+        theme: "classic",
+        confetti_enabled: true,
+        music_enabled: true,
+      } as any).select("id").single();
+
+      if (error) throw error;
+      onStart(session.id);
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to start session.");
+    } finally {
+      setStarting(false);
+    }
+  };
+
   // Scroll to section when tab clicked
   const scrollToSection = (tab: TabId) => {
     setActiveTab(tab);
@@ -275,7 +312,7 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
   };
 
   return (
-    <div className="min-h-screen bg-[#5c1a4a] flex flex-col">
+    <div ref={scrollRef} className="h-full bg-[#5c1a4a] flex flex-col overflow-y-auto">
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-5 py-3 bg-[#4a1239] shrink-0">
         <div className="flex items-center gap-3">
@@ -295,7 +332,7 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
           </div>
         </div>
         <button
-          onClick={() => onStart(settings)}
+          onClick={handleStart} disabled={starting}
           className="flex items-center gap-2 px-5 py-2 rounded-lg bg-white text-slate-800 text-sm font-bold hover:bg-slate-100 transition-colors shadow-md"
         >
           <Play className="h-4 w-4 fill-slate-800" />Start
@@ -318,7 +355,7 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
       </div>
 
       {/* ── White card — centered, max 680px ── */}
-      <div ref={scrollRef} className="w-full max-w-[680px] mx-auto px-0 mb-8">
+      <div className="w-full max-w-[680px] mx-auto px-0 mb-8">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
 
           {/* Assignment Details */}
@@ -350,11 +387,11 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
             <div className="flex items-center justify-between py-3.5 border-b border-slate-100">
               <span className="text-sm font-medium text-slate-800">Question timer</span>
               <Select value={settings.questionTimer} onValueChange={v => set({ questionTimer: v })}>
-                <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-64 h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["off","5","10","15","20","30","45","60"].map(v => (
-                    <SelectItem key={v} value={v}>{v === "off" ? "Off" : `${v} seconds`}</SelectItem>
-                  ))}
+                  <SelectItem value="off">Off</SelectItem>
+                  <SelectItem value="allow">On - Allow answering after the time ends</SelectItem>
+                  <SelectItem value="lock">On - Lock answering after the time ends</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -391,11 +428,11 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
                 <div className="flex items-center justify-between py-3.5 border-b border-slate-100">
                   <span className="text-sm font-medium text-slate-800">Question timer</span>
                   <Select value={settings.questionTimer} onValueChange={v => set({ questionTimer: v })}>
-                    <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-64 h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["off","5","10","15","20","30"].map(v => (
-                        <SelectItem key={v} value={v}>{v === "off" ? "Off" : `${v}s`}</SelectItem>
-                      ))}
+                      <SelectItem value="off">Off</SelectItem>
+                      <SelectItem value="allow">On - Allow answering after the time ends</SelectItem>
+                      <SelectItem value="lock">On - Lock answering after the time ends</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -421,12 +458,12 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
                     <p className="text-xs text-slate-400 mt-0.5">Students get a fresh set from your question bank on every retry.</p>
                   </div>
                   <Select value={settings.rotatingQuestionSet} onValueChange={v => set({ rotatingQuestionSet: v })}>
-                    <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-52 h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="off">Off</SelectItem>
-                      <SelectItem value="5">5 questions</SelectItem>
-                      <SelectItem value="10">10 questions</SelectItem>
-                      <SelectItem value="all">All questions</SelectItem>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                        <SelectItem key={n} value={String(n)}>{n} question{n !== 1 ? "s" : ""} per set</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -494,7 +531,7 @@ export function ClassicSessionSettings({ quiz, onBack, onStart }: ClassicSession
 
             {/* Start button */}
             <button
-              onClick={() => onStart(settings)}
+              onClick={handleStart} disabled={starting}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm transition-colors shadow-md"
             >
               <Play className="h-4 w-4 fill-white" />Start

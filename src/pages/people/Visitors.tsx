@@ -880,7 +880,26 @@ const Visitors = () => {
   const [editingVisitor, setEditingVisitor] = useState<Visitor | null>(null);
   const [deleteVisitorId, setDeleteVisitorId] = useState<string | null>(null);
 
-  const registrationUrl = `${import.meta.env.VITE_BASE_URL || window.location.origin}/visitor-registration/${tenantId}`;
+  // Fetch church_code for QR — same code used by members and visitors
+  const { data: tenantCode } = useQuery({
+    queryKey: ["tenant-church-code", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.TENANTS)
+        .select("church_code")
+        .eq("id", tenantId!)
+        .single();
+      return data?.church_code as string | null;
+    },
+    enabled: !!tenantId,
+    staleTime: 60_000,
+  });
+
+  const BASE_URL = import.meta.env.VITE_BASE_URL || window.location.origin;
+  // Visitor QR links to /member/join with type=visitor pre-selected
+  const registrationUrl = tenantCode
+    ? `${BASE_URL}/member/join?code=${tenantCode}&type=visitor`
+    : `${BASE_URL}/member/join`;
 
   // ── Data ──────────────────────────────────────────────────────────────────
 

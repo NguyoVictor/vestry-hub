@@ -53,11 +53,16 @@ export default function JoinChurch() {
 
   useEffect(() => {
     const code = searchParams.get("code");
+    const typeParam = searchParams.get("type") as "member" | "visitor" | null;
     if (code) {
       const upper = code.toUpperCase();
       setChurchCode(upper);
       setArrivedViaQR(true);
       lookupChurch(upper);
+    }
+    // Pre-select member type if passed via URL (from QR code)
+    if (typeParam === "member" || typeParam === "visitor") {
+      setMemberType(typeParam);
     }
   }, []);
 

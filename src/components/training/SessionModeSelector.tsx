@@ -8,7 +8,7 @@ interface SessionModeSelectorProps {
   quizTitle?: string;
   quiz?: { id: string; title: string; questions: any[]; num_questions?: number | null };
   onBack?: () => void;
-  onSelect?: (mode: string) => void;
+  onSelect?: (mode: string, sessionId?: string) => void;
 }
 
 // ── Classic card illustration ──────────────────────────────────────────────────
@@ -367,7 +367,7 @@ export function SessionModeSelector({ quizTitle, quiz, onBack, onSelect }: Sessi
       <ClassicSessionSettings
         quiz={resolvedQuiz}
         onBack={() => setShowClassic(false)}
-        onStart={() => { onSelect?.("classic"); }}
+        onStart={(sessionId) => { onSelect?.("classic", sessionId); }}
       />
     );
   }

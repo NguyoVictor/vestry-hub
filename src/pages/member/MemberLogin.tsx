@@ -61,6 +61,7 @@ export default function MemberLoginPage() {
         const err = fnData?.error || "unknown";
         if (err === "invalid_code") toast.error("Invalid church code. Please check the code with your church admin.");
         else if (err === "member_not_found") toast.error("No member found with this email for this church. Did you register yet?");
+        else if (err === "pending_approval") toast.error("Your membership is pending approval. Please wait for your church admin to approve your account.", { duration: 6000 });
         else toast.error("Sign in failed. Please check your details.");
         setLoading(false);
         return;

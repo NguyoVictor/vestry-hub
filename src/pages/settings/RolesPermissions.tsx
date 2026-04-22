@@ -204,30 +204,28 @@ function ComingSoonTab({ label }: { label: string }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 const RolesPermissions = () => {
-  const { tenantId, userRole } = useChurch();
+  const { tenantId, userRole, name: churchName } = useChurch();
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Fetch tenant invite code
+  // Fetch tenant church_code — this is the single access code for members AND visitors
   const { data: tenant } = useQuery({
     queryKey: ["tenant-invite", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.TENANTS)
-        .select("id, invite_code, invite_code_uses")
+        .select("id, church_code, invite_code_uses")
         .eq(COLS.ID, tenantId)
         .single();
       if (error) throw error;
-      // Auto-generate if none exists
-      if (!data.invite_code) {
-        const code = randomCode();
-        await supabase
-          .from(TABLES.TENANTS)
-          .update({ invite_code: code } as never)
-          .eq(COLS.ID, tenantId);
-        return { ...data, invite_code: code, invite_code_uses: 0 };
+      // Auto-generate via edge function if none exists yet
+      if (!data.church_code) {
+        const { data: fnData } = await supabase.functions.invoke("generate-church-code", {
+          body: { tenantId, churchName },
+        });
+        return { ...data, church_code: fnData?.code ?? randomCode(), invite_code_uses: 0 };
       }
-      return data as { id: string; invite_code: string; invite_code_uses: number };
+      return data as { id: string; church_code: string; invite_code_uses: number };
     },
     enabled: !!tenantId,
     staleTime: 60_000,
@@ -235,23 +233,24 @@ const RolesPermissions = () => {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const code = randomCode();
-      const { error } = await supabase
-        .from(TABLES.TENANTS)
-        .update({ invite_code: code, invite_code_uses: 0 } as never)
-        .eq(COLS.ID, tenantId);
-      if (error) throw error;
+      // Edge function handles: personalized prefix + uniqueness check + DB update
+      const { data, error } = await supabase.functions.invoke("generate-church-code", {
+        body: { tenantId, churchName },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Failed to generate code");
+      return data.code as string;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tenant-invite", tenantId] });
-      toast.success("New invite code generated!");
+      qc.invalidateQueries({ queryKey: ["tenant-church-code", tenantId] });
+      toast.success("New access code generated!");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const handleCopy = () => {
-    if (!tenant?.invite_code) return;
-    navigator.clipboard.writeText(tenant.invite_code);
+    if (!tenant?.church_code) return;
+    navigator.clipboard.writeText(tenant.church_code);
     toast.success("Code copied!");
   };
 
@@ -284,7 +283,7 @@ const RolesPermissions = () => {
           <div className="flex items-center gap-2">
             <Input
               readOnly
-              value={tenant?.invite_code ?? "Loading..."}
+              value={tenant?.church_code ?? "Loading..."}
               className="font-mono text-base tracking-widest text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 max-w-xs"
             />
             <button
@@ -300,7 +299,6 @@ const RolesPermissions = () => {
           <p className="text-xs text-slate-500">
             This code has been used <span className="font-semibold text-slate-700 dark:text-slate-300">{tenant?.invite_code_uses ?? 0}</span> time(s).
           </p>
-
           {/* Generate button */}
           <Button
             className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
@@ -318,7 +316,9 @@ const RolesPermissions = () => {
             <ol className="space-y-1 text-xs text-slate-500 list-decimal list-inside">
               <li>Share this code with people who want to join your church</li>
               <li>They register an account and enter the code during onboarding</li>
-              <li>They'll be added as a member (you can change their role later)</li>
+              <li>Members are added as <strong>Pending Approval</strong> — approve them to grant portal access</li>
+              <li>Visitors are logged to the Visitors page for follow-up</li>
+              <li>Generating a new code invalidates the previous one</li>
             </ol>
           </div>
         </div>

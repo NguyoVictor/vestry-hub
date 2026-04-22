@@ -1,21 +1,48 @@
 import type { ReactNode } from "react";
-import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
+  /** Right-side action buttons */
+  actions?: ReactNode;
+  /** @deprecated Use `actions` instead */
   action?: ReactNode;
+  className?: string;
 }
 
-export const PageHeader = ({ title, subtitle, action }: PageHeaderProps) => (
-  <div className="mb-6">
-    <div className="flex items-center justify-between">
+/**
+ * Consistent page header used at the top of every page.
+ * Renders title + optional subtitle on the left, action buttons on the right.
+ *
+ * @example
+ * <PageHeader
+ *   title="Members"
+ *   subtitle="Manage your church members and their information"
+ *   actions={
+ *     <>
+ *       <Button variant="outline" size="sm">Export</Button>
+ *       <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+ *         <UserPlus className="h-4 w-4 mr-1.5" />Add Member
+ *       </Button>
+ *     </>
+ *   }
+ * />
+ */
+export function PageHeader({ title, subtitle, actions, action, className }: PageHeaderProps) {
+  const rightSlot = actions ?? action;
+
+  return (
+    <div className={cn("flex items-start justify-between gap-4 mb-6 font-jakarta", className)}>
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+        {subtitle && (
+          <p className="text-sm text-slate-500 mt-0.5 leading-relaxed">{subtitle}</p>
+        )}
       </div>
-      {action && <div>{action}</div>}
+      {rightSlot && (
+        <div className="flex items-center gap-2 shrink-0">{rightSlot}</div>
+      )}
     </div>
-    <Separator className="mt-4" />
-  </div>
-);
+  );
+}

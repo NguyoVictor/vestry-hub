@@ -28,11 +28,11 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Look up tenant by church_code
+    // Look up tenant by church_code OR invite_code (both are the same access code)
     const { data: tenant } = await supabase
       .from("tenants")
       .select("id, name, logo, church_code, slug")
-      .eq("church_code", churchCode.trim().toUpperCase())
+      .or(`church_code.eq.${churchCode.trim().toUpperCase()},invite_code.eq.${churchCode.trim().toUpperCase()}`)
       .single();
 
     if (!tenant) {

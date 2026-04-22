@@ -23,11 +23,11 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Look up tenant by church_code
+    // 1. Look up tenant by church_code OR invite_code (both are the same access code)
     const { data: tenant } = await supabase
       .from("tenants")
       .select("id, name, logo, church_code, slug")
-      .eq("church_code", churchCode.trim().toUpperCase())
+      .or(`church_code.eq.${churchCode.trim().toUpperCase()},invite_code.eq.${churchCode.trim().toUpperCase()}`)
       .single();
 
     if (!tenant) {
@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
     // 2. Look up member by email + tenant_id
     const { data: member } = await supabase
       .from("members")
-      .select("id, first_name, last_name, email, phone, avatar_url, status, member_type, created_at")
+      .select("id, first_name, last_name, email, phone, avatar_url, status, member_type, membership_status, created_at")
       .eq("tenant_id", tenant.id)
       .eq("email", email.trim().toLowerCase())
       .neq("status", "inactive")
@@ -48,6 +48,13 @@ Deno.serve(async (req: Request) => {
     if (!member) {
       return new Response(JSON.stringify({ error: "member_not_found" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Block pending approval members — they must wait for admin approval
+    if (member.membership_status === "Pending Approval") {
+      return new Response(JSON.stringify({ error: "pending_approval" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
