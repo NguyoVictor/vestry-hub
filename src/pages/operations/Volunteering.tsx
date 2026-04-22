@@ -166,13 +166,12 @@ function LogHoursDialog({ open, onClose, volunteer, onSave, isPending }: {
 }
 
 // ─── Roles Tab ────────────────────────────────────────────────────────────────
-function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient }: any) {
+function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, onViewVolunteers, onAssign }: any) {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [editRole, setEditRole] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [assignRoleId, setAssignRoleId] = useState<string | null>(null);
 
   const departments = useMemo(() => {
     const depts = [...new Set((roles || []).map((r: any) => r.department).filter(Boolean))];
@@ -334,9 +333,12 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient }: 
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs">View Volunteers</Button>
+                    <Button size="sm" variant="outline" className="flex-1 text-xs"
+                      onClick={() => onViewVolunteers(role.id)}>
+                      View Volunteers
+                    </Button>
                     <Button size="sm" className="flex-1 text-xs bg-orange-500 hover:bg-orange-600 text-white"
-                      onClick={() => setAssignRoleId(role.id)}>
+                      onClick={() => onAssign(role.id)}>
                       Assign
                     </Button>
                   </div>
@@ -373,9 +375,9 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient }: 
 }
 
 // ─── Volunteers Tab ───────────────────────────────────────────────────────────
-function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClient, userId }: any) {
+function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClient, userId, initialRoleFilter }: any) {
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState(initialRoleFilter || "all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [logHoursFor, setLogHoursFor] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -738,6 +740,7 @@ export default function VolunteeringPage() {
   const [activeTab, setActiveTab] = useState<"roles" | "volunteers" | "reports">("roles");
   const [assignSheetOpen, setAssignSheetOpen] = useState(false);
   const [createRoleOpen, setCreateRoleOpen] = useState(false);
+  const [volunteerRoleFilter, setVolunteerRoleFilter] = useState("all");
   const [assignForm, setAssignForm] = useState({
     member_id: "", role_id: "", reference_type: "service", reference_id: "", notes: "", start_date: "",
   });
@@ -817,6 +820,16 @@ export default function VolunteeringPage() {
     onError: () => toast.error("Failed to create role"),
   });
 
+  const handleViewVolunteers = (roleId: string) => {
+    setVolunteerRoleFilter(roleId);
+    setActiveTab("volunteers");
+  };
+
+  const handleAssignFromRole = (roleId: string) => {
+    setAssignForm(p => ({ ...p, role_id: roleId }));
+    setAssignSheetOpen(true);
+  };
+
   const tabs = [
     { key: "roles", label: "Roles" },
     { key: "volunteers", label: "Volunteers" },
@@ -883,11 +896,14 @@ export default function VolunteeringPage() {
         <>
           {activeTab === "roles" && (
             <RolesTab roles={roles} assignments={assignments} memberRecords={memberRecords}
-              tenantId={tenantId} queryClient={queryClient} />
+              tenantId={tenantId} queryClient={queryClient}
+              onViewVolunteers={handleViewVolunteers}
+              onAssign={handleAssignFromRole} />
           )}
           {activeTab === "volunteers" && (
             <VolunteersTab roles={roles} assignments={assignments} memberRecords={memberRecords}
-              tenantId={tenantId} queryClient={queryClient} userId={userId} />
+              tenantId={tenantId} queryClient={queryClient} userId={userId}
+              initialRoleFilter={volunteerRoleFilter} />
           )}
           {activeTab === "reports" && (
             <ReportsTab roles={roles} assignments={assignments} memberRecords={memberRecords} />
