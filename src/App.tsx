@@ -55,6 +55,7 @@ const MemberSermonDetailPage = lazy(() => import("./pages/member/MemberSermons")
 const MemberBiblePage = lazy(() => import("./pages/member/MemberBible"));
 const MemberMessagesPage = lazy(() => import("./pages/member/MemberMessages"));
 const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"));
+const MemberChildrenPage = lazy(() => import("./pages/member/MemberChildren"));
 
 // Media pages
 const AssetManagementPage = lazy(() => import("./pages/media/AssetManagement"));
@@ -401,6 +402,7 @@ const App = () => (
                 <Route path="/member/sermons/:sermonId" element={<Suspense fallback={<Fallback />}><MemberSermonDetailPage /></Suspense>} />
                 <Route path="/member/bible" element={<Suspense fallback={<Fallback />}><MemberBiblePage /></Suspense>} />
                 <Route path="/member/volunteer" element={<Suspense fallback={<Fallback />}><MemberVolunteerPage /></Suspense>} />
+                <Route path="/member/children" element={<Suspense fallback={<Fallback />}><MemberChildrenPage /></Suspense>} />
               </Route>
             </Route>
           </Routes>

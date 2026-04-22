@@ -1,13 +1,13 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
 import { cn } from "@/lib/utils";
-import { Home, Heart, CalendarDays, MessageCircle, User, BookOpen, Megaphone, Users, Bell, LogOut, HandHeart, ShoppingBag, BookCheck, Quote } from "lucide-react";
+import { Home, Heart, CalendarDays, MessageCircle, User, BookOpen, Megaphone, Users, Bell, LogOut, HandHeart, ShoppingBag, BookCheck, Quote, Baby } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const BOTTOM_NAV = [
   { path: "/member", label: "Home", icon: Home, exact: true },
   { path: "/member/give", label: "Give", icon: Heart },
-  { path: "/member/events", label: "Events", icon: CalendarDays },
+  { path: "/member/events", label: "Events & Services", icon: CalendarDays },
   { path: "/member/messages", label: "Messages", icon: MessageCircle },
   { path: "/member/profile", label: "Profile", icon: User },
 ];
@@ -15,7 +15,7 @@ const BOTTOM_NAV = [
 const SIDEBAR_NAV = [
   { path: "/member", label: "Home", icon: Home, exact: true },
   { path: "/member/give", label: "Give Online", icon: Heart },
-  { path: "/member/events", label: "Events", icon: CalendarDays },
+  { path: "/member/events", label: "Events & Services", icon: CalendarDays },
   { path: "/member/sermons", label: "Sermons", icon: BookOpen },
   { path: "/member/bible", label: "Bible", icon: BookOpen },
   { path: "/member/announcements", label: "Announcements", icon: Megaphone },
@@ -23,6 +23,7 @@ const SIDEBAR_NAV = [
   { path: "/member/groups", label: "My Groups", icon: Users },
   { path: "/member/giving-history", label: "My Giving", icon: Heart },
   { path: "/member/requests", label: "My Requests", icon: HandHeart },
+  { path: "/member/children", label: "My Children", icon: Baby },
   { path: "/member/testimonies", label: "Testimonies", icon: Quote },
   { path: "/member/settings", label: "Settings", icon: User },
 ];

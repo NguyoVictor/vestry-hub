@@ -55,7 +55,7 @@ const ALL_MODULES = [
   { key: "opinion_box", label: "Opinion Box", desc: "Give suggestions and church awareness", icon: Lightbulb, color: "bg-yellow-400", path: "/member/requests" },
   { key: "counselling", label: "Counselling", desc: "Request a pastoral session", icon: Stethoscope, color: "bg-teal-500", path: "/member/requests" },
   { key: "my_appointments", label: "My Appointments", desc: "View scheduled counselling meetings", icon: Clock, color: "bg-indigo-400", path: "/member/requests" },
-  { key: "upcoming_events", label: "Upcoming Events & Services", desc: "Church services and programs", icon: CalendarDays, color: "bg-violet-500", path: "/member/events" },
+  { key: "upcoming_events", label: "Upcoming Events & Services", desc: "Church services, events and programs", icon: CalendarDays, color: "bg-violet-500", path: "/member/events" },
   { key: "watch_live", label: "Watch Live", desc: "Join our live stream services", icon: Tv, color: "bg-red-600", path: "/member/sermons" },
   { key: "sermons", label: "Sermons & Messages", desc: "Watch and listen to teachings", icon: PlayCircle, color: "bg-indigo-500", path: "/member/sermons" },
   { key: "church_media", label: "Church Media", desc: "Photos, videos, and audio photos", icon: Image, color: "bg-cyan-500", path: "/member/sermons" },
