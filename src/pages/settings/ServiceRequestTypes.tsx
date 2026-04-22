@@ -336,15 +336,15 @@ export default function ServiceRequestTypesPage() {
 
   return (
     <>
-      <Helmet><title>Service Request Types — Vestry</title></Helmet>
+      <Helmet><title>Member Request Types — Vestry</title></Helmet>
 
       <div className="max-w-3xl">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           {/* Card header */}
           <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-slate-100 dark:border-slate-700">
             <div>
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Service Request Types</p>
-              <p className="text-xs text-slate-500 mt-0.5">Manage the types of service requests members can submit</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Member Request Types</p>
+              <p className="text-xs text-slate-500 mt-0.5">Manage the types of member requests members can submit</p>
             </div>
             <Button
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
