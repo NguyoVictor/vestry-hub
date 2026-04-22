@@ -186,10 +186,11 @@ export function MemberEvents() {
   const member = useMemberPortal();
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("upcoming");
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Fetch events
+  // Fetch events — all events for this church (no date or published filter)
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["member-events-feed", member.churchId],
     queryFn: async () => {
@@ -197,10 +198,8 @@ export function MemberEvents() {
         .from(TABLES.EVENTS)
         .select("id, title, event_date, start_time, end_time, location, description, banner_url")
         .eq(COLS.TENANT_ID, member.churchId)
-        .eq(COLS.EVENT_IS_PUBLISHED, true)
-        .gte("event_date", today)
-        .order("event_date", { ascending: true })
-        .limit(30);
+        .order("event_date", { ascending: false })
+        .limit(100);
       return (data ?? []).map((e: any): FeedItem => ({
         id: e.id,
         type: "event",
@@ -217,7 +216,7 @@ export function MemberEvents() {
     staleTime: 300_000,
   });
 
-  // Fetch services
+  // Fetch services — all services for this church
   const { data: services = [], isLoading: servicesLoading } = useQuery({
     queryKey: ["member-services-feed", member.churchId],
     queryFn: async () => {
@@ -225,9 +224,8 @@ export function MemberEvents() {
         .from(TABLES.SERVICES)
         .select("id, name, service_date, start_time, end_time, location, description, service_type")
         .eq("tenant_id", member.churchId)
-        .gte("service_date", today)
-        .order("service_date", { ascending: true })
-        .limit(30);
+        .order("service_date", { ascending: false })
+        .limit(100);
       return (data ?? []).map((s: any): FeedItem => ({
         id: s.id,
         type: "service",
@@ -246,17 +244,31 @@ export function MemberEvents() {
 
   const isLoading = eventsLoading || servicesLoading;
 
-  // Merge and sort by date
+  // Merge and sort by date (newest first for all_time/past, ascending for upcoming)
   const allItems: FeedItem[] = [...events, ...services].sort((a, b) =>
-    a.date.localeCompare(b.date)
+    timeFilter === "upcoming"
+      ? a.date.localeCompare(b.date)   // ascending for upcoming
+      : b.date.localeCompare(a.date)   // descending for past/all
   );
 
-  const filtered = tab === "all" ? allItems : tab === "events" ? events : services;
+  // Apply time filter
+  const timeFiltered = allItems.filter(item => {
+    if (timeFilter === "upcoming") return item.date >= today;
+    if (timeFilter === "past") return item.date < today;
+    return true; // all_time
+  });
 
+  // Apply type tab filter
+  const filtered = tab === "all" ? timeFiltered : tab === "events"
+    ? timeFiltered.filter(i => i.type === "event")
+    : timeFiltered.filter(i => i.type === "service");
+
+  // Count badges use all items (not time-filtered) for the type tabs
+  const upcomingAll = allItems.filter(i => i.date >= today);
   const tabs: { key: TabFilter; label: string; count: number }[] = [
-    { key: "all",      label: "All",      count: allItems.length },
-    { key: "services", label: "Services", count: services.length },
-    { key: "events",   label: "Events",   count: events.length },
+    { key: "all",      label: "All",      count: timeFiltered.length },
+    { key: "services", label: "Services", count: timeFiltered.filter(i => i.type === "service").length },
+    { key: "events",   label: "Events",   count: timeFiltered.filter(i => i.type === "event").length },
   ];
 
   return (
@@ -282,7 +294,25 @@ export function MemberEvents() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Time filter pills */}
+        <div className="flex gap-2 mb-3">
+          {(["upcoming", "all_time", "past"] as TimeFilter[]).map(t => (
+            <button
+              key={t}
+              onClick={() => setTimeFilter(t)}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                timeFilter === t
+                  ? "bg-slate-800 dark:bg-white text-white dark:text-slate-900"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+              )}
+            >
+              {t === "upcoming" ? "Upcoming" : t === "all_time" ? "All" : "Past"}
+            </button>
+          ))}
+        </div>
+
+        {/* Type tabs */}
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 mb-5 mt-4">
           {tabs.map(t => (
             <button
