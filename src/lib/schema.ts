@@ -187,6 +187,9 @@ export const TABLES = {
   CHILDREN_CHECKINS: "children_checkins",
   CHILDREN_QR_CODES: "children_qr_codes",
   CHILDREN_MINISTRY_SETTINGS: "children_ministry_settings",
+
+  // Service attendance
+  SERVICE_ATTENDANCE: "service_attendance",
 } as const;
 
 // ─── Column Names ─────────────────────────────────────────────────────────────

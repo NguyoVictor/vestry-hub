@@ -24,13 +24,9 @@ import { Plus, Church, CalendarDays, Users, CheckCircle2, List, LayoutGrid, Cale
 import { cn } from "@/lib/utils";
 
 const SERVICE_TYPES = [
-  { value: "sunday_service",  label: "Sunday Service" },
-  { value: "midweek_service", label: "Midweek Service" },
-  { value: "prayer_meeting",  label: "Prayer Meeting" },
-  { value: "youth_service",   label: "Youth Service" },
-  { value: "children_service",label: "Children's Service" },
-  { value: "special_service", label: "Special Service" },
-  { value: "other",           label: "Other" },
+  { value: "sunday",   label: "Sunday Service" },
+  { value: "midweek",  label: "Midweek Service" },
+  { value: "special",  label: "Special Service" },
 ];
 
 const STATUS_PIPELINE = ["draft", "published", "completed"] as const;
@@ -62,7 +58,12 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function serviceTypeLabel(type: string | null) {
-  return SERVICE_TYPES.find(t => t.value === type)?.label ?? (type ?? "Service");
+  const map: Record<string, string> = {
+    sunday: "Sunday Service",
+    midweek: "Midweek Service",
+    special: "Special Service",
+  };
+  return map[type ?? ""] ?? (type ?? "Service");
 }
 
 // ─── Status Pipeline Component ────────────────────────────────────────────────
@@ -259,12 +260,12 @@ function ServiceCard({ service, rsvpCount, onEdit, onDelete, onStatusChange }: {
 
 // ─── Empty form ───────────────────────────────────────────────────────────────
 const emptyForm = {
-  name: "", service_type: "sunday_service", description: "",
+  name: "", service_type: "sunday", description: "",
   service_date: format(new Date(), "yyyy-MM-dd"),
   start_time: "09:00", end_time: "12:00",
   location: "", expected_attendance: 0, preacher: "",
-  is_recurring: false, recurrence_frequency: "weekly",
-  status: "draft",
+  is_recurring: false, recurrence_rule: "weekly",
+  status: "draft", allow_attendance: true,
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -321,6 +322,7 @@ export default function ServicesPage() {
       const { error } = await supabase.from(TABLES.SERVICES).insert({
         tenant_id: tenantId!,
         name: formData.name,
+        title: formData.name,  // title is NOT NULL in DB
         service_type: formData.service_type,
         description: formData.description || null,
         service_date: formData.service_date,
@@ -330,8 +332,9 @@ export default function ServicesPage() {
         expected_attendance: formData.expected_attendance || null,
         preacher: formData.preacher || null,
         is_recurring: formData.is_recurring,
-        recurrence_frequency: formData.is_recurring ? formData.recurrence_frequency : null,
+        recurrence_rule: formData.is_recurring ? formData.recurrence_rule : null,
         status: formData.status,
+        allow_attendance: formData.allow_attendance,
       } as any);
       if (error) throw error;
     },
@@ -349,6 +352,7 @@ export default function ServicesPage() {
     mutationFn: async () => {
       const { error } = await supabase.from(TABLES.SERVICES).update({
         name: editForm.name,
+        title: editForm.name,  // title is NOT NULL in DB
         service_type: editForm.service_type,
         description: editForm.description || null,
         service_date: editForm.service_date,
@@ -358,8 +362,9 @@ export default function ServicesPage() {
         expected_attendance: editForm.expected_attendance || null,
         preacher: editForm.preacher || null,
         is_recurring: editForm.is_recurring,
-        recurrence_frequency: editForm.is_recurring ? editForm.recurrence_frequency : null,
+        recurrence_rule: editForm.is_recurring ? (editForm as any).recurrence_rule : null,
         status: editForm.status,
+        allow_attendance: (editForm as any).allow_attendance ?? true,
       } as any).eq("id", editingService!.id);
       if (error) throw error;
     },
@@ -403,8 +408,9 @@ export default function ServicesPage() {
       expected_attendance: s.expected_attendance || 0,
       preacher: s.preacher || "",
       is_recurring: s.is_recurring || false,
-      recurrence_frequency: s.recurrence_frequency || "weekly",
+      recurrence_rule: s.recurrence_rule || "weekly",
       status: s.status || "draft",
+      allow_attendance: s.allow_attendance ?? true,
     });
     setEditSheetOpen(true);
   };
@@ -634,7 +640,7 @@ function ServiceFormSheet({ open, onOpenChange, title, form, setForm, onSubmit, 
             <Label>Recurring Service</Label>
           </div>
           {form.is_recurring && (
-            <Select value={form.recurrence_frequency} onValueChange={v => set("recurrence_frequency", v)}>
+            <Select value={(form as any).recurrence_rule} onValueChange={v => set("recurrence_rule", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="weekly">Weekly</SelectItem>
@@ -643,6 +649,10 @@ function ServiceFormSheet({ open, onOpenChange, title, form, setForm, onSubmit, 
               </SelectContent>
             </Select>
           )}
+          <div className="flex items-center gap-3">
+            <Switch checked={(form as any).allow_attendance ?? true} onCheckedChange={c => set("allow_attendance", c)} />
+            <Label>Allow Members to Record Attendance</Label>
+          </div>
           <Button className="w-full" onClick={onSubmit} disabled={isPending || !form.name}>
             {isPending ? "Saving..." : submitLabel}
           </Button>

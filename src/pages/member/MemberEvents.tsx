@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   MapPin, Clock, ArrowLeft, CheckCircle2, Share2,
-  CalendarDays, Church, Calendar,
+  CalendarDays, Church, Calendar, UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,10 +54,10 @@ function serviceTypeLabel(type: string | null) {
 function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: string; churchId: string }) {
   const queryClient = useQueryClient();
 
+  // Event RSVP
   const { data: rsvp } = useQuery({
     queryKey: ["event-rsvp", item.id, memberId],
     queryFn: async () => {
-      if (item.type !== "event") return null;
       const { data } = await supabase
         .from("event_rsvps")
         .select("id, status")
@@ -67,6 +67,22 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
       return data;
     },
     enabled: item.type === "event",
+    staleTime: 60_000,
+  });
+
+  // Service attendance
+  const { data: attendance } = useQuery({
+    queryKey: ["service-attendance", item.id, memberId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.SERVICE_ATTENDANCE)
+        .select("id, status")
+        .eq("service_id", item.id)
+        .eq("member_id", memberId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: item.type === "service",
     staleTime: 60_000,
   });
 
@@ -94,31 +110,47 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
     onError: () => toast.error("Failed to update RSVP"),
   });
 
-  const isGoing = rsvp?.status === "confirmed";
-  const isEvent = item.type === "event";
+  const toggleAttendance = useMutation({
+    mutationFn: async () => {
+      if (attendance) {
+        const newStatus = attendance.status === "attending" ? "cancelled" : "attending";
+        await supabase.from(TABLES.SERVICE_ATTENDANCE).update({ status: newStatus }).eq("id", attendance.id);
+      } else {
+        await supabase.from(TABLES.SERVICE_ATTENDANCE).insert({
+          tenant_id: churchId,
+          service_id: item.id,
+          member_id: memberId,
+          status: "attending",
+        } as any);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["service-attendance", item.id, memberId] });
+      const attending = !(attendance?.status === "attending");
+      toast.success(attending ? `Marked as attending ${item.title}` : "Attendance cancelled");
+    },
+    onError: () => toast.error("Failed to update attendance"),
+  });
 
+  const isGoing = rsvp?.status === "confirmed";
+  const isAttending = attendance?.status === "attending";
+  const isEvent = item.type === "event";
   const dateObj = new Date(item.date + "T00:00:00");
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-      {/* Banner / date strip */}
+      {/* Banner */}
       <div className={cn(
         "h-32 relative flex items-end p-4",
-        isEvent
-          ? "bg-gradient-to-br from-violet-500 to-indigo-600"
-          : "bg-gradient-to-br from-orange-400 to-orange-600"
+        isEvent ? "bg-gradient-to-br from-violet-500 to-indigo-600" : "bg-gradient-to-br from-orange-400 to-orange-600"
       )}>
-        {item.bannerUrl && (
-          <img src={item.bannerUrl} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
-        )}
-        {/* Date badge */}
+        {item.bannerUrl && <img src={item.bannerUrl} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />}
         <div className="relative bg-white rounded-xl px-2.5 py-1.5 text-center shadow-sm min-w-[44px]">
           <p className={cn("text-[10px] font-semibold uppercase", isEvent ? "text-violet-600" : "text-orange-500")}>
             {format(dateObj, "MMM")}
           </p>
           <p className="text-lg font-bold text-slate-800 leading-none">{format(dateObj, "d")}</p>
         </div>
-        {/* Type badge */}
         <div className="relative ml-auto">
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white",
@@ -133,43 +165,49 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
       {/* Content */}
       <div className="p-4 space-y-2">
         <h3 className="font-semibold text-slate-900 dark:text-white leading-snug">{item.title}</h3>
-
         <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
           {item.startTime && (
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {formatTime(item.startTime)}
-              {item.endTime ? ` – ${formatTime(item.endTime)}` : ""}
+              {formatTime(item.startTime)}{item.endTime ? ` – ${formatTime(item.endTime)}` : ""}
             </span>
           )}
           {item.location && (
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {item.location}
-            </span>
+            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{item.location}</span>
           )}
         </div>
-
         {item.description && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-            {item.description}
-          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">{item.description}</p>
         )}
 
-        {/* RSVP only for events */}
+        {/* Event RSVP */}
         {isEvent && (
           <Button
             size="sm"
-            className={cn(
-              "w-full rounded-full h-9 mt-1",
+            className={cn("w-full rounded-full h-9 mt-1",
               isGoing ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
             )}
             onClick={() => toggleRsvp.mutate()}
             disabled={toggleRsvp.isPending}
           >
-            {isGoing ? (
-              <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Going</>
-            ) : "RSVP"}
+            {isGoing ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Going</> : "RSVP"}
+          </Button>
+        )}
+
+        {/* Service attendance */}
+        {!isEvent && (
+          <Button
+            size="sm"
+            className={cn("w-full rounded-full h-9 mt-1",
+              isAttending ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"
+            )}
+            onClick={() => toggleAttendance.mutate()}
+            disabled={toggleAttendance.isPending}
+          >
+            {isAttending
+              ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />I'll Attend</>
+              : <><UserCheck className="h-3.5 w-3.5 mr-1.5" />Record Attendance</>
+            }
           </Button>
         )}
       </div>
@@ -222,14 +260,14 @@ export function MemberEvents() {
     queryFn: async () => {
       const { data } = await supabase
         .from(TABLES.SERVICES)
-        .select("id, name, service_date, start_time, end_time, location, description, service_type")
+        .select("id, title, name, service_date, start_time, end_time, location, description, service_type")
         .eq("tenant_id", member.churchId)
         .order("service_date", { ascending: false })
         .limit(100);
       return (data ?? []).map((s: any): FeedItem => ({
         id: s.id,
         type: "service",
-        title: s.name,
+        title: s.title || s.name || "Service",
         date: s.service_date,
         startTime: s.start_time,
         endTime: s.end_time,
