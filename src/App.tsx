@@ -56,6 +56,9 @@ const MemberBiblePage = lazy(() => import("./pages/member/MemberBible"));
 const MemberMessagesPage = lazy(() => import("./pages/member/MemberMessages"));
 const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"));
 const MemberChildrenPage = lazy(() => import("./pages/member/MemberChildren"));
+const MemberSurveysPage = lazy(() => import("./pages/member/MemberSurveys"));
+const SurveyTakePage = lazy(() => import("./pages/public/SurveyTake"));
+const SurveyResponsesPage = lazy(() => import("./pages/communications/SurveyResponses"));
 
 // Media pages
 const AssetManagementPage = lazy(() => import("./pages/media/AssetManagement"));
@@ -285,6 +288,7 @@ const App = () => (
                 <Route path="/member-messaging" element={<Suspense fallback={<Fallback />}><MemberMessaging /></Suspense>} />
                 <Route path="/testimonies" element={<Suspense fallback={<Fallback />}><TestimoniesPage /></Suspense>} />
                 <Route path="/surveys" element={<Suspense fallback={<Fallback />}><SurveysPage /></Suspense>} />
+                <Route path="/surveys/:surveyId/responses" element={<Suspense fallback={<Fallback />}><SurveyResponsesPage /></Suspense>} />
                 {/* Growth & Discipleship routes */}
                 <Route path="/discipleship" element={<Suspense fallback={<Fallback />}><Discipleship /></Suspense>} />
                 <Route path="/discipleship/graduates" element={<Suspense fallback={<Fallback />}><DiscipleshipGraduates /></Suspense>} />
@@ -403,8 +407,11 @@ const App = () => (
                 <Route path="/member/bible" element={<Suspense fallback={<Fallback />}><MemberBiblePage /></Suspense>} />
                 <Route path="/member/volunteer" element={<Suspense fallback={<Fallback />}><MemberVolunteerPage /></Suspense>} />
                 <Route path="/member/children" element={<Suspense fallback={<Fallback />}><MemberChildrenPage /></Suspense>} />
+                <Route path="/member/surveys" element={<Suspense fallback={<Fallback />}><MemberSurveysPage /></Suspense>} />
               </Route>
             </Route>
+            {/* Public survey-taking — no auth required */}
+            <Route path="/survey/:surveyId" element={<Suspense fallback={<Fallback />}><SurveyTakePage /></Suspense>} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

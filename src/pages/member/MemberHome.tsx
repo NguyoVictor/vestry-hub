@@ -63,7 +63,7 @@ const ALL_MODULES = [
   { key: "volunteer", label: "Volunteer", desc: "View current service and sign up to serve", icon: HandHeart, color: "bg-orange-400", path: "/member/volunteer" },
   { key: "join_volunteer_groups", label: "Join Volunteer Groups", desc: "Browse and join ministry teams", icon: Users, color: "bg-blue-400", path: "/member/volunteer" },
   { key: "house_fellowships", label: "House Fellowships", desc: "Join and view home cell groups", icon: Home, color: "bg-amber-600", path: "/member/groups" },
-  { key: "surveys", label: "Surveys", desc: "Participate in church surveys", icon: BarChart2, color: "bg-purple-400", path: "#" },
+  { key: "surveys", label: "Surveys", desc: "Participate in church surveys", icon: BarChart2, color: "bg-purple-400", path: "/member/surveys" },
   { key: "bible_explorer", label: "Bible Explorer", desc: "Access the built-in Bible reading tool", icon: BookOpen, color: "bg-emerald-600", path: "/member/bible" },
   { key: "daily_devotionals", label: "Daily Devotionals", desc: "Access daily Bible readings", icon: BookCheck, color: "bg-teal-600", path: "/member/bible" },
   { key: "training_courses", label: "Training & Courses", desc: "Enroll in discipleship training programs", icon: Video, color: "bg-indigo-600", path: "#" },
