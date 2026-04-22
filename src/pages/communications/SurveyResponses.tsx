@@ -56,7 +56,9 @@ function QuestionAnalytics({ question, index, answers }: { question: any; index:
       const opts = question.options || [];
       const tally: Record<string, number> = {};
       qAnswers.forEach(a => {
-        const val = a.answer_value?.text || a.answer_value;
+        const val = typeof a.answer_value === "string"
+          ? a.answer_value
+          : (a.answer_value?.text || a.answer_text);
         if (val) tally[val] = (tally[val] || 0) + 1;
       });
       const maxCount = Math.max(...Object.values(tally), 1);
@@ -157,11 +159,15 @@ function QuestionAnalytics({ question, index, answers }: { question: any; index:
       );
     }
 
-    // short_text / long_text / date / file_upload
+    // short_text / long_text / date / file_upload / number fallback
     const texts = qAnswers
-      .map(a => a.answer_value?.text || a.answer_text || a.answer_value)
-      .filter(Boolean)
-      .filter(t => typeof t === "string");
+      .map(a => {
+        const v = a.answer_value;
+        if (typeof v === "string") return v;
+        if (v && typeof v === "object") return v.text || v.number || v.date || null;
+        return a.answer_text || null;
+      })
+      .filter(Boolean);
 
     const filtered = search ? texts.filter((t: string) => t.toLowerCase().includes(search.toLowerCase())) : texts;
     const paged = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
@@ -223,6 +229,7 @@ function ResponseModal({ response, survey, answers, onClose }: { response: any; 
     const a = myAnswers.find(a => a.question_index === qi);
     if (!a) return "—";
     const v = a.answer_value;
+    if (typeof v === "string") return v;
     if (Array.isArray(v)) return v.join(", ");
     if (typeof v === "object" && v !== null) {
       return v.text || v.rating || (v.boolean !== undefined ? (v.boolean ? "Yes" : "No") : JSON.stringify(v));
@@ -288,14 +295,15 @@ export default function SurveyResponsesPage() {
   const { data: responses = [], isLoading: responsesLoading } = useQuery({
     queryKey: ["survey-responses", surveyId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from(TABLES.SURVEY_RESPONSES)
-        .select("*, members(first_name, last_name, avatar_url)")
+        .select("*")
         .eq("survey_id", surveyId!)
         .order("submitted_at", { ascending: false });
+      if (error) console.error("Responses fetch error:", error);
       return (data || []).map((r: any) => ({
         ...r,
-        member_name: r.members ? `${r.members.first_name || ""} ${r.members.last_name || ""}`.trim() : null,
+        member_name: null, // resolved separately if needed
       }));
     },
     staleTime: 60_000,
@@ -304,15 +312,22 @@ export default function SurveyResponsesPage() {
   const { data: answers = [] } = useQuery({
     queryKey: ["survey-answers", surveyId],
     queryFn: async () => {
-      const responseIds = responses.map((r: any) => r.id);
-      if (!responseIds.length) return [];
-      const { data } = await supabase
+      // Fetch all answers for this survey via the response join — no stale closure
+      const { data, error } = await supabase
         .from(TABLES.SURVEY_ANSWERS)
         .select("*")
-        .in("response_id", responseIds);
+        .in(
+          "response_id",
+          // subquery: get all response IDs for this survey
+          (await supabase
+            .from(TABLES.SURVEY_RESPONSES)
+            .select("id")
+            .eq("survey_id", surveyId!)
+          ).data?.map((r: any) => r.id) || []
+        );
+      if (error) console.error("Answers fetch error:", error);
       return data || [];
     },
-    enabled: responses.length > 0,
     staleTime: 60_000,
   });
 
