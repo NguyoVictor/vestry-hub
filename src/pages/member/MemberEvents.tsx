@@ -228,16 +228,20 @@ export function MemberEvents() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Fetch events — all events for this church (no date or published filter)
+  // Fetch events — published events only for this church
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["member-events-feed", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase
+      console.log("[MemberEvents] Fetching events for tenant:", member.churchId);
+      const { data, error } = await supabase
         .from(TABLES.EVENTS)
-        .select("id, title, event_date, start_time, end_time, location, description, banner_url")
+        .select("id, title, event_date, start_time, end_time, location, description, banner_url, status, is_published")
         .eq(COLS.TENANT_ID, member.churchId)
+        .eq("status", "published")
         .order("event_date", { ascending: false })
         .limit(100);
+      console.log("[MemberEvents] Events result:", { count: data?.length, error, tenantId: member.churchId });
+      if (error) console.error("Events fetch error:", error);
       return (data ?? []).map((e: any): FeedItem => ({
         id: e.id,
         type: "event",
@@ -251,19 +255,24 @@ export function MemberEvents() {
         serviceType: null,
       }));
     },
-    staleTime: 300_000,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   // Fetch services — all services for this church
   const { data: services = [], isLoading: servicesLoading } = useQuery({
     queryKey: ["member-services-feed", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase
+      console.log("[MemberEvents] Fetching services for tenant:", member.churchId);
+      const { data, error } = await supabase
         .from(TABLES.SERVICES)
-        .select("id, title, name, service_date, start_time, end_time, location, description, service_type")
-        .eq("tenant_id", member.churchId)
+        .select("id, title, name, service_date, start_time, end_time, location, description, service_type, status")
+        .eq(COLS.TENANT_ID, member.churchId)
+        .eq("status", "published")
         .order("service_date", { ascending: false })
         .limit(100);
+      console.log("[MemberEvents] Services result:", { count: data?.length, error, tenantId: member.churchId });
+      if (error) console.error("Services fetch error:", error);
       return (data ?? []).map((s: any): FeedItem => ({
         id: s.id,
         type: "service",
@@ -277,7 +286,8 @@ export function MemberEvents() {
         serviceType: s.service_type,
       }));
     },
-    staleTime: 300_000,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const isLoading = eventsLoading || servicesLoading;
