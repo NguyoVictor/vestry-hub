@@ -235,9 +235,9 @@ export function MemberEvents() {
       console.log("[MemberEvents] Fetching events for tenant:", member.churchId);
       const { data, error } = await supabase
         .from(TABLES.EVENTS)
-        .select("id, title, event_date, start_time, end_time, location, description, banner_url, status, is_published")
+        .select("id, title, event_date, start_time, end_time, location, description, banner_image_url, status, is_published")
         .eq(COLS.TENANT_ID, member.churchId)
-        .eq("status", "published")
+        .in("status", ["published", "completed"])
         .order("event_date", { ascending: false })
         .limit(100);
       console.log("[MemberEvents] Events result:", { count: data?.length, error, tenantId: member.churchId });
@@ -251,7 +251,7 @@ export function MemberEvents() {
         endTime: e.end_time,
         location: e.location,
         description: e.description,
-        bannerUrl: e.banner_url,
+        bannerUrl: e.banner_image_url,
         serviceType: null,
       }));
     },

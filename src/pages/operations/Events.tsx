@@ -345,7 +345,7 @@ function CalendarViewPanel({ events }: { events: any[] }) {
 const emptyForm = {
   title: "", type: "other", description: "",
   date: format(new Date(), "yyyy-MM-dd"), startTime: "09:00", endTime: "12:00",
-  location: "", capacity_limit: 0, is_published: true,
+  location: "", capacity_limit: 0, status: "draft",
   location_type: "on_site", online_link: "", allow_rsvp: true,
 };
 
@@ -418,13 +418,13 @@ export default function EventsPage() {
         end_time: formData.endTime,
         location: formData.location,
         capacity_limit: formData.capacity_limit || null,
-        is_published: formData.is_published,
+        is_published: formData.status === "published",
         description: formData.description,
         type: formData.type,
         location_type: formData.location_type,
         online_link: formData.online_link,
         allow_rsvp: formData.allow_rsvp,
-        status: formData.is_published ? "published" : "draft",
+        status: formData.status,
       } as any);
       if (error) throw error;
     },
@@ -456,12 +456,13 @@ export default function EventsPage() {
           end_time: editForm.endTime,
           location: editForm.location,
           capacity_limit: editForm.capacity_limit || null,
-          is_published: editForm.is_published,
+          is_published: (editForm as any).status === "published",
           description: editForm.description,
           type: editForm.type,
           location_type: editForm.location_type,
           online_link: editForm.online_link,
           allow_rsvp: editForm.allow_rsvp,
+          status: (editForm as any).status,
         } as any)
         .eq("id", editingEvent!.id);
       if (error) throw error;
@@ -492,13 +493,18 @@ export default function EventsPage() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase
         .from(TABLES.EVENTS)
-        .update({ status } as any)
+        .update({ status, is_published: status === "published" } as any)
         .eq("id", id);
       if (error) throw error;
+      return { id, status };
     },
-    onSuccess: () => {
+    onSuccess: ({ id, status }) => {
       invalidateEvents();
       toast.success("Status updated");
+      // Keep edit form in sync if it's open for this event
+      if (editingEvent?.id === id) {
+        setEditForm((p) => ({ ...p, status } as any));
+      }
     },
     onError: () => toast.error("Failed to update status"),
   });
@@ -515,11 +521,11 @@ export default function EventsPage() {
       endTime: e.end_time ? e.end_time.toString().slice(0, 5) : "12:00",
       location: e.location || "",
       capacity_limit: e.capacity_limit || 0,
-      is_published: e.is_published ?? true,
+      status: e.status || (e.is_published ? "published" : "draft"),
       location_type: e.location_type || "on_site",
       online_link: e.online_link || "",
       allow_rsvp: e.allow_rsvp ?? true,
-    });
+    } as any);
     setEditSheetOpen(true);
   };
 
@@ -772,9 +778,16 @@ export default function EventsPage() {
               <Switch checked={formData.allow_rsvp} onCheckedChange={(c) => setFormData((p) => ({ ...p, allow_rsvp: c }))} />
               <Label>Allow RSVP</Label>
             </div>
-            <div className="flex items-center gap-3">
-              <Switch checked={formData.is_published} onCheckedChange={(c) => setFormData((p) => ({ ...p, is_published: c }))} />
-              <Label>Published</Label>
+            <div>
+              <Label>Status</Label>
+              <Select value={(formData as any).status} onValueChange={(v) => setFormData((p) => ({ ...p, status: v } as any))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button className="w-full" onClick={() => createMutation.mutate()} disabled={!formData.title || createMutation.isPending}>
               {createMutation.isPending ? "Creating..." : "Create Event"}
@@ -837,9 +850,16 @@ export default function EventsPage() {
               <Switch checked={editForm.allow_rsvp} onCheckedChange={(c) => setEditForm((p) => ({ ...p, allow_rsvp: c }))} />
               <Label>Allow RSVP</Label>
             </div>
-            <div className="flex items-center gap-3">
-              <Switch checked={editForm.is_published} onCheckedChange={(c) => setEditForm((p) => ({ ...p, is_published: c }))} />
-              <Label>Published</Label>
+            <div>
+              <Label>Status</Label>
+              <Select value={(editForm as any).status || "draft"} onValueChange={(v) => setEditForm((p) => ({ ...p, status: v } as any))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setEditSheetOpen(false)}>Cancel</Button>
