@@ -264,6 +264,7 @@ export default function SurveyTakePage() {
 
       // Only link to member if survey is NOT anonymous AND member is logged in via portal
       const memberId = (!survey.is_anonymous && memberSession?.memberId) ? memberSession.memberId : null;
+      const memberName = (!survey.is_anonymous && memberSession?.memberName) ? memberSession.memberName : null;
 
       // Insert response
       const { data: resp, error: respErr } = await supabase
@@ -272,6 +273,7 @@ export default function SurveyTakePage() {
           survey_id: surveyId!,
           tenant_id: survey.tenant_id,
           member_id: memberId,
+          member_name: memberName,
           started_at: startedAt.current.toISOString(),
           completed_at: completedAt.toISOString(),
           time_taken_seconds: timeTaken,

@@ -61,7 +61,6 @@ const ALL_MODULES = [
   { key: "church_media", label: "Church Media", desc: "Photos, videos, and audio photos", icon: Image, color: "bg-cyan-500", path: "/member/sermons" },
   { key: "outreach_impact", label: "Outreach Impact", desc: "Statistics & data from our outreach", icon: Globe, color: "bg-green-600", path: "#" },
   { key: "volunteer", label: "Volunteer", desc: "View current service and sign up to serve", icon: HandHeart, color: "bg-orange-400", path: "/member/volunteer" },
-  { key: "join_volunteer_groups", label: "Join Volunteer Groups", desc: "Browse and join ministry teams", icon: Users, color: "bg-blue-400", path: "/member/volunteer" },
   { key: "house_fellowships", label: "House Fellowships", desc: "Join and view home cell groups", icon: Home, color: "bg-amber-600", path: "/member/groups" },
   { key: "surveys", label: "Surveys", desc: "Participate in church surveys", icon: BarChart2, color: "bg-purple-400", path: "/member/surveys" },
   { key: "bible_explorer", label: "Bible Explorer", desc: "Access the built-in Bible reading tool", icon: BookOpen, color: "bg-emerald-600", path: "/member/bible" },

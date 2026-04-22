@@ -305,25 +305,8 @@ export default function SurveyResponsesPage() {
         .eq("survey_id", surveyId!)
         .order("submitted_at", { ascending: false });
       if (error) console.error("Responses fetch error:", error);
-      const rows = data || [];
-
-      // Resolve member names for non-anonymous responses that have a member_id
-      const memberIds = [...new Set(rows.map((r: any) => r.member_id).filter(Boolean))];
-      let memberMap: Record<string, string> = {};
-      if (memberIds.length) {
-        const { data: members } = await supabase
-          .from(TABLES.MEMBERS)
-          .select("id, first_name, last_name")
-          .in("id", memberIds);
-        (members || []).forEach((m: any) => {
-          memberMap[m.id] = `${m.first_name || ""} ${m.last_name || ""}`.trim();
-        });
-      }
-
-      return rows.map((r: any) => ({
-        ...r,
-        member_name: r.member_id ? (memberMap[r.member_id] || "Unknown Member") : null,
-      }));
+      // member_name is stored at submission time — no join needed
+      return data || [];
     },
     staleTime: 60_000,
   });
