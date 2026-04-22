@@ -255,7 +255,11 @@ function ResponseModal({ response, survey, answers, onClose }: { response: any; 
               </div>
             )}
             <div>
-              <p className="text-sm font-medium">{survey.is_anonymous ? "Anonymous Respondent" : (response.member_name || "Unknown")}</p>
+              <p className="text-sm font-medium">
+                {survey.is_anonymous
+                  ? "Anonymous Respondent"
+                  : response.member_name || "External Respondent"}
+              </p>
               <p className="text-xs text-slate-400">
                 {response.completed_at ? format(new Date(response.completed_at), "dd MMM yyyy, HH:mm") : "—"}
               </p>
@@ -301,9 +305,24 @@ export default function SurveyResponsesPage() {
         .eq("survey_id", surveyId!)
         .order("submitted_at", { ascending: false });
       if (error) console.error("Responses fetch error:", error);
-      return (data || []).map((r: any) => ({
+      const rows = data || [];
+
+      // Resolve member names for non-anonymous responses that have a member_id
+      const memberIds = [...new Set(rows.map((r: any) => r.member_id).filter(Boolean))];
+      let memberMap: Record<string, string> = {};
+      if (memberIds.length) {
+        const { data: members } = await supabase
+          .from(TABLES.MEMBERS)
+          .select("id, first_name, last_name")
+          .in("id", memberIds);
+        (members || []).forEach((m: any) => {
+          memberMap[m.id] = `${m.first_name || ""} ${m.last_name || ""}`.trim();
+        });
+      }
+
+      return rows.map((r: any) => ({
         ...r,
-        member_name: null, // resolved separately if needed
+        member_name: r.member_id ? (memberMap[r.member_id] || "Unknown Member") : null,
       }));
     },
     staleTime: 60_000,
@@ -489,7 +508,9 @@ export default function SurveyResponsesPage() {
                           </div>
                         )}
                         <span className="font-medium text-slate-700 dark:text-slate-300">
-                          {survey.is_anonymous ? "Anonymous" : (r.member_name || "Unknown")}
+                          {survey.is_anonymous
+                            ? "Anonymous"
+                            : r.member_name || "External Respondent"}
                         </span>
                       </div>
                     </td>

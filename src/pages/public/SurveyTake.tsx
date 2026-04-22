@@ -243,6 +243,11 @@ export default function SurveyTakePage() {
   const [currentQ, setCurrentQ] = useState(0);
   const startedAt = useRef(new Date());
 
+  // Read member portal session — present when taken in-app, null when external link
+  const memberSession = (() => {
+    try { return JSON.parse(localStorage.getItem("member_session") || "null"); } catch { return null; }
+  })();
+
   const { data: survey, isLoading } = useQuery({
     queryKey: ["public-survey", surveyId],
     queryFn: async () => {
@@ -257,13 +262,16 @@ export default function SurveyTakePage() {
       const completedAt = new Date();
       const timeTaken = Math.round((completedAt.getTime() - startedAt.current.getTime()) / 1000);
 
+      // Only link to member if survey is NOT anonymous AND member is logged in via portal
+      const memberId = (!survey.is_anonymous && memberSession?.memberId) ? memberSession.memberId : null;
+
       // Insert response
       const { data: resp, error: respErr } = await supabase
         .from(TABLES.SURVEY_RESPONSES)
         .insert({
           survey_id: surveyId!,
           tenant_id: survey.tenant_id,
-          member_id: null,
+          member_id: memberId,
           started_at: startedAt.current.toISOString(),
           completed_at: completedAt.toISOString(),
           time_taken_seconds: timeTaken,
