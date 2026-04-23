@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/form";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
-  ArrowLeft, Building2, Users, Calendar, Clock, CheckCircle2, Video, ChevronLeft, ChevronRight,
+  ArrowLeft, Building2, Users, Calendar, Clock, CheckCircle2, Video, ChevronLeft, ChevronRight, ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +41,7 @@ interface Facility {
   quotation: number | null;
   is_active: boolean;
   type: string | null;
+  thumbnail_path: string | null;
   video_path: string | null;
   facility_images: FacilityImage[];
 }
@@ -251,6 +252,9 @@ function FacilityDetailSheet({
   if (!facility) return null;
 
   const sortedImages = [...(facility.facility_images ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+  const thumbUrl = facility.thumbnail_path
+    ? supabase.storage.from("facility-thumbnails").getPublicUrl(facility.thumbnail_path).data.publicUrl
+    : null;
   const videoUrl = facility.video_path
     ? supabase.storage.from("facility-videos").getPublicUrl(facility.video_path).data.publicUrl
     : null;
@@ -258,48 +262,12 @@ function FacilityDetailSheet({
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
       <SheetContent side="bottom" className="h-[90vh] overflow-y-auto rounded-t-2xl p-0">
-        {/* Image gallery */}
-        {sortedImages.length > 0 ? (
-          <div className="relative">
-            <img
-              src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
-              alt={facility.name}
-              className="w-full h-52 object-cover"
-            />
-            {sortedImages.length > 1 && (
-              <>
-                <div className="flex gap-1.5 absolute bottom-2 left-1/2 -translate-x-1/2">
-                  {sortedImages.map((_: any, i: number) => (
-                    <button key={i} onClick={() => setActiveImg(i)}
-                      className={`h-1.5 rounded-full transition-all ${i === activeImg ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />
-                  ))}
-                </div>
-                <button
-                  className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
-                  onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
-                ><ChevronLeft className="h-4 w-4" /></button>
-                <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
-                  onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
-                ><ChevronRight className="h-4 w-4" /></button>
-              </>
-            )}
-          </div>
+        {/* Thumbnail hero */}
+        {thumbUrl ? (
+          <img src={thumbUrl} alt={facility.name} className="w-full h-48 object-cover" />
         ) : (
-          <div className="h-40 bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+          <div className="h-36 bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
             <Building2 className="h-14 w-14 text-white/60" />
-          </div>
-        )}
-
-        {/* Thumbnail strip */}
-        {sortedImages.length > 1 && (
-          <div className="flex gap-2 px-4 pt-3 overflow-x-auto">
-            {sortedImages.map((img: any, i: number) => (
-              <button key={i} onClick={() => setActiveImg(i)}
-                className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
-                <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
           </div>
         )}
 
@@ -329,7 +297,56 @@ function FacilityDetailSheet({
             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{facility.description}</p>
           )}
 
-          {/* Video */}
+          {/* Book button */}
+          <Button
+            className="w-full rounded-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+            onClick={() => { onClose(); onBookNow(); }}
+          >
+            Book This Space
+          </Button>
+
+          {/* ── Gallery (below Book button) ── */}
+          {sortedImages.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5" /> Gallery
+              </p>
+              <div className="relative rounded-xl overflow-hidden mb-2">
+                <img
+                  src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
+                  alt=""
+                  className="w-full h-48 object-cover"
+                />
+                {sortedImages.length > 1 && (
+                  <>
+                    <button
+                      className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
+                      onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
+                    ><ChevronLeft className="h-4 w-4" /></button>
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
+                      onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
+                    ><ChevronRight className="h-4 w-4" /></button>
+                    <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+                      {activeImg + 1}/{sortedImages.length}
+                    </span>
+                  </>
+                )}
+              </div>
+              {sortedImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto">
+                  {sortedImages.map((img: any, i: number) => (
+                    <button key={i} onClick={() => setActiveImg(i)}
+                      className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
+                      <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Video (below gallery) ── */}
           {videoUrl && (
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
@@ -338,13 +355,6 @@ function FacilityDetailSheet({
               <video src={videoUrl} controls className="w-full rounded-xl max-h-48 bg-black" preload="metadata" />
             </div>
           )}
-
-          <Button
-            className="w-full rounded-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
-            onClick={() => { onClose(); onBookNow(); }}
-          >
-            Book This Space
-          </Button>
         </div>
       </SheetContent>
     </Sheet>
@@ -365,12 +375,12 @@ function MemberFacilityCard({
   const sortedImages = [...(facility.facility_images ?? [])].sort(
     (a, b) => a.sort_order - b.sort_order
   );
-  const firstImage = sortedImages[0]?.image_path ?? null;
   const gradientIdx = facility.name.charCodeAt(0) % GRADIENTS.length;
   const gradient = GRADIENTS[gradientIdx];
 
-  const imageUrl = firstImage
-    ? supabase.storage.from("facility-images").getPublicUrl(firstImage).data.publicUrl
+  // Use thumbnail_path for card face
+  const thumbUrl = facility.thumbnail_path
+    ? supabase.storage.from("facility-thumbnails").getPublicUrl(facility.thumbnail_path).data.publicUrl
     : null;
 
   return (
@@ -379,18 +389,18 @@ function MemberFacilityCard({
       onClick={onViewDetails}
     >
       {/* Image / Gradient */}
-      <div className={cn("h-36 relative", !imageUrl && `bg-gradient-to-br ${gradient}`)}>
-        {imageUrl ? (
-          <img src={imageUrl} alt={facility.name} className="w-full h-full object-cover" />
+      <div className={cn("h-36 relative", !thumbUrl && `bg-gradient-to-br ${gradient}`)}>
+        {thumbUrl ? (
+          <img src={thumbUrl} alt={facility.name} className="w-full h-full object-cover" />
         ) : (
           <div className="flex items-center justify-center h-full">
             <Building2 className="h-12 w-12 text-white/60" />
           </div>
         )}
-        {/* Image count badge */}
-        {sortedImages.length > 1 && (
+        {/* Badges */}
+        {(facility.facility_images?.length ?? 0) > 0 && (
           <span className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
-            {sortedImages.length} photos
+            {facility.facility_images!.length} photos
           </span>
         )}
         {facility.video_path && (
@@ -541,7 +551,7 @@ export default function MemberFacilityBooking() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITIES as any)
-        .select("id, name, description, capacity, quotation, is_active, type, video_path, facility_images(image_path, sort_order)")
+        .select("id, name, description, capacity, quotation, is_active, type, thumbnail_path, video_path, facility_images(image_path, sort_order)")
         .eq(COLS.TENANT_ID, member.churchId)
         .neq("is_active", false)
         .order("name");

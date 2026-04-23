@@ -2649,6 +2649,7 @@ export type Database = {
           photo_url: string | null
           quotation: number | null
           tenant_id: string
+          thumbnail_path: string | null
           type: string | null
           updated_at: string | null
           video_path: string | null
@@ -2670,6 +2671,7 @@ export type Database = {
           photo_url?: string | null
           quotation?: number | null
           tenant_id: string
+          thumbnail_path?: string | null
           type?: string | null
           updated_at?: string | null
           video_path?: string | null
@@ -2691,6 +2693,7 @@ export type Database = {
           photo_url?: string | null
           quotation?: number | null
           tenant_id?: string
+          thumbnail_path?: string | null
           type?: string | null
           updated_at?: string | null
           video_path?: string | null

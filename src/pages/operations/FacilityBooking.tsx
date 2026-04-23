@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
 import { formatCurrencyFull } from "@/lib/format";
+import { convertToWebP } from "@/lib/imageUtils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -36,7 +37,7 @@ import {
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
-  Share2, Eye, MessageSquare, Search, X, ChevronRight, Video,
+  Share2, Eye, MessageSquare, Search, X, ChevronRight, Video, ChevronLeft, ImageIcon,
 } from "lucide-react";
 
 // ─── Pure helper functions ────────────────────────────────────────────────────
@@ -229,59 +230,22 @@ function FacilityDetailModal({
   if (!facility) return null;
 
   const sortedImages = [...images].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  const videoSignedUrl = facility.video_path
+  const thumbUrl = facility.thumbnail_path
+    ? supabase.storage.from("facility-thumbnails").getPublicUrl(facility.thumbnail_path).data.publicUrl
+    : null;
+  const videoUrl = facility.video_path
     ? supabase.storage.from("facility-videos").getPublicUrl(facility.video_path).data.publicUrl
     : null;
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        {/* Image gallery */}
-        {sortedImages.length > 0 ? (
-          <div className="relative">
-            <img
-              src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
-              alt={facility.name}
-              className="w-full h-56 object-cover rounded-t-xl"
-            />
-            {sortedImages.length > 1 && (
-              <div className="flex gap-1.5 absolute bottom-2 left-1/2 -translate-x-1/2">
-                {sortedImages.map((_: any, i: number) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveImg(i)}
-                    className={`h-1.5 rounded-full transition-all ${i === activeImg ? "w-5 bg-white" : "w-1.5 bg-white/60"}`}
-                  />
-                ))}
-              </div>
-            )}
-            {sortedImages.length > 1 && (
-              <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 pointer-events-none">
-                <button
-                  className="pointer-events-auto h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
-                  onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
-                >‹</button>
-                <button
-                  className="pointer-events-auto h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
-                  onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
-                >›</button>
-              </div>
-            )}
-          </div>
+        {/* Thumbnail hero */}
+        {thumbUrl ? (
+          <img src={thumbUrl} alt={facility.name} className="w-full h-48 object-cover rounded-t-xl" />
         ) : (
-          <div className="h-40 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-t-xl flex items-center justify-center">
-            <Building2 className="h-16 w-16 text-white/60" />
-          </div>
-        )}
-
-        {/* Thumbnail strip */}
-        {sortedImages.length > 1 && (
-          <div className="flex gap-2 px-5 pt-3 overflow-x-auto">
-            {sortedImages.map((img: any, i: number) => (
-              <button key={i} onClick={() => setActiveImg(i)} className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
-                <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
+          <div className="h-32 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-t-xl flex items-center justify-center">
+            <Building2 className="h-14 w-14 text-white/60" />
           </div>
         )}
 
@@ -314,9 +278,7 @@ function FacilityDetailModal({
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Status</p>
               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                 facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
-              }`}>
-                {facility.is_active ? "Active" : "Inactive"}
-              </span>
+              }`}>{facility.is_active ? "Active" : "Inactive"}</span>
             </div>
           </div>
 
@@ -327,16 +289,56 @@ function FacilityDetailModal({
             </div>
           )}
 
-          {/* Video player */}
-          {videoSignedUrl && (
+          {/* ── Gallery (below info) ── */}
+          {sortedImages.length > 0 && (
             <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Video</p>
-              <video
-                src={videoSignedUrl}
-                controls
-                className="w-full rounded-lg max-h-48 bg-black"
-                preload="metadata"
-              />
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5" /> Gallery
+              </p>
+              {/* Main image */}
+              <div className="relative rounded-xl overflow-hidden mb-2">
+                <img
+                  src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
+                  alt=""
+                  className="w-full h-52 object-cover"
+                />
+                {sortedImages.length > 1 && (
+                  <>
+                    <button
+                      className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
+                      onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
+                    ><ChevronLeft className="h-4 w-4" /></button>
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
+                      onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
+                    ><ChevronRight className="h-4 w-4" /></button>
+                    <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+                      {activeImg + 1}/{sortedImages.length}
+                    </span>
+                  </>
+                )}
+              </div>
+              {/* Thumbnails */}
+              {sortedImages.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto">
+                  {sortedImages.map((img: any, i: number) => (
+                    <button key={i} onClick={() => setActiveImg(i)}
+                      className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
+                      <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Video (below gallery) ── */}
+          {videoUrl && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Video className="h-3.5 w-3.5" /> Video
+              </p>
+              <video src={videoUrl} controls className="w-full rounded-xl max-h-48 bg-black" preload="metadata" />
             </div>
           )}
 
@@ -370,20 +372,26 @@ function AddEditFacilityModal({
 }) {
   const qc = useQueryClient();
   const isEdit = !!editData;
+
+  // thumbnail
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [thumbPreview, setThumbPreview] = useState<string | null>(null);
+  const [existingThumbPath, setExistingThumbPath] = useState<string | null>(null);
+
+  // gallery images
   const [images, setImages] = useState<{ path: string; name: string; existing?: boolean }[]>([]);
+
+  // video
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null); // existing video_path
+  const [existingVideoPath, setExistingVideoPath] = useState<string | null>(null);
+
   const [uploading, setUploading] = useState(false);
 
   const form = useForm<FacilityFormValues>({
     resolver: zodResolver(facilitySchema),
-    defaultValues: {
-      name: "", type: "", capacity: undefined,
-      description: "", quotation: undefined, is_active: true,
-    },
+    defaultValues: { name: "", type: "", capacity: undefined, description: "", quotation: undefined, is_active: true },
   });
 
-  // Reset form when modal opens/editData changes
   useEffect(() => {
     if (open && editData) {
       form.reset({
@@ -394,17 +402,18 @@ function AddEditFacilityModal({
         quotation: editData.quotation ?? undefined,
         is_active: editData.is_active ?? true,
       });
+      setExistingThumbPath(editData.thumbnail_path ?? null);
+      setThumbFile(null); setThumbPreview(null);
       const existingImgs = [...(editData.facility_images ?? [])]
         .sort((a: any, b: any) => a.sort_order - b.sort_order)
         .map((img: any) => ({ path: img.image_path, name: img.image_path?.split("/").pop() ?? "image", existing: true }));
       setImages(existingImgs);
       setVideoFile(null);
-      setVideoPreview(editData.video_path ?? null);
+      setExistingVideoPath(editData.video_path ?? null);
     } else if (open) {
       form.reset({ name: "", type: "", capacity: undefined, description: "", quotation: undefined, is_active: true });
-      setImages([]);
-      setVideoFile(null);
-      setVideoPreview(null);
+      setExistingThumbPath(null); setThumbFile(null); setThumbPreview(null);
+      setImages([]); setVideoFile(null); setExistingVideoPath(null);
     }
   }, [open, editData]);
 
@@ -412,8 +421,18 @@ function AddEditFacilityModal({
     mutationFn: async (values: FacilityFormValues) => {
       setUploading(true);
       try {
-        // 1. Upload video if a new file was selected
-        let videoPath = editData?.video_path ?? null;
+        // 1. Upload thumbnail as WebP
+        let thumbnailPath = existingThumbPath;
+        if (thumbFile) {
+          const webpBlob = await convertToWebP(thumbFile, 600, 0.8);
+          const tPath = `${tenantId}/${Date.now()}-thumb.webp`;
+          const { error: tErr } = await supabase.storage.from("facility-thumbnails").upload(tPath, webpBlob, { contentType: "image/webp" });
+          if (tErr) throw new Error("Failed to upload thumbnail");
+          thumbnailPath = tPath;
+        }
+
+        // 2. Upload video
+        let videoPath = existingVideoPath;
         if (videoFile) {
           const vPath = `${tenantId}/${Date.now()}-${videoFile.name}`;
           const { error: vErr } = await supabase.storage.from("facility-videos").upload(vPath, videoFile);
@@ -421,7 +440,7 @@ function AddEditFacilityModal({
           videoPath = vPath;
         }
 
-        // 2. Save facility record
+        // 3. Save facility record
         const payload: any = {
           tenant_id: tenantId,
           name: values.name.trim(),
@@ -430,6 +449,7 @@ function AddEditFacilityModal({
           description: values.description?.trim() || null,
           quotation: values.quotation || null,
           is_active: values.is_active,
+          thumbnail_path: thumbnailPath,
           video_path: videoPath,
         };
 
@@ -444,7 +464,7 @@ function AddEditFacilityModal({
           facilityId = (data as any).id;
         }
 
-        // 3. Sync facility_images — delete removed, insert new
+        // 3. Sync gallery images
         const existingPaths = new Set((editData?.facility_images ?? []).map((i: any) => i.image_path));
         const keptPaths = new Set(images.filter(i => i.existing).map(i => i.path));
         const removedPaths = [...existingPaths].filter(p => !keptPaths.has(p as string));
@@ -480,17 +500,30 @@ function AddEditFacilityModal({
     onError: (e: any) => toast.error(e?.message ?? "Failed to save facility."),
   });
 
+  const handleThumbSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Thumbnail exceeds 5 MB."); return; }
+    setThumbFile(file);
+    if (thumbPreview) URL.revokeObjectURL(thumbPreview);
+    setThumbPreview(URL.createObjectURL(file));
+    e.target.value = "";
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    if (images.length + files.length > 5) { toast.error("Maximum 5 images per facility."); return; }
+    if (images.length + files.length > 5) { toast.error("Maximum 5 gallery images."); return; }
     setUploading(true);
     for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} exceeds 5 MB limit.`); continue; }
-      const path = `${tenantId}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from("facility-images").upload(path, file);
-      if (error) { toast.error(`Failed to upload ${file.name}`); continue; }
-      setImages(prev => [...prev, { path, name: file.name }]);
+      if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} exceeds 5 MB.`); continue; }
+      try {
+        const webpBlob = await convertToWebP(file);
+        const path = `${tenantId}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.webp`;
+        const { error } = await supabase.storage.from("facility-images").upload(path, webpBlob, { contentType: "image/webp" });
+        if (error) { toast.error(`Failed to upload ${file.name}`); continue; }
+        setImages(prev => [...prev, { path, name: path.split("/").pop()! }]);
+      } catch { toast.error(`Failed to convert ${file.name}`); }
     }
     setUploading(false);
     e.target.value = "";
@@ -560,60 +593,72 @@ function AddEditFacilityModal({
               </FormItem>
             )} />
 
-            {/* Image upload */}
+            {/* ── Thumbnail ── */}
             <div>
-              <p className="text-sm font-medium mb-2">Images (max 5, 5 MB each)</p>
+              <p className="text-sm font-medium mb-2">Thumbnail <span className="text-xs text-slate-400 font-normal">(card cover · WebP)</span></p>
+              {(thumbPreview || existingThumbPath) ? (
+                <div className="relative h-32 w-full rounded-xl overflow-hidden border border-slate-200 mb-2">
+                  <img
+                    src={thumbPreview ?? supabase.storage.from("facility-thumbnails").getPublicUrl(existingThumbPath!).data.publicUrl}
+                    alt="thumbnail" className="w-full h-full object-cover"
+                  />
+                  <button type="button"
+                    className="absolute top-1.5 right-1.5 h-6 w-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow"
+                    onClick={() => { setThumbFile(null); if (thumbPreview) URL.revokeObjectURL(thumbPreview); setThumbPreview(null); setExistingThumbPath(null); }}
+                  ><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center h-24 w-full rounded-xl border-2 border-dashed border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors mb-2">
+                  <ImageIcon className="h-6 w-6 text-slate-300 mb-1" />
+                  <span className="text-xs text-slate-400">Click to upload thumbnail</span>
+                  <input type="file" accept="image/png,image/jpeg,image/jpg" className="hidden" onChange={handleThumbSelect} />
+                </label>
+              )}
+            </div>
+
+            {/* ── Gallery Images ── */}
+            <div>
+              <p className="text-sm font-medium mb-2">Gallery Images <span className="text-xs text-slate-400 font-normal">(max 5 · WebP)</span></p>
               <div className="flex flex-wrap gap-2 mb-2">
                 {images.map((img, i) => (
                   <div key={i} className="relative h-16 w-16 rounded-lg overflow-hidden border border-slate-200">
-                    <img
-                      src={supabase.storage.from("facility-images").getPublicUrl(img.path).data.publicUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-0.5 right-0.5 h-4 w-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]"
+                    <img src={supabase.storage.from("facility-images").getPublicUrl(img.path).data.publicUrl} alt="" className="w-full h-full object-cover" />
+                    <button type="button"
+                      className="absolute top-0.5 right-0.5 h-4 w-4 bg-red-500 text-white rounded-full flex items-center justify-center"
                       onClick={() => setImages(prev => prev.filter((_, j) => j !== i))}
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
+                    ><X className="h-2.5 w-2.5" /></button>
                   </div>
                 ))}
               </div>
-              <label className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 transition-colors ${images.length >= 5 ? "opacity-50 pointer-events-none" : ""}`}>
+              <label className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 transition-colors ${images.length >= 5 || uploading ? "opacity-50 pointer-events-none" : ""}`}>
                 <Plus className="h-4 w-4" />
-                {uploading ? "Uploading..." : "Add Images"}
-                <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={images.length >= 5 || uploading} />
+                {uploading ? "Uploading..." : "Add Gallery Images"}
+                <input type="file" accept="image/png,image/jpeg,image/jpg" multiple className="hidden" onChange={handleImageUpload} disabled={images.length >= 5 || uploading} />
               </label>
-              {images.length >= 5 && <p className="text-xs text-slate-500 mt-1">Maximum 5 images per facility</p>}
+              {images.length >= 5 && <p className="text-xs text-slate-500 mt-1">Maximum 5 gallery images</p>}
             </div>
 
-            {/* Video upload */}
+            {/* ── Video ── */}
             <div>
-              <p className="text-sm font-medium mb-2">Video (max 50 MB)</p>
-              {videoPreview && !videoFile && (
+              <p className="text-sm font-medium mb-2">Video <span className="text-xs text-slate-400 font-normal">(max 50 MB)</span></p>
+              {(existingVideoPath && !videoFile) && (
                 <div className="flex items-center gap-2 mb-2 text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
                   <Video className="h-4 w-4 text-indigo-500 shrink-0" />
-                  <span className="truncate">{videoPreview.split("/").pop()}</span>
-                  <button type="button" onClick={() => setVideoPreview(null)} className="ml-auto text-red-500 hover:text-red-700">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <span className="truncate">{existingVideoPath.split("/").pop()}</span>
+                  <button type="button" onClick={() => setExistingVideoPath(null)} className="ml-auto text-red-500"><X className="h-3.5 w-3.5" /></button>
                 </div>
               )}
               {videoFile && (
                 <div className="flex items-center gap-2 mb-2 text-sm text-slate-600 bg-indigo-50 rounded-lg px-3 py-2">
                   <Video className="h-4 w-4 text-indigo-500 shrink-0" />
                   <span className="truncate">{videoFile.name}</span>
-                  <button type="button" onClick={() => setVideoFile(null)} className="ml-auto text-red-500 hover:text-red-700">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <button type="button" onClick={() => setVideoFile(null)} className="ml-auto text-red-500"><X className="h-3.5 w-3.5" /></button>
                 </div>
               )}
               {!videoFile && (
                 <label className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 transition-colors">
                   <Plus className="h-4 w-4" />
-                  {videoPreview ? "Replace Video" : "Add Video"}
+                  {existingVideoPath ? "Replace Video" : "Add Video"}
                   <input type="file" accept="video/*" className="hidden" onChange={handleVideoSelect} />
                 </label>
               )}
@@ -1241,6 +1286,10 @@ export default function FacilityBookingPage() {
 
   const getTypeName = (typeLabel: string) => typeLabel ?? "";
   const getFirstImage = (facility: any) => {
+    // Use thumbnail_path first, fall back to first gallery image
+    if (facility.thumbnail_path) {
+      return supabase.storage.from("facility-thumbnails").getPublicUrl(facility.thumbnail_path).data.publicUrl;
+    }
     const imgs = facility.facility_images ?? [];
     if (!imgs.length) return null;
     const sorted = [...imgs].sort((a: any, b: any) => a.sort_order - b.sort_order);
