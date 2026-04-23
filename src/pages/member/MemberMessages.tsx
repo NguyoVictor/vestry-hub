@@ -60,7 +60,7 @@ export default function MemberMessages() {
 
       const { data } = await (supabase as any)
         .from("conversations")
-        .select("*, messages(id, content, body, created_at, sender_id, is_read)")
+        .select("*, messages(id, body, created_at, sender_id, is_read)")
         .in("id", convIds)
         .order("updated_at", { ascending: false });
       return data || [];
@@ -107,14 +107,15 @@ export default function MemberMessages() {
       const { error } = await (supabase as any).from("messages").insert({
         conversation_id: selectedConvId,
         sender_id: member.userId,
-        sender_name: `${member.firstName} ${member.lastName}`,
-        content: newMessage.trim(),
         body: newMessage.trim(),
         is_read: false,
       });
       if (error) throw error;
       await (supabase as any).from("conversations")
-        .update({ updated_at: new Date().toISOString(), last_message_preview: newMessage.trim().slice(0, 100) })
+        .update({
+          updated_at: new Date().toISOString(),
+          last_message_preview: newMessage.trim().slice(0, 100),
+        })
         .eq("id", selectedConvId);
     },
     onSuccess: () => {
@@ -205,7 +206,7 @@ export default function MemberMessages() {
                         </div>
                         {lastMsg && (
                           <p className="text-xs text-slate-400 truncate mt-0.5">
-                            {lastMsg.content || lastMsg.body || ""}
+                            {lastMsg.body || ""}
                           </p>
                         )}
                       </div>
@@ -268,7 +269,7 @@ export default function MemberMessages() {
                   ) : (
                     messages.map((msg: any) => {
                       const isMe = msg.sender_id === member.userId;
-                      const text = msg.content || msg.body || "";
+                      const text = msg.body || "";
                       return (
                         <div key={msg.id} className={cn("flex gap-2", isMe ? "justify-end" : "justify-start")}>
                           {!isMe && <Avatar name={staffName} size="sm" />}

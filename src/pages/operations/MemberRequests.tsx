@@ -68,38 +68,63 @@ function MessageMemberModal({ open, onClose, memberId, memberName, tenantId, use
     if (!message.trim()) return;
     setSending(true);
     try {
-      // Find or create direct conversation with this member
-      const { data: existing } = await (supabase as any)
-        .from("conversations")
-        .select("id, conversation_participants!inner(user_id)")
-        .eq("tenant_id", tenantId)
-        .eq("type", "direct")
-        .eq("conversation_participants.user_id", memberId)
-        .maybeSingle();
+      // 1. Find existing direct conversation between admin and this member
+      const { data: myParticipations } = await (supabase as any)
+        .from("conversation_participants")
+        .select("conversation_id")
+        .eq("user_id", userId);
 
-      let convId = existing?.id;
+      const { data: memberParticipations } = await (supabase as any)
+        .from("conversation_participants")
+        .select("conversation_id")
+        .eq("user_id", memberId);
+
+      const myConvIds = new Set((myParticipations || []).map((r: any) => r.conversation_id));
+      const memberConvIds = (memberParticipations || []).map((r: any) => r.conversation_id);
+
+      // Find a direct conversation both are in
+      const sharedConvId = memberConvIds.find((id: string) => myConvIds.has(id));
+
+      let convId = sharedConvId;
+
+      // 2. If no shared conversation, create one
       if (!convId) {
-        const { data: newConv } = await (supabase as any)
+        const { data: newConv, error: convErr } = await (supabase as any)
           .from("conversations")
-          .insert({ tenant_id: tenantId, type: "direct", created_by: userId, status: "open" })
-          .select("id").single();
-        convId = newConv?.id;
-        if (convId) {
-          await (supabase as any).from("conversation_participants").insert([
-            { conversation_id: convId, user_id: userId },
-            { conversation_id: convId, user_id: memberId },
-          ]);
-        }
-      }
-      if (!convId) throw new Error("Could not create conversation");
+          .insert({
+            tenant_id: tenantId,
+            type: "direct",
+            created_by: userId,
+            status: "open",
+          })
+          .select("id")
+          .single();
 
-      await (supabase as any).from("messages").insert({
-        tenant_id: tenantId, conversation_id: convId,
-        sender_id: userId, recipient_id: memberId, body: message.trim(),
+        if (convErr) throw convErr;
+        convId = newConv.id;
+
+        // Add both participants
+        await (supabase as any).from("conversation_participants").insert([
+          { conversation_id: convId, user_id: userId },
+          { conversation_id: convId, user_id: memberId },
+        ]);
+      }
+
+      // 3. Insert the message with correct schema (body, not content)
+      const { error: msgErr } = await (supabase as any).from("messages").insert({
+        tenant_id: tenantId,
+        conversation_id: convId,
+        sender_id: userId,
+        body: message.trim(),
+        is_read: false,
       });
+      if (msgErr) throw msgErr;
+
+      // 4. Update conversation preview
       await (supabase as any).from("conversations").update({
         last_message_preview: message.trim().slice(0, 100),
         last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }).eq("id", convId);
 
       qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
@@ -107,6 +132,7 @@ function MessageMemberModal({ open, onClose, memberId, memberName, tenantId, use
       setMessage("");
       onClose();
     } catch (err: any) {
+      console.error("Message send error:", err);
       toast.error(err.message || "Failed to send message");
     } finally {
       setSending(false);
