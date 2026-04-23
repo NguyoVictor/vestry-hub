@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { Send, MessageCircle, ArrowLeft, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatMsgTime(dateStr: string) {
   const d = new Date(dateStr);
   if (isToday(d)) return format(d, "HH:mm");
@@ -36,7 +35,6 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function MemberMessages() {
   const member = useMemberPortal();
   const navigate = useNavigate();
@@ -49,7 +47,6 @@ export default function MemberMessages() {
   const { data: conversations = [], isLoading: convsLoading } = useQuery({
     queryKey: ["member-conversations", member.memberId],
     queryFn: async () => {
-      // Find conversations where this member is a participant
       const { data: participantRows } = await (supabase as any)
         .from("conversation_participants")
         .select("conversation_id")
@@ -83,7 +80,23 @@ export default function MemberMessages() {
     refetchInterval: 3_000,
   });
 
-  // Realtime
+  // ── Helpers — defined before useEffects that call them ───────────────────────
+  const markAsRead = useCallback(async (convId: string) => {
+    await (supabase as any)
+      .from("messages")
+      .update({ is_read: true })
+      .eq("conversation_id", convId)
+      .eq("is_read", false)
+      .neq("sender_id", member.userId);
+    queryClient.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
+  }, [member.userId, member.memberId, queryClient]);
+
+  const selectConversation = useCallback((convId: string) => {
+    setSelectedConvId(convId);
+    markAsRead(convId);
+  }, [markAsRead]);
+
+  // ── Effects ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedConvId) return;
     const channel = supabase
@@ -96,11 +109,19 @@ export default function MemberMessages() {
     return () => { supabase.removeChannel(channel); };
   }, [selectedConvId, queryClient, member.memberId]);
 
+  // Mark as read when messages arrive
+  useEffect(() => {
+    if (selectedConvId && messages.length > 0) {
+      markAsRead(selectedConvId);
+    }
+  }, [selectedConvId, messages.length, markAsRead]);
+
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ── Send mutation ─────────────────────────────────────────────────────────────
   const sendMessage = useMutation({
     mutationFn: async () => {
       if (!selectedConvId || !newMessage.trim()) return;
@@ -111,12 +132,10 @@ export default function MemberMessages() {
         is_read: false,
       });
       if (error) throw error;
-      await (supabase as any).from("conversations")
-        .update({
-          updated_at: new Date().toISOString(),
-          last_message_preview: newMessage.trim().slice(0, 100),
-        })
-        .eq("id", selectedConvId);
+      await (supabase as any).from("conversations").update({
+        updated_at: new Date().toISOString(),
+        last_message_preview: newMessage.trim().slice(0, 100),
+      }).eq("id", selectedConvId);
     },
     onSuccess: () => {
       setNewMessage("");
@@ -126,6 +145,7 @@ export default function MemberMessages() {
     onError: () => toast.error("Failed to send message"),
   });
 
+  // ── Derived ───────────────────────────────────────────────────────────────────
   const selectedConv = conversations.find((c: any) => c.id === selectedConvId);
   const staffName = selectedConv?.staff_name || selectedConv?.name || selectedConv?.title || "Church Staff";
 
@@ -133,8 +153,6 @@ export default function MemberMessages() {
     <>
       <Helmet><title>Messages — Vestry</title></Helmet>
       <div className="max-w-4xl mx-auto">
-
-        {/* Page header — only shown when no conversation selected on mobile */}
         <div className={cn("flex items-center gap-3 mb-4", selectedConvId ? "hidden md:flex" : "flex")}>
           <button onClick={() => navigate("/member")}
             className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -147,21 +165,16 @@ export default function MemberMessages() {
           </div>
         </div>
 
-        {/* Chat container */}
-        <div
-          className="flex bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
-          style={{ height: "calc(100vh - 220px)", minHeight: 480 }}
-        >
-          {/* ── Left: Conversation list ── */}
-          <div className={cn(
-            "w-full md:w-72 border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0",
-            selectedConvId ? "hidden md:flex" : "flex"
-          )}>
+        <div className="flex bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
+          style={{ height: "calc(100vh - 220px)", minHeight: 480 }}>
+
+          {/* Left: Conversation list */}
+          <div className={cn("w-full md:w-72 border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0",
+            selectedConvId ? "hidden md:flex" : "flex")}>
             <div className="px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
               <p className="text-sm font-semibold text-slate-800 dark:text-white">Conversations</p>
               <p className="text-xs text-slate-400 mt-0.5">Messages from your church</p>
             </div>
-
             <div className="flex-1 overflow-y-auto">
               {convsLoading ? (
                 <div className="p-3 space-y-2">
@@ -172,76 +185,55 @@ export default function MemberMessages() {
                   <div className="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                     <MessageCircle className="h-6 w-6 text-slate-300" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No messages yet</p>
-                    <p className="text-xs text-slate-400 mt-1">Church staff will reach out to you here</p>
-                  </div>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No messages yet</p>
+                  <p className="text-xs text-slate-400">Church staff will reach out to you here</p>
                 </div>
-              ) : (
-                conversations.map((conv: any) => {
-                  const msgs = conv.messages || [];
-                  const lastMsg = msgs[msgs.length - 1];
-                  const unread = msgs.filter((m: any) => !m.is_read && m.sender_id !== member.userId).length;
-                  const name = conv.staff_name || conv.name || conv.title || "Church Staff";
-                  const isSelected = selectedConvId === conv.id;
-
-                  return (
-                    <button
-                      key={conv.id}
-                      onClick={() => setSelectedConvId(conv.id)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left border-b border-slate-50 dark:border-slate-800/60",
-                        isSelected && "bg-orange-50 dark:bg-orange-900/10 border-l-2 border-l-orange-500"
-                      )}
-                    >
-                      <Avatar name={name} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className={cn("text-sm truncate", isSelected ? "font-semibold text-orange-600" : "font-medium text-slate-800 dark:text-white")}>
-                            {name}
-                          </p>
-                          {lastMsg && (
-                            <p className="text-[11px] text-slate-400 shrink-0">{formatMsgTime(lastMsg.created_at)}</p>
-                          )}
-                        </div>
-                        {lastMsg && (
-                          <p className="text-xs text-slate-400 truncate mt-0.5">
-                            {lastMsg.body || ""}
-                          </p>
-                        )}
+              ) : conversations.map((conv: any) => {
+                const msgs = conv.messages || [];
+                const lastMsg = msgs[msgs.length - 1];
+                const unread = msgs.filter((m: any) => !m.is_read && m.sender_id !== member.userId).length;
+                const name = conv.staff_name || conv.name || conv.title || "Church Staff";
+                const isSelected = selectedConvId === conv.id;
+                return (
+                  <button key={conv.id} onClick={() => selectConversation(conv.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left border-b border-slate-50 dark:border-slate-800/60",
+                      isSelected && "bg-orange-50 dark:bg-orange-900/10 border-l-2 border-l-orange-500"
+                    )}>
+                    <Avatar name={name} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className={cn("text-sm truncate", isSelected ? "font-semibold text-orange-600" : "font-medium text-slate-800 dark:text-white")}>{name}</p>
+                        {lastMsg && <p className="text-[11px] text-slate-400 shrink-0">{formatMsgTime(lastMsg.created_at)}</p>}
                       </div>
-                      {unread > 0 && (
-                        <span className="h-5 min-w-[20px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {unread}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
+                      {lastMsg && <p className="text-xs text-slate-400 truncate mt-0.5">{lastMsg.body || ""}</p>}
+                    </div>
+                    {unread > 0 && (
+                      <span className="h-5 min-w-[20px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                        {unread}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* ── Right: Chat panel ── */}
+          {/* Right: Chat panel */}
           <div className={cn("flex-1 flex flex-col min-w-0", !selectedConvId ? "hidden md:flex" : "flex")}>
             {!selectedConvId ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8">
                 <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                   <MessageCircle className="h-7 w-7 text-slate-300" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Select a conversation</p>
-                  <p className="text-xs text-slate-400 mt-1">Choose a conversation from the left to start reading</p>
-                </div>
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Select a conversation</p>
+                <p className="text-xs text-slate-400">Choose a conversation from the left to start reading</p>
               </div>
             ) : (
               <>
-                {/* Chat header */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                  <button
-                    className="md:hidden h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    onClick={() => setSelectedConvId(null)}
-                  >
+                  <button className="md:hidden h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                    onClick={() => setSelectedConvId(null)}>
                     <ChevronLeft className="h-4 w-4 text-slate-600" />
                   </button>
                   <Avatar name={staffName} size="sm" />
@@ -251,7 +243,6 @@ export default function MemberMessages() {
                   </div>
                 </div>
 
-                {/* Messages */}
                 <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/20">
                   {msgsLoading ? (
                     <div className="space-y-3">
@@ -262,50 +253,37 @@ export default function MemberMessages() {
                       ))}
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-12">
-                      <p className="text-sm text-slate-400">No messages yet</p>
-                      <p className="text-xs text-slate-300">Send a message to start the conversation</p>
-                    </div>
-                  ) : (
-                    messages.map((msg: any) => {
-                      const isMe = msg.sender_id === member.userId;
-                      const text = msg.body || "";
-                      return (
-                        <div key={msg.id} className={cn("flex gap-2", isMe ? "justify-end" : "justify-start")}>
-                          {!isMe && <Avatar name={staffName} size="sm" />}
-                          <div className={cn(
-                            "max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm",
-                            isMe
-                              ? "bg-orange-500 text-white rounded-br-sm"
-                              : "bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-bl-sm border border-slate-100 dark:border-slate-700"
-                          )}>
-                            <p className="text-sm leading-relaxed">{text}</p>
-                            <p className={cn("text-[11px] mt-1", isMe ? "text-orange-100" : "text-slate-400")}>
-                              {format(new Date(msg.created_at), "HH:mm")}
-                            </p>
-                          </div>
+                    <p className="text-center text-sm text-slate-400 py-12">No messages yet</p>
+                  ) : messages.map((msg: any) => {
+                    const isMe = msg.sender_id === member.userId;
+                    return (
+                      <div key={msg.id} className={cn("flex gap-2", isMe ? "justify-end" : "justify-start")}>
+                        {!isMe && <Avatar name={staffName} size="sm" />}
+                        <div className={cn("max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm",
+                          isMe
+                            ? "bg-orange-500 text-white rounded-br-sm"
+                            : "bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-bl-sm border border-slate-100 dark:border-slate-700"
+                        )}>
+                          <p className="text-sm leading-relaxed">{msg.body || ""}</p>
+                          <p className={cn("text-[11px] mt-1", isMe ? "text-orange-100" : "text-slate-400")}>
+                            {format(new Date(msg.created_at), "HH:mm")}
+                          </p>
                         </div>
-                      );
-                    })
-                  )}
+                      </div>
+                    );
+                  })}
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input */}
                 <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2 items-center">
-                  <Input
-                    value={newMessage}
-                    onChange={e => setNewMessage(e.target.value)}
+                  <Input value={newMessage} onChange={e => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
                     className="rounded-full border-slate-200 focus:border-orange-400 focus:ring-orange-400/10"
-                    onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage.mutate()}
-                  />
-                  <Button
-                    size="icon"
+                    onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage.mutate()} />
+                  <Button size="icon"
                     className="rounded-full h-10 w-10 shrink-0 bg-orange-500 hover:bg-orange-600 text-white"
                     onClick={() => sendMessage.mutate()}
-                    disabled={!newMessage.trim() || sendMessage.isPending}
-                  >
+                    disabled={!newMessage.trim() || sendMessage.isPending}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
