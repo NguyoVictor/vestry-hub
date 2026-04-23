@@ -24,7 +24,7 @@ import {
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PremiumGallery } from "@/components/ui/PremiumGallery";
 import {
-  ArrowLeft, Building2, Users, Calendar, Clock, CheckCircle2, Video, ChevronLeft, ChevronRight, ImageIcon,
+  ArrowLeft, Building2, Users, Calendar, Clock, CheckCircle2, Video, ChevronLeft, ChevronRight, ImageIcon, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -494,7 +494,7 @@ function MyBookingsSection({
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITY_BOOKINGS as any)
-        .select("id, purpose, booking_date, start_time, end_time, status, facility_id, facilities(name)")
+        .select("id, purpose, booking_date, start_time, end_time, status, facility_id, facility_name")
         .eq(COLS.TENANT_ID, churchId)
         .eq("booked_by", memberId)
         .order("booking_date", { ascending: false });
@@ -535,7 +535,7 @@ function MyBookingsSection({
         >
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-              {(b.facilities as any)?.name ?? "Facility"}
+              {(b.facilities as any)?.name ?? b.facility_name ?? "Facility"}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
               {b.purpose}
