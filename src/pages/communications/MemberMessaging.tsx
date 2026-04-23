@@ -60,21 +60,21 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
   const [sending, setSending] = useState(false);
 
   const { data: members = [] } = useQuery<Member[]>({
-    queryKey: ["members-messaging", tenantId],
+    queryKey: ["members-for-newmsg", tenantId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email, status").eq("tenant_id", tenantId).order("first_name");
       return (data ?? []) as Member[];
     },
-    staleTime: 300_000, enabled: open,
+    staleTime: 0, enabled: open,
   });
 
   const { data: users = [] } = useQuery<UserRow[]>({
-    queryKey: ["users-messaging", tenantId],
+    queryKey: ["users-for-newmsg", tenantId],
     queryFn: async () => {
       const { data } = await supabase.from("users").select("id, first_name, last_name, email, role").eq("tenant_id", tenantId);
       return (data ?? []) as UserRow[];
     },
-    staleTime: 300_000, enabled: open,
+    staleTime: 0, enabled: open,
   });
 
   const reset = () => { setMessage(""); setSelectedMemberId(""); setSendTo("forum"); };
@@ -247,8 +247,14 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteMsgId, setDeleteMsgId] = useState<string | null>(null);
+  const [editGroupOpen, setEditGroupOpen] = useState(false);
+  const [editGroupName, setEditGroupName] = useState(conv.name ?? "");
+  const [editGroupDesc, setEditGroupDesc] = useState(conv.description ?? "");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isGroup = conv.type === "group" || conv.is_forum;
 
   const { data: messages = [], refetch } = useQuery<Message[]>({
     queryKey: ["messages-conv", conv.id],
@@ -372,20 +378,124 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
         </div>
         <div className="flex items-center gap-2">
           {conv.status === "open" && (
-            <Button variant="outline" size="sm" className="text-xs" onClick={() => onClose(conv.id)}>Close Conversation</Button>
+            <Button variant="outline" size="sm" className="text-xs" onClick={() => { onClose(conv.id); onBack(); }}>Close Conversation</Button>
+          )}
+          {conv.status === "closed" && (
+            <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
+              await supabase.from("conversations").update({ status: "open" }).eq("id", conv.id);
+              qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+              qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+              toast.success("Conversation reopened");
+            }}>Reopen</Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"><MoreVertical className="h-4 w-4" /></button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem className="gap-2 cursor-pointer text-xs">View Member Profile</DropdownMenuItem>
-              <DropdownMenuItem className="gap-2 cursor-pointer text-xs">Mark as Unread</DropdownMenuItem>
-              <DropdownMenuItem className="gap-2 cursor-pointer text-xs text-red-500 focus:text-red-500">Delete Conversation</DropdownMenuItem>
+              {isGroup && !conv.is_forum && (
+                <DropdownMenuItem className="gap-2 cursor-pointer text-xs" onClick={() => setEditGroupOpen(true)}>
+                  Edit Group
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem className="gap-2 cursor-pointer text-xs" onClick={async () => {
+                await supabase.from("conversation_participants")
+                  .update({ unread_count: 1 } as any)
+                  .eq("conversation_id", conv.id)
+                  .eq("user_id", userId);
+                qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+                toast.success("Marked as unread");
+              }}>Mark as Unread</DropdownMenuItem>
+              <DropdownMenuItem className="gap-2 cursor-pointer text-xs text-red-500 focus:text-red-500"
+                onClick={() => setDeleteConfirm(true)}>
+                Delete Conversation
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Delete Conversation?</h3>
+            <p className="text-sm text-slate-500">All messages will be permanently deleted and cannot be recovered.</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
+              <Button className="bg-red-500 hover:bg-red-600 text-white" onClick={async () => {
+                try {
+                  await supabase.from("messages").delete().eq("conversation_id", conv.id);
+                  await supabase.from("conversation_participants").delete().eq("conversation_id", conv.id);
+                  await supabase.from("conversations").delete().eq("id", conv.id);
+                  qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+                  qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+                  toast.success("Conversation deleted");
+                  onBack();
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to delete");
+                }
+                setDeleteConfirm(false);
+              }}>Delete</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Group Modal */}
+      {editGroupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Edit Group</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Group Name</label>
+                <Input value={editGroupName} onChange={e => setEditGroupName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Description</label>
+                <textarea
+                  value={editGroupDesc}
+                  onChange={e => setEditGroupDesc(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-400/20 focus:border-orange-400"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setEditGroupOpen(false)}>Cancel</Button>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={async () => {
+                await supabase.from("conversations").update({ name: editGroupName, description: editGroupDesc || null }).eq("id", conv.id);
+                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+                toast.success("Group updated");
+                setEditGroupOpen(false);
+              }}>Save Changes</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete message confirmation */}
+      {deleteMsgId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Delete Message?</h3>
+            <p className="text-sm text-slate-500">This message will be permanently deleted for everyone.</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setDeleteMsgId(null)}>Cancel</Button>
+              <Button className="bg-red-500 hover:bg-red-600 text-white" onClick={async () => {
+                await supabase.from("messages").delete().eq("id", deleteMsgId);
+                refetch();
+                qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+                toast.success("Message deleted");
+                setDeleteMsgId(null);
+              }}>Delete</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-4 py-3">
@@ -396,30 +506,46 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
             const isOwn = msg.sender_id === userId;
             const senderName = getUserName(msg.sender_id);
             return (
-              <div key={msg.id} className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
+              <div key={msg.id} className={cn("flex flex-col group", isOwn ? "items-end" : "items-start")}>
                 {(conv.type === "group" || conv.is_forum) && !isOwn && (
                   <p className="text-[10px] text-slate-400 mb-0.5 ml-1">{senderName}</p>
                 )}
-                <div className={cn("max-w-[70%] px-4 py-2.5 rounded-2xl text-sm", isOwn ? "bg-orange-500 text-white rounded-br-sm" : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-sm")}>
-                  {(msg as any).attachment_url ? (
-                    <a href={(msg as any).attachment_url} target="_blank" rel="noopener noreferrer"
-                      className={cn("flex items-center gap-2 underline text-sm", isOwn ? "text-white" : "text-orange-600")}>
-                      <Paperclip className="h-3.5 w-3.5 shrink-0" />
-                      {(msg as any).attachment_name || "Attachment"}
-                    </a>
-                  ) : (
-                    <p className="leading-relaxed">{msg.body}</p>
+                <div className="flex items-end gap-1.5">
+                  {isOwn && (
+                    <button
+                      onClick={() => setDeleteMsgId(msg.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-400 shrink-0 mb-1"
+                      title="Delete message"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   )}
-                  <div className={cn("flex items-center gap-1 mt-1", isOwn ? "justify-end" : "justify-start")}>
-                    <span className={cn("text-[10px]", isOwn ? "text-orange-200" : "text-slate-400")}>
-                      {msg.created_at ? format(new Date(msg.created_at), "HH:mm") : ""}
-                    </span>
-                    {isOwn && (
-                      msg.read_at
-                        ? <CheckCheck className="h-3 w-3 text-blue-300" />
-                        : <Check className="h-3 w-3 text-orange-200" />
+                  <div className={cn("max-w-[70%] px-4 py-2.5 rounded-2xl text-sm", isOwn ? "bg-orange-500 text-white rounded-br-sm" : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-sm")}>
+                    {(msg as any).attachment_url ? (
+                      <a href={(msg as any).attachment_url} target="_blank" rel="noopener noreferrer"
+                        className={cn("flex items-center gap-2 underline text-sm", isOwn ? "text-white" : "text-orange-600")}>
+                        <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                        {(msg as any).attachment_name || "Attachment"}
+                      </a>
+                    ) : (
+                      <p className="leading-relaxed">{msg.body}</p>
                     )}
+                    <div className={cn("flex items-center gap-1 mt-1", isOwn ? "justify-end" : "justify-start")}>
+                      <span className={cn("text-[10px]", isOwn ? "text-orange-200" : "text-slate-400")}>
+                        {msg.created_at ? format(new Date(msg.created_at), "HH:mm") : ""}
+                      </span>
+                      {isOwn && (msg.read_at ? <CheckCheck className="h-3 w-3 text-blue-300" /> : <Check className="h-3 w-3 text-orange-200" />)}
+                    </div>
                   </div>
+                  {!isOwn && (
+                    <button
+                      onClick={() => setDeleteMsgId(msg.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-400 shrink-0 mb-1"
+                      title="Delete message"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -476,12 +602,12 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
   const { data: conversations = [], isLoading, refetch } = useQuery<Conversation[]>({
     queryKey: ["conversations-dm", tenantId],
     queryFn: async () => {
-      // Fetch direct conversations + the church forum
+      // Direct messages only — no forum
       const { data } = await supabase
         .from("conversations")
         .select("*, conversation_participants(user_id, unread_count, last_read_at)")
         .eq("tenant_id", tenantId)
-        .or("type.eq.direct,is_forum.eq.true")
+        .eq("type", "direct")
         .order("last_message_at", { ascending: false, nullsFirst: false });
       return (data ?? []) as Conversation[];
     },
@@ -534,6 +660,19 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
     toast.success("Conversation closed.");
   };
 
+  const markConvAsRead = async (convId: string) => {
+    await supabase.from("conversation_participants")
+      .update({ unread_count: 0 } as any)
+      .eq("conversation_id", convId)
+      .eq("user_id", userId);
+    qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+  };
+
+  const selectConversation = (convId: string) => {
+    setSelectedConvId(convId);
+    markConvAsRead(convId);
+  };
+
   const selectedConv = conversations.find(c => c.id === selectedConvId) ?? null;
 
   return (
@@ -552,7 +691,7 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1"><RefreshCw className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="sm" onClick={() => { refetch(); toast.success("Refreshed"); }} className="gap-1"><RefreshCw className="h-3.5 w-3.5" /></Button>
                 <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1" onClick={() => setNewMsgOpen(true)}><Plus className="h-3.5 w-3.5" />New Message</Button>
               </div>
             </div>
@@ -587,7 +726,7 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
               const unread = getUnread(conv);
               const isSelected = selectedConvId === conv.id;
               return (
-                <button key={conv.id} onClick={() => setSelectedConvId(conv.id)} className={cn("w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-50 dark:border-slate-700/50", isSelected && "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500")}>
+                <button key={conv.id} onClick={() => selectConversation(conv.id)} className={cn("w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-50 dark:border-slate-700/50", isSelected && "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500")}>
                   <div className="relative shrink-0">
                     <Avatar name={name} size="md" />
                     <div className={cn("absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white", conv.status === "open" ? "bg-emerald-500" : "bg-slate-400")} />
@@ -635,15 +774,30 @@ function CreateGroupModal({ open, onClose, tenantId, userId, onCreated }: { open
   const [creating, setCreating] = useState(false);
 
   const { data: users = [] } = useQuery({
-    queryKey: ["users-messaging", tenantId],
+    queryKey: ["users-for-group", tenantId],
     queryFn: async () => {
       const { data } = await supabase.from("users").select("id, first_name, last_name, email, role").eq("tenant_id", tenantId);
       return data ?? [];
     },
-    staleTime: 300_000, enabled: open,
+    staleTime: 0, enabled: open,
   });
 
-  const others = users.filter((u: any) => u.id !== userId);
+  const { data: membersList = [] } = useQuery({
+    queryKey: ["members-for-group", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email").eq("tenant_id", tenantId).order("first_name");
+      return data ?? [];
+    },
+    staleTime: 0, enabled: open,
+  });
+
+  // Merge: members first, then users not already in members
+  const allPeople = [
+    ...membersList,
+    ...(users as any[]).filter(u => !(membersList as any[]).find((m: any) => m.id === u.id)),
+  ].filter((p: any) => p.id !== userId);
+
+  const others = allPeople;
   const filtered = others.filter((u: any) => {
     const q = memberSearch.toLowerCase();
     return `${u.first_name ?? ""} ${u.last_name ?? ""}`.toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q);
@@ -741,19 +895,33 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
   const { data: conversations = [], isLoading, refetch } = useQuery<Conversation[]>({
     queryKey: ["conversations-group", tenantId],
     queryFn: async () => {
-      // Ensure Church Forum exists
-      const { data: existing } = await supabase.from("conversations").select("id").eq("tenant_id", tenantId).eq("is_forum", true).maybeSingle();
-      if (!existing) {
-        const { data: forum } = await supabase.from("conversations").insert({ tenant_id: tenantId, type: "group", name: "Church Forum", description: "Main church community forum where all members can connect", is_forum: true, created_by: userId, status: "open" } as any).select("id").single();
-        if (forum) {
-          // Add all users as participants
-          const { data: allUsers } = await supabase.from("users").select("id").eq("tenant_id", tenantId);
-          if (allUsers?.length) {
-            await supabase.from("conversation_participants").insert(allUsers.map(u => ({ conversation_id: forum.id, user_id: u.id })));
-          }
-        }
+      // Ensure Church Forum exists and admin is a participant
+      let { data: forum } = await supabase.from("conversations").select("id").eq("tenant_id", tenantId).eq("is_forum", true).maybeSingle();
+      if (!forum) {
+        const { data: newForum } = await supabase.from("conversations")
+          .insert({ tenant_id: tenantId, type: "group", name: "Church Forum", description: "Main church community forum where all members can connect", is_forum: true, created_by: userId, status: "open" } as any)
+          .select("id").single();
+        forum = newForum;
+        // Add admin as participant
+        if (forum) await supabase.from("conversation_participants").insert({ conversation_id: forum.id, user_id: userId });
+      } else {
+        // Ensure current admin is a participant of the forum
+        const { data: existing } = await supabase.from("conversation_participants")
+          .select("id").eq("conversation_id", forum.id).eq("user_id", userId).maybeSingle();
+        if (!existing) await supabase.from("conversation_participants").insert({ conversation_id: forum.id, user_id: userId });
       }
-      const { data } = await supabase.from("conversations").select("*, conversation_participants(user_id, unread_count)").eq("tenant_id", tenantId).in("type", ["group"]).order("is_forum", { ascending: false }).order("last_message_at", { ascending: false, nullsFirst: false });
+
+      // Only show groups this admin is a participant of
+      const { data: myParticipations } = await supabase.from("conversation_participants").select("conversation_id").eq("user_id", userId);
+      const myConvIds = (myParticipations || []).map((r: any) => r.conversation_id);
+      if (!myConvIds.length) return [];
+      const { data } = await supabase.from("conversations")
+        .select("*, conversation_participants(user_id, unread_count)")
+        .eq("tenant_id", tenantId)
+        .eq("type", "group")
+        .in("id", myConvIds)
+        .order("is_forum", { ascending: false })
+        .order("last_message_at", { ascending: false, nullsFirst: false });
       return (data ?? []) as Conversation[];
     },
     staleTime: 30_000,
@@ -764,6 +932,15 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
 
   const closeConversation = async (id: string) => {
     await supabase.from("conversations").update({ status: "closed" }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+  };
+
+  const selectGroupConversation = async (convId: string) => {
+    setSelectedConvId(convId);
+    await supabase.from("conversation_participants")
+      .update({ unread_count: 0 } as any)
+      .eq("conversation_id", convId)
+      .eq("user_id", userId);
     qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
   };
 
@@ -782,7 +959,7 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1"><RefreshCw className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="sm" onClick={() => { refetch(); toast.success("Refreshed"); }} className="gap-1"><RefreshCw className="h-3.5 w-3.5" /></Button>
                 <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1" onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" />New Group</Button>
               </div>
             </div>
@@ -797,7 +974,7 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
               const isSelected = selectedConvId === conv.id;
               const groupName = conv.name ?? "Group";
               return (
-                <button key={conv.id} onClick={() => setSelectedConvId(conv.id)} className={cn("w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-50 dark:border-slate-700/50", isSelected && "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500")}>
+                <button key={conv.id} onClick={() => selectGroupConversation(conv.id)} className={cn("w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-50 dark:border-slate-700/50", isSelected && "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500")}>
                   <div className={cn("flex h-10 w-10 items-center justify-center rounded-full text-white font-semibold text-sm shrink-0", conv.is_forum ? "bg-orange-500" : avatarColor(groupName))}>
                     {conv.is_forum ? "⛪" : groupName[0].toUpperCase()}
                   </div>
@@ -806,7 +983,7 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{groupName}</p>
                       {conv.is_forum && <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500">System</span>}
                     </div>
-                    <p className="text-xs text-slate-400 truncate">{conv.description ?? "No description"}</p>
+                    <p className="text-xs text-slate-400 line-clamp-2 break-words">{conv.description ?? "No description"}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">{conv.last_message_at ? `Active ${formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true })}` : "No activity yet"} · {memberCount} members</p>
                   </div>
                 </button>

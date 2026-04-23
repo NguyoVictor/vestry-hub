@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, MessageCircle, ArrowLeft, ChevronLeft, Paperclip } from "lucide-react";
+import { Send, MessageCircle, ArrowLeft, ChevronLeft, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatMsgTime(dateStr: string) {
@@ -287,25 +287,40 @@ export default function MemberMessages() {
                   ) : messages.map((msg: any) => {
                     const isMe = msg.sender_id === member.userId;
                     return (
-                      <div key={msg.id} className={cn("flex gap-2", isMe ? "justify-end" : "justify-start")}>
+                      <div key={msg.id} className={cn("flex gap-2 group", isMe ? "justify-end" : "justify-start")}>
                         {!isMe && <Avatar name={staffName} size="sm" />}
-                        <div className={cn("max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm",
-                          isMe
-                            ? "bg-orange-500 text-white rounded-br-sm"
-                            : "bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-bl-sm border border-slate-100 dark:border-slate-700"
-                        )}>
-                          {(msg as any).attachment_url ? (
-                            <a href={(msg as any).attachment_url} target="_blank" rel="noopener noreferrer"
-                              className={cn("flex items-center gap-2 underline text-sm", isMe ? "text-white" : "text-orange-600")}>
-                              <Paperclip className="h-3.5 w-3.5 shrink-0" />
-                              {(msg as any).attachment_name || "Attachment"}
-                            </a>
-                          ) : (
-                            <p className="text-sm leading-relaxed">{msg.body || ""}</p>
+                        <div className="flex items-end gap-1.5">
+                          {isMe && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm("Delete this message for everyone?")) return;
+                                await (supabase as any).from("messages").delete().eq("id", msg.id);
+                                queryClient.invalidateQueries({ queryKey: ["member-messages", selectedConvId] });
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-400 shrink-0 mb-1"
+                              title="Delete message"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
                           )}
-                          <p className={cn("text-[11px] mt-1", isMe ? "text-orange-100" : "text-slate-400")}>
-                            {format(new Date(msg.created_at), "HH:mm")}
-                          </p>
+                          <div className={cn("max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm",
+                            isMe
+                              ? "bg-orange-500 text-white rounded-br-sm"
+                              : "bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-bl-sm border border-slate-100 dark:border-slate-700"
+                          )}>
+                            {(msg as any).attachment_url ? (
+                              <a href={(msg as any).attachment_url} target="_blank" rel="noopener noreferrer"
+                                className={cn("flex items-center gap-2 underline text-sm", isMe ? "text-white" : "text-orange-600")}>
+                                <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                                {(msg as any).attachment_name || "Attachment"}
+                              </a>
+                            ) : (
+                              <p className="text-sm leading-relaxed">{msg.body || ""}</p>
+                            )}
+                            <p className={cn("text-[11px] mt-1", isMe ? "text-orange-100" : "text-slate-400")}>
+                              {format(new Date(msg.created_at), "HH:mm")}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     );
