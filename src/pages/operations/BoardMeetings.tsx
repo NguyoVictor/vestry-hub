@@ -307,7 +307,6 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
             <p className="text-white/80 text-xs font-medium">{typeLabel}</p>
             <h2 className="text-white font-bold text-lg leading-tight">{meeting.title}</h2>
           </div>
-          <button onClick={onClose} className="absolute top-3 right-3 text-white/70 hover:text-white text-xl leading-none">×</button>
         </div>
 
         <div className="px-6 py-5 space-y-5">
