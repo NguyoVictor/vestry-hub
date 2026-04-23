@@ -103,22 +103,21 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
         onClose(); reset();
 
       } else if (sendTo === "all") {
-        // Send to each member individually
         let count = 0;
-        for (const u of users.filter(u => u.id !== userId)) {
-          const { data: existing } = await supabase.from("conversations").select("id, conversation_participants!inner(user_id)").eq("tenant_id", tenantId).eq("type", "direct").eq("conversation_participants.user_id", u.id).maybeSingle();
-          let convId = existing?.id;
+        for (const u of allUsers) {
+          const myParticipations = await supabase.from("conversation_participants").select("conversation_id").eq("user_id", userId);
+          const theirParticipations = await supabase.from("conversation_participants").select("conversation_id").eq("user_id", u.id);
+          const myIds = new Set((myParticipations.data || []).map((r: any) => r.conversation_id));
+          const sharedId = (theirParticipations.data || []).find((r: any) => myIds.has(r.conversation_id))?.conversation_id;
+          let convId = sharedId;
           if (!convId) {
             const { data: newConv } = await supabase.from("conversations").insert({ tenant_id: tenantId, type: "direct", created_by: userId, status: "open" } as any).select("id").single();
             convId = newConv?.id;
-            if (convId) {
-              await supabase.from("conversation_participants").insert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: u.id }]);
-            }
+            if (convId) await supabase.from("conversation_participants").insert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: u.id }]);
           }
           if (convId) {
-            await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: convId, sender_id: userId, recipient_id: u.id, body: message.trim() } as any);
-            await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString() }).eq("id", convId);
-            await supabase.from(TABLES.NOTIFICATIONS).insert({ tenant_id: tenantId, user_id: u.id, type: "message", title: `New message from ${userName}`, body: message.trim().slice(0, 50), is_read: false } as any);
+            await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: convId, sender_id: userId, body: message.trim() } as any);
+            await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", convId);
             count++;
           }
         }
@@ -128,21 +127,22 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
 
       } else if (sendTo === "specific") {
         if (!selectedMemberId) { toast.error("Select a member."); setSending(false); return; }
-        const targetUser = users.find(u => u.id === selectedMemberId) ?? members.find(m => m.id === selectedMemberId);
-        // Check for existing direct conversation
-        const { data: existing } = await supabase.from("conversations").select("id, conversation_participants!inner(user_id)").eq("tenant_id", tenantId).eq("type", "direct").eq("conversation_participants.user_id", selectedMemberId).maybeSingle();
-        let convId = existing?.id;
+        const targetUser = allUsers.find((u: any) => u.id === selectedMemberId);
+        // Find existing direct conversation using participant lookup
+        const myParticipations = await supabase.from("conversation_participants").select("conversation_id").eq("user_id", userId);
+        const theirParticipations = await supabase.from("conversation_participants").select("conversation_id").eq("user_id", selectedMemberId);
+        const myIds = new Set((myParticipations.data || []).map((r: any) => r.conversation_id));
+        const sharedId = (theirParticipations.data || []).find((r: any) => myIds.has(r.conversation_id))?.conversation_id;
+        let convId = sharedId;
         if (!convId) {
           const { data: newConv } = await supabase.from("conversations").insert({ tenant_id: tenantId, type: "direct", created_by: userId, status: "open" } as any).select("id").single();
           convId = newConv?.id;
-          if (convId) {
-            await supabase.from("conversation_participants").insert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: selectedMemberId }]);
-          }
+          if (convId) await supabase.from("conversation_participants").insert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: selectedMemberId }]);
         }
         if (!convId) throw new Error("Could not create conversation");
-        await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: convId, sender_id: userId, recipient_id: selectedMemberId, body: message.trim() } as any);
-        await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString() }).eq("id", convId);
-        await supabase.from(TABLES.NOTIFICATIONS).insert({ tenant_id: tenantId, user_id: selectedMemberId, type: "message", title: `New message from ${userName}`, body: message.trim().slice(0, 50), is_read: false } as any);
+        const { error: msgErr } = await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: convId, sender_id: userId, body: message.trim() } as any);
+        if (msgErr) throw msgErr;
+        await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", convId);
         qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
         const name = targetUser ? `${(targetUser as any).first_name ?? ""} ${(targetUser as any).last_name ?? ""}`.trim() : "member";
         toast.success(`✅ Message sent to ${name}`);
@@ -153,7 +153,10 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
     finally { setSending(false); }
   };
 
-  const allUsers = users.filter(u => u.id !== userId);
+  const allUsers = [
+    ...users.filter(u => u.id !== userId),
+    ...members.filter(m => !users.find(u => u.id === m.id)), // members not already in users
+  ];
   const memberCount = allUsers.length;
 
   const sendToOptions: { key: "forum" | "all" | "specific"; icon: React.ElementType; label: string }[] = [
@@ -209,9 +212,9 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
               <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                 <SelectTrigger className="focus:ring-orange-400 focus:border-orange-400"><SelectValue placeholder="Choose a member..." /></SelectTrigger>
                 <SelectContent className="max-h-60">
-                  {allUsers.map(u => (
+                  {allUsers.map((u: any) => (
                     <SelectItem key={u.id} value={u.id}>
-                      {`${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || u.email || "—"}
+                      {`${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || (u as any).email || "—"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -243,6 +246,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
 }) {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: messages = [], refetch } = useQuery<Message[]>({
@@ -326,6 +331,33 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
 
   const otherName = conv.type === "group" || conv.is_forum ? (conv.name ?? "Group") : getUserName(participants.find((p: any) => p.user_id !== userId)?.user_id ?? "");
 
+  const handleFileUpload = async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) { toast.error("File must be under 50MB"); return; }
+    setUploading(true);
+    try {
+      const path = `${tenantId}/${conv.id}/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage.from("message-attachments").upload(path, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("message-attachments").getPublicUrl(data.path);
+      const { error: msgErr } = await supabase.from("messages").insert({
+        tenant_id: tenantId, conversation_id: conv.id, sender_id: userId,
+        body: `📎 ${file.name}`,
+        attachment_url: urlData.publicUrl,
+        attachment_name: file.name,
+        attachment_type: file.type,
+      } as any);
+      if (msgErr) throw msgErr;
+      await supabase.from("conversations").update({ last_message_preview: `📎 ${file.name}`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", conv.id);
+      refetch();
+      qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+      toast.success("File sent");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -369,7 +401,15 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
                   <p className="text-[10px] text-slate-400 mb-0.5 ml-1">{senderName}</p>
                 )}
                 <div className={cn("max-w-[70%] px-4 py-2.5 rounded-2xl text-sm", isOwn ? "bg-orange-500 text-white rounded-br-sm" : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-sm")}>
-                  <p className="leading-relaxed">{msg.body}</p>
+                  {(msg as any).attachment_url ? (
+                    <a href={(msg as any).attachment_url} target="_blank" rel="noopener noreferrer"
+                      className={cn("flex items-center gap-2 underline text-sm", isOwn ? "text-white" : "text-orange-600")}>
+                      <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                      {(msg as any).attachment_name || "Attachment"}
+                    </a>
+                  ) : (
+                    <p className="leading-relaxed">{msg.body}</p>
+                  )}
                   <div className={cn("flex items-center gap-1 mt-1", isOwn ? "justify-end" : "justify-start")}>
                     <span className={cn("text-[10px]", isOwn ? "text-orange-200" : "text-slate-400")}>
                       {msg.created_at ? format(new Date(msg.created_at), "HH:mm") : ""}
@@ -390,17 +430,32 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
 
       {/* Input */}
       <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-700">
-        <button className="text-slate-400 hover:text-slate-600 shrink-0"><Paperclip className="h-4 w-4" /></button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ""; }}
+        />
+        <button
+          className="text-slate-400 hover:text-orange-500 shrink-0 transition-colors"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Attach file"
+        >
+          <Paperclip className="h-4 w-4" />
+        </button>
         <Input
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={uploading ? "Uploading..." : "Type a message..."}
           className="flex-1 text-sm"
+          disabled={uploading}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg.mutate(); } }}
         />
         <button
           onClick={() => sendMsg.mutate()}
-          disabled={!input.trim() || sendMsg.isPending}
+          disabled={!input.trim() || sendMsg.isPending || uploading}
           className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors shrink-0"
         >
           <Send className="h-3.5 w-3.5" />
@@ -421,7 +476,13 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
   const { data: conversations = [], isLoading, refetch } = useQuery<Conversation[]>({
     queryKey: ["conversations-dm", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("conversations").select("*, conversation_participants(user_id, unread_count, last_read_at)").eq("tenant_id", tenantId).eq("type", "direct").order("last_message_at", { ascending: false, nullsFirst: false });
+      // Fetch direct conversations + the church forum
+      const { data } = await supabase
+        .from("conversations")
+        .select("*, conversation_participants(user_id, unread_count, last_read_at)")
+        .eq("tenant_id", tenantId)
+        .or("type.eq.direct,is_forum.eq.true")
+        .order("last_message_at", { ascending: false, nullsFirst: false });
       return (data ?? []) as Conversation[];
     },
     staleTime: 30_000,
@@ -520,8 +581,9 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
                 <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1 mt-1" onClick={() => setNewMsgOpen(true)}><Plus className="h-3.5 w-3.5" />New Message</Button>
               </div>
             ) : filtered.map(conv => {
-              const other = getOtherUser(conv);
-              const name = other ? `${other.first_name ?? ""} ${other.last_name ?? ""}`.trim() : "Unknown";
+              const isForum = conv.is_forum;
+              const other = isForum ? null : getOtherUser(conv);
+              const name = isForum ? "Church Forum" : (other ? `${other.first_name ?? ""} ${other.last_name ?? ""}`.trim() : "Unknown");
               const unread = getUnread(conv);
               const isSelected = selectedConvId === conv.id;
               return (

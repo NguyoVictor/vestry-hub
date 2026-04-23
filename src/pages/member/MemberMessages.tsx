@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, MessageCircle, ArrowLeft, ChevronLeft } from "lucide-react";
+import { Send, MessageCircle, ArrowLeft, ChevronLeft, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function formatMsgTime(dateStr: string) {
@@ -41,6 +41,8 @@ export default function MemberMessages() {
   const queryClient = useQueryClient();
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
@@ -121,9 +123,37 @@ export default function MemberMessages() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleFileUpload = async (file: File) => {
+    if (!selectedConvId) return;
+    if (file.size > 50 * 1024 * 1024) { toast.error("File must be under 50MB"); return; }
+    setUploading(true);
+    try {
+      const path = `${member.churchId}/${selectedConvId}/${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage.from("message-attachments").upload(path, file);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("message-attachments").getPublicUrl(data.path);
+      await (supabase as any).from("messages").insert({
+        conversation_id: selectedConvId,
+        sender_id: member.userId,
+        body: `📎 ${file.name}`,
+        attachment_url: urlData.publicUrl,
+        attachment_name: file.name,
+        attachment_type: file.type,
+        is_read: false,
+      });
+      await (supabase as any).from("conversations").update({ updated_at: new Date().toISOString(), last_message_preview: `📎 ${file.name}` }).eq("id", selectedConvId);
+      queryClient.invalidateQueries({ queryKey: ["member-messages", selectedConvId] });
+      queryClient.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
+      toast.success("File sent");
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // ── Send mutation ─────────────────────────────────────────────────────────────
-  const sendMessage = useMutation({
-    mutationFn: async () => {
+  const sendMessage = useMutation({    mutationFn: async () => {
       if (!selectedConvId || !newMessage.trim()) return;
       const { error } = await (supabase as any).from("messages").insert({
         conversation_id: selectedConvId,
@@ -264,7 +294,15 @@ export default function MemberMessages() {
                             ? "bg-orange-500 text-white rounded-br-sm"
                             : "bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-bl-sm border border-slate-100 dark:border-slate-700"
                         )}>
-                          <p className="text-sm leading-relaxed">{msg.body || ""}</p>
+                          {(msg as any).attachment_url ? (
+                            <a href={(msg as any).attachment_url} target="_blank" rel="noopener noreferrer"
+                              className={cn("flex items-center gap-2 underline text-sm", isMe ? "text-white" : "text-orange-600")}>
+                              <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                              {(msg as any).attachment_name || "Attachment"}
+                            </a>
+                          ) : (
+                            <p className="text-sm leading-relaxed">{msg.body || ""}</p>
+                          )}
                           <p className={cn("text-[11px] mt-1", isMe ? "text-orange-100" : "text-slate-400")}>
                             {format(new Date(msg.created_at), "HH:mm")}
                           </p>
@@ -276,14 +314,30 @@ export default function MemberMessages() {
                 </div>
 
                 <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2 items-center">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ""; }}
+                  />
+                  <button
+                    className="text-slate-400 hover:text-orange-500 shrink-0 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    title="Attach file"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
                   <Input value={newMessage} onChange={e => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder={uploading ? "Uploading..." : "Type a message..."}
                     className="rounded-full border-slate-200 focus:border-orange-400 focus:ring-orange-400/10"
+                    disabled={uploading}
                     onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage.mutate()} />
                   <Button size="icon"
                     className="rounded-full h-10 w-10 shrink-0 bg-orange-500 hover:bg-orange-600 text-white"
                     onClick={() => sendMessage.mutate()}
-                    disabled={!newMessage.trim() || sendMessage.isPending}>
+                    disabled={!newMessage.trim() || sendMessage.isPending || uploading}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
