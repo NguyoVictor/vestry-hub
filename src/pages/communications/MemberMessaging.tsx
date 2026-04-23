@@ -239,6 +239,96 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
   );
 }
 
+// ── Edit Group Members sub-component ─────────────────────────────────────────
+function EditGroupMembers({ convId, tenantId, userId }: { convId: string; tenantId: string; userId: string }) {
+  const qc = useQueryClient();
+  const [addSearch, setAddSearch] = useState("");
+
+  const { data: participants = [], refetch: refetchParticipants } = useQuery({
+    queryKey: ["conv-participants-edit", convId],
+    queryFn: async () => {
+      const { data } = await supabase.from("conversation_participants").select("user_id").eq("conversation_id", convId);
+      return data ?? [];
+    },
+    staleTime: 0,
+  });
+
+  const { data: allMembers = [] } = useQuery({
+    queryKey: ["members-for-group", tenantId],
+    queryFn: async () => {
+      const { data: m } = await supabase.from("members").select("id, first_name, last_name, email").eq("tenant_id", tenantId).order("first_name");
+      const { data: u } = await supabase.from("users").select("id, first_name, last_name, email").eq("tenant_id", tenantId);
+      const members = m ?? [];
+      const users = (u ?? []).filter((u: any) => !members.find((m: any) => m.id === u.id));
+      return [...members, ...users];
+    },
+    staleTime: 0,
+  });
+
+  const participantIds = new Set((participants as any[]).map(p => p.user_id));
+
+  const getName = (p: any) => `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.email || "—";
+
+  const currentMembers = allMembers.filter((m: any) => participantIds.has(m.id));
+  const addableMembers = allMembers.filter((m: any) =>
+    !participantIds.has(m.id) &&
+    (!addSearch || getName(m).toLowerCase().includes(addSearch.toLowerCase()) || (m.email ?? "").toLowerCase().includes(addSearch.toLowerCase()))
+  );
+
+  const removeMember = async (memberId: string) => {
+    if (memberId === userId) { toast.error("You cannot remove yourself"); return; }
+    await supabase.from("conversation_participants").delete().eq("conversation_id", convId).eq("user_id", memberId);
+    refetchParticipants();
+    qc.invalidateQueries({ queryKey: ["conv-participants", convId] });
+  };
+
+  const addMember = async (memberId: string) => {
+    await supabase.from("conversation_participants").insert({ conversation_id: convId, user_id: memberId });
+    refetchParticipants();
+    qc.invalidateQueries({ queryKey: ["conv-participants", convId] });
+    setAddSearch("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-medium text-slate-600 block">Members ({currentMembers.length})</label>
+      {/* Current members */}
+      <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-36 overflow-y-auto">
+        {currentMembers.map((m: any) => (
+          <div key={m.id} className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center gap-2">
+              <Avatar name={getName(m)} size="sm" />
+              <span className="text-sm text-slate-700">{getName(m)}</span>
+            </div>
+            {m.id !== userId && (
+              <button onClick={() => removeMember(m.id)} className="text-slate-300 hover:text-red-400 transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {/* Add members */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+        <Input placeholder="Search to add members..." value={addSearch} onChange={e => setAddSearch(e.target.value)} className="pl-8 h-8 text-xs" />
+      </div>
+      {addSearch && addableMembers.length > 0 && (
+        <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-32 overflow-y-auto">
+          {addableMembers.map((m: any) => (
+            <button key={m.id} onClick={() => addMember(m.id)}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-orange-50 text-left transition-colors">
+              <Avatar name={getName(m)} size="sm" />
+              <span className="text-sm text-slate-700">{getName(m)}</span>
+              <span className="ml-auto text-xs text-orange-500 font-medium">Add</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Chat Panel ────────────────────────────────────────────────────────────────
 function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
   conv: Conversation; userId: string; tenantId: string; userName: string;
@@ -252,6 +342,18 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
   const [editGroupOpen, setEditGroupOpen] = useState(false);
   const [editGroupName, setEditGroupName] = useState(conv.name ?? "");
   const [editGroupDesc, setEditGroupDesc] = useState(conv.description ?? "");
+
+  // Reset input when switching conversations
+  useEffect(() => {
+    setInput("");
+  }, [conv.id]);
+
+  // Sync edit state when conv changes (switching between groups)
+  useEffect(() => {
+    setEditGroupName(conv.name ?? "");
+    setEditGroupDesc(conv.description ?? "");
+    setEditGroupOpen(false);
+  }, [conv.id]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isGroup = conv.type === "group" || conv.is_forum;
@@ -393,7 +495,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
               <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"><MoreVertical className="h-4 w-4" /></button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isGroup && !conv.is_forum && (
+              {isGroup && (
                 <DropdownMenuItem className="gap-2 cursor-pointer text-xs" onClick={() => setEditGroupOpen(true)}>
                   Edit Group
                 </DropdownMenuItem>
@@ -446,8 +548,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
       {/* Edit Group Modal */}
       {editGroupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm p-6 space-y-4">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Edit Group</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Update Group Chat</h3>
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-slate-600 block mb-1">Group Name</label>
@@ -462,8 +564,9 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-400/20 focus:border-orange-400"
                 />
               </div>
+              <EditGroupMembers convId={conv.id} tenantId={tenantId} userId={userId} />
             </div>
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-3 justify-end pt-2">
               <Button variant="outline" onClick={() => setEditGroupOpen(false)}>Cancel</Button>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={async () => {
                 await supabase.from("conversations").update({ name: editGroupName, description: editGroupDesc || null }).eq("id", conv.id);
@@ -895,22 +998,6 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
   const { data: conversations = [], isLoading, refetch } = useQuery<Conversation[]>({
     queryKey: ["conversations-group", tenantId],
     queryFn: async () => {
-      // Ensure Church Forum exists and admin is a participant
-      let { data: forum } = await supabase.from("conversations").select("id").eq("tenant_id", tenantId).eq("is_forum", true).maybeSingle();
-      if (!forum) {
-        const { data: newForum } = await supabase.from("conversations")
-          .insert({ tenant_id: tenantId, type: "group", name: "Church Forum", description: "Main church community forum where all members can connect", is_forum: true, created_by: userId, status: "open" } as any)
-          .select("id").single();
-        forum = newForum;
-        // Add admin as participant
-        if (forum) await supabase.from("conversation_participants").insert({ conversation_id: forum.id, user_id: userId });
-      } else {
-        // Ensure current admin is a participant of the forum
-        const { data: existing } = await supabase.from("conversation_participants")
-          .select("id").eq("conversation_id", forum.id).eq("user_id", userId).maybeSingle();
-        if (!existing) await supabase.from("conversation_participants").insert({ conversation_id: forum.id, user_id: userId });
-      }
-
       // Only show groups this admin is a participant of
       const { data: myParticipations } = await supabase.from("conversation_participants").select("conversation_id").eq("user_id", userId);
       const myConvIds = (myParticipations || []).map((r: any) => r.conversation_id);

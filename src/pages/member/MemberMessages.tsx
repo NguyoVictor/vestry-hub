@@ -111,6 +111,11 @@ export default function MemberMessages() {
     return () => { supabase.removeChannel(channel); };
   }, [selectedConvId, queryClient, member.memberId]);
 
+  // Reset message input when switching conversations
+  useEffect(() => {
+    setNewMessage("");
+  }, [selectedConvId]);
+
   // Mark as read when messages arrive
   useEffect(() => {
     if (selectedConvId && messages.length > 0) {
@@ -133,6 +138,7 @@ export default function MemberMessages() {
       if (error) throw error;
       const { data: urlData } = supabase.storage.from("message-attachments").getPublicUrl(data.path);
       await (supabase as any).from("messages").insert({
+        tenant_id: member.churchId,
         conversation_id: selectedConvId,
         sender_id: member.userId,
         body: `📎 ${file.name}`,
@@ -153,9 +159,11 @@ export default function MemberMessages() {
   };
 
   // ── Send mutation ─────────────────────────────────────────────────────────────
-  const sendMessage = useMutation({    mutationFn: async () => {
+  const sendMessage = useMutation({
+    mutationFn: async () => {
       if (!selectedConvId || !newMessage.trim()) return;
       const { error } = await (supabase as any).from("messages").insert({
+        tenant_id: member.churchId,
         conversation_id: selectedConvId,
         sender_id: member.userId,
         body: newMessage.trim(),
