@@ -272,7 +272,21 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
     staleTime: 300_000,
   });
 
-  // Real-time subscription
+  const { data: membersList = [] } = useQuery({
+    queryKey: ["members-messaging-dm", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("tenant_id", tenantId);
+      return data ?? [];
+    },
+    staleTime: 300_000,
+  });
+
+  const getUserName = (id: string) => {
+    const m = (membersList as any[]).find(m => m.id === id);
+    if (m?.first_name) return `${m.first_name} ${m.last_name ?? ""}`.trim();
+    const u = (users as any[]).find(u => u.id === id);
+    return u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+  };
   useEffect(() => {
     const channel = supabase.channel(`conv-${conv.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conv.id}` }, () => {
@@ -300,11 +314,6 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
     onSuccess: () => { setInput(""); refetch(); qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] }); },
     onError: () => toast.error("Failed to send message"),
   });
-
-  const getUserName = (id: string) => {
-    const u = users.find((u: any) => u.id === id) as any;
-    return u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-  };
 
   const otherName = conv.type === "group" || conv.is_forum ? (conv.name ?? "Group") : getUserName(participants.find((p: any) => p.user_id !== userId)?.user_id ?? "");
 
@@ -418,10 +427,22 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
     staleTime: 300_000,
   });
 
+  const { data: membersList = [] } = useQuery({
+    queryKey: ["members-messaging-dm", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("tenant_id", tenantId);
+      return data ?? [];
+    },
+    staleTime: 300_000,
+  });
+
+  // Merged lookup: check members table first (portal users), then users table (admin users)
   const getOtherUser = (conv: Conversation) => {
     const other = conv.conversation_participants?.find(p => p.user_id !== userId);
     if (!other) return null;
-    return users.find((u: any) => u.id === other.user_id) as any;
+    const fromMembers = (membersList as any[]).find(m => m.id === other.user_id);
+    if (fromMembers?.first_name) return fromMembers;
+    return (users as any[]).find(u => u.id === other.user_id) ?? null;
   };
 
   const getUnread = (conv: Conversation) => {
