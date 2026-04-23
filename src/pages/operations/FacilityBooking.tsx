@@ -1293,6 +1293,7 @@ export default function FacilityBookingPage() {
         .from(TABLES.FACILITY_BOOKINGS)
         .select("*")
         .eq(COLS.TENANT_ID, tenantId)
+        .is("admin_deleted_at", null)   // exclude soft-deleted bookings
         .order("booking_date", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -1344,15 +1345,19 @@ export default function FacilityBookingPage() {
 
   const deleteBookingMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).delete().eq(COLS.ID, id);
+      // Soft delete — set admin_deleted_at so the record stays visible to the member
+      const { error } = await supabase
+        .from(TABLES.FACILITY_BOOKINGS)
+        .update({ admin_deleted_at: new Date().toISOString() } as never)
+        .eq(COLS.ID, id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["facility-bookings", tenantId] });
-      toast.success("Booking deleted.");
+      toast.success("Booking removed from admin view.");
       setDeleteBooking(null);
     },
-    onError: () => toast.error("Failed to delete booking."),
+    onError: () => toast.error("Failed to remove booking."),
   });
 
   function handleTabChange(value: string) {
@@ -1784,8 +1789,8 @@ export default function FacilityBookingPage() {
       <AlertDialog open={!!deleteBooking} onOpenChange={v => !v && setDeleteBooking(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this booking?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove this booking record.</AlertDialogDescription>
+            <AlertDialogTitle>Remove this booking?</AlertDialogTitle>
+            <AlertDialogDescription>This removes the booking from your admin view. The member will still see it in their booking history.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

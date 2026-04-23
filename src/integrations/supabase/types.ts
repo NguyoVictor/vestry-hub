@@ -2751,6 +2751,7 @@ export type Database = {
       }
       facility_bookings: {
         Row: {
+          admin_deleted_at: string | null
           approved_at: string | null
           approved_by: string | null
           booked_by: string | null
@@ -2788,6 +2789,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          admin_deleted_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           booked_by?: string | null
@@ -2825,6 +2827,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          admin_deleted_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           booked_by?: string | null
