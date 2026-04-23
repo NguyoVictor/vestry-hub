@@ -517,7 +517,7 @@ function MyBookingsSection({
     mutationFn: async (bookingId: string) => {
       const { error } = await supabase
         .from(TABLES.FACILITY_BOOKINGS as any)
-        .update({ status: "cancelled" } as never)
+        .update({ status: "cancelled", rejection_reason: "booker_withdrew" } as never)
         .eq(COLS.ID, bookingId)
         .eq("booked_by", memberId)
         .eq("status", "open");

@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/form";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PremiumGallery } from "@/components/ui/PremiumGallery";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
   Share2, Eye, MessageSquare, Search, X, ChevronRight, Video, ChevronLeft, ImageIcon, Download,
@@ -1558,10 +1559,12 @@ export default function FacilityBookingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredBookings.map(b => (
+                  {filteredBookings.map(b => {
+                    const bookerWithdrew = b.status === "cancelled" && b.rejection_reason === "booker_withdrew";
+                    return (
                     <TableRow
                       key={b.id}
-                      className="cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-700/30"
+                      className={`cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition-opacity ${bookerWithdrew ? "opacity-50" : ""}`}
                       onClick={() => setViewBooking(b)}
                     >
                       <TableCell className="font-mono text-xs text-indigo-600">{b.booking_number || "—"}</TableCell>
@@ -1571,7 +1574,22 @@ export default function FacilityBookingPage() {
                         {b.booking_date}<br />{b.start_time?.slice(0,5)}–{b.end_time?.slice(0,5)}
                       </TableCell>
                       <TableCell className="text-sm hidden lg:table-cell">{b.expected_attendees ?? "—"}</TableCell>
-                      <TableCell><StatusBadge status={b.status} /></TableCell>
+                      <TableCell>
+                        {bookerWithdrew ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-500 cursor-default">
+                                Cancelled
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs">Booker withdrew this request</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <StatusBadge status={b.status} />
+                        )}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell"><SourceBadge source={b.source ?? "admin"} /></TableCell>
                       <TableCell onClick={e => e.stopPropagation()}>
                         <DropdownMenu>
@@ -1586,7 +1604,8 @@ export default function FacilityBookingPage() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
