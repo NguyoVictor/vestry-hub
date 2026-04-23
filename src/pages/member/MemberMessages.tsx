@@ -1,38 +1,65 @@
 import { useState, useEffect, useRef } from "react";
 import { Helmet } from "react-helmet-async";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { toast } from "sonner";
-import { format, formatDistanceToNow } from "date-fns";
-import { Send, MessageCircle } from "lucide-react";
+import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
+import { Send, MessageCircle, ArrowLeft, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatMsgTime(dateStr: string) {
+  const d = new Date(dateStr);
+  if (isToday(d)) return format(d, "HH:mm");
+  if (isYesterday(d)) return "Yesterday";
+  return format(d, "dd MMM");
+}
+
+function getInitials(name: string) {
+  return (name || "?").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+}
+
+const AVATAR_COLORS = ["bg-orange-500","bg-violet-500","bg-blue-500","bg-emerald-500","bg-pink-500","bg-amber-500","bg-cyan-500"];
+function avatarColor(name: string) { return AVATAR_COLORS[(name || "?").charCodeAt(0) % AVATAR_COLORS.length]; }
+
+function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
+  const sz = size === "sm" ? "h-8 w-8 text-xs" : "h-10 w-10 text-sm";
+  return (
+    <div className={cn("rounded-full flex items-center justify-center text-white font-semibold shrink-0", sz, avatarColor(name))}>
+      {getInitials(name)}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function MemberMessages() {
   const member = useMemberPortal();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch conversations this member is part of
+  // ── Queries ──────────────────────────────────────────────────────────────────
   const { data: conversations = [], isLoading: convsLoading } = useQuery({
     queryKey: ["member-conversations", member.memberId],
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("conversations")
-        .select("*, messages(id, content, created_at, sender_id, is_read)")
+        .select("*, messages(id, content, body, created_at, sender_id, is_read)")
         .or(`member_id.eq.${member.memberId},participant_ids.cs.{${member.memberId}}`)
         .order("updated_at", { ascending: false });
       return data || [];
     },
+    staleTime: 30_000,
+    refetchInterval: 10_000,
   });
 
-  // Fetch messages for selected conversation
   const { data: messages = [], isLoading: msgsLoading } = useQuery({
     queryKey: ["member-messages", selectedConvId],
     queryFn: async () => {
@@ -44,22 +71,23 @@ export default function MemberMessages() {
       return data || [];
     },
     enabled: !!selectedConvId,
-    refetchInterval: 3000, // Poll every 3s for new messages
+    refetchInterval: 3_000,
   });
 
-  // Realtime subscription
+  // Realtime
   useEffect(() => {
     if (!selectedConvId) return;
     const channel = supabase
-      .channel(`messages:${selectedConvId}`)
+      .channel(`member-msgs:${selectedConvId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${selectedConvId}` }, () => {
         queryClient.invalidateQueries({ queryKey: ["member-messages", selectedConvId] });
+        queryClient.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [selectedConvId, queryClient]);
+  }, [selectedConvId, queryClient, member.memberId]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -72,11 +100,13 @@ export default function MemberMessages() {
         sender_id: member.userId,
         sender_name: `${member.firstName} ${member.lastName}`,
         content: newMessage.trim(),
+        body: newMessage.trim(),
         is_read: false,
       });
       if (error) throw error;
-      // Update conversation updated_at
-      await (supabase as any).from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", selectedConvId);
+      await (supabase as any).from("conversations")
+        .update({ updated_at: new Date().toISOString(), last_message_preview: newMessage.trim().slice(0, 100) })
+        .eq("id", selectedConvId);
     },
     onSuccess: () => {
       setNewMessage("");
@@ -87,51 +117,93 @@ export default function MemberMessages() {
   });
 
   const selectedConv = conversations.find((c: any) => c.id === selectedConvId);
+  const staffName = selectedConv?.staff_name || selectedConv?.name || selectedConv?.title || "Church Staff";
 
   return (
     <>
       <Helmet><title>Messages — Vestry</title></Helmet>
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Messages</h1>
 
-        <div className="flex gap-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" style={{ height: "calc(100vh - 200px)", minHeight: 400 }}>
-          {/* Left — Conversations list */}
-          <div className={cn("w-full md:w-72 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0", selectedConvId ? "hidden md:flex" : "flex")}>
-            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
-              <p className="text-sm font-semibold">Conversations</p>
+        {/* Page header — only shown when no conversation selected on mobile */}
+        <div className={cn("flex items-center gap-3 mb-4", selectedConvId ? "hidden md:flex" : "flex")}>
+          <button onClick={() => navigate("/member")}
+            className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <ArrowLeft className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+          </button>
+          <div>
+            <p className="text-xs font-medium text-slate-500">{member.churchName}</p>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Messages</h1>
+            <p className="text-xs text-slate-400">Direct messages from church staff</p>
+          </div>
+        </div>
+
+        {/* Chat container */}
+        <div
+          className="flex bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
+          style={{ height: "calc(100vh - 220px)", minHeight: 480 }}
+        >
+          {/* ── Left: Conversation list ── */}
+          <div className={cn(
+            "w-full md:w-72 border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0",
+            selectedConvId ? "hidden md:flex" : "flex"
+          )}>
+            <div className="px-4 py-3.5 border-b border-slate-100 dark:border-slate-800">
+              <p className="text-sm font-semibold text-slate-800 dark:text-white">Conversations</p>
+              <p className="text-xs text-slate-400 mt-0.5">Messages from your church</p>
             </div>
+
             <div className="flex-1 overflow-y-auto">
               {convsLoading ? (
-                <div className="p-3 space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}</div>
+                <div className="p-3 space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+                </div>
               ) : conversations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
-                  <MessageCircle className="h-8 w-8 mb-2 text-slate-300" />
-                  <p className="text-sm">No conversations yet</p>
-                  <p className="text-xs mt-1">Staff members can initiate conversations with you</p>
+                <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <MessageCircle className="h-6 w-6 text-slate-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No messages yet</p>
+                    <p className="text-xs text-slate-400 mt-1">Church staff will reach out to you here</p>
+                  </div>
                 </div>
               ) : (
                 conversations.map((conv: any) => {
-                  const lastMsg = conv.messages?.[conv.messages.length - 1];
-                  const unread = conv.messages?.filter((m: any) => !m.is_read && m.sender_id !== member.userId).length || 0;
+                  const msgs = conv.messages || [];
+                  const lastMsg = msgs[msgs.length - 1];
+                  const unread = msgs.filter((m: any) => !m.is_read && m.sender_id !== member.userId).length;
+                  const name = conv.staff_name || conv.name || conv.title || "Church Staff";
+                  const isSelected = selectedConvId === conv.id;
+
                   return (
                     <button
                       key={conv.id}
                       onClick={() => setSelectedConvId(conv.id)}
                       className={cn(
-                        "w-full flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left",
-                        selectedConvId === conv.id && "bg-indigo-50 dark:bg-indigo-900/20"
+                        "w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left border-b border-slate-50 dark:border-slate-800/60",
+                        isSelected && "bg-orange-50 dark:bg-orange-900/10 border-l-2 border-l-orange-500"
                       )}
                     >
-                      <MemberAvatar name={conv.staff_name || conv.title || "Staff"} size="md" />
+                      <Avatar name={name} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium truncate">{conv.staff_name || conv.title || "Staff"}</p>
-                          {lastMsg && <p className="text-xs text-muted-foreground shrink-0 ml-1">{formatDistanceToNow(new Date(lastMsg.created_at), { addSuffix: false })}</p>}
+                        <div className="flex items-center justify-between gap-1">
+                          <p className={cn("text-sm truncate", isSelected ? "font-semibold text-orange-600" : "font-medium text-slate-800 dark:text-white")}>
+                            {name}
+                          </p>
+                          {lastMsg && (
+                            <p className="text-[11px] text-slate-400 shrink-0">{formatMsgTime(lastMsg.created_at)}</p>
+                          )}
                         </div>
-                        {lastMsg && <p className="text-xs text-muted-foreground truncate">{lastMsg.content}</p>}
+                        {lastMsg && (
+                          <p className="text-xs text-slate-400 truncate mt-0.5">
+                            {lastMsg.content || lastMsg.body || ""}
+                          </p>
+                        )}
                       </div>
                       {unread > 0 && (
-                        <span className="h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center shrink-0">{unread}</span>
+                        <span className="h-5 min-w-[20px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {unread}
+                        </span>
                       )}
                     </button>
                   );
@@ -140,44 +212,65 @@ export default function MemberMessages() {
             </div>
           </div>
 
-          {/* Right — Chat panel */}
-          <div className={cn("flex-1 flex flex-col", !selectedConvId ? "hidden md:flex" : "flex")}>
+          {/* ── Right: Chat panel ── */}
+          <div className={cn("flex-1 flex flex-col min-w-0", !selectedConvId ? "hidden md:flex" : "flex")}>
             {!selectedConvId ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <MessageCircle className="h-10 w-10 mb-3 text-slate-300" />
-                <p>Select a conversation</p>
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8">
+                <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <MessageCircle className="h-7 w-7 text-slate-300" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Select a conversation</p>
+                  <p className="text-xs text-slate-400 mt-1">Choose a conversation from the left to start reading</p>
+                </div>
               </div>
             ) : (
               <>
                 {/* Chat header */}
-                <div className="flex items-center gap-3 p-3 border-b border-slate-200 dark:border-slate-800">
-                  <button className="md:hidden text-muted-foreground" onClick={() => setSelectedConvId(null)}>←</button>
-                  <MemberAvatar name={selectedConv?.staff_name || "Staff"} size="sm" />
+                <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <button
+                    className="md:hidden h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    onClick={() => setSelectedConvId(null)}
+                  >
+                    <ChevronLeft className="h-4 w-4 text-slate-600" />
+                  </button>
+                  <Avatar name={staffName} size="sm" />
                   <div>
-                    <p className="text-sm font-semibold">{selectedConv?.staff_name || selectedConv?.title || "Staff"}</p>
-                    <p className="text-xs text-muted-foreground">Church Staff</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{staffName}</p>
+                    <p className="text-xs text-slate-400">Church Staff</p>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/20">
                   {msgsLoading ? (
-                    <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-3/4 rounded-xl" />)}</div>
+                    <div className="space-y-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className={cn("flex", i % 2 === 0 ? "justify-start" : "justify-end")}>
+                          <Skeleton className={cn("h-10 rounded-2xl", i % 2 === 0 ? "w-48" : "w-36")} />
+                        </div>
+                      ))}
+                    </div>
                   ) : messages.length === 0 ? (
-                    <p className="text-center text-muted-foreground text-sm py-8">No messages yet. Say hello!</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-12">
+                      <p className="text-sm text-slate-400">No messages yet</p>
+                      <p className="text-xs text-slate-300">Send a message to start the conversation</p>
+                    </div>
                   ) : (
                     messages.map((msg: any) => {
                       const isMe = msg.sender_id === member.userId;
+                      const text = msg.content || msg.body || "";
                       return (
-                        <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
+                        <div key={msg.id} className={cn("flex gap-2", isMe ? "justify-end" : "justify-start")}>
+                          {!isMe && <Avatar name={staffName} size="sm" />}
                           <div className={cn(
-                            "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm",
+                            "max-w-[72%] rounded-2xl px-4 py-2.5 shadow-sm",
                             isMe
-                              ? "bg-indigo-600 text-white rounded-br-sm"
-                              : "bg-slate-100 dark:bg-slate-800 text-foreground rounded-bl-sm"
+                              ? "bg-orange-500 text-white rounded-br-sm"
+                              : "bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-bl-sm border border-slate-100 dark:border-slate-700"
                           )}>
-                            <p>{msg.content}</p>
-                            <p className={cn("text-xs mt-1", isMe ? "text-indigo-200" : "text-muted-foreground")}>
+                            <p className="text-sm leading-relaxed">{text}</p>
+                            <p className={cn("text-[11px] mt-1", isMe ? "text-orange-100" : "text-slate-400")}>
                               {format(new Date(msg.created_at), "HH:mm")}
                             </p>
                           </div>
@@ -189,17 +282,17 @@ export default function MemberMessages() {
                 </div>
 
                 {/* Input */}
-                <div className="p-3 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+                <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2 items-center">
                   <Input
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
-                    className="rounded-full"
+                    className="rounded-full border-slate-200 focus:border-orange-400 focus:ring-orange-400/10"
                     onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage.mutate()}
                   />
                   <Button
                     size="icon"
-                    className="rounded-full h-10 w-10 shrink-0"
+                    className="rounded-full h-10 w-10 shrink-0 bg-orange-500 hover:bg-orange-600 text-white"
                     onClick={() => sendMessage.mutate()}
                     disabled={!newMessage.trim() || sendMessage.isPending}
                   >
