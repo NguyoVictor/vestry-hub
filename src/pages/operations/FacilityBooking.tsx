@@ -1286,14 +1286,11 @@ export default function FacilityBookingPage() {
 
   const getTypeName = (typeLabel: string) => typeLabel ?? "";
   const getFirstImage = (facility: any) => {
-    // Use thumbnail_path first, fall back to first gallery image
+    // Only use thumbnail_path — never fall back to gallery images
     if (facility.thumbnail_path) {
       return supabase.storage.from("facility-thumbnails").getPublicUrl(facility.thumbnail_path).data.publicUrl;
     }
-    const imgs = facility.facility_images ?? [];
-    if (!imgs.length) return null;
-    const sorted = [...imgs].sort((a: any, b: any) => a.sort_order - b.sort_order);
-    return supabase.storage.from("facility-images").getPublicUrl(sorted[0].image_path).data.publicUrl;
+    return null;
   };
 
   const viewFacilityImages = viewFacility?.facility_images ?? [];
