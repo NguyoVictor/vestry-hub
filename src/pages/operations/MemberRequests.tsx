@@ -127,6 +127,12 @@ function MessageMemberModal({ open, onClose, memberId, memberName, tenantId, use
         updated_at: new Date().toISOString(),
       }).eq("id", convId);
 
+      // 5. Increment unread count for the member (recipient)
+      await (supabase as any).rpc("increment_unread_count", {
+        p_conversation_id: convId,
+        p_user_id: memberId,
+      });
+
       qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
       toast.success(`Message sent to ${memberName}`);
       setMessage("");
