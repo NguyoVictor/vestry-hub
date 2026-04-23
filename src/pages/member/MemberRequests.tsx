@@ -193,9 +193,13 @@ export default function MemberRequests() {
                               <Trash2 className="h-3.5 w-3.5 mr-2" />Withdraw
                             </DropdownMenuItem>
                           </>
+                        ) : r.status === "in_progress" ? (
+                          <DropdownMenuItem disabled className="text-xs text-slate-400">
+                            Cannot withdraw — request is in progress
+                          </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem disabled className="text-xs text-slate-400">
-                            Being handled — cannot edit
+                            Cannot edit — already handled
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
