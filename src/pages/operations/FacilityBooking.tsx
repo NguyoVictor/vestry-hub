@@ -1,591 +1,1167 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
-import { TABLES } from "@/lib/schema";
+import { TABLES, COLS } from "@/lib/schema";
 import { formatCurrencyFull } from "@/lib/format";
-import { captureEvent } from "@/lib/monitoring";
+import { toast } from "sonner";
+import { format } from "date-fns";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
+} from "@/components/ui/form";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { toast } from "sonner";
-import { format } from "date-fns";
-import { Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2, Send, Edit, MessageSquare, Mail, MessageCircle } from "lucide-react";
+import {
+  Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
+  Share2, Eye, MessageSquare, Search, X, ChevronRight,
+} from "lucide-react";
 
-const FACILITY_TYPES = [
-  { value: "main_hall", label: "Main Hall" },
-  { value: "classroom", label: "Classroom" },
-  { value: "conference_room", label: "Conference Room" },
-  { value: "outdoor", label: "Outdoor" },
-  { value: "kitchen", label: "Kitchen" },
-  { value: "other", label: "Other" },
+// ─── Pure helper functions ────────────────────────────────────────────────────
+
+export function getSourceBadgeProps(source: string): { label: string; className: string } {
+  switch (source) {
+    case "member":   return { label: "Member Portal", className: "bg-emerald-100 text-emerald-700" };
+    case "external": return { label: "External",      className: "bg-amber-100 text-amber-700" };
+    default:         return { label: "In-App",        className: "bg-indigo-100 text-indigo-700" };
+  }
+}
+
+export function generateBookingNumber(seq: number): string {
+  return `BK-${String(seq).padStart(4, "0")}`;
+}
+
+// ─── Zod schemas ──────────────────────────────────────────────────────────────
+
+const facilitySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  facility_type_id: z.string().optional(),
+  capacity: z.coerce.number().optional(),
+  description: z.string().optional(),
+  quotation: z.coerce.number().optional(),
+  is_active: z.boolean().default(true),
+  video_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+});
+type FacilityFormValues = z.infer<typeof facilitySchema>;
+
+const bookingSchema = z.object({
+  facility_id: z.string().min(1, "Facility is required"),
+  purpose: z.string().min(1, "Purpose is required"),
+  booking_date: z.string().min(1, "Date is required"),
+  start_time: z.string().min(1, "Start time is required"),
+  end_time: z.string().min(1, "End time is required"),
+  expected_attendees: z.coerce.number().optional(),
+  setup_required: z.boolean().default(false),
+  notes: z.string().optional(),
+  contact_type: z.enum(["member", "external_individual", "external_org"]),
+  member_id: z.string().optional(),
+  external_name: z.string().optional(),
+  external_email: z.string().email().optional().or(z.literal("")),
+  external_phone: z.string().optional(),
+  external_org: z.string().optional(),
+  external_contact_person: z.string().optional(),
+});
+type BookingFormValues = z.infer<typeof bookingSchema>;
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, icon: Icon, color }: {
+  label: string; value: number | undefined; icon: React.ElementType; color: string;
+}) {
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
+        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${color}`}>
+          <Icon className="h-4 w-4 text-white" />
+        </div>
+      </div>
+      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        {value === undefined ? <Skeleton className="h-7 w-12 inline-block" /> : value}
+      </p>
+    </div>
+  );
+}
+
+// ─── Source Badge ─────────────────────────────────────────────────────────────
+
+function SourceBadge({ source }: { source: string }) {
+  const { label, className } = getSourceBadgeProps(source);
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+// ─── FacilityCard ─────────────────────────────────────────────────────────────
+
+const GRADIENT_PLACEHOLDERS = [
+  "from-indigo-400 to-indigo-600",
+  "from-violet-400 to-purple-600",
+  "from-emerald-400 to-green-600",
+  "from-amber-400 to-orange-500",
+  "from-rose-400 to-pink-600",
+  "from-cyan-400 to-blue-500",
 ];
 
-const BOOKING_STATUS_MAP: Record<string, string> = {
-  pending: "pending", approved: "active", rejected: "inactive",
-  cancelled: "inactive", completed: "completed", open: "pending",
-};
+function FacilityCard({
+  facility, firstImage, typeName, onView, onEdit, onDelete, onBookNow, onShare,
+  currency,
+}: {
+  facility: any; firstImage: string | null; typeName: string; onView: () => void;
+  onEdit: () => void; onDelete: () => void; onBookNow: () => void; onShare: () => void;
+  currency: string;
+}) {
+  const gradientIdx = facility.name.charCodeAt(0) % GRADIENT_PLACEHOLDERS.length;
+  const gradient = GRADIENT_PLACEHOLDERS[gradientIdx];
 
-const EMPTY_FACILITY_FORM = {
-  name: "", type: "other", capacity: 0, description: "", is_active: true, quotation: 0,
-};
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+      {/* Image / Gradient */}
+      <div
+        className={`h-36 relative cursor-pointer ${!firstImage ? `bg-gradient-to-br ${gradient}` : ""}`}
+        onClick={onView}
+      >
+        {firstImage ? (
+          <img src={firstImage} alt={facility.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <Building2 className="h-12 w-12 text-white/60" />
+          </div>
+        )}
+        {/* Status badge overlay */}
+        <div className="absolute top-2 right-2">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+          }`}>
+            {facility.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate cursor-pointer hover:text-indigo-600" onClick={onView}>
+              {facility.name}
+            </h4>
+            {typeName && (
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-700 mt-1">
+                {typeName}
+              </span>
+            )}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onView}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
+              <DropdownMenuItem onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {facility.capacity && (
+          <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
+            <Users className="h-3.5 w-3.5" />
+            <span>Capacity: {facility.capacity}</span>
+          </div>
+        )}
+        {facility.description && (
+          <p className="text-xs text-slate-500 line-clamp-2 mb-2">{facility.description}</p>
+        )}
+        {facility.quotation > 0 && (
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">
+            {formatCurrencyFull(facility.quotation, currency)}
+          </p>
+        )}
+
+        <div className="flex items-center gap-2 mt-3">
+          <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs" onClick={onBookNow}>
+            Book Now
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={onShare} title="Share booking link">
+            <Share2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FacilityDetailModal ──────────────────────────────────────────────────────
+
+function FacilityDetailModal({
+  facility, images, upcomingBookings, open, onClose, typeName, currency,
+}: {
+  facility: any | null; images: any[]; upcomingBookings: any[]; open: boolean;
+  onClose: () => void; typeName: string; currency: string;
+}) {
+  if (!facility) return null;
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">{facility.name}</DialogTitle>
+        </DialogHeader>
+
+        {/* Image gallery */}
+        {images.length > 0 ? (
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {images.map((img: any) => (
+              <img
+                key={img.id}
+                src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl}
+                alt=""
+                className="h-40 w-60 object-cover rounded-lg shrink-0"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="h-40 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-lg flex items-center justify-center">
+            <Building2 className="h-16 w-16 text-white/60" />
+          </div>
+        )}
+
+        {/* Details */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          {typeName && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Type</p>
+              <p className="text-slate-800 dark:text-slate-200">{typeName}</p>
+            </div>
+          )}
+          {facility.capacity && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Capacity</p>
+              <p className="text-slate-800 dark:text-slate-200">{facility.capacity} people</p>
+            </div>
+          )}
+          {facility.quotation > 0 && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Price</p>
+              <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatCurrencyFull(facility.quotation, currency)}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Status</p>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+              facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+            }`}>
+              {facility.is_active ? "Active" : "Inactive"}
+            </span>
+          </div>
+        </div>
+
+        {facility.description && (
+          <div>
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Description</p>
+            <p className="text-sm text-slate-700 dark:text-slate-300">{facility.description}</p>
+          </div>
+        )}
+
+        {facility.video_url && (
+          <div>
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Video</p>
+            <a href={facility.video_url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline">
+              {facility.video_url}
+            </a>
+          </div>
+        )}
+
+        {/* Upcoming bookings */}
+        {upcomingBookings.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Upcoming Bookings</p>
+            <div className="space-y-2">
+              {upcomingBookings.slice(0, 5).map((b: any) => (
+                <div key={b.id} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-700 rounded-lg px-3 py-2">
+                  <span className="text-slate-700 dark:text-slate-300">{b.purpose || "Booking"}</span>
+                  <span className="text-slate-500 text-xs">{b.booking_date} {b.start_time?.slice(0, 5)}–{b.end_time?.slice(0, 5)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── AddEditFacilityModal ─────────────────────────────────────────────────────
+
+function AddEditFacilityModal({
+  open, onClose, tenantId, editData, facilityTypes,
+}: {
+  open: boolean; onClose: () => void; tenantId: string;
+  editData?: any | null; facilityTypes: any[];
+}) {
+  const qc = useQueryClient();
+  const isEdit = !!editData;
+  const [images, setImages] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const form = useForm<FacilityFormValues>({
+    resolver: zodResolver(facilitySchema),
+    defaultValues: {
+      name: "", facility_type_id: "", capacity: undefined,
+      description: "", quotation: undefined, is_active: true, video_url: "",
+    },
+  });
+
+  // Reset form when modal opens
+  useState(() => {
+    if (open && editData) {
+      form.reset({
+        name: editData.name ?? "",
+        facility_type_id: editData.facility_type_id ?? "",
+        capacity: editData.capacity ?? undefined,
+        description: editData.description ?? "",
+        quotation: editData.quotation ?? undefined,
+        is_active: editData.is_active ?? true,
+        video_url: editData.video_url ?? "",
+      });
+    } else if (open) {
+      form.reset({ name: "", facility_type_id: "", capacity: undefined, description: "", quotation: undefined, is_active: true, video_url: "" });
+    }
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: FacilityFormValues) => {
+      const payload: any = {
+        tenant_id: tenantId,
+        name: values.name.trim(),
+        facility_type_id: values.facility_type_id || null,
+        capacity: values.capacity || null,
+        description: values.description?.trim() || null,
+        quotation: values.quotation || null,
+        is_active: values.is_active,
+        video_url: values.video_url?.trim() || null,
+      };
+      if (isEdit) {
+        const { error } = await supabase.from(TABLES.FACILITIES as any).update(payload).eq(COLS.ID, editData.id);
+        if (error) throw error;
+        return editData.id;
+      } else {
+        const { data, error } = await supabase.from(TABLES.FACILITIES as any).insert(payload).select(COLS.ID).single();
+        if (error) throw error;
+        return (data as any).id;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["facilities", tenantId] });
+      toast.success(isEdit ? "Facility updated." : "Facility created.");
+      onClose();
+    },
+    onError: () => toast.error("Failed to save facility."),
+  });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    if (images.length + files.length > 5) {
+      toast.error("Maximum 5 images per facility.");
+      return;
+    }
+    setUploading(true);
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} exceeds 5 MB limit.`); continue; }
+      const path = `${tenantId}/${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from("facility-images").upload(path, file);
+      if (error) { toast.error(`Failed to upload ${file.name}`); continue; }
+      setImages(prev => [...prev, { path, name: file.name }]);
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Facility" : "Add Facility"}</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(v => saveMutation.mutate(v))} className="space-y-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name <span className="text-red-500">*</span></FormLabel>
+                <FormControl><Input placeholder="e.g., Main Hall" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="facility_type_id" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Type</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {facilityTypes.map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="capacity" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Capacity</FormLabel>
+                  <FormControl><Input type="number" placeholder="e.g., 200" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="quotation" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Price / Quotation</FormLabel>
+                  <FormControl><Input type="number" placeholder="0.00" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
+                <FormControl><Textarea placeholder="Describe this facility..." rows={3} {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="video_url" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Video URL (optional)</FormLabel>
+                <FormControl><Input placeholder="https://youtube.com/..." {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            {/* Image upload */}
+            <div>
+              <p className="text-sm font-medium mb-2">Images (max 5, 5 MB each)</p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {images.map((img, i) => (
+                  <div key={i} className="relative h-16 w-16 rounded-lg overflow-hidden border border-slate-200">
+                    <img
+                      src={supabase.storage.from("facility-images").getPublicUrl(img.path).data.publicUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-0.5 right-0.5 h-4 w-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px]"
+                      onClick={() => setImages(prev => prev.filter((_, j) => j !== i))}
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <label className={`inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 transition-colors ${images.length >= 5 ? "opacity-50 pointer-events-none" : ""}`}>
+                <Plus className="h-4 w-4" />
+                {uploading ? "Uploading..." : "Add Images"}
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={images.length >= 5 || uploading} />
+              </label>
+              {images.length >= 5 && <p className="text-xs text-slate-500 mt-1">Maximum 5 images per facility</p>}
+            </div>
+
+            <FormField control={form.control} name="is_active" render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Active</FormLabel>
+                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-indigo-600" /></FormControl>
+                </div>
+              </FormItem>
+            )} />
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? "Saving..." : isEdit ? "Update" : "Create"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── BookingDetailDrawer ──────────────────────────────────────────────────────
+
+function BookingDetailDrawer({
+  booking, open, onClose, tenantId, userId, onCreateFromResponse,
+}: {
+  booking: any | null; open: boolean; onClose: () => void;
+  tenantId: string; userId: string; onCreateFromResponse?: () => void;
+}) {
+  const qc = useQueryClient();
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ status }: { status: string }) => {
+      const updates: any = { status };
+      if (status === "approved") { updates.confirmed_at = new Date().toISOString(); updates.confirmed_by = userId; }
+      if (status === "cancelled") { updates.cancelled_at = new Date().toISOString(); }
+      const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq(COLS.ID, booking.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["facility-bookings", tenantId] });
+      toast.success("Booking status updated.");
+    },
+    onError: () => toast.error("Failed to update status."),
+  });
+
+  if (!booking) return null;
+  const { label: sourceLabel, className: sourceCls } = getSourceBadgeProps(booking.source ?? "admin");
+
+  return (
+    <Sheet open={open} onOpenChange={v => !v && onClose()}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Booking Details</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4 space-y-4">
+          {/* Header info */}
+          <div className="flex items-center gap-3">
+            {booking.booking_number && (
+              <span className="text-sm font-mono font-semibold text-indigo-600">{booking.booking_number}</span>
+            )}
+            <StatusBadge status={booking.status} />
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sourceCls}`}>{sourceLabel}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-xs text-slate-500 mb-0.5">Facility</p><p className="font-medium">{booking.facility_name || "—"}</p></div>
+            <div><p className="text-xs text-slate-500 mb-0.5">Date</p><p className="font-medium">{booking.booking_date}</p></div>
+            <div><p className="text-xs text-slate-500 mb-0.5">Time</p><p className="font-medium">{booking.start_time?.slice(0,5)} – {booking.end_time?.slice(0,5)}</p></div>
+            <div><p className="text-xs text-slate-500 mb-0.5">Attendees</p><p className="font-medium">{booking.expected_attendees ?? "—"}</p></div>
+            <div className="col-span-2"><p className="text-xs text-slate-500 mb-0.5">Purpose</p><p className="font-medium">{booking.purpose || "—"}</p></div>
+          </div>
+
+          {/* Contact info */}
+          {(booking.external_name || booking.booker_name) && (
+            <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-sm space-y-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Contact</p>
+              {(booking.external_name || booking.booker_name) && <p><span className="text-slate-500">Name: </span>{booking.external_name || booking.booker_name}</p>}
+              {(booking.external_email || booking.booker_email) && <p><span className="text-slate-500">Email: </span>{booking.external_email || booking.booker_email}</p>}
+              {(booking.external_phone || booking.booker_phone) && <p><span className="text-slate-500">Phone: </span>{booking.external_phone || booking.booker_phone}</p>}
+              {(booking.external_org || booking.booker_org_name) && <p><span className="text-slate-500">Org: </span>{booking.external_org || booking.booker_org_name}</p>}
+            </div>
+          )}
+
+          {booking.notes && (
+            <div><p className="text-xs text-slate-500 mb-1">Notes</p><p className="text-sm text-slate-700 dark:text-slate-300">{booking.notes}</p></div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+            {booking.status !== "approved" && (
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateStatus.mutate({ status: "approved" })}>
+                Approve
+              </Button>
+            )}
+            {booking.status !== "rejected" && (
+              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "rejected" })}>
+                Reject
+              </Button>
+            )}
+            {booking.status !== "cancelled" && (
+              <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── NewBookingDrawer ─────────────────────────────────────────────────────────
+
+function NewBookingDrawer({
+  open, onClose, tenantId, userId, facilities, preselectedFacilityId, editData,
+}: {
+  open: boolean; onClose: () => void; tenantId: string; userId: string;
+  facilities: any[]; preselectedFacilityId?: string | null; editData?: any | null;
+}) {
+  const qc = useQueryClient();
+
+  const form = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingSchema),
+    defaultValues: {
+      facility_id: preselectedFacilityId ?? "",
+      purpose: "", booking_date: format(new Date(), "yyyy-MM-dd"),
+      start_time: "09:00", end_time: "12:00",
+      expected_attendees: undefined, setup_required: false, notes: "",
+      contact_type: "external_individual",
+      member_id: "", external_name: "", external_email: "",
+      external_phone: "", external_org: "", external_contact_person: "",
+    },
+  });
+
+  // Sync when drawer opens
+  useState(() => {
+    if (open) {
+      if (editData) {
+        form.reset({
+          facility_id: editData.facility_id ?? editData.facility_name ?? "",
+          purpose: editData.purpose ?? "",
+          booking_date: editData.booking_date ?? format(new Date(), "yyyy-MM-dd"),
+          start_time: editData.start_time?.slice(0, 5) ?? "09:00",
+          end_time: editData.end_time?.slice(0, 5) ?? "12:00",
+          expected_attendees: editData.expected_attendees ?? undefined,
+          setup_required: editData.setup_required ?? false,
+          notes: editData.notes ?? "",
+          contact_type: editData.source === "member" ? "member" : "external_individual",
+          external_name: editData.external_name ?? editData.booker_name ?? "",
+          external_email: editData.external_email ?? editData.booker_email ?? "",
+          external_phone: editData.external_phone ?? editData.booker_phone ?? "",
+          external_org: editData.external_org ?? editData.booker_org_name ?? "",
+          external_contact_person: editData.booker_contact_person ?? "",
+        });
+      } else {
+        form.reset({
+          facility_id: preselectedFacilityId ?? "",
+          purpose: "", booking_date: format(new Date(), "yyyy-MM-dd"),
+          start_time: "09:00", end_time: "12:00",
+          expected_attendees: undefined, setup_required: false, notes: "",
+          contact_type: "external_individual",
+          member_id: "", external_name: "", external_email: "",
+          external_phone: "", external_org: "", external_contact_person: "",
+        });
+      }
+    }
+  });
+
+  const contactType = form.watch("contact_type");
+
+  const buildPayload = (values: BookingFormValues) => {
+    const facility = facilities.find(f => f.id === values.facility_id);
+    return {
+      tenant_id: tenantId,
+      facility_id: values.facility_id || null,
+      facility_name: facility?.name ?? values.facility_id,
+      purpose: values.purpose,
+      booking_date: values.booking_date,
+      start_time: values.start_time,
+      end_time: values.end_time,
+      booked_by: userId,
+      expected_attendees: values.expected_attendees || null,
+      setup_required: values.setup_required,
+      notes: values.notes || null,
+      status: "pending_confirmation",
+      source: values.contact_type === "member" ? "member" : "admin",
+      external_name: values.external_name || null,
+      external_email: values.external_email || null,
+      external_phone: values.external_phone || null,
+      external_org: values.external_org || null,
+    };
+  };
+
+  const saveBooking = async (values: BookingFormValues): Promise<string | null> => {
+    try {
+      if (editData) {
+        const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(buildPayload(values) as any).eq(COLS.ID, editData.id);
+        if (error) throw error;
+        qc.invalidateQueries({ queryKey: ["facility-bookings", tenantId] });
+        return editData.id;
+      } else {
+        const { data, error } = await supabase.from(TABLES.FACILITY_BOOKINGS).insert(buildPayload(values) as any).select(COLS.ID).single();
+        if (error) throw error;
+        qc.invalidateQueries({ queryKey: ["facility-bookings", tenantId] });
+        return (data as any).id;
+      }
+    } catch {
+      toast.error("Failed to save booking.");
+      return null;
+    }
+  };
+
+  const handleSave = async (values: BookingFormValues) => {
+    const id = await saveBooking(values);
+    if (id) { toast.success("Booking saved."); onClose(); }
+  };
+
+  const handleEmailConfirm = async (values: BookingFormValues) => {
+    const email = values.external_email;
+    if (!email) { form.setError("external_email", { message: "Email required for email confirmation" }); return; }
+    const id = await saveBooking(values);
+    if (!id) return;
+    const { error } = await supabase.functions.invoke("send-booking-confirmation", {
+      body: { channel: "email", to: email, booking_id: id, tenant_id: tenantId,
+        subject: `Booking Confirmation`, body: `Your booking for ${values.purpose} on ${values.booking_date} has been received.` },
+    });
+    if (error) toast.error("Booking saved, but failed to send confirmation.");
+    else toast.success("Email confirmation sent.");
+    onClose();
+  };
+
+  const handleSmsConfirm = async (values: BookingFormValues) => {
+    const phone = values.external_phone;
+    if (!phone) { form.setError("external_phone", { message: "Phone required for SMS confirmation" }); return; }
+    const id = await saveBooking(values);
+    if (!id) return;
+    const { error } = await supabase.functions.invoke("send-booking-confirmation", {
+      body: { channel: "sms", to: phone, booking_id: id, tenant_id: tenantId,
+        body: `Your booking for ${values.purpose} on ${values.booking_date} has been received.` },
+    });
+    if (error) toast.error("Booking saved, but failed to send confirmation.");
+    else toast.success("SMS confirmation sent.");
+    onClose();
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={v => !v && onClose()}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{editData ? "Edit Booking" : "New Booking"}</SheetTitle>
+        </SheetHeader>
+        <Form {...form}>
+          <form className="mt-4 space-y-4">
+            <FormField control={form.control} name="facility_id" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Facility <span className="text-red-500">*</span></FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select facility" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    {facilities.filter(f => f.is_active).map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="purpose" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Purpose <span className="text-red-500">*</span></FormLabel>
+                <FormControl><Input placeholder="e.g., Wedding Reception" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <div className="grid grid-cols-3 gap-3">
+              <FormField control={form.control} name="booking_date" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date <span className="text-red-500">*</span></FormLabel>
+                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="start_time" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start <span className="text-red-500">*</span></FormLabel>
+                  <FormControl><Input type="time" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="end_time" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End <span className="text-red-500">*</span></FormLabel>
+                  <FormControl><Input type="time" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField control={form.control} name="expected_attendees" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Attendees</FormLabel>
+                  <FormControl><Input type="number" placeholder="0" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="setup_required" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Setup Required</FormLabel>
+                  <div className="flex items-center h-10">
+                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-indigo-600" /></FormControl>
+                  </div>
+                </FormItem>
+              )} />
+            </div>
+
+            {/* Contact type */}
+            <FormField control={form.control} name="contact_type" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contact Type <span className="text-red-500">*</span></FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="external_individual">External Individual</SelectItem>
+                    <SelectItem value="external_org">External Organisation</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            {contactType === "external_individual" && (
+              <div className="space-y-3">
+                <FormField control={form.control} name="external_name" render={({ field }) => (
+                  <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="Full name" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField control={form.control} name="external_email" render={({ field }) => (
+                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="email@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="external_phone" render={({ field }) => (
+                    <FormItem><FormLabel>Phone</FormLabel><FormControl><Input placeholder="+1234567890" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+              </div>
+            )}
+
+            {contactType === "external_org" && (
+              <div className="space-y-3">
+                <FormField control={form.control} name="external_org" render={({ field }) => (
+                  <FormItem><FormLabel>Organisation Name</FormLabel><FormControl><Input placeholder="Organisation" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="external_contact_person" render={({ field }) => (
+                  <FormItem><FormLabel>Contact Person</FormLabel><FormControl><Input placeholder="Contact person name" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField control={form.control} name="external_email" render={({ field }) => (
+                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="external_phone" render={({ field }) => (
+                    <FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+              </div>
+            )}
+
+            <FormField control={form.control} name="notes" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Notes</FormLabel>
+                <FormControl><Textarea placeholder="Additional notes..." rows={3} {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+              <Button type="button" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={form.handleSubmit(handleSave)}>
+                Save Booking
+              </Button>
+              <Button type="button" variant="outline" onClick={form.handleSubmit(handleEmailConfirm)}>
+                Save &amp; Email Confirmation
+              </Button>
+              <Button type="button" variant="outline" onClick={form.handleSubmit(handleSmsConfirm)}>
+                Save &amp; SMS Confirmation
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── ResponseDetailModal ──────────────────────────────────────────────────────
+
+function ResponseDetailModal({
+  response, open, onClose, onCreateBooking,
+}: {
+  response: any | null; open: boolean; onClose: () => void; onCreateBooking: (r: any) => void;
+}) {
+  if (!response) return null;
+  const { label, className } = getSourceBadgeProps(response.source);
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Response Details</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>{label}</span>
+            <span className="text-xs text-slate-500">{response.created_at ? format(new Date(response.created_at), "PPp") : ""}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-xs text-slate-500 mb-0.5">Name</p><p className="font-medium">{response.respondent_name}</p></div>
+            {response.respondent_email && <div><p className="text-xs text-slate-500 mb-0.5">Email</p><p>{response.respondent_email}</p></div>}
+            {response.respondent_phone && <div><p className="text-xs text-slate-500 mb-0.5">Phone</p><p>{response.respondent_phone}</p></div>}
+            {response.respondent_org && <div><p className="text-xs text-slate-500 mb-0.5">Organisation</p><p>{response.respondent_org}</p></div>}
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-1">Message</p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg p-3">{response.message}</p>
+          </div>
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+            <Button variant="outline" onClick={onClose}>Close</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => { onCreateBooking(response); onClose(); }}>
+              Create Booking from Response
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FacilityBookingPage() {
   const { tenantId, userId, currency } = useChurch();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "facilities";
 
-  // Facility dialog state
-  const [facilityDialogOpen, setFacilityDialogOpen] = useState(false);
-  const [facilityDialogMode, setFacilityDialogMode] = useState<"create" | "edit">("create");
-  const [editingFacility, setEditingFacility] = useState<any | null>(null);
-  const [facilityToDelete, setFacilityToDelete] = useState<any | null>(null);
+  // Facility state
+  const [facilitySearch, setFacilitySearch] = useState("");
+  const [facilityTypeFilter, setFacilityTypeFilter] = useState("all");
+  const [facilityStatusFilter, setFacilityStatusFilter] = useState("all");
+  const [viewFacility, setViewFacility] = useState<any | null>(null);
+  const [editFacility, setEditFacility] = useState<any | null>(null);
+  const [addFacilityOpen, setAddFacilityOpen] = useState(false);
+  const [deleteFacility, setDeleteFacility] = useState<any | null>(null);
 
-  // Send confirmation / request dialog state
-  const [sendConfirmationFacility, setSendConfirmationFacility] = useState<any | null>(null);
-  const [sendRequestBooking, setSendRequestBooking] = useState<any | null>(null);
-  const [sendConfirmRecipient, setSendConfirmRecipient] = useState({
-    recipient_type: "", recipient_name: "", recipient_org_name: "",
-    recipient_contact_person: "", recipient_phone: "", recipient_email: "",
-    message: "",
-  });
-  const [sendConfirmErrors, setSendConfirmErrors] = useState<Record<string, string>>({});
+  // Booking state
+  const [bookingSearch, setBookingSearch] = useState("");
+  const [bookingFacilityFilter, setBookingFacilityFilter] = useState("all");
+  const [bookingStatusFilter, setBookingStatusFilter] = useState("all");
+  const [viewBooking, setViewBooking] = useState<any | null>(null);
+  const [newBookingOpen, setNewBookingOpen] = useState(false);
+  const [editBooking, setEditBooking] = useState<any | null>(null);
+  const [preselectedFacilityId, setPreselectedFacilityId] = useState<string | null>(null);
+  const [deleteBooking, setDeleteBooking] = useState<string | null>(null);
 
-  // Booking sheet state
-  const [bookingSheetOpen, setBookingSheetOpen] = useState(false);
-  const [bookingSheetMode, setBookingSheetMode] = useState<'create' | 'edit'>('create');
-  const [editingBooking, setEditingBooking] = useState<any>(null);
-  const [bookingToDelete, setBookingToDelete] = useState<string | null>(null);
-  const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
-
-  const [facilityForm, setFacilityForm] = useState(EMPTY_FACILITY_FORM);
-  const [bookingForm, setBookingForm] = useState({
-    facility_name: "", purpose: "", booking_date: format(new Date(), "yyyy-MM-dd"),
-    start_time: "09:00", end_time: "12:00", expected_attendees: 0,
-    setup_required: false, setup_notes: "", notes: "",
-    booker_type: "", booker_name: "", booker_org_name: "",
-    booker_contact_person: "", booker_phone: "", booker_email: "",
-  });
+  // Response state
+  const [responseFilter, setResponseFilter] = useState("all");
+  const [viewResponse, setViewResponse] = useState<any | null>(null);
+  const [responseBookingPrefill, setResponseBookingPrefill] = useState<any | null>(null);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
 
-  const { data: facilities, isLoading: facLoading } = useQuery({
+  const { data: stats } = useQuery({
+    queryKey: ["facility-booking-stats", tenantId],
+    queryFn: async () => {
+      const [facilitiesRes, bookingsRes, pendingRes, externalRes] = await Promise.all([
+        supabase.from(TABLES.FACILITIES as any).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId),
+        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "approved"),
+        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "pending_confirmation"),
+        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq("source", "external"),
+      ]);
+      return {
+        totalFacilities: facilitiesRes.count ?? 0,
+        activeBookings: bookingsRes.count ?? 0,
+        pendingRequests: pendingRes.count ?? 0,
+        externalRequests: externalRes.count ?? 0,
+      };
+    },
+    staleTime: 300000,
+  });
+
+  const { data: facilities = [], isLoading: facLoading } = useQuery({
     queryKey: ["facilities", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITIES as any)
-        .select("*")
-        .eq("tenant_id", tenantId)
+        .select("*, facility_images(id, image_path, sort_order)")
+        .eq(COLS.TENANT_ID, tenantId)
         .order("name");
       if (error) throw error;
-      return (data || []) as any[];
+      return (data ?? []) as any[];
     },
     staleTime: 300000,
   });
 
-  const { data: bookings, isLoading: bookLoading } = useQuery({
-    queryKey: ["facility_bookings", tenantId],
+  const { data: facilityTypes = [] } = useQuery({
+    queryKey: ["facility-types", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.FACILITY_TYPES)
+        .select("*")
+        .eq(COLS.TENANT_ID, tenantId)
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    staleTime: 300000,
+  });
+
+  const { data: bookings = [], isLoading: bookLoading } = useQuery({
+    queryKey: ["facility-bookings", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITY_BOOKINGS)
         .select("*")
-        .eq("tenant_id", tenantId)
+        .eq(COLS.TENANT_ID, tenantId)
         .order("booking_date", { ascending: false })
-        .limit(100);
+        .limit(200);
       if (error) throw error;
-      return data || [];
+      return (data ?? []) as any[];
     },
     staleTime: 300000,
   });
 
-  const { data: responses, isLoading: responsesLoading } = useQuery({
-    queryKey: ["facility_booking_responses", tenantId],
+  const { data: responses = [], isLoading: responsesLoading } = useQuery({
+    queryKey: ["facility-responses", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from(TABLES.FACILITY_BOOKING_RESPONSES)
+        .from(TABLES.FACILITY_RESPONSES)
         .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+        .eq(COLS.TENANT_ID, tenantId)
+        .order(COLS.CREATED_AT, { ascending: false });
       if (error) throw error;
-      return (data || []) as any[];
+      return (data ?? []) as any[];
     },
     staleTime: 300000,
   });
 
-  const unreadCount = responses?.filter((r: any) => !r.is_read).length ?? 0;
+  const unreadCount = responses.filter((r: any) => r.status === "new").length;
 
-  const markResponsesReadMutation = useMutation({
+  const markResponsesRead = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
-        .from(TABLES.FACILITY_BOOKING_RESPONSES)
-        .update({ is_read: true })
-        .eq("tenant_id", tenantId)
-        .eq("is_read", false);
+        .from(TABLES.FACILITY_RESPONSES)
+        .update({ status: "read" } as never)
+        .eq(COLS.TENANT_ID, tenantId)
+        .eq(COLS.STATUS, "new");
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facility_booking_responses", tenantId] });
-    },
-  });
-
-  function handleTabChange(value: string) {
-    setSearchParams(value === "facilities" ? {} : { tab: value });
-    if (value === "responses" && unreadCount > 0) {
-      markResponsesReadMutation.mutate();
-    }
-  }
-
-  // ── Facility mutations ────────────────────────────────────────────────────────
-
-  const createFacilityMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from(TABLES.FACILITIES as any).insert({
-        tenant_id: tenantId,
-        name: facilityForm.name,
-        type: facilityForm.type,
-        capacity: facilityForm.capacity || null,
-        description: facilityForm.description,
-        is_active: facilityForm.is_active,
-        quotation: facilityForm.quotation || null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facilities", tenantId] });
-      toast.success("Facility added");
-      setFacilityDialogOpen(false);
-      setFacilityForm(EMPTY_FACILITY_FORM);
-    },
-    onError: () => toast.error("Failed to add facility"),
-  });
-
-  const updateFacilityMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from(TABLES.FACILITIES as any)
-        .update({
-          name: facilityForm.name,
-          type: facilityForm.type,
-          capacity: facilityForm.capacity || null,
-          description: facilityForm.description,
-          is_active: facilityForm.is_active,
-          quotation: facilityForm.quotation || null,
-        })
-        .eq("id", editingFacility!.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facilities", tenantId] });
-      toast.success("Facility updated");
-      setFacilityDialogOpen(false);
-      setEditingFacility(null);
-      setFacilityForm(EMPTY_FACILITY_FORM);
-    },
-    onError: () => toast.error("Failed to update facility"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["facility-responses", tenantId] }),
   });
 
   const deleteFacilityMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from(TABLES.FACILITIES as any)
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from(TABLES.FACILITIES as any).delete().eq(COLS.ID, id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facilities", tenantId] });
-      toast.success("Facility deleted");
-      setFacilityToDelete(null);
+      qc.invalidateQueries({ queryKey: ["facilities", tenantId] });
+      toast.success("Facility deleted.");
+      setDeleteFacility(null);
     },
-    onError: () => toast.error("Failed to delete facility"),
-  });
-
-  // ── Booking mutations ─────────────────────────────────────────────────────────
-
-  const createBookingMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).insert({
-        tenant_id: tenantId,
-        facility_name: bookingForm.facility_name,
-        purpose: bookingForm.purpose,
-        booking_date: bookingForm.booking_date,
-        start_time: bookingForm.start_time,
-        end_time: bookingForm.end_time,
-        booked_by: userId,
-        expected_attendees: bookingForm.expected_attendees || null,
-        setup_required: bookingForm.setup_required,
-        setup_notes: bookingForm.setup_notes || null,
-        notes: bookingForm.notes || null,
-        status: "pending_confirmation",
-        booker_type: bookingForm.booker_type || null,
-        booker_name: bookingForm.booker_name || null,
-        booker_org_name: bookingForm.booker_org_name || null,
-        booker_contact_person: bookingForm.booker_contact_person || null,
-        booker_phone: bookingForm.booker_phone || null,
-        booker_email: bookingForm.booker_email || null,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
-      toast.success("Booking request submitted");
-      captureEvent("booking_created");
-      setBookingSheetOpen(false);
-    },
-    onError: () => toast.error("Failed to create booking"),
-  });
-
-  const updateBookingStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const updates: any = { status };
-      if (status === "approved") {
-        updates.approved_by = userId;
-        updates.approved_at = new Date().toISOString();
-      }
-      const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
-      toast.success("Booking updated");
-    },
-  });
-
-  const updateBookingMutation = useMutation({
-    mutationFn: async (data: typeof bookingForm) => {
-      const { error } = await supabase
-        .from(TABLES.FACILITY_BOOKINGS)
-        .update({ ...data, updated_at: new Date().toISOString() } as any)
-        .eq("id", editingBooking!.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
-      toast.success("Booking updated successfully");
-      setBookingSheetOpen(false);
-      setEditingBooking(null);
-      setBookingSheetMode("create");
-    },
-    onError: () => toast.error("Failed to update booking"),
+    onError: () => toast.error("Failed to delete facility."),
   });
 
   const deleteBookingMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from(TABLES.FACILITY_BOOKINGS)
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).delete().eq(COLS.ID, id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
-      toast.success("Booking deleted successfully");
+      qc.invalidateQueries({ queryKey: ["facility-bookings", tenantId] });
+      toast.success("Booking deleted.");
+      setDeleteBooking(null);
     },
-    onError: () => toast.error("Failed to delete booking"),
+    onError: () => toast.error("Failed to delete booking."),
   });
 
-  // ── Helpers ───────────────────────────────────────────────────────────────────
-
-  function openCreateFacility() {
-    setFacilityForm(EMPTY_FACILITY_FORM);
-    setEditingFacility(null);
-    setFacilityDialogMode("create");
-    setFacilityDialogOpen(true);
+  function handleTabChange(value: string) {
+    setSearchParams(value === "facilities" ? {} : { tab: value });
+    if (value === "responses" && unreadCount > 0) markResponsesRead.mutate();
   }
 
-  function openEditFacility(facility: any) {
-    setFacilityForm({
-      name: facility.name ?? "",
-      type: facility.type ?? "other",
-      capacity: facility.capacity ?? 0,
-      description: facility.description ?? "",
-      is_active: facility.is_active ?? true,
-      quotation: facility.quotation ?? 0,
-    });
-    setEditingFacility(facility);
-    setFacilityDialogMode("edit");
-    setFacilityDialogOpen(true);
-  }
+  const handleShare = useCallback((facility: any) => {
+    const url = `${window.location.origin}/book/${tenantId}/${facility.id}`;
+    navigator.clipboard.writeText(url).then(() => toast.success("Booking link copied!"));
+  }, [tenantId]);
 
-  function handleFacilitySubmit() {
-    if (facilityDialogMode === "edit") {
-      updateFacilityMutation.mutate();
-    } else {
-      createFacilityMutation.mutate();
-    }
-  }
+  // ── Filtered data ─────────────────────────────────────────────────────────────
 
-  function openEditBooking(booking: any) {
-    setBookingForm({
-      facility_name: booking.facility_name ?? "",
-      purpose: booking.purpose ?? "",
-      booking_date: booking.booking_date ?? format(new Date(), "yyyy-MM-dd"),
-      start_time: booking.start_time?.toString().slice(0, 5) ?? "09:00",
-      end_time: booking.end_time?.toString().slice(0, 5) ?? "12:00",
-      expected_attendees: booking.expected_attendees ?? 0,
-      setup_required: booking.setup_required ?? false,
-      setup_notes: booking.setup_notes ?? "",
-      notes: booking.notes ?? "",
-      booker_type: booking.booker_type ?? "",
-      booker_name: booking.booker_name ?? "",
-      booker_org_name: booking.booker_org_name ?? "",
-      booker_contact_person: booking.booker_contact_person ?? "",
-      booker_phone: booking.booker_phone ?? "",
-      booker_email: booking.booker_email ?? "",
-    });
-    setEditingBooking(booking);
-    setBookingSheetMode("edit");
-    setBookingSheetOpen(true);
-  }
+  const filteredFacilities = facilities.filter(f => {
+    const matchSearch = !facilitySearch || f.name.toLowerCase().includes(facilitySearch.toLowerCase());
+    const matchType = facilityTypeFilter === "all" || f.facility_type_id === facilityTypeFilter;
+    const matchStatus = facilityStatusFilter === "all" || (facilityStatusFilter === "active" ? f.is_active : !f.is_active);
+    return matchSearch && matchType && matchStatus;
+  });
 
-  function validateBookerIdentity(): Record<string, string> {
-    const errors: Record<string, string> = {};
-    if (!bookingForm.booker_type) errors.booker_type = "Booker type is required";
-    if (bookingForm.booker_type === "Individual" && !bookingForm.booker_name)
-      errors.booker_name = "Name is required";
-    if (bookingForm.booker_type === "Organisation" && !bookingForm.booker_org_name)
-      errors.booker_org_name = "Organisation name is required";
-    if (!bookingForm.booker_phone && !bookingForm.booker_email)
-      errors.booker_contact = "Phone or email is required";
-    return errors;
-  }
+  const filteredBookings = bookings.filter(b => {
+    const matchSearch = !bookingSearch || (b.facility_name ?? "").toLowerCase().includes(bookingSearch.toLowerCase()) || (b.purpose ?? "").toLowerCase().includes(bookingSearch.toLowerCase());
+    const matchFacility = bookingFacilityFilter === "all" || b.facility_id === bookingFacilityFilter;
+    const matchStatus = bookingStatusFilter === "all" || b.status === bookingStatusFilter;
+    return matchSearch && matchFacility && matchStatus;
+  });
 
-  async function saveBooking(silent = false): Promise<string | null> {
-    try {
-      if (bookingSheetMode === "edit") {
-        if (silent) {
-          // In silent mode (called from confirmation handlers), update without closing sheet
-          const { error } = await supabase
-            .from(TABLES.FACILITY_BOOKINGS)
-            .update({ ...bookingForm, updated_at: new Date().toISOString() } as any)
-            .eq("id", editingBooking!.id);
-          if (error) throw error;
-          queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
-          return editingBooking!.id;
-        }
-        await updateBookingMutation.mutateAsync(bookingForm);
-        return editingBooking!.id;
-      } else {
-        // createBookingMutation doesn't return the id, so we need a direct call
-        const { data, error } = await supabase.from(TABLES.FACILITY_BOOKINGS).insert({
-          tenant_id: tenantId,
-          facility_name: bookingForm.facility_name,
-          purpose: bookingForm.purpose,
-          booking_date: bookingForm.booking_date,
-          start_time: bookingForm.start_time,
-          end_time: bookingForm.end_time,
-          booked_by: userId,
-          expected_attendees: bookingForm.expected_attendees || null,
-          setup_required: bookingForm.setup_required,
-          setup_notes: bookingForm.setup_notes || null,
-          notes: bookingForm.notes || null,
-          status: "pending_confirmation",
-          booker_type: bookingForm.booker_type || null,
-          booker_name: bookingForm.booker_name || null,
-          booker_org_name: bookingForm.booker_org_name || null,
-          booker_contact_person: bookingForm.booker_contact_person || null,
-          booker_phone: bookingForm.booker_phone || null,
-          booker_email: bookingForm.booker_email || null,
-        } as any).select("id").single();
-        if (error) throw error;
-        queryClient.invalidateQueries({ queryKey: ["facility_bookings", tenantId] });
-        if (!silent) {
-          toast.success("Booking request submitted");
-          setBookingSheetOpen(false);
-        }
-        return (data as any).id;
-      }
-    } catch {
-      toast.error("Failed to save booking");
-      return null;
-    }
-  }
+  const filteredResponses = responses.filter(r => {
+    return responseFilter === "all" || r.source === responseFilter;
+  });
 
-  async function handleSubmitBooking() {
-    const errors = validateBookerIdentity();
-    if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
-    setBookingErrors({});
-    await saveBooking();
-  }
+  const getTypeName = (typeId: string) => facilityTypes.find((t: any) => t.id === typeId)?.label ?? "";
+  const getFirstImage = (facility: any) => {
+    const imgs = facility.facility_images ?? [];
+    if (!imgs.length) return null;
+    const sorted = [...imgs].sort((a: any, b: any) => a.sort_order - b.sort_order);
+    return supabase.storage.from("facility-images").getPublicUrl(sorted[0].image_path).data.publicUrl;
+  };
 
-  async function handleEmailConfirmation() {
-    const errors = validateBookerIdentity();
-    if (!bookingForm.booker_email) errors.booker_email = "Email is required for email confirmation";
-    if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
-    setBookingErrors({});
-
-    const bookingId = await saveBooking(true);
-    if (!bookingId) return;
-
-    const bookerName = bookingForm.booker_type === "Organisation"
-      ? (bookingForm.booker_org_name || bookingForm.booker_contact_person)
-      : bookingForm.booker_name;
-
-    const { error } = await supabase.functions.invoke("send-booking-confirmation", {
-      body: {
-        channel: "email",
-        to: bookingForm.booker_email,
-        subject: `Booking Confirmation — ${bookingForm.facility_name}`,
-        body: `Dear ${bookerName},\n\nYour booking for ${bookingForm.facility_name} on ${bookingForm.booking_date} from ${bookingForm.start_time} to ${bookingForm.end_time} has been received.\n\nPurpose: ${bookingForm.purpose || "N/A"}\n\nThank you.`,
-        booking_id: bookingId,
-        tenant_id: tenantId,
-      },
-    });
-    if (error) {
-      toast.error("Booking saved, but failed to send email confirmation");
-    } else {
-      toast.success("Email confirmation sent");
-    }
-    setBookingSheetOpen(false);
-  }
-
-  async function handleSmsConfirmation() {
-    const errors = validateBookerIdentity();
-    if (!bookingForm.booker_phone) errors.booker_phone = "Phone is required for SMS confirmation";
-    if (Object.keys(errors).length > 0) { setBookingErrors(errors); return; }
-    setBookingErrors({});
-
-    const bookingId = await saveBooking(true);
-    if (!bookingId) return;
-
-    const bookerName = bookingForm.booker_type === "Organisation"
-      ? (bookingForm.booker_org_name || bookingForm.booker_contact_person)
-      : bookingForm.booker_name;
-
-    const { error } = await supabase.functions.invoke("send-booking-confirmation", {
-      body: {
-        channel: "sms",
-        to: bookingForm.booker_phone,
-        body: `Hi ${bookerName}, your booking for ${bookingForm.facility_name} on ${bookingForm.booking_date} (${bookingForm.start_time}–${bookingForm.end_time}) has been received.`,
-        booking_id: bookingId,
-        tenant_id: tenantId,
-      },
-    });
-    if (error) {
-      toast.error("Booking saved, but failed to send SMS confirmation");
-    } else {
-      toast.success("SMS confirmation sent");
-    }
-    setBookingSheetOpen(false);
-  }
-
-  function handleBookingSubmit() {
-    handleSubmitBooking();
-  }
-
-  async function handleFacilitySendConfirmation(channel: 'email' | 'sms') {
-    const facility = sendConfirmationFacility;
-    const r = sendConfirmRecipient;
-
-    // Validate
-    const errors: Record<string, string> = {};
-    if (!r.recipient_type) errors.recipient_type = "Recipient type is required";
-    if (r.recipient_type === "Individual" && !r.recipient_name) errors.recipient_name = "Name is required";
-    if (r.recipient_type === "Organisation" && !r.recipient_org_name) errors.recipient_org_name = "Organisation name is required";
-    if (channel === 'email' && !r.recipient_email) errors.recipient_email = "Email is required";
-    if (channel === 'sms' && !r.recipient_phone) errors.recipient_phone = "Phone is required";
-    if (Object.keys(errors).length > 0) { setSendConfirmErrors(errors); return; }
-    setSendConfirmErrors({});
-
-    const recipientName = r.recipient_type === "Organisation"
-      ? (r.recipient_org_name || r.recipient_contact_person)
-      : r.recipient_name;
-
-    const quotationLine = facility.quotation > 0
-      ? `\n\nQuotation: ${facility.quotation}`
-      : "";
-
-    const payload = channel === 'email'
-      ? {
-          channel: 'email',
-          to: r.recipient_email,
-          subject: `Facility Available — ${facility.name}`,
-          body: `Dear ${recipientName},\n\nWe would like to inform you that our facility "${facility.name}" is available for hire.${quotationLine}\n\n${r.message || "Please get in touch if you are interested."}\n\nThank you.`,
-          booking_id: null,
-          tenant_id: tenantId,
-        }
-      : {
-          channel: 'sms',
-          to: r.recipient_phone,
-          body: `Hi ${recipientName}, our facility "${facility.name}" is available for hire.${facility.quotation > 0 ? ` Quotation: ${facility.quotation}.` : ""} ${r.message || "Contact us if interested."}`,
-          booking_id: null,
-          tenant_id: tenantId,
-        };
-
-    setSendConfirmationFacility(null);
-    const { error } = await supabase.functions.invoke('send-booking-confirmation', { body: payload });
-    if (error) toast.error(`Failed to send ${channel === 'email' ? 'email' : 'SMS'}`);
-    else toast.success(`${channel === 'email' ? 'Email' : 'SMS'} sent to ${recipientName}`);
-  }
-
-  async function handleBookingSendRequest(channel: 'email' | 'sms') {
-    const booking = sendRequestBooking;
-    if (channel === 'email' && !booking.booker_email) { toast.error("No email address on file for this booking"); return; }
-    if (channel === 'sms' && !booking.booker_phone) { toast.error("No phone number on file for this booking"); return; }
-    setSendRequestBooking(null);
-    const bookerName = booking.booker_type === 'Organisation'
-      ? (booking.booker_org_name || booking.booker_contact_person)
-      : booking.booker_name;
-    const payload = channel === 'email'
-      ? { channel: 'email', to: booking.booker_email, subject: `Booking Request — ${booking.facility_name}`, body: `Dear ${bookerName},\n\nYour booking request for ${booking.facility_name} on ${booking.booking_date} from ${booking.start_time?.toString().slice(0,5)} to ${booking.end_time?.toString().slice(0,5)} has been received.\n\nPurpose: ${booking.purpose || 'N/A'}\n\nThank you.`, booking_id: booking.id, tenant_id: tenantId }
-      : { channel: 'sms', to: booking.booker_phone, body: `Hi ${bookerName}, your booking request for ${booking.facility_name} on ${booking.booking_date} (${booking.start_time?.toString().slice(0,5)}–${booking.end_time?.toString().slice(0,5)}) has been received.`, booking_id: booking.id, tenant_id: tenantId };
-    const { error } = await supabase.functions.invoke('send-booking-confirmation', { body: payload });
-    if (error) toast.error(`Failed to send ${channel === 'email' ? 'email' : 'SMS'} request`);
-    else toast.success(`${channel === 'email' ? 'Email' : 'SMS'} request sent`);
-  }
-
-  const isFacilityMutating =
-    createFacilityMutation.isPending || updateFacilityMutation.isPending;
+  const viewFacilityImages = viewFacility?.facility_images ?? [];
+  const viewFacilityBookings = bookings.filter(b => b.facility_id === viewFacility?.id && new Date(b.booking_date) >= new Date());
 
   return (
     <>
       <Helmet><title>Facility &amp; Event Booking — Vestry</title></Helmet>
       <PageHeader
         title="Facility & Event Booking"
-        subtitle="Manage church space bookings and requests"
+        subtitle="Manage church spaces and booking requests"
         action={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={openCreateFacility}>
+            <Button variant="outline" onClick={() => setAddFacilityOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />Add Facility
             </Button>
-            <Button onClick={() => setBookingSheetOpen(true)}>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => { setEditBooking(null); setPreselectedFacilityId(null); setNewBookingOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />New Booking
             </Button>
           </div>
         }
       />
 
+      {/* Stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Total Facilities" value={stats?.totalFacilities} icon={Building2} color="bg-indigo-500" />
+        <StatCard label="Active Bookings" value={stats?.activeBookings} icon={Calendar} color="bg-emerald-500" />
+        <StatCard label="Pending Requests" value={stats?.pendingRequests} icon={Users} color="bg-amber-500" />
+        <StatCard label="External Requests" value={stats?.externalRequests} icon={MessageSquare} color="bg-violet-500" />
+      </div>
+
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
+        <TabsList className="mb-4">
           <TabsTrigger value="facilities">Facilities</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="responses" className="relative">
             Responses
             {unreadCount > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold min-w-[16px] h-4 px-1">
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold min-w-[16px] h-4 px-1">
                 {unreadCount}
               </span>
             )}
@@ -593,155 +1169,137 @@ export default function FacilityBookingPage() {
         </TabsList>
 
         {/* ── Facilities Tab ── */}
-        <TabsContent value="facilities" className="mt-4">
+        <TabsContent value="facilities">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder="Search facilities..." className="pl-9" value={facilitySearch} onChange={e => setFacilitySearch(e.target.value)} />
+            </div>
+            <Select value={facilityTypeFilter} onValueChange={setFacilityTypeFilter}>
+              <SelectTrigger className="w-40"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {facilityTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={facilityStatusFilter} onValueChange={setFacilityStatusFilter}>
+              <SelectTrigger className="w-36"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {facLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48" />)}
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-xl" />)}
             </div>
-          ) : !facilities?.length ? (
-            <Card className="p-12 text-center">
-              <Building2 className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-1">No facilities yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">Add your church facilities to enable booking.</p>
-              <Button onClick={openCreateFacility}><Plus className="h-4 w-4 mr-2" />Add Facility</Button>
-            </Card>
+          ) : filteredFacilities.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <Building2 className="h-12 w-12 text-slate-300" />
+              <p className="text-base font-semibold text-slate-600">No facilities found</p>
+              <p className="text-sm text-slate-400">Try adjusting your search or filters, or add a new facility.</p>
+              <Button size="sm" className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setAddFacilityOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />Add Facility
+              </Button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {facilities.map((f: any) => (
-                <Card key={f.id} className="overflow-hidden">
-                  <div className="h-24 bg-primary/10 flex items-center justify-center">
-                    {f.photo_url
-                      ? <img src={f.photo_url} alt="" className="w-full h-full object-cover" />
-                      : <Building2 className="h-10 w-10 text-primary/30" />}
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <h4 className="font-semibold text-foreground truncate">{f.name}</h4>
-                        <Badge variant={f.is_active ? "default" : "secondary"} className="text-xs shrink-0">
-                          {f.is_active ? "Available" : "Inactive"}
-                        </Badge>
-                      </div>
-
-                      {/* Actions menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                            <MoreVertical className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditFacility(f)}>
-                            <Pencil className="h-4 w-4 mr-2" />Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setFacilityToDelete(f)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />Delete
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSendConfirmationFacility(f)}>
-                            <Send className="h-4 w-4 mr-2" />Send Confirmation
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
-                    <Badge variant="outline" className="text-xs capitalize mb-2">
-                      {f.type?.replace(/_/g, " ")}
-                    </Badge>
-                    {f.capacity && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                        <Users className="h-3.5 w-3.5" />
-                        <span>Seats {f.capacity}</span>
-                      </div>
-                    )}
-                    {f.description && (
-                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{f.description}</p>
-                    )}
-                    {f.quotation > 0 && (
-                      <p className="text-sm font-medium text-foreground mt-2">
-                        {formatCurrencyFull(f.quotation, currency)}
-                      </p>
-                    )}
-                    {f.amenities?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {f.amenities.map((a: string) => (
-                          <Badge key={a} variant="secondary" className="text-[10px]">{a}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </Card>
+              {filteredFacilities.map(f => (
+                <FacilityCard
+                  key={f.id}
+                  facility={f}
+                  firstImage={getFirstImage(f)}
+                  typeName={getTypeName(f.facility_type_id)}
+                  currency={currency}
+                  onView={() => setViewFacility(f)}
+                  onEdit={() => setEditFacility(f)}
+                  onDelete={() => setDeleteFacility(f)}
+                  onBookNow={() => { setPreselectedFacilityId(f.id); setEditBooking(null); setNewBookingOpen(true); }}
+                  onShare={() => handleShare(f)}
+                />
               ))}
             </div>
           )}
         </TabsContent>
 
         {/* ── Bookings Tab ── */}
-        <TabsContent value="bookings" className="mt-4">
+        <TabsContent value="bookings">
+          <div className="flex flex-wrap gap-3 mb-4">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder="Search bookings..." className="pl-9" value={bookingSearch} onChange={e => setBookingSearch(e.target.value)} />
+            </div>
+            <Select value={bookingFacilityFilter} onValueChange={setBookingFacilityFilter}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="All Facilities" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Facilities</SelectItem>
+                {facilities.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={bookingStatusFilter} onValueChange={setBookingStatusFilter}>
+              <SelectTrigger className="w-40"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending_confirmation">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {bookLoading ? (
-            <Card className="p-4 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
-            </Card>
-          ) : !bookings?.length ? (
-            <Card className="p-12 text-center">
-              <Calendar className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-1">No bookings yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">Create your first booking request.</p>
-              <Button onClick={() => setBookingSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />New Booking</Button>
-            </Card>
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <Calendar className="h-12 w-12 text-slate-300" />
+              <p className="text-base font-semibold text-slate-600">No bookings found</p>
+              <p className="text-sm text-slate-400">Create a new booking to get started.</p>
+            </div>
           ) : (
-            <Card>
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Ref</TableHead>
-                    <TableHead>Facility</TableHead>
-                    <TableHead>Purpose</TableHead>
-                    <TableHead>Date &amp; Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                  <TableRow className="bg-slate-50 dark:bg-slate-900">
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Booking #</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Facility</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Purpose</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Date / Time</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Attendees</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Source</TableHead>
+                    <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bookings.map(b => (
-                    <TableRow key={b.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {(b as any).booking_reference || b.id.slice(0, 8)}
+                  {filteredBookings.map(b => (
+                    <TableRow
+                      key={b.id}
+                      className="cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-700/30"
+                      onClick={() => setViewBooking(b)}
+                    >
+                      <TableCell className="font-mono text-xs text-indigo-600">{b.booking_number || "—"}</TableCell>
+                      <TableCell className="font-medium text-sm">{b.facility_name || "—"}</TableCell>
+                      <TableCell className="text-sm text-slate-600 hidden md:table-cell max-w-[160px] truncate">{b.purpose || "—"}</TableCell>
+                      <TableCell className="text-xs text-slate-500 hidden lg:table-cell">
+                        {b.booking_date}<br />{b.start_time?.slice(0,5)}–{b.end_time?.slice(0,5)}
                       </TableCell>
-                      <TableCell className="font-medium text-foreground">{b.facility_name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{b.purpose || "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(b.booking_date), "dd MMM yyyy")}
-                        {b.start_time && ` · ${b.start_time.toString().slice(0, 5)}`}
-                        {b.end_time && ` - ${b.end_time.toString().slice(0, 5)}`}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={BOOKING_STATUS_MAP[b.status || "open"] || "pending"} />
-                      </TableCell>
-                      <TableCell>
+                      <TableCell className="text-sm hidden lg:table-cell">{b.expected_attendees ?? "—"}</TableCell>
+                      <TableCell><StatusBadge status={b.status} /></TableCell>
+                      <TableCell className="hidden md:table-cell"><SourceBadge source={b.source ?? "admin"} /></TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                              <MoreVertical className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditBooking(b)}>
-                              <Edit className="h-4 w-4 mr-2" />Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setBookingToDelete(b.id)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />Delete
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSendRequestBooking(b)}>
-                              <Send className="h-4 w-4 mr-2" />Send Request
-                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setViewBooking(b)}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setEditBooking(b); setPreselectedFacilityId(null); setNewBookingOpen(true); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteBooking(b.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -749,522 +1307,180 @@ export default function FacilityBookingPage() {
                   ))}
                 </TableBody>
               </Table>
-            </Card>
+            </div>
           )}
         </TabsContent>
 
         {/* ── Responses Tab ── */}
-        <TabsContent value="responses" className="mt-4">
+        <TabsContent value="responses">
+          {/* Filter pills */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {["all", "in_app", "external", "email", "sms", "whatsapp"].map(f => (
+              <button
+                key={f}
+                onClick={() => setResponseFilter(f)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  responseFilter === f
+                    ? "bg-indigo-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {f === "all" ? "All" : f === "in_app" ? "In-App" : f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+
           {responsesLoading ? (
-            <Card className="p-4 space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
-            </Card>
-          ) : !responses?.length ? (
-            <Card className="p-12 text-center">
-              <MessageSquare className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-1">No responses yet</h3>
-              <p className="text-sm text-muted-foreground">
-                Booker replies received via email or SMS will appear here.
-              </p>
-            </Card>
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
+          ) : filteredResponses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <MessageSquare className="h-12 w-12 text-slate-300" />
+              <p className="text-base font-semibold text-slate-600">No responses yet</p>
+              <p className="text-sm text-slate-400">Responses from members and external visitors will appear here.</p>
+            </div>
           ) : (
-            <div className="space-y-3">
-              {responses.map((r: any) => (
-                <Card key={r.id} className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="mt-0.5 shrink-0">
-                        {r.channel === "email"
-                          ? <Mail className="h-4 w-4 text-indigo-500" />
-                          : <MessageCircle className="h-4 w-4 text-emerald-500" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="font-medium text-sm text-foreground">
-                            {r.booker_name || r.from_address || "Unknown"}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] capitalize ${r.channel === "email" ? "border-indigo-300 text-indigo-600 dark:text-indigo-400" : "border-emerald-300 text-emerald-600 dark:text-emerald-400"}`}
-                          >
-                            {r.channel}
-                          </Badge>
-                          {!r.is_read && (
-                            <span className="inline-block w-2 h-2 rounded-full bg-destructive" title="Unread" />
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{r.body}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                          {r.booking_id && (
-                            <span className="font-mono">Ref: {r.booking_reference || r.booking_id.slice(0, 8)}</span>
-                          )}
-                          <span>{r.created_at ? format(new Date(r.created_at), "dd MMM yyyy · HH:mm") : "—"}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 dark:bg-slate-900">
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Respondent</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Message</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Source</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Received</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredResponses.map(r => (
+                    <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-700/30" onClick={() => setViewResponse(r)}>
+                      <TableCell>
+                        <p className="font-medium text-sm">{r.respondent_name}</p>
+                        {r.respondent_email && <p className="text-xs text-slate-500">{r.respondent_email}</p>}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-600 hidden md:table-cell max-w-[200px]">
+                        <p className="truncate">{r.message}</p>
+                      </TableCell>
+                      <TableCell><SourceBadge source={r.source} /></TableCell>
+                      <TableCell className="text-xs text-slate-500 hidden lg:table-cell">
+                        {r.created_at ? format(new Date(r.created_at), "PP") : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                          r.status === "new" ? "bg-blue-100 text-blue-700" :
+                          r.status === "converted" ? "bg-emerald-100 text-emerald-700" :
+                          "bg-slate-100 text-slate-600"
+                        }`}>
+                          {r.status}
+                        </span>
+                      </TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewResponse(r)}>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </TabsContent>
       </Tabs>
 
-      {/* ── Add / Edit Facility Dialog ── */}
-      <Dialog open={facilityDialogOpen} onOpenChange={open => {
-        setFacilityDialogOpen(open);
-        if (!open) { setEditingFacility(null); setFacilityForm(EMPTY_FACILITY_FORM); }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{facilityDialogMode === "edit" ? "Edit Facility" : "Add Facility"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label>Facility Name</Label>
-              <Input
-                value={facilityForm.name}
-                onChange={e => setFacilityForm(p => ({ ...p, name: e.target.value }))}
-                placeholder="Main Hall"
-              />
-            </div>
-            <div>
-              <Label>Type</Label>
-              <Select value={facilityForm.type} onValueChange={v => setFacilityForm(p => ({ ...p, type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FACILITY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Capacity</Label>
-              <Input
-                type="number"
-                value={facilityForm.capacity}
-                onChange={e => setFacilityForm(p => ({ ...p, capacity: Number(e.target.value) }))}
-              />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea
-                value={facilityForm.description}
-                onChange={e => setFacilityForm(p => ({ ...p, description: e.target.value }))}
-                rows={2}
-              />
-            </div>
-            <div>
-              <Label>Quotation (optional)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={facilityForm.quotation || ""}
-                onChange={e => setFacilityForm(p => ({ ...p, quotation: Number(e.target.value) }))}
-                placeholder="0"
-              />
-            </div>
+      {/* ── Modals & Drawers ── */}
 
-            {/* ── Booker Identity ── */}
+      <FacilityDetailModal
+        facility={viewFacility}
+        images={viewFacilityImages}
+        upcomingBookings={viewFacilityBookings}
+        open={!!viewFacility}
+        onClose={() => setViewFacility(null)}
+        typeName={getTypeName(viewFacility?.facility_type_id)}
+        currency={currency}
+      />
 
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={facilityForm.is_active}
-                onCheckedChange={c => setFacilityForm(p => ({ ...p, is_active: c }))}
-              />
-              <Label>Active</Label>
-            </div>
-            <Button
-              className="w-full"
-              onClick={handleFacilitySubmit}
-              disabled={!facilityForm.name || isFacilityMutating}
-            >
-              {isFacilityMutating
-                ? facilityDialogMode === "edit" ? "Saving..." : "Adding..."
-                : facilityDialogMode === "edit" ? "Save Changes" : "Add Facility"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AddEditFacilityModal
+        open={addFacilityOpen || !!editFacility}
+        onClose={() => { setAddFacilityOpen(false); setEditFacility(null); }}
+        tenantId={tenantId}
+        editData={editFacility}
+        facilityTypes={facilityTypes}
+      />
 
-      {/* ── Delete Facility Confirmation ── */}
-      <AlertDialog open={!!facilityToDelete} onOpenChange={open => { if (!open) setFacilityToDelete(null); }}>
+      <NewBookingDrawer
+        open={newBookingOpen}
+        onClose={() => { setNewBookingOpen(false); setEditBooking(null); setPreselectedFacilityId(null); }}
+        tenantId={tenantId}
+        userId={userId}
+        facilities={facilities}
+        preselectedFacilityId={preselectedFacilityId}
+        editData={editBooking}
+      />
+
+      {/* New booking from response prefill */}
+      {responseBookingPrefill && (
+        <NewBookingDrawer
+          open={!!responseBookingPrefill}
+          onClose={() => setResponseBookingPrefill(null)}
+          tenantId={tenantId}
+          userId={userId}
+          facilities={facilities}
+          editData={{
+            external_name: responseBookingPrefill.respondent_name,
+            external_email: responseBookingPrefill.respondent_email,
+            external_phone: responseBookingPrefill.respondent_phone,
+            external_org: responseBookingPrefill.respondent_org,
+          }}
+        />
+      )}
+
+      <BookingDetailDrawer
+        booking={viewBooking}
+        open={!!viewBooking}
+        onClose={() => setViewBooking(null)}
+        tenantId={tenantId}
+        userId={userId}
+      />
+
+      <ResponseDetailModal
+        response={viewResponse}
+        open={!!viewResponse}
+        onClose={() => setViewResponse(null)}
+        onCreateBooking={r => setResponseBookingPrefill(r)}
+      />
+
+      {/* Delete facility confirm */}
+      <AlertDialog open={!!deleteFacility} onOpenChange={v => !v && setDeleteFacility(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Facility</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <strong>{facilityToDelete?.name}</strong>? This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Delete "{deleteFacility?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove this facility. This cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => facilityToDelete && deleteFacilityMutation.mutate(facilityToDelete.id)}
-              disabled={deleteFacilityMutation.isPending}
-            >
-              {deleteFacilityMutation.isPending ? "Deleting..." : "Delete"}
+            <AlertDialogAction className="bg-red-500 hover:bg-red-600 text-white" onClick={() => deleteFacilityMutation.mutate(deleteFacility.id)}>
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Delete Booking Confirmation ── */}
-      <AlertDialog open={bookingToDelete !== null} onOpenChange={open => { if (!open) setBookingToDelete(null); }}>
+      {/* Delete booking confirm */}
+      <AlertDialog open={!!deleteBooking} onOpenChange={v => !v && setDeleteBooking(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Booking</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this booking? This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Delete this booking?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove this booking record.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setBookingToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (bookingToDelete) {
-                  deleteBookingMutation.mutate(bookingToDelete);
-                  setBookingToDelete(null);
-                }
-              }}
-              disabled={deleteBookingMutation.isPending}
-            >
-              {deleteBookingMutation.isPending ? "Deleting..." : "Delete"}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-500 hover:bg-red-600 text-white" onClick={() => deleteBookingMutation.mutate(deleteBooking!)}>
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* ── New / Edit Booking Sheet ── */}
-      <Sheet open={bookingSheetOpen} onOpenChange={open => {
-        setBookingSheetOpen(open);
-        if (!open) {
-          setEditingBooking(null);
-          setBookingSheetMode("create");
-          setBookingErrors({});
-        }
-      }}>
-        <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
-          <SheetHeader><SheetTitle>{bookingSheetMode === "edit" ? "Edit Booking Request" : "New Booking Request"}</SheetTitle></SheetHeader>
-          <div className="space-y-4 mt-6">
-            <div>
-              <Label>Facility</Label>
-              {facilities?.length ? (
-                <Select value={bookingForm.facility_name} onValueChange={v => setBookingForm(p => ({ ...p, facility_name: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select facility" /></SelectTrigger>
-                  <SelectContent>
-                    {facilities.map((f: any) => <SelectItem key={f.id} value={f.name}>{f.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  value={bookingForm.facility_name}
-                  onChange={e => setBookingForm(p => ({ ...p, facility_name: e.target.value }))}
-                  placeholder="Facility name"
-                />
-              )}
-            </div>
-            <div>
-              <Label>Purpose / Event Name</Label>
-              <Input
-                value={bookingForm.purpose}
-                onChange={e => setBookingForm(p => ({ ...p, purpose: e.target.value }))}
-                placeholder="Youth Group Meeting"
-              />
-            </div>
-            <div>
-              <Label>Date</Label>
-              <Input type="date" value={bookingForm.booking_date} onChange={e => setBookingForm(p => ({ ...p, booking_date: e.target.value }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Start Time</Label>
-                <Input type="time" value={bookingForm.start_time} onChange={e => setBookingForm(p => ({ ...p, start_time: e.target.value }))} />
-              </div>
-              <div>
-                <Label>End Time</Label>
-                <Input type="time" value={bookingForm.end_time} onChange={e => setBookingForm(p => ({ ...p, end_time: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <Label>Expected Attendees</Label>
-              <Input
-                type="number"
-                value={bookingForm.expected_attendees}
-                onChange={e => setBookingForm(p => ({ ...p, expected_attendees: Number(e.target.value) }))}
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={bookingForm.setup_required}
-                onCheckedChange={c => setBookingForm(p => ({ ...p, setup_required: c }))}
-              />
-              <Label>Setup Required</Label>
-            </div>
-            {bookingForm.setup_required && (
-              <div>
-                <Label>Setup Notes</Label>
-                <Textarea
-                  value={bookingForm.setup_notes}
-                  onChange={e => setBookingForm(p => ({ ...p, setup_notes: e.target.value }))}
-                  rows={2}
-                />
-              </div>
-            )}
-            <div>
-              <Label>Notes</Label>
-              <Textarea
-                value={bookingForm.notes}
-                onChange={e => setBookingForm(p => ({ ...p, notes: e.target.value }))}
-                rows={2}
-              />
-            </div>
-
-            {/* ── Facility Owner / Contact ── */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium text-foreground mb-3">Facility Owner / Contact</p>
-              <div className="space-y-3">
-                <div>
-                  <Label>Contact Type</Label>
-                  <Select
-                    value={bookingForm.booker_type}
-                    onValueChange={v => setBookingForm(p => ({ ...p, booker_type: v, booker_name: "", booker_org_name: "", booker_contact_person: "" }))}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Individual or Organisation?" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Individual">Individual</SelectItem>
-                      <SelectItem value="Organisation">Organisation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {bookingErrors.booker_type && (
-                    <p className="text-xs text-destructive mt-1">{bookingErrors.booker_type}</p>
-                  )}
-                </div>
-
-                {bookingForm.booker_type === "Individual" && (
-                  <div>
-                    <Label>Full Name</Label>
-                    <Input
-                      value={bookingForm.booker_name}
-                      onChange={e => setBookingForm(p => ({ ...p, booker_name: e.target.value }))}
-                      placeholder="John Doe"
-                    />
-                    {bookingErrors.booker_name && (
-                      <p className="text-xs text-destructive mt-1">{bookingErrors.booker_name}</p>
-                    )}
-                  </div>
-                )}
-
-                {bookingForm.booker_type === "Organisation" && (
-                  <>
-                    <div>
-                      <Label>Organisation Name</Label>
-                      <Input
-                        value={bookingForm.booker_org_name}
-                        onChange={e => setBookingForm(p => ({ ...p, booker_org_name: e.target.value }))}
-                        placeholder="Acme Ltd"
-                      />
-                      {bookingErrors.booker_org_name && (
-                        <p className="text-xs text-destructive mt-1">{bookingErrors.booker_org_name}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Contact Person</Label>
-                      <Input
-                        value={bookingForm.booker_contact_person}
-                        onChange={e => setBookingForm(p => ({ ...p, booker_contact_person: e.target.value }))}
-                        placeholder="Jane Smith"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {bookingForm.booker_type && (
-                  <>
-                    <div>
-                      <Label>Phone</Label>
-                      <Input
-                        value={bookingForm.booker_phone}
-                        onChange={e => setBookingForm(p => ({ ...p, booker_phone: e.target.value }))}
-                        placeholder="+254700000000"
-                      />
-                      {bookingErrors.booker_phone && (
-                        <p className="text-xs text-destructive mt-1">{bookingErrors.booker_phone}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={bookingForm.booker_email}
-                        onChange={e => setBookingForm(p => ({ ...p, booker_email: e.target.value }))}
-                        placeholder="booker@example.com"
-                      />
-                      {bookingErrors.booker_email && (
-                        <p className="text-xs text-destructive mt-1">{bookingErrors.booker_email}</p>
-                      )}
-                    </div>
-                    {bookingErrors.booker_contact && (
-                      <p className="text-xs text-destructive">{bookingErrors.booker_contact}</p>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          <SheetFooter className="mt-6 flex flex-col gap-2 sm:flex-col">
-            <Button
-              className="w-full"
-              onClick={handleSubmitBooking}
-              disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
-            >
-              {updateBookingMutation.isPending ? "Submitting..." : "Submit Request"}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleEmailConfirmation}
-              disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
-            >
-              <Mail className="h-4 w-4 mr-2" />Email Request
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleSmsConfirmation}
-              disabled={!bookingForm.facility_name || !bookingForm.purpose || updateBookingMutation.isPending}
-            >
-              <MessageCircle className="h-4 w-4 mr-2" />SMS Request
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      {/* ── Send Confirmation Dialog (Facility Card) ── */}
-      <Dialog open={sendConfirmationFacility !== null} onOpenChange={open => {
-        if (!open) {
-          setSendConfirmationFacility(null);
-          setSendConfirmRecipient({ recipient_type: "", recipient_name: "", recipient_org_name: "", recipient_contact_person: "", recipient_phone: "", recipient_email: "", message: "" });
-          setSendConfirmErrors({});
-        }
-      }}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Send Facility Offer — {sendConfirmationFacility?.name}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground -mt-1">
-            Enter the details of the interested party to send them a facility offer{sendConfirmationFacility?.quotation > 0 ? " and quotation" : ""}.
-          </p>
-          <div className="space-y-3 mt-2">
-            <div>
-              <Label>Recipient Type</Label>
-              <Select
-                value={sendConfirmRecipient.recipient_type}
-                onValueChange={v => setSendConfirmRecipient(p => ({ ...p, recipient_type: v, recipient_name: "", recipient_org_name: "", recipient_contact_person: "" }))}
-              >
-                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Individual">Individual</SelectItem>
-                  <SelectItem value="Organisation">Organisation</SelectItem>
-                </SelectContent>
-              </Select>
-              {sendConfirmErrors.recipient_type && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_type}</p>}
-            </div>
-
-            {sendConfirmRecipient.recipient_type === "Individual" && (
-              <div>
-                <Label>Full Name</Label>
-                <Input
-                  value={sendConfirmRecipient.recipient_name}
-                  onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_name: e.target.value }))}
-                  placeholder="John Doe"
-                />
-                {sendConfirmErrors.recipient_name && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_name}</p>}
-              </div>
-            )}
-
-            {sendConfirmRecipient.recipient_type === "Organisation" && (
-              <>
-                <div>
-                  <Label>Organisation Name</Label>
-                  <Input
-                    value={sendConfirmRecipient.recipient_org_name}
-                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_org_name: e.target.value }))}
-                    placeholder="Acme Ltd"
-                  />
-                  {sendConfirmErrors.recipient_org_name && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_org_name}</p>}
-                </div>
-                <div>
-                  <Label>Contact Person</Label>
-                  <Input
-                    value={sendConfirmRecipient.recipient_contact_person}
-                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_contact_person: e.target.value }))}
-                    placeholder="Jane Smith"
-                  />
-                </div>
-              </>
-            )}
-
-            {sendConfirmRecipient.recipient_type && (
-              <>
-                <div>
-                  <Label>Phone</Label>
-                  <Input
-                    value={sendConfirmRecipient.recipient_phone}
-                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_phone: e.target.value }))}
-                    placeholder="+254700000000"
-                  />
-                  {sendConfirmErrors.recipient_phone && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_phone}</p>}
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={sendConfirmRecipient.recipient_email}
-                    onChange={e => setSendConfirmRecipient(p => ({ ...p, recipient_email: e.target.value }))}
-                    placeholder="recipient@example.com"
-                  />
-                  {sendConfirmErrors.recipient_email && <p className="text-xs text-destructive mt-1">{sendConfirmErrors.recipient_email}</p>}
-                </div>
-              </>
-            )}
-
-            <div>
-              <Label>Additional Message (optional)</Label>
-              <Textarea
-                value={sendConfirmRecipient.message}
-                onChange={e => setSendConfirmRecipient(p => ({ ...p, message: e.target.value }))}
-                placeholder="Any additional details for the recipient..."
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex gap-2 sm:justify-start mt-4">
-            <Button onClick={() => handleFacilitySendConfirmation('email')}>
-              <Mail className="h-4 w-4 mr-2" />Send Email
-            </Button>
-            <Button onClick={() => handleFacilitySendConfirmation('sms')}>
-              <MessageCircle className="h-4 w-4 mr-2" />Send SMS
-            </Button>
-            <Button variant="outline" onClick={() => setSendConfirmationFacility(null)}>Cancel</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Send Request Dialog (Booking Row) ── */}
-      <Dialog open={sendRequestBooking !== null} onOpenChange={open => { if (!open) setSendRequestBooking(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Request</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">Choose how to send the booking request.</p>
-          <DialogFooter className="flex gap-2 sm:justify-start">
-            <Button onClick={() => handleBookingSendRequest('email')}>Email</Button>
-            <Button onClick={() => handleBookingSendRequest('sms')}>SMS</Button>
-            <Button variant="outline" onClick={() => setSendRequestBooking(null)}>Cancel</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

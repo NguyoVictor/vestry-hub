@@ -99,6 +99,9 @@ export const TABLES = {
   FACILITIES: "facilities",
   FACILITY_BOOKINGS: "facility_bookings",
   FACILITY_BOOKING_RESPONSES: "facility_booking_responses",
+  FACILITY_TYPES: "facility_types",
+  FACILITY_IMAGES: "facility_images",
+  FACILITY_RESPONSES: "facility_responses",
 
   // Security & Communications
   INCIDENTS: "incidents",

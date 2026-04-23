@@ -57,7 +57,9 @@ const MemberMessagesPage = lazy(() => import("./pages/member/MemberMessages"));
 const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"));
 const MemberChildrenPage = lazy(() => import("./pages/member/MemberChildren"));
 const MemberSurveysPage = lazy(() => import("./pages/member/MemberSurveys"));
+const MemberFacilityBookingPage = lazy(() => import("./pages/member/MemberFacilityBooking"));
 const SurveyTakePage = lazy(() => import("./pages/public/SurveyTake"));
+const PublicBookingPage = lazy(() => import("./pages/public/PublicBookingPage"));
 const SurveyResponsesPage = lazy(() => import("./pages/communications/SurveyResponses"));
 
 // Media pages
@@ -96,6 +98,7 @@ const PreferencesSettings = lazy(() => import("./pages/settings/Preferences"));
 const AttendanceSettingsPage = lazy(() => import("./pages/settings/AttendanceSettings"));
 const NotificationsSettingsPage = lazy(() => import("./pages/settings/NotificationsSettings"));
 const ServiceRequestTypesPage = lazy(() => import("./pages/settings/ServiceRequestTypes"));
+const FacilityTypesPage = lazy(() => import("./pages/settings/FacilityTypesPage"));
 const WebsitePromoPage = lazy(() => import("./pages/settings/WebsitePromo"));
 const PrivacyPage = lazy(() => import("./pages/settings/Privacy"));
 const BackupPage = lazy(() => import("./pages/settings/Backup"));
@@ -347,6 +350,8 @@ const App = () => (
                   <Route path="notifications" element={<Suspense fallback={<Fallback />}><NotificationsSettingsPage /></Suspense>} />
                   {/* Service Request Types — real page */}
                   <Route path="service-requests" element={<Suspense fallback={<Fallback />}><ServiceRequestTypesPage /></Suspense>} />
+                  {/* Facility Types — real page */}
+                  <Route path="facility-types" element={<Suspense fallback={<Fallback />}><FacilityTypesPage /></Suspense>} />
                   {/* Website promo — real page */}
                   <Route path="website" element={<Suspense fallback={<Fallback />}><WebsitePromoPage /></Suspense>} />
                   {/* Privacy & Data */}
@@ -410,10 +415,14 @@ const App = () => (
                 <Route path="/member/volunteer" element={<Suspense fallback={<Fallback />}><MemberVolunteerPage /></Suspense>} />
                 <Route path="/member/children" element={<Suspense fallback={<Fallback />}><MemberChildrenPage /></Suspense>} />
                 <Route path="/member/surveys" element={<Suspense fallback={<Fallback />}><MemberSurveysPage /></Suspense>} />
+                <Route path="/member/facility-booking" element={<Suspense fallback={<Fallback />}><MemberFacilityBookingPage /></Suspense>} />
               </Route>
             </Route>
             {/* Public survey-taking — no auth required */}
             <Route path="/survey/:surveyId" element={<Suspense fallback={<Fallback />}><SurveyTakePage /></Suspense>} />
+            {/* Public facility booking — no auth required */}
+            <Route path="/book/:tenantId" element={<Suspense fallback={<Fallback />}><PublicBookingPage /></Suspense>} />
+            <Route path="/book/:tenantId/:facilityId" element={<Suspense fallback={<Fallback />}><PublicBookingPage /></Suspense>} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

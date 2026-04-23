@@ -65,7 +65,7 @@ const ALL_MODULES = [
   { key: "training_courses", label: "Training & Courses", desc: "Enroll in discipleship training programs", icon: Video, color: "bg-indigo-600", path: "#" },
   { key: "my_discipleship_journey", label: "My Discipleship Journey", desc: "Track your discipleship, maturity & milestones", icon: UserCheck, color: "bg-violet-600", path: "#" },
   { key: "my_sermon_notes", label: "My Sermon Notes", desc: "View and edit your sermon notes", icon: PenLine, color: "bg-slate-600", path: "#" },
-  { key: "facility_booking", label: "Facility Booking", desc: "Book church spaces for personal events", icon: Building2, color: "bg-gray-500", path: "#" },
+  { key: "facility_booking", label: "Facility Booking", desc: "Book church spaces for personal events", icon: Building2, color: "bg-gray-500", path: "/member/facility-booking" },
   { key: "resource_store", label: "Resource Store", desc: "Books, courses, and resources", icon: ShoppingBag, color: "bg-orange-600", path: "#" },
 ];
 
