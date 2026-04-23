@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { PremiumGallery } from "@/components/ui/PremiumGallery";
 import {
   ArrowLeft, Building2, Users, Calendar, Clock, CheckCircle2, Video, ChevronLeft, ChevronRight, ImageIcon,
 } from "lucide-react";
@@ -69,6 +71,23 @@ const GRADIENTS = [
   "from-rose-400 to-pink-600",
   "from-cyan-400 to-blue-500",
 ];
+
+const TYPE_GRADIENTS_MEMBER: Record<string, string> = {
+  outdoor:    "from-orange-400 to-orange-500",
+  indoor:     "from-indigo-500 to-indigo-600",
+  hall:       "from-violet-500 to-purple-600",
+  chapel:     "from-pink-400 to-rose-500",
+  conference: "from-blue-400 to-blue-600",
+  classroom:  "from-emerald-400 to-green-500",
+  parking:    "from-slate-400 to-slate-600",
+  kitchen:    "from-amber-400 to-yellow-500",
+};
+
+function getMemberTypeGradient(type: string | null): string {
+  if (!type) return "from-blue-400 to-blue-600";
+  const key = type.toLowerCase().split(" ")[0];
+  return TYPE_GRADIENTS_MEMBER[key] ?? "from-blue-400 to-blue-600";
+}
 
 // ─── MemberBookingModal ───────────────────────────────────────────────────────
 
@@ -248,7 +267,6 @@ function FacilityDetailSheet({
   onClose: () => void;
   onBookNow: () => void;
 }) {
-  const [activeImg, setActiveImg] = useState(0);
   if (!facility) return null;
 
   const sortedImages = [...(facility.facility_images ?? [])].sort((a, b) => a.sort_order - b.sort_order);
@@ -258,103 +276,104 @@ function FacilityDetailSheet({
   const videoUrl = facility.video_path
     ? supabase.storage.from("facility-videos").getPublicUrl(facility.video_path).data.publicUrl
     : null;
+  const galleryUrls = sortedImages.map(img =>
+    supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl
+  );
+  const gradient = getMemberTypeGradient(facility.type);
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
-      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto rounded-t-2xl p-0">
-        {/* Thumbnail hero */}
-        {thumbUrl ? (
-          <img src={thumbUrl} alt={facility.name} className="w-full h-48 object-cover" />
-        ) : (
-          <div className="h-36 bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
-            <Building2 className="h-14 w-14 text-white/60" />
-          </div>
-        )}
-
-        <div className="px-4 pt-4 pb-6 space-y-4">
-          <SheetHeader>
-            <SheetTitle className="text-lg font-bold text-slate-900 dark:text-white">{facility.name}</SheetTitle>
-          </SheetHeader>
-
-          {/* Meta chips */}
-          <div className="flex flex-wrap gap-2 text-xs">
-            {facility.type && (
-              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 font-medium bg-indigo-100 text-indigo-700">{facility.type}</span>
-            )}
-            {facility.capacity && (
-              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-medium bg-slate-100 text-slate-600">
-                <Users className="h-3 w-3" />{facility.capacity} people
-              </span>
-            )}
-            {facility.quotation && facility.quotation > 0 && (
-              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 font-medium bg-amber-100 text-amber-700">
-                KES {facility.quotation.toLocaleString()}
-              </span>
-            )}
-          </div>
-
-          {facility.description && (
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{facility.description}</p>
-          )}
-
-          {/* Book button */}
-          <Button
-            className="w-full rounded-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
-            onClick={() => { onClose(); onBookNow(); }}
-          >
-            Book This Space
-          </Button>
-
-          {/* ── Gallery (below Book button) ── */}
-          {sortedImages.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <ImageIcon className="h-3.5 w-3.5" /> Gallery
-              </p>
-              <div className="relative rounded-xl overflow-hidden mb-2">
-                <img
-                  src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
-                  alt=""
-                  className="w-full h-48 object-cover"
-                />
-                {sortedImages.length > 1 && (
-                  <>
-                    <button
-                      className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
-                      onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
-                    ><ChevronLeft className="h-4 w-4" /></button>
-                    <button
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
-                      onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
-                    ><ChevronRight className="h-4 w-4" /></button>
-                    <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
-                      {activeImg + 1}/{sortedImages.length}
-                    </span>
-                  </>
-                )}
+      <SheetContent side="bottom" className="h-[92vh] overflow-y-auto rounded-t-2xl p-0 flex flex-col">
+        {/* ── Hero ── */}
+        <div className={`relative h-[200px] md:h-[260px] shrink-0 overflow-hidden ${!thumbUrl ? `bg-gradient-to-br ${gradient}` : ""}`}>
+          {thumbUrl ? (
+            <img src={thumbUrl} alt={facility.name} className="w-full h-full object-cover" />
+          ) : (
+            <>
+              <div className="absolute inset-0 opacity-10"
+                style={{ backgroundImage: "radial-gradient(circle at 20% 80%, white 1px, transparent 1px)", backgroundSize: "30px 30px" }}
+              />
+              <div className="flex items-center justify-center h-full">
+                <Building2 className="h-16 w-16 text-white/60" />
               </div>
-              {sortedImages.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto">
-                  {sortedImages.map((img: any, i: number) => (
-                    <button key={i} onClick={() => setActiveImg(i)}
-                      className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
-                      <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+            </>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-12">
+            <h2 className="text-white font-bold text-xl leading-tight mb-1.5">{facility.name}</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {facility.type && (
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold bg-white/20 backdrop-blur-sm text-white border border-white/20">
+                  {facility.type}
+                </span>
+              )}
+              {facility.capacity && (
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold bg-white/20 backdrop-blur-sm text-white border border-white/20">
+                  <Users className="h-2.5 w-2.5" />{facility.capacity.toLocaleString()} people
+                </span>
+              )}
+              {facility.quotation && facility.quotation > 0 && (
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold bg-amber-500/80 backdrop-blur-sm text-white border border-amber-400/30">
+                  KES {facility.quotation.toLocaleString()}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* ── Two-column body ── */}
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto">
+          {/* Left: info */}
+          <div className="flex-[55] p-5 space-y-4 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-700">
+            {facility.description && (
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">About this space</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{facility.description}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              {facility.capacity && (
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Capacity</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{facility.capacity.toLocaleString()} people</p>
+                </div>
+              )}
+              {facility.quotation && facility.quotation > 0 && (
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Price</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">KES {facility.quotation.toLocaleString()}</p>
                 </div>
               )}
             </div>
-          )}
+          </div>
 
-          {/* ── Video (below gallery) ── */}
-          {videoUrl && (
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <Video className="h-3.5 w-3.5" /> Video
-              </p>
-              <video src={videoUrl} controls className="w-full rounded-xl max-h-48 bg-black" preload="metadata" />
+          {/* Right: gallery + book button */}
+          <div className="flex-[45] p-5 space-y-4 flex flex-col">
+            <div className="flex-1">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Gallery</p>
+              <PremiumGallery
+                images={galleryUrls}
+                videos={videoUrl ? [videoUrl] : []}
+                facilityName={facility.name}
+              />
             </div>
-          )}
+
+            {/* Book button — below gallery on desktop, sticky on mobile */}
+            <div className="sticky bottom-0 bg-white dark:bg-slate-900 pt-3 pb-1 md:static md:bg-transparent md:pt-0 md:pb-0">
+              <Button
+                className="w-full rounded-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-base shadow-lg shadow-orange-500/25"
+                onClick={() => { onClose(); onBookNow(); }}
+              >
+                Book This Space
+              </Button>
+            </div>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -375,27 +394,31 @@ function MemberFacilityCard({
   const sortedImages = [...(facility.facility_images ?? [])].sort(
     (a, b) => a.sort_order - b.sort_order
   );
-  const gradientIdx = facility.name.charCodeAt(0) % GRADIENTS.length;
-  const gradient = GRADIENTS[gradientIdx];
-
-  // Use thumbnail_path for card face
+  const gradient = getMemberTypeGradient(facility.type);
   const thumbUrl = facility.thumbnail_path
     ? supabase.storage.from("facility-thumbnails").getPublicUrl(facility.thumbnail_path).data.publicUrl
     : null;
 
   return (
-    <div
+    <motion.div
+      whileHover={{ y: -2, boxShadow: "0 8px 25px rgba(0,0,0,0.10)" }}
+      transition={{ duration: 0.2 }}
       className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm cursor-pointer"
       onClick={onViewDetails}
     >
       {/* Image / Gradient */}
-      <div className={cn("h-36 relative", !thumbUrl && `bg-gradient-to-br ${gradient}`)}>
+      <div className={cn("h-[180px] relative overflow-hidden", !thumbUrl && `bg-gradient-to-br ${gradient}`)}>
         {thumbUrl ? (
-          <img src={thumbUrl} alt={facility.name} className="w-full h-full object-cover" />
+          <img src={thumbUrl} alt={facility.name} className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]" />
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <Building2 className="h-12 w-12 text-white/60" />
-          </div>
+          <>
+            <div className="absolute inset-0 opacity-10"
+              style={{ backgroundImage: "radial-gradient(circle at 20% 80%, white 1px, transparent 1px)", backgroundSize: "30px 30px" }}
+            />
+            <div className="flex items-center justify-center h-full">
+              <Building2 className="h-12 w-12 text-white/60" />
+            </div>
+          </>
         )}
         {/* Badges */}
         {(facility.facility_images?.length ?? 0) > 0 && (
@@ -446,14 +469,14 @@ function MemberFacilityCard({
           </Button>
           <Button
             size="sm"
-            className="flex-1 rounded-full h-9 bg-indigo-600 hover:bg-indigo-700 text-white"
+            className="flex-1 rounded-full h-9 bg-orange-500 hover:bg-orange-600 text-white font-semibold"
             onClick={onBookNow}
           >
             Book Now
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

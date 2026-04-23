@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +36,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { PremiumGallery } from "@/components/ui/PremiumGallery";
 import {
   Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
   Share2, Eye, MessageSquare, Search, X, ChevronRight, Video, ChevronLeft, ImageIcon,
@@ -118,14 +120,22 @@ function SourceBadge({ source }: { source: string }) {
 
 // ─── FacilityCard ─────────────────────────────────────────────────────────────
 
-const GRADIENT_PLACEHOLDERS = [
-  "from-indigo-400 to-indigo-600",
-  "from-violet-400 to-purple-600",
-  "from-emerald-400 to-green-600",
-  "from-amber-400 to-orange-500",
-  "from-rose-400 to-pink-600",
-  "from-cyan-400 to-blue-500",
-];
+const TYPE_GRADIENTS: Record<string, string> = {
+  outdoor:    "from-orange-400 to-orange-500",
+  indoor:     "from-indigo-500 to-indigo-600",
+  hall:       "from-violet-500 to-purple-600",
+  chapel:     "from-pink-400 to-rose-500",
+  conference: "from-blue-400 to-blue-600",
+  classroom:  "from-emerald-400 to-green-500",
+  parking:    "from-slate-400 to-slate-600",
+  kitchen:    "from-amber-400 to-yellow-500",
+};
+
+function getTypeGradient(type: string | null): string {
+  if (!type) return "from-blue-400 to-blue-600";
+  const key = type.toLowerCase().split(" ")[0];
+  return TYPE_GRADIENTS[key] ?? "from-blue-400 to-blue-600";
+}
 
 function FacilityCard({
   facility, firstImage, typeName, onView, onEdit, onDelete, onBookNow, onShare,
@@ -135,48 +145,78 @@ function FacilityCard({
   onEdit: () => void; onDelete: () => void; onBookNow: () => void; onShare: () => void;
   currency: string;
 }) {
-  const gradientIdx = facility.name.charCodeAt(0) % GRADIENT_PLACEHOLDERS.length;
-  const gradient = GRADIENT_PLACEHOLDERS[gradientIdx];
+  const gradient = getTypeGradient(facility.type);
+  const imageCount = (facility.facility_images ?? []).length;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-      {/* Image / Gradient */}
-      <div
-        className={`h-36 relative cursor-pointer ${!firstImage ? `bg-gradient-to-br ${gradient}` : ""}`}
-        onClick={onView}
-      >
+    <motion.div
+      whileHover={{ y: -2, boxShadow: "0 8px 25px rgba(0,0,0,0.10)" }}
+      transition={{ duration: 0.2 }}
+      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden cursor-pointer"
+      onClick={onView}
+    >
+      {/* Thumbnail — 180px */}
+      <div className={`h-[180px] relative overflow-hidden ${!firstImage ? `bg-gradient-to-br ${gradient}` : ""}`}>
         {firstImage ? (
-          <img src={firstImage} alt={facility.name} className="w-full h-full object-cover" />
+          <img
+            src={firstImage}
+            alt={facility.name}
+            className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+            loading="lazy"
+          />
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <Building2 className="h-12 w-12 text-white/60" />
+          <>
+            <div className="absolute inset-0 opacity-10"
+              style={{ backgroundImage: "radial-gradient(circle at 20% 80%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "30px 30px" }}
+            />
+            <div className="flex items-center justify-center h-full">
+              <Building2 className="h-12 w-12 text-white/70" />
+            </div>
+          </>
+        )}
+
+        {/* Type badge — top left glass */}
+        {typeName && (
+          <div className="absolute top-2 left-2">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold bg-white/20 backdrop-blur-sm text-white border border-white/20">
+              {typeName}
+            </span>
           </div>
         )}
-        {/* Status badge overlay */}
+
+        {/* Status badge — top right glass */}
         <div className="absolute top-2 right-2">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-            facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold backdrop-blur-sm border ${
+            facility.is_active
+              ? "bg-emerald-500/20 text-emerald-100 border-emerald-400/30"
+              : "bg-slate-500/20 text-slate-200 border-slate-400/30"
           }`}>
             {facility.is_active ? "Active" : "Inactive"}
           </span>
         </div>
+
+        {/* Photo count — bottom right */}
+        {imageCount > 0 && (
+          <div className="absolute bottom-2 right-2">
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-black/50 backdrop-blur-sm text-white">
+              🖼 {imageCount} photo{imageCount !== 1 ? "s" : ""}
+            </span>
+          </div>
+        )}
       </div>
 
-      <div className="p-4">
+      {/* Card body */}
+      <div className="p-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-slate-900 dark:text-slate-100 truncate cursor-pointer hover:text-indigo-600" onClick={onView}>
-              {facility.name}
-            </h4>
-            {typeName && (
-              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-700 mt-1">
-                {typeName}
-              </span>
-            )}
-          </div>
+          <h4
+            className="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm cursor-pointer hover:text-indigo-600 transition-colors"
+            onClick={onView}
+          >
+            {facility.name}
+          </h4>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mr-1">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -193,11 +233,11 @@ function FacilityCard({
         {facility.capacity && (
           <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">
             <Users className="h-3.5 w-3.5" />
-            <span>Capacity: {facility.capacity}</span>
+            <span>{facility.capacity.toLocaleString()} people</span>
           </div>
         )}
         {facility.description && (
-          <p className="text-xs text-slate-500 line-clamp-2 mb-2">{facility.description}</p>
+          <p className="text-xs text-slate-500 line-clamp-2 mb-2 leading-relaxed">{facility.description}</p>
         )}
         {facility.quotation > 0 && (
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">
@@ -206,15 +246,19 @@ function FacilityCard({
         )}
 
         <div className="flex items-center gap-2 mt-3">
-          <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs" onClick={onBookNow}>
+          <Button
+            size="sm"
+            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg"
+            onClick={onBookNow}
+          >
             Book Now
           </Button>
-          <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={onShare} title="Share booking link">
+          <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg" onClick={onShare} title="Share booking link">
             <Share2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -236,126 +280,121 @@ function FacilityDetailModal({
   const videoUrl = facility.video_path
     ? supabase.storage.from("facility-videos").getPublicUrl(facility.video_path).data.publicUrl
     : null;
+  const galleryUrls = sortedImages.map((img: any) =>
+    supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl
+  );
+  const gradient = getTypeGradient(facility.type);
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        {/* Thumbnail hero */}
-        {thumbUrl ? (
-          <img src={thumbUrl} alt={facility.name} className="w-full h-48 object-cover rounded-t-xl" />
-        ) : (
-          <div className="h-32 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-t-xl flex items-center justify-center">
-            <Building2 className="h-14 w-14 text-white/60" />
-          </div>
-        )}
-
-        <div className="px-5 pb-5 pt-4 space-y-4">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">{facility.name}</DialogTitle>
-          </DialogHeader>
-
-          {/* Details grid */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {typeName && (
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Type</p>
-                <p className="text-slate-800 dark:text-slate-200">{typeName}</p>
+      <DialogContent className="max-w-[900px] max-h-[90vh] overflow-y-auto p-0 gap-0">
+        {/* ── Hero ── */}
+        <div className={`relative h-[260px] md:h-[300px] overflow-hidden ${!thumbUrl ? `bg-gradient-to-br ${gradient}` : ""}`}>
+          {thumbUrl ? (
+            <img src={thumbUrl} alt={facility.name} className="w-full h-full object-cover" />
+          ) : (
+            <>
+              <div className="absolute inset-0 opacity-10"
+                style={{ backgroundImage: "radial-gradient(circle at 20% 80%, white 1px, transparent 1px)", backgroundSize: "30px 30px" }}
+              />
+              <div className="flex items-center justify-center h-full">
+                <Building2 className="h-20 w-20 text-white/50" />
               </div>
-            )}
-            {facility.capacity && (
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Capacity</p>
-                <p className="text-slate-800 dark:text-slate-200">{facility.capacity} people</p>
-              </div>
-            )}
-            {facility.quotation > 0 && (
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Price</p>
-                <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatCurrencyFull(facility.quotation, currency)}</p>
-              </div>
-            )}
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Status</p>
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
-              }`}>{facility.is_active ? "Active" : "Inactive"}</span>
-            </div>
-          </div>
-
-          {facility.description && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Description</p>
-              <p className="text-sm text-slate-700 dark:text-slate-300">{facility.description}</p>
-            </div>
+            </>
           )}
-
-          {/* ── Gallery (below info) ── */}
-          {sortedImages.length > 0 && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <ImageIcon className="h-3.5 w-3.5" /> Gallery
-              </p>
-              {/* Main image */}
-              <div className="relative rounded-xl overflow-hidden mb-2">
-                <img
-                  src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
-                  alt=""
-                  className="w-full h-52 object-cover"
-                />
-                {sortedImages.length > 1 && (
-                  <>
-                    <button
-                      className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
-                      onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
-                    ><ChevronLeft className="h-4 w-4" /></button>
-                    <button
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
-                      onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
-                    ><ChevronRight className="h-4 w-4" /></button>
-                    <span className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
-                      {activeImg + 1}/{sortedImages.length}
-                    </span>
-                  </>
-                )}
-              </div>
-              {/* Thumbnails */}
-              {sortedImages.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto">
-                  {sortedImages.map((img: any, i: number) => (
-                    <button key={i} onClick={() => setActiveImg(i)}
-                      className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
-                      <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
+          {/* Gradient overlay for text */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+          {/* Name + badges on hero */}
+          <div className="absolute bottom-4 left-5 right-14">
+            <h2 className="text-white font-bold text-2xl leading-tight mb-2">{facility.name}</h2>
+            <div className="flex flex-wrap gap-2">
+              {typeName && (
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-white/20 backdrop-blur-sm text-white border border-white/20">
+                  {typeName}
+                </span>
+              )}
+              {facility.capacity && (
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-white/20 backdrop-blur-sm text-white border border-white/20">
+                  <Users className="h-3 w-3" />{facility.capacity.toLocaleString()} people
+                </span>
               )}
             </div>
-          )}
+          </div>
+          {/* Close button */}
+          <button
+            className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-          {/* ── Video (below gallery) ── */}
-          {videoUrl && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <Video className="h-3.5 w-3.5" /> Video
-              </p>
-              <video src={videoUrl} controls className="w-full rounded-xl max-h-48 bg-black" preload="metadata" />
-            </div>
-          )}
-
-          {/* Upcoming bookings */}
-          {upcomingBookings.length > 0 && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Upcoming Bookings</p>
-              <div className="space-y-2">
-                {upcomingBookings.slice(0, 5).map((b: any) => (
-                  <div key={b.id} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-700 rounded-lg px-3 py-2">
-                    <span className="text-slate-700 dark:text-slate-300">{b.purpose || "Booking"}</span>
-                    <span className="text-slate-500 text-xs">{b.booking_date} {b.start_time?.slice(0, 5)}–{b.end_time?.slice(0, 5)}</span>
-                  </div>
-                ))}
+        {/* ── Two-column body ── */}
+        <div className="flex flex-col md:flex-row gap-0">
+          {/* Left: info */}
+          <div className="flex-[55] p-6 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-700 space-y-5">
+            {/* Details grid */}
+            <div className="grid grid-cols-2 gap-4">
+              {typeName && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Type</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{typeName}</p>
+                </div>
+              )}
+              {facility.capacity && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Capacity</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{facility.capacity.toLocaleString()} people</p>
+                </div>
+              )}
+              {facility.quotation > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Price</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatCurrencyFull(facility.quotation, currency)}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                }`}>{facility.is_active ? "Active" : "Inactive"}</span>
               </div>
             </div>
-          )}
+
+            {facility.description && (
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">About this space</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{facility.description}</p>
+              </div>
+            )}
+
+            {/* Upcoming bookings */}
+            {upcomingBookings.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Upcoming Bookings</p>
+                <div className="space-y-2">
+                  {upcomingBookings.slice(0, 4).map((b: any) => (
+                    <div key={b.id} className="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2">
+                      <span className="text-slate-700 dark:text-slate-300 font-medium truncate">{b.purpose || "Booking"}</span>
+                      <span className="text-slate-400 shrink-0 ml-2">{b.booking_date} · {b.start_time?.slice(0, 5)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: gallery */}
+          <div className="flex-[45] p-6 space-y-4">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Gallery</p>
+              <PremiumGallery
+                images={galleryUrls}
+                videos={videoUrl ? [videoUrl] : []}
+                facilityName={facility.name}
+              />
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
