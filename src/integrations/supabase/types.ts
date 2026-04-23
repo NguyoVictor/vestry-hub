@@ -2863,13 +2863,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "facility_bookings_booked_by_fkey"
-            columns: ["booked_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "facility_bookings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -10103,3 +10096,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.90.0 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
