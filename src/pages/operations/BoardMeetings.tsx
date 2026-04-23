@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,7 +24,7 @@ import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
   isSameDay, isSameMonth, isToday, addMonths, subMonths,
 } from "date-fns";
-import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck, ChevronLeft, LayoutList, LayoutGrid } from "lucide-react";
+import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck, ChevronLeft, LayoutList, LayoutGrid, Eye, FileText, Link } from "lucide-react";
 
 const MEETING_TYPES = [
   { value: "board_meeting", label: "Board Meeting" },
@@ -262,19 +263,195 @@ const STATUS_BANNER: Record<string, string> = {
   cancelled: "bg-red-500",
 };
 
+// ─── Meeting View Modal ───────────────────────────────────────────────────────
+function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose: () => void; onEdit: () => void }) {
+  const { tenantId } = useChurch();
+  const status = meeting.status || "scheduled";
+  const typeLabel = MEETING_TYPES.find(t => t.value === meeting.type)?.label || meeting.type?.replace(/_/g, " ") || "Meeting";
+
+  const { data: attendees = [] } = useQuery({
+    queryKey: ["meeting-attendees-view", meeting.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("meeting_attendees")
+        .select("member_id, attendance_status, members(first_name, last_name)")
+        .eq("meeting_id", meeting.id);
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: actionItems = [] } = useQuery({
+    queryKey: ["meeting-action-items-view", meeting.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("meeting_action_items")
+        .select("*")
+        .eq("meeting_id", meeting.id)
+        .order("created_at", { ascending: true });
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
+        {/* Colored header banner */}
+        <div className={`h-24 ${STATUS_BANNER[status] || STATUS_BANNER.scheduled} relative flex items-end px-6 pb-4`}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl px-3 py-2 text-center shadow-md min-w-[52px] mr-4">
+            <div className="text-[10px] uppercase font-semibold text-primary">{format(new Date(meeting.meeting_date), "MMM")}</div>
+            <div className="text-xl font-bold text-foreground leading-tight">{format(new Date(meeting.meeting_date), "dd")}</div>
+          </div>
+          <div>
+            <p className="text-white/80 text-xs font-medium">{typeLabel}</p>
+            <h2 className="text-white font-bold text-lg leading-tight">{meeting.title}</h2>
+          </div>
+          <button onClick={onClose} className="absolute top-3 right-3 text-white/70 hover:text-white text-xl leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Status + actions */}
+          <div className="flex items-center justify-between">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[status]}`}>
+              {STATUS_LABELS[status]}
+            </span>
+            <Button size="sm" variant="outline" onClick={onEdit} className="gap-1.5">
+              <Pencil className="h-3.5 w-3.5" />Edit Meeting
+            </Button>
+          </div>
+
+          {/* Details grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</p>
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                {format(new Date(meeting.meeting_date), "EEEE, dd MMMM yyyy")}
+              </p>
+            </div>
+            {(meeting.start_time || meeting.end_time) && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Time</p>
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-slate-400" />
+                  {meeting.start_time?.toString().slice(0, 5)}
+                  {meeting.end_time && ` – ${meeting.end_time.toString().slice(0, 5)}`}
+                </p>
+              </div>
+            )}
+            {meeting.location && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Location</p>
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                  {meeting.location}
+                </p>
+              </div>
+            )}
+            {meeting.online_link && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Online Link</p>
+                <a href={meeting.online_link} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-orange-500 hover:underline flex items-center gap-1.5">
+                  <Link className="h-3.5 w-3.5" />Join Meeting
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* Agenda */}
+          {meeting.agenda && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" />Agenda
+              </p>
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                {meeting.agenda}
+              </div>
+            </div>
+          )}
+
+          {/* Pre-meeting notes */}
+          {meeting.pre_meeting_notes && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pre-Meeting Notes</p>
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                {meeting.pre_meeting_notes}
+              </div>
+            </div>
+          )}
+
+          {/* Minutes */}
+          {(meeting.minutes_content || meeting.minutes) && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Meeting Minutes</p>
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                {meeting.minutes_content || meeting.minutes}
+              </div>
+            </div>
+          )}
+
+          {/* Attendees */}
+          {attendees.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />Attendees ({attendees.length})
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {attendees.map((a: any) => {
+                  const name = a.members ? `${a.members.first_name || ""} ${a.members.last_name || ""}`.trim() : "Unknown";
+                  return (
+                    <span key={a.member_id} className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 rounded-full px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+                      <UserCheck className="h-3 w-3 text-emerald-500" />
+                      {name}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Action items */}
+          {actionItems.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Action Items ({actionItems.length})</p>
+              <div className="space-y-2">
+                {actionItems.map((item: any) => (
+                  <div key={item.id} className="flex items-start gap-2.5 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2.5">
+                    <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${item.status === "completed" ? "bg-emerald-500" : "bg-amber-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-700 dark:text-slate-300">{item.description || item.title}</p>
+                      {item.assigned_to && <p className="text-xs text-slate-400 mt-0.5">Assigned to: {item.assigned_to}</p>}
+                    </div>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${item.status === "completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                      {item.status || "pending"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Meeting Card ─────────────────────────────────────────────────────────────
 function MeetingCard({
-  m, attendeeCount, onEdit, onDelete, onAdvance, onJump,
+  m, attendeeCount, onEdit, onDelete, onAdvance, onJump, onView,
 }: {
   m: any; attendeeCount: number;
   onEdit: () => void; onDelete: () => void;
   onAdvance: (s: string) => void; onJump: (s: string) => void;
+  onView: () => void;
 }) {
   const status = m.status || "scheduled";
   const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label || m.type?.replace(/_/g, " ") || "Meeting";
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer" onClick={onView}>
       {/* Colored banner */}
       <div className={`h-28 ${STATUS_BANNER[status] || STATUS_BANNER.scheduled} relative flex items-center justify-center`}>
         <Video className="h-10 w-10 text-white/30" />
@@ -296,9 +473,10 @@ function MeetingCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={e => { e.stopPropagation(); onView(); }}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
+              <DropdownMenuItem onClick={e => { e.stopPropagation(); onEdit(); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); onDelete(); }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -337,7 +515,7 @@ function MeetingCard({
         </div>
 
         {/* Progress pipeline */}
-        <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+        <div className="pt-1 border-t border-slate-100 dark:border-slate-800" onClick={e => e.stopPropagation()}>
           <StatusPipeline status={status} onAdvance={onAdvance} onJump={onJump} />
         </div>
       </div>
@@ -352,6 +530,7 @@ export default function BoardMeetingsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewingMeeting, setViewingMeeting] = useState<any | null>(null);
   const [formData, setFormData] = useState({ ...emptyForm });
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
 
@@ -575,6 +754,7 @@ export default function BoardMeetingsPage() {
               key={m.id}
               m={m}
               attendeeCount={(attendeeCounts as Record<string, number>)[m.id] || 0}
+              onView={() => setViewingMeeting(m)}
               onEdit={() => openEdit(m)}
               onDelete={() => setDeleteId(m.id)}
               onAdvance={s => updateStatusMutation.mutate({ id: m.id, status: s })}
@@ -632,6 +812,9 @@ export default function BoardMeetingsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewingMeeting(m)}>
+                            <Eye className="h-4 w-4 mr-2" />View
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEdit(m)}>
                             <Pencil className="h-4 w-4 mr-2" />Edit
                           </DropdownMenuItem>
@@ -760,6 +943,15 @@ export default function BoardMeetingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Meeting View Modal */}
+      {viewingMeeting && (
+        <MeetingViewModal
+          meeting={viewingMeeting}
+          onClose={() => setViewingMeeting(null)}
+          onEdit={() => { setViewingMeeting(null); openEdit(viewingMeeting); }}
+        />
+      )}
     </>
   );
 }
