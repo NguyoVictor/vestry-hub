@@ -19,6 +19,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle as AlertTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -97,12 +101,14 @@ function MemberBookingModal({
   facility,
   churchId,
   memberId,
+  memberName,
 }: {
   open: boolean;
   onClose: () => void;
   facility: Facility | null;
   churchId: string;
   memberId: string;
+  memberName: string;
 }) {
   const qc = useQueryClient();
 
@@ -113,7 +119,7 @@ function MemberBookingModal({
       booking_date: format(new Date(), "yyyy-MM-dd"),
       start_time: "09:00",
       end_time: "12:00",
-      expected_attendees: undefined,
+      expected_attendees: "" as any,
       setup_required: false,
       notes: "",
     },
@@ -126,6 +132,8 @@ function MemberBookingModal({
         facility_id: facility!.id,
         facility_name: facility!.name,
         booked_by: memberId,
+        booker_name: memberName,
+        booker_type: "member",
         status: "open",
         purpose: values.purpose.trim(),
         booking_date: values.booking_date,
@@ -150,11 +158,12 @@ function MemberBookingModal({
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" aria-describedby="booking-modal-desc">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold">
             Book — {facility.name}
           </DialogTitle>
+          <p id="booking-modal-desc" className="sr-only">Submit a booking request for {facility.name}</p>
         </DialogHeader>
 
         <Form {...form}>
@@ -477,6 +486,8 @@ function MemberFacilityCard({
 
 // ─── My Bookings Section ──────────────────────────────────────────────────────
 
+const WITHDRAWABLE_STATUSES = ["open", "pending_confirmation"];
+
 function MyBookingsSection({
   memberId,
   churchId,
@@ -484,6 +495,9 @@ function MyBookingsSection({
   memberId: string;
   churchId: string;
 }) {
+  const qc = useQueryClient();
+  const [withdrawId, setWithdrawId] = useState<string | null>(null);
+
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["member-my-bookings", memberId],
     queryFn: async () => {
@@ -497,6 +511,24 @@ function MyBookingsSection({
       return data ?? [];
     },
     staleTime: 300000,
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const { error } = await supabase
+        .from(TABLES.FACILITY_BOOKINGS as any)
+        .update({ status: "cancelled" } as never)
+        .eq(COLS.ID, bookingId)
+        .eq("booked_by", memberId)
+        .eq("status", "open");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Booking request withdrawn");
+      qc.invalidateQueries({ queryKey: ["member-my-bookings", memberId] });
+      setWithdrawId(null);
+    },
+    onError: () => toast.error("Failed to withdraw booking"),
   });
 
   if (isLoading) {
@@ -522,37 +554,79 @@ function MyBookingsSection({
   }
 
   return (
-    <div className="space-y-3">
-      {bookings.map((b: any) => (
-        <div
-          key={b.id}
-          className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between gap-3"
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-              {(b.facilities as any)?.name ?? b.facility_name ?? "Facility"}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-              {b.purpose}
-            </p>
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {b.booking_date}
-              </span>
-              {b.start_time && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {b.start_time.slice(0, 5)}
-                  {b.end_time ? ` – ${b.end_time.slice(0, 5)}` : ""}
-                </span>
-              )}
+    <>
+      <div className="space-y-3">
+        {bookings.map((b: any) => {
+          const canWithdraw = WITHDRAWABLE_STATUSES.includes(b.status);
+          return (
+            <div
+              key={b.id}
+              className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                    {b.facility_name ?? "Facility"}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                    {b.purpose}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {b.booking_date}
+                    </span>
+                    {b.start_time && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {b.start_time.slice(0, 5)}
+                        {b.end_time ? ` – ${b.end_time.slice(0, 5)}` : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <StatusBadge status={b.status ?? "pending"} />
+                  {canWithdraw && (
+                    <button
+                      onClick={() => setWithdrawId(b.id)}
+                      className="text-[11px] font-medium text-red-500 hover:text-red-700 transition-colors underline underline-offset-2"
+                    >
+                      Withdraw
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-          <StatusBadge status={b.status ?? "pending"} />
-        </div>
-      ))}
-    </div>
+          );
+        })}
+      </div>
+
+      {/* Withdraw confirmation dialog */}
+      <AlertDialog open={!!withdrawId} onOpenChange={open => !open && setWithdrawId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertTitle>Withdraw booking request?</AlertTitle>
+            <AlertDialogDescription>
+              This will cancel your pending booking request. You can submit a new request at any time.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={() => withdrawId && withdrawMutation.mutate(withdrawId)}
+              disabled={withdrawMutation.isPending}
+            >
+              {withdrawMutation.isPending ? "Withdrawing..." : "Yes, Withdraw"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
   );
 }
 
@@ -664,6 +738,7 @@ export default function MemberFacilityBooking() {
         facility={selectedFacility}
         churchId={member.churchId}
         memberId={member.memberId}
+        memberName={`${member.firstName} ${member.lastName}`.trim()}
       />
 
       {/* Facility detail sheet */}

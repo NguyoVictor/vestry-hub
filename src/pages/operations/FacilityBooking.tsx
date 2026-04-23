@@ -11,6 +11,9 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
 import { formatCurrencyFull } from "@/lib/format";
 import { convertToWebP } from "@/lib/imageUtils";
+import Papa from "papaparse";
+import { jsPDF } from "jspdf";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -39,7 +42,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PremiumGallery } from "@/components/ui/PremiumGallery";
 import {
   Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
-  Share2, Eye, MessageSquare, Search, X, ChevronRight, Video, ChevronLeft, ImageIcon,
+  Share2, Eye, MessageSquare, Search, X, ChevronRight, Video, ChevronLeft, ImageIcon, Download,
 } from "lucide-react";
 
 // ─── Pure helper functions ────────────────────────────────────────────────────
@@ -54,6 +57,61 @@ export function getSourceBadgeProps(source: string): { label: string; className:
 
 export function generateBookingNumber(seq: number): string {
   return `BK-${String(seq).padStart(4, "0")}`;
+}
+
+// ─── Export helpers ───────────────────────────────────────────────────────────
+
+function bookingsToRows(bookings: any[]) {
+  return bookings.map(b => ({
+    "Booking #": b.booking_number || b.id?.slice(0, 8) || "—",
+    "Facility": b.facility_name || "—",
+    "Booked By": b.booker_name || b.booked_by || "—",
+    "Purpose": b.purpose || "—",
+    "Date": b.booking_date || "—",
+    "Start Time": b.start_time?.slice(0, 5) || "—",
+    "End Time": b.end_time?.slice(0, 5) || "—",
+    "Attendees": b.expected_attendees ?? "—",
+    "Status": b.status || "—",
+    "Source": b.source || "admin",
+    "Notes": b.notes || "",
+  }));
+}
+
+function exportBookingsCSV(bookings: any[]) {
+  const csv = Papa.unparse(bookingsToRows(bookings));
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `facility-bookings-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function exportBookingsXLSX(bookings: any[]) {
+  const ws = XLSX.utils.json_to_sheet(bookingsToRows(bookings));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Bookings");
+  XLSX.writeFile(wb, `facility-bookings-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+function exportBookingsPDF(bookings: any[]) {
+  const doc = new jsPDF({ orientation: "landscape" });
+  doc.setFontSize(14);
+  doc.text("Facility Bookings", 14, 15);
+  doc.setFontSize(9);
+  const rows = bookingsToRows(bookings);
+  const headers = Object.keys(rows[0] ?? {});
+  let y = 25;
+  // Header row
+  doc.setFont("helvetica", "bold");
+  headers.forEach((h, i) => doc.text(h, 14 + i * 28, y));
+  y += 6;
+  doc.setFont("helvetica", "normal");
+  rows.forEach(row => {
+    if (y > 190) { doc.addPage(); y = 15; }
+    headers.forEach((h, i) => doc.text(String(row[h as keyof typeof row]).slice(0, 14), 14 + i * 28, y));
+    y += 6;
+  });
+  doc.save(`facility-bookings-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // ─── Zod schemas ──────────────────────────────────────────────────────────────
@@ -1451,6 +1509,29 @@ export default function FacilityBookingPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Export dropdown */}
+            {filteredBookings.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2 h-10">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => exportBookingsCSV(filteredBookings)}>
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportBookingsXLSX(filteredBookings)}>
+                    Export as Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => exportBookingsPDF(filteredBookings)}>
+                    Export as PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {bookLoading ? (
