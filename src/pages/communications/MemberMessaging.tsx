@@ -428,12 +428,15 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", conv.id);
-      // Notify other participants
+      // Increment unread_count for all OTHER participants
       for (const p of participants.filter((p: any) => p.user_id !== userId)) {
-        await supabase.from(TABLES.NOTIFICATIONS).insert({ tenant_id: tenantId, user_id: (p as any).user_id, type: "message", title: conv.type === "group" ? `${userName} in ${conv.name ?? "Group"}` : `New message from ${userName}`, body: input.trim().slice(0, 50), is_read: false } as any);
+        await supabase.rpc("increment_unread_count" as any, {
+          p_conversation_id: conv.id,
+          p_user_id: (p as any).user_id,
+        });
       }
     },
-    onSuccess: () => { setInput(""); refetch(); qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] }); },
+    onSuccess: () => { setInput(""); refetch(); qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] }); qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] }); },
     onError: (err: any) => toast.error(err.message || "Failed to send message"),
   });
 
@@ -456,8 +459,16 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
       } as any);
       if (msgErr) throw msgErr;
       await supabase.from("conversations").update({ last_message_preview: `📎 ${file.name}`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", conv.id);
+      // Increment unread for other participants
+      for (const p of participants.filter((p: any) => p.user_id !== userId)) {
+        await supabase.rpc("increment_unread_count" as any, {
+          p_conversation_id: conv.id,
+          p_user_id: (p as any).user_id,
+        });
+      }
       refetch();
       qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+      qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
       toast.success("File sent");
     } catch (err: any) {
       toast.error(err.message || "Upload failed");
@@ -769,6 +780,7 @@ function DirectMessagesTab({ tenantId, userId, userName }: { tenantId: string; u
       .eq("conversation_id", convId)
       .eq("user_id", userId);
     qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+    qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
   };
 
   const selectConversation = (convId: string) => {
@@ -1060,6 +1072,8 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
               const memberCount = conv.conversation_participants?.length ?? 0;
               const isSelected = selectedConvId === conv.id;
               const groupName = conv.name ?? "Group";
+              const myGroupParticipant = (conv.conversation_participants || []).find((p: any) => p.user_id === userId);
+              const groupUnread = myGroupParticipant?.unread_count ?? 0;
               return (
                 <button key={conv.id} onClick={() => selectGroupConversation(conv.id)} className={cn("w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-50 dark:border-slate-700/50", isSelected && "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500")}>
                   <div className={cn("flex h-10 w-10 items-center justify-center rounded-full text-white font-semibold text-sm shrink-0", conv.is_forum ? "bg-orange-500" : avatarColor(groupName))}>
@@ -1073,6 +1087,7 @@ function GroupChatsTab({ tenantId, userId, userName }: { tenantId: string; userI
                     <p className="text-xs text-slate-400 line-clamp-2 break-words">{conv.description ?? "No description"}</p>
                     <p className="text-[10px] text-slate-400 mt-0.5">{conv.last_message_at ? `Active ${formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true })}` : "No activity yet"} · {memberCount} members</p>
                   </div>
+                  {groupUnread > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-semibold shrink-0">{groupUnread}</span>}
                 </button>
               );
             })}

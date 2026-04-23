@@ -59,7 +59,7 @@ export default function MemberMessages() {
 
       const { data } = await (supabase as any)
         .from("conversations")
-        .select("*, messages(id, body, created_at, sender_id, is_read)")
+        .select("*, conversation_participants(user_id, unread_count), messages(id, body, created_at, sender_id, is_read)")
         .in("id", convIds)
         .order("updated_at", { ascending: false });
       return data || [];
@@ -84,6 +84,13 @@ export default function MemberMessages() {
 
   // ── Helpers — defined before useEffects that call them ───────────────────────
   const markAsRead = useCallback(async (convId: string) => {
+    // Reset unread_count for this member in this conversation
+    await (supabase as any)
+      .from("conversation_participants")
+      .update({ unread_count: 0 })
+      .eq("conversation_id", convId)
+      .eq("user_id", member.userId);
+    // Also mark individual messages as read
     await (supabase as any)
       .from("messages")
       .update({ is_read: true })
@@ -148,6 +155,18 @@ export default function MemberMessages() {
         is_read: false,
       });
       await (supabase as any).from("conversations").update({ updated_at: new Date().toISOString(), last_message_preview: `📎 ${file.name}` }).eq("id", selectedConvId);
+      // Increment unread for other participants
+      const { data: convParticipants } = await (supabase as any)
+        .from("conversation_participants")
+        .select("user_id")
+        .eq("conversation_id", selectedConvId)
+        .neq("user_id", member.userId);
+      for (const p of (convParticipants || [])) {
+        await (supabase as any).rpc("increment_unread_count", {
+          p_conversation_id: selectedConvId,
+          p_user_id: p.user_id,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["member-messages", selectedConvId] });
       queryClient.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
       toast.success("File sent");
@@ -174,6 +193,18 @@ export default function MemberMessages() {
         updated_at: new Date().toISOString(),
         last_message_preview: newMessage.trim().slice(0, 100),
       }).eq("id", selectedConvId);
+      // Increment unread_count for all other participants in this conversation
+      const { data: convParticipants } = await (supabase as any)
+        .from("conversation_participants")
+        .select("user_id")
+        .eq("conversation_id", selectedConvId)
+        .neq("user_id", member.userId);
+      for (const p of (convParticipants || [])) {
+        await (supabase as any).rpc("increment_unread_count", {
+          p_conversation_id: selectedConvId,
+          p_user_id: p.user_id,
+        });
+      }
     },
     onSuccess: () => {
       setNewMessage("");
@@ -229,7 +260,8 @@ export default function MemberMessages() {
               ) : conversations.map((conv: any) => {
                 const msgs = conv.messages || [];
                 const lastMsg = msgs[msgs.length - 1];
-                const unread = msgs.filter((m: any) => !m.is_read && m.sender_id !== member.userId).length;
+                const myParticipant = (conv.conversation_participants || []).find((p: any) => p.user_id === member.userId);
+                const unread = myParticipant?.unread_count ?? 0;
                 const name = conv.staff_name || conv.name || conv.title || "Church Staff";
                 const isSelected = selectedConvId === conv.id;
                 return (
