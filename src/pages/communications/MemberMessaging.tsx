@@ -303,16 +303,25 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose }: {
   const sendMsg = useMutation({
     mutationFn: async () => {
       if (!input.trim()) return;
-      const otherParticipant = participants.find((p: any) => p.user_id !== userId);
-      await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: conv.id, sender_id: userId, recipient_id: otherParticipant?.user_id ?? null, body: input.trim() } as any);
-      await supabase.from("conversations").update({ last_message_preview: input.trim().slice(0, 100), last_message_at: new Date().toISOString() }).eq("id", conv.id);
+      const { error } = await supabase.from("messages").insert({
+        tenant_id: tenantId,
+        conversation_id: conv.id,
+        sender_id: userId,
+        body: input.trim(),
+      } as any);
+      if (error) throw error;
+      await supabase.from("conversations").update({
+        last_message_preview: input.trim().slice(0, 100),
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", conv.id);
       // Notify other participants
       for (const p of participants.filter((p: any) => p.user_id !== userId)) {
         await supabase.from(TABLES.NOTIFICATIONS).insert({ tenant_id: tenantId, user_id: (p as any).user_id, type: "message", title: conv.type === "group" ? `${userName} in ${conv.name ?? "Group"}` : `New message from ${userName}`, body: input.trim().slice(0, 50), is_read: false } as any);
       }
     },
     onSuccess: () => { setInput(""); refetch(); qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] }); },
-    onError: () => toast.error("Failed to send message"),
+    onError: (err: any) => toast.error(err.message || "Failed to send message"),
   });
 
   const otherName = conv.type === "group" || conv.is_forum ? (conv.name ?? "Group") : getUserName(participants.find((p: any) => p.user_id !== userId)?.user_id ?? "");
