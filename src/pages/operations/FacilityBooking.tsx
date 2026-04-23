@@ -1550,6 +1550,7 @@ export default function FacilityBookingPage() {
                   <TableRow className="bg-slate-50 dark:bg-slate-900">
                     <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Booking #</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Facility</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Booked By</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Purpose</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Date / Time</TableHead>
                     <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Attendees</TableHead>
@@ -1569,6 +1570,9 @@ export default function FacilityBookingPage() {
                     >
                       <TableCell className="font-mono text-xs text-indigo-600">{b.booking_number || "—"}</TableCell>
                       <TableCell className="font-medium text-sm">{b.facility_name || "—"}</TableCell>
+                      <TableCell className="text-sm text-slate-700 dark:text-slate-300 hidden md:table-cell max-w-[140px] truncate">
+                        {b.booker_name || b.external_name || "—"}
+                      </TableCell>
                       <TableCell className="text-sm text-slate-600 hidden md:table-cell max-w-[160px] truncate">{b.purpose || "—"}</TableCell>
                       <TableCell className="text-xs text-slate-500 hidden lg:table-cell">
                         {b.booking_date}<br />{b.start_time?.slice(0,5)}–{b.end_time?.slice(0,5)}

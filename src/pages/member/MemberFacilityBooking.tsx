@@ -503,7 +503,7 @@ function MyBookingsSection({
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITY_BOOKINGS as any)
-        .select("id, purpose, booking_date, start_time, end_time, status, facility_id, facility_name")
+        .select("id, purpose, booking_date, start_time, end_time, status, facility_id, facility_name, rejection_reason")
         .eq(COLS.TENANT_ID, churchId)
         .eq("booked_by", memberId)
         .order("booking_date", { ascending: false });
@@ -558,10 +558,12 @@ function MyBookingsSection({
       <div className="space-y-3">
         {bookings.map((b: any) => {
           const canWithdraw = WITHDRAWABLE_STATUSES.includes(b.status);
+          const bookerWithdrew = b.status === "cancelled" && b.rejection_reason === "booker_withdrew";
+          const isApproved = b.status === "in_progress" || b.status === "completed";
           return (
             <div
               key={b.id}
-              className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4"
+              className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 transition-opacity ${bookerWithdrew ? "opacity-60" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -585,8 +587,18 @@ function MyBookingsSection({
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <StatusBadge status={b.status ?? "pending"} />
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  {bookerWithdrew ? (
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-500">
+                      Withdrawn
+                    </span>
+                  ) : isApproved ? (
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
+                      Approved ✓
+                    </span>
+                  ) : (
+                    <StatusBadge status={b.status ?? "open"} />
+                  )}
                   {canWithdraw && (
                     <button
                       onClick={() => setWithdrawId(b.id)}
