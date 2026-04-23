@@ -49,10 +49,19 @@ export default function MemberMessages() {
   const { data: conversations = [], isLoading: convsLoading } = useQuery({
     queryKey: ["member-conversations", member.memberId],
     queryFn: async () => {
+      // Find conversations where this member is a participant
+      const { data: participantRows } = await (supabase as any)
+        .from("conversation_participants")
+        .select("conversation_id")
+        .eq("user_id", member.memberId);
+
+      const convIds = (participantRows || []).map((r: any) => r.conversation_id);
+      if (!convIds.length) return [];
+
       const { data } = await (supabase as any)
         .from("conversations")
         .select("*, messages(id, content, body, created_at, sender_id, is_read)")
-        .or(`member_id.eq.${member.memberId},participant_ids.cs.{${member.memberId}}`)
+        .in("id", convIds)
         .order("updated_at", { ascending: false });
       return data || [];
     },
