@@ -159,9 +159,9 @@ function StatCard({ label, value, icon: Icon, color }: {
           <Icon className="h-4 w-4 text-white" />
         </div>
       </div>
-      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-        {value === undefined ? <Skeleton className="h-7 w-12 inline-block" /> : value}
-      </p>
+      <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        {value === undefined ? <Skeleton className="h-7 w-12" /> : value}
+      </div>
     </div>
   );
 }
@@ -847,20 +847,29 @@ function BookingDetailDrawer({
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
-            {booking.status !== "in_progress" && (
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateStatus.mutate({ status: "in_progress" })}>
-                Approve
-              </Button>
-            )}
-            {booking.status !== "cancelled" && (
-              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
-                Reject
-              </Button>
-            )}
-            {booking.status !== "cancelled" && (
-              <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
-                Cancel
-              </Button>
+            {booking.rejection_reason === "booker_withdrew" ? (
+              <div className="w-full rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-slate-400 shrink-0" />
+                Booker withdrew this request — no further action available.
+              </div>
+            ) : (
+              <>
+                {booking.status !== "in_progress" && booking.status !== "cancelled" && (
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateStatus.mutate({ status: "in_progress" })}>
+                    Approve
+                  </Button>
+                )}
+                {booking.status !== "cancelled" && (
+                  <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
+                    Reject
+                  </Button>
+                )}
+                {booking.status !== "cancelled" && (
+                  <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
+                    Cancel
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1236,7 +1245,7 @@ export default function FacilityBookingPage() {
         supabase.from(TABLES.FACILITIES as any).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId),
         supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "in_progress"),
         supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "open"),
-        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "cancelled"),
+        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq("source", "external"),
       ]);
       return {
         totalFacilities: facilitiesRes.count ?? 0,
