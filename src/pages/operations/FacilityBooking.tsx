@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -57,12 +57,11 @@ export function generateBookingNumber(seq: number): string {
 
 const facilitySchema = z.object({
   name: z.string().min(1, "Name is required"),
-  facility_type_id: z.string().optional(),
+  type: z.string().optional(),
   capacity: z.coerce.number().optional(),
   description: z.string().optional(),
   quotation: z.coerce.number().optional(),
   is_active: z.boolean().default(true),
-  video_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 });
 type FacilityFormValues = z.infer<typeof facilitySchema>;
 
@@ -333,46 +332,52 @@ function AddEditFacilityModal({
   const form = useForm<FacilityFormValues>({
     resolver: zodResolver(facilitySchema),
     defaultValues: {
-      name: "", facility_type_id: "", capacity: undefined,
-      description: "", quotation: undefined, is_active: true, video_url: "",
+      name: "", type: "", capacity: undefined,
+      description: "", quotation: undefined, is_active: true,
     },
   });
 
-  // Reset form when modal opens
-  useState(() => {
+  // Reset form when modal opens/editData changes
+  useEffect(() => {
     if (open && editData) {
       form.reset({
         name: editData.name ?? "",
-        facility_type_id: editData.facility_type_id ?? "",
+        type: editData.type ?? "",
         capacity: editData.capacity ?? undefined,
         description: editData.description ?? "",
         quotation: editData.quotation ?? undefined,
         is_active: editData.is_active ?? true,
-        video_url: editData.video_url ?? "",
       });
+      // Load existing images if any
+      const existingImgs = (editData.facility_images ?? []).map((img: any) => ({
+        path: img.image_path,
+        name: img.image_path?.split("/").pop() ?? "image",
+        existing: true,
+      }));
+      setImages(existingImgs);
     } else if (open) {
-      form.reset({ name: "", facility_type_id: "", capacity: undefined, description: "", quotation: undefined, is_active: true, video_url: "" });
+      form.reset({ name: "", type: "", capacity: undefined, description: "", quotation: undefined, is_active: true });
+      setImages([]);
     }
-  });
+  }, [open, editData]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: FacilityFormValues) => {
       const payload: any = {
         tenant_id: tenantId,
         name: values.name.trim(),
-        facility_type_id: values.facility_type_id || null,
+        type: values.type || null,
         capacity: values.capacity || null,
         description: values.description?.trim() || null,
         quotation: values.quotation || null,
         is_active: values.is_active,
-        video_url: values.video_url?.trim() || null,
       };
       if (isEdit) {
         const { error } = await supabase.from(TABLES.FACILITIES as any).update(payload).eq(COLS.ID, editData.id);
         if (error) throw error;
         return editData.id;
       } else {
-        const { data, error } = await supabase.from(TABLES.FACILITIES as any).insert(payload).select(COLS.ID).single();
+        const { data, error } = await supabase.from(TABLES.FACILITIES as any).insert(payload).select("id").single();
         if (error) throw error;
         return (data as any).id;
       }
@@ -420,14 +425,14 @@ function AddEditFacilityModal({
               </FormItem>
             )} />
 
-            <FormField control={form.control} name="facility_type_id" render={({ field }) => (
+            <FormField control={form.control} name="type" render={({ field }) => (
               <FormItem>
                 <FormLabel>Type</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value ?? ""} onValueChange={field.onChange}>
                   <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
                   <SelectContent>
                     {facilityTypes.map((t: any) => (
-                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                      <SelectItem key={t.id} value={t.label}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -456,14 +461,6 @@ function AddEditFacilityModal({
               <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl><Textarea placeholder="Describe this facility..." rows={3} {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <FormField control={form.control} name="video_url" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Video URL (optional)</FormLabel>
-                <FormControl><Input placeholder="https://youtube.com/..." {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -532,8 +529,8 @@ function BookingDetailDrawer({
   const updateStatus = useMutation({
     mutationFn: async ({ status }: { status: string }) => {
       const updates: any = { status };
-      if (status === "approved") { updates.confirmed_at = new Date().toISOString(); updates.confirmed_by = userId; }
-      if (status === "cancelled") { updates.cancelled_at = new Date().toISOString(); }
+      if (status === "in_progress") { updates.approved_at = new Date().toISOString(); updates.approved_by = userId; }
+      if (status === "cancelled") { updates.approved_at = null; }
       const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq(COLS.ID, booking.id);
       if (error) throw error;
     },
@@ -588,13 +585,13 @@ function BookingDetailDrawer({
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
-            {booking.status !== "approved" && (
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateStatus.mutate({ status: "approved" })}>
+            {booking.status !== "in_progress" && (
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateStatus.mutate({ status: "in_progress" })}>
                 Approve
               </Button>
             )}
-            {booking.status !== "rejected" && (
-              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "rejected" })}>
+            {booking.status !== "cancelled" && (
+              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
                 Reject
               </Button>
             )}
@@ -683,12 +680,12 @@ function NewBookingDrawer({
       expected_attendees: values.expected_attendees || null,
       setup_required: values.setup_required,
       notes: values.notes || null,
-      status: "pending_confirmation",
-      source: values.contact_type === "member" ? "member" : "admin",
-      external_name: values.external_name || null,
-      external_email: values.external_email || null,
-      external_phone: values.external_phone || null,
-      external_org: values.external_org || null,
+      status: "open" as const,
+      booker_name: values.external_name || null,
+      booker_email: values.external_email || null,
+      booker_phone: values.external_phone || null,
+      booker_org_name: values.external_org || null,
+      booker_type: values.contact_type,
     };
   };
 
@@ -975,9 +972,9 @@ export default function FacilityBookingPage() {
     queryFn: async () => {
       const [facilitiesRes, bookingsRes, pendingRes, externalRes] = await Promise.all([
         supabase.from(TABLES.FACILITIES as any).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId),
-        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "approved"),
-        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "pending_confirmation"),
-        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq("source", "external"),
+        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "in_progress"),
+        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "open"),
+        supabase.from(TABLES.FACILITY_BOOKINGS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.STATUS, "cancelled"),
       ]);
       return {
         totalFacilities: facilitiesRes.count ?? 0,
@@ -1101,7 +1098,7 @@ export default function FacilityBookingPage() {
 
   const filteredFacilities = facilities.filter(f => {
     const matchSearch = !facilitySearch || f.name.toLowerCase().includes(facilitySearch.toLowerCase());
-    const matchType = facilityTypeFilter === "all" || f.facility_type_id === facilityTypeFilter;
+    const matchType = facilityTypeFilter === "all" || f.type === facilityTypeFilter;
     const matchStatus = facilityStatusFilter === "all" || (facilityStatusFilter === "active" ? f.is_active : !f.is_active);
     return matchSearch && matchType && matchStatus;
   });
@@ -1117,7 +1114,7 @@ export default function FacilityBookingPage() {
     return responseFilter === "all" || r.source === responseFilter;
   });
 
-  const getTypeName = (typeId: string) => facilityTypes.find((t: any) => t.id === typeId)?.label ?? "";
+  const getTypeName = (typeLabel: string) => typeLabel ?? "";
   const getFirstImage = (facility: any) => {
     const imgs = facility.facility_images ?? [];
     if (!imgs.length) return null;
@@ -1180,7 +1177,7 @@ export default function FacilityBookingPage() {
               <SelectTrigger className="w-40"><SelectValue placeholder="All Types" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {facilityTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                {facilityTypes.map((t: any) => <SelectItem key={t.id} value={t.label}>{t.label}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={facilityStatusFilter} onValueChange={setFacilityStatusFilter}>
@@ -1213,7 +1210,7 @@ export default function FacilityBookingPage() {
                   key={f.id}
                   facility={f}
                   firstImage={getFirstImage(f)}
-                  typeName={getTypeName(f.facility_type_id)}
+                  typeName={getTypeName(f.type)}
                   currency={currency}
                   onView={() => setViewFacility(f)}
                   onEdit={() => setEditFacility(f)}
@@ -1396,7 +1393,7 @@ export default function FacilityBookingPage() {
         upcomingBookings={viewFacilityBookings}
         open={!!viewFacility}
         onClose={() => setViewFacility(null)}
-        typeName={getTypeName(viewFacility?.facility_type_id)}
+        typeName={getTypeName(viewFacility?.type)}
         currency={currency}
       />
 

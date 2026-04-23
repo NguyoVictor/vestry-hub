@@ -39,7 +39,7 @@ interface Facility {
   capacity: number | null;
   quotation: number | null;
   is_active: boolean;
-  facility_type_id: string | null;
+  type: string | null;
   facility_images: FacilityImage[];
 }
 
@@ -102,9 +102,9 @@ function MemberBookingModal({
       const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS as any).insert({
         tenant_id: churchId,
         facility_id: facility!.id,
+        facility_name: facility!.name,
         booked_by: memberId,
-        source: "member",
-        status: "pending_confirmation",
+        status: "open",
         purpose: values.purpose.trim(),
         booking_date: values.booking_date,
         start_time: values.start_time,
@@ -396,9 +396,9 @@ export default function MemberFacilityBooking() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITIES as any)
-        .select("id, name, description, capacity, quotation, is_active, facility_type_id, facility_images(image_path, sort_order)")
+        .select("id, name, description, capacity, quotation, is_active, type, facility_images(image_path, sort_order)")
         .eq(COLS.TENANT_ID, member.churchId)
-        .eq("is_active", true)
+        .neq("is_active", false)
         .order("name");
       if (error) throw error;
       return (data ?? []) as Facility[];
