@@ -177,6 +177,26 @@ function SourceBadge({ source }: { source: string }) {
   );
 }
 
+// ─── Booking Status Badge ─────────────────────────────────────────────────────
+// Maps DB enum values to human-readable facility booking statuses
+
+function BookingStatusBadge({ status, rejectionReason }: { status: string; rejectionReason?: string | null }) {
+  if (status === "cancelled" && rejectionReason === "booker_withdrew") {
+    return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-500">Withdrawn</span>;
+  }
+  switch (status) {
+    case "open":
+      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">Pending</span>;
+    case "in_progress":
+    case "completed":
+      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">Approved</span>;
+    case "cancelled":
+      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-600">Rejected</span>;
+    default:
+      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-600">{status}</span>;
+  }
+}
+
 // ─── FacilityCard ─────────────────────────────────────────────────────────────
 
 const TYPE_GRADIENTS: Record<string, string> = {
@@ -818,7 +838,7 @@ function BookingDetailDrawer({
             {booking.booking_number && (
               <span className="text-sm font-mono font-semibold text-indigo-600">{booking.booking_number}</span>
             )}
-            <StatusBadge status={booking.status} />
+            <BookingStatusBadge status={booking.status} rejectionReason={booking.rejection_reason} />
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${sourceCls}`}>{sourceLabel}</span>
           </div>
 
@@ -1423,7 +1443,7 @@ export default function FacilityBookingPage() {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total Facilities" value={stats?.totalFacilities} icon={Building2} color="bg-indigo-500" />
-        <StatCard label="Active Bookings" value={stats?.activeBookings} icon={Calendar} color="bg-emerald-500" />
+        <StatCard label="Approved Bookings" value={stats?.activeBookings} icon={Calendar} color="bg-emerald-500" />
         <StatCard label="Pending Requests" value={stats?.pendingRequests} icon={Users} color="bg-amber-500" />
         <StatCard label="External Requests" value={stats?.externalRequests} icon={MessageSquare} color="bg-violet-500" />
       </div>
@@ -1518,10 +1538,9 @@ export default function FacilityBookingPage() {
               <SelectTrigger className="w-40"><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending_confirmation">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="open">Pending</SelectItem>
+                <SelectItem value="in_progress">Approved</SelectItem>
+                <SelectItem value="cancelled">Rejected / Withdrawn</SelectItem>
               </SelectContent>
             </Select>
 
@@ -1597,7 +1616,7 @@ export default function FacilityBookingPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-500 cursor-default">
-                                Cancelled
+                                Withdrawn
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="top">
@@ -1605,7 +1624,7 @@ export default function FacilityBookingPage() {
                             </TooltipContent>
                           </Tooltip>
                         ) : (
-                          <StatusBadge status={b.status} />
+                          <BookingStatusBadge status={b.status} rejectionReason={b.rejection_reason} />
                         )}
                       </TableCell>
                       <TableCell className="hidden md:table-cell"><SourceBadge source={b.source ?? "admin"} /></TableCell>

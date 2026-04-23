@@ -592,12 +592,18 @@ function MyBookingsSection({
                     <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-500">
                       Withdrawn
                     </span>
-                  ) : isApproved ? (
+                  ) : b.status === "in_progress" || b.status === "completed" ? (
                     <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
-                      Approved ✓
+                      Approved
+                    </span>
+                  ) : b.status === "cancelled" ? (
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-600">
+                      Rejected
                     </span>
                   ) : (
-                    <StatusBadge status={b.status ?? "open"} />
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                      Pending
+                    </span>
                   )}
                   {canWithdraw && (
                     <button
