@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, MessageCircle, ArrowLeft, ChevronLeft, Paperclip, X } from "lucide-react";
+import { Send, MessageCircle, ArrowLeft, ChevronLeft, Paperclip, X, MoreVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 function formatMsgTime(dateStr: string) {
@@ -42,6 +44,9 @@ export default function MemberMessages() {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [deleteConvConfirm, setDeleteConvConfirm] = useState(false);
+  const [closeConvConfirm, setCloseConvConfirm] = useState(false);
+  const [deletedMsgIds, setDeletedMsgIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -118,9 +123,10 @@ export default function MemberMessages() {
     return () => { supabase.removeChannel(channel); };
   }, [selectedConvId, queryClient, member.memberId]);
 
-  // Reset message input when switching conversations
+  // Reset message input and deleted set when switching conversations
   useEffect(() => {
     setNewMessage("");
+    setDeletedMsgIds(new Set());
   }, [selectedConvId]);
 
   // Mark as read when messages arrive
@@ -307,10 +313,26 @@ export default function MemberMessages() {
                     <ChevronLeft className="h-4 w-4 text-slate-600" />
                   </button>
                   <Avatar name={staffName} size="sm" />
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-900 dark:text-white">{staffName}</p>
                     <p className="text-xs text-slate-400">Church Staff</p>
                   </div>
+                  {/* 3-dot menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="text-sm">
+                      <DropdownMenuItem onClick={() => setCloseConvConfirm(true)}>
+                        Close Conversation
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-500 focus:text-red-500" onClick={() => setDeleteConvConfirm(true)}>
+                        Delete Conversation
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/50 dark:bg-slate-950/20">
@@ -324,7 +346,7 @@ export default function MemberMessages() {
                     </div>
                   ) : messages.length === 0 ? (
                     <p className="text-center text-sm text-slate-400 py-12">No messages yet</p>
-                  ) : messages.map((msg: any) => {
+                  ) : messages.filter((msg: any) => !deletedMsgIds.has(msg.id)).map((msg: any) => {
                     const isMe = msg.sender_id === member.userId;
                     return (
                       <div key={msg.id} className={cn("flex gap-2 group", isMe ? "justify-end" : "justify-start")}>
@@ -332,13 +354,9 @@ export default function MemberMessages() {
                         <div className="flex items-end gap-1.5">
                           {isMe && (
                             <button
-                              onClick={async () => {
-                                if (!confirm("Delete this message for everyone?")) return;
-                                await (supabase as any).from("messages").delete().eq("id", msg.id);
-                                queryClient.invalidateQueries({ queryKey: ["member-messages", selectedConvId] });
-                              }}
+                              onClick={() => setDeletedMsgIds(prev => new Set([...prev, msg.id]))}
                               className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-400 shrink-0 mb-1"
-                              title="Delete message"
+                              title="Delete for me"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -361,6 +379,15 @@ export default function MemberMessages() {
                               {format(new Date(msg.created_at), "HH:mm")}
                             </p>
                           </div>
+                          {!isMe && (
+                            <button
+                              onClick={() => setDeletedMsgIds(prev => new Set([...prev, msg.id]))}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-300 hover:text-red-400 shrink-0 mb-1"
+                              title="Delete for me"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -401,6 +428,54 @@ export default function MemberMessages() {
           </div>
         </div>
       </div>
+
+      {/* Close conversation confirm */}
+      <AlertDialog open={closeConvConfirm} onOpenChange={setCloseConvConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close this conversation?</AlertDialogTitle>
+            <AlertDialogDescription>The conversation will be marked as closed. You can still view the messages.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!selectedConvId) return;
+              await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", selectedConvId);
+              queryClient.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
+              setCloseConvConfirm(false);
+              setSelectedConvId(null);
+              toast.success("Conversation closed");
+            }}>Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete conversation confirm */}
+      <AlertDialog open={deleteConvConfirm} onOpenChange={setDeleteConvConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this conversation?</AlertDialogTitle>
+            <AlertDialogDescription>All messages will be permanently deleted and cannot be recovered.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={async () => {
+                if (!selectedConvId) return;
+                await (supabase as any).from("messages").delete().eq("conversation_id", selectedConvId);
+                await (supabase as any).from("conversation_participants").delete().eq("conversation_id", selectedConvId);
+                await (supabase as any).from("conversations").delete().eq("id", selectedConvId);
+                queryClient.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
+                setDeleteConvConfirm(false);
+                setSelectedConvId(null);
+                toast.success("Conversation deleted");
+              }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
