@@ -120,10 +120,28 @@ export default function MeetingMinutesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.MEETING_ATTENDEES)
-        .select("id, member_id, attendance_status, is_present, members(id, first_name, last_name)")
+        .select("id, member_id, attendance_status, is_present")
         .eq("meeting_id", meetingId!);
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+
+      // Resolve names from both members and users tables
+      const ids = rows.map((r: any) => r.member_id).filter(Boolean);
+      if (!ids.length) return rows;
+
+      const [{ data: memberRows }, { data: userRows }] = await Promise.all([
+        supabase.from(TABLES.MEMBERS).select("id, first_name, last_name").in("id", ids),
+        supabase.from(TABLES.USERS).select("id, first_name, last_name").in("id", ids),
+      ]);
+
+      const nameMap: Record<string, { first_name: string; last_name: string }> = {};
+      (memberRows ?? []).forEach((m: any) => { nameMap[m.id] = m; });
+      (userRows ?? []).forEach((u: any) => { if (!nameMap[u.id]) nameMap[u.id] = u; });
+
+      return rows.map((r: any) => ({
+        ...r,
+        members: nameMap[r.member_id] ?? null,
+      }));
     },
     enabled: !!meetingId,
     staleTime: 300_000,
