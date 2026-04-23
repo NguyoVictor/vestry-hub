@@ -319,12 +319,7 @@ function FacilityDetailSheet({
               )}
             </div>
           </div>
-          <button
-            className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {/* Close button handled by SheetContent */}
         </div>
 
         {/* ── Two-column body ── */}
