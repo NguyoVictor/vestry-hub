@@ -160,7 +160,7 @@ export default function PublicBookingPage() {
           end_time: values.end_time,
           expected_attendees: values.expected_attendees || null,
           notes: values.notes || null,
-          status: "pending_confirmation",
+          status: "open",
           source: "external",
           external_name: values.external_name,
           external_email: values.external_email || null,
