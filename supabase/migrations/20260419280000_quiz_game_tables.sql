@@ -19,7 +19,6 @@ CREATE INDEX IF NOT EXISTS idx_quiz_sessions_code ON quiz_sessions(join_code);
 CREATE INDEX IF NOT EXISTS idx_quiz_sessions_tenant ON quiz_sessions(tenant_id);
 ALTER TABLE quiz_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "quiz_sessions_tenant" ON quiz_sessions FOR ALL USING (tenant_id = get_my_tenant_id());
-
 CREATE TABLE IF NOT EXISTS quiz_participants (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
   session_id varchar NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,
@@ -37,7 +36,6 @@ CREATE TABLE IF NOT EXISTS quiz_participants (
 CREATE INDEX IF NOT EXISTS idx_quiz_participants_session ON quiz_participants(session_id);
 ALTER TABLE quiz_participants ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "quiz_participants_all" ON quiz_participants FOR ALL USING (true);
-
 CREATE TABLE IF NOT EXISTS quiz_answers (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
   session_id varchar NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,
@@ -52,7 +50,6 @@ CREATE TABLE IF NOT EXISTS quiz_answers (
 CREATE INDEX IF NOT EXISTS idx_quiz_answers_session ON quiz_answers(session_id);
 ALTER TABLE quiz_answers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "quiz_answers_all" ON quiz_answers FOR ALL USING (true);
-
 CREATE TABLE IF NOT EXISTS quiz_events (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
   session_id varchar NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,

@@ -36,7 +36,7 @@ import {
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
-  Share2, Eye, MessageSquare, Search, X, ChevronRight,
+  Share2, Eye, MessageSquare, Search, X, ChevronRight, Video,
 } from "lucide-react";
 
 // ─── Pure helper functions ────────────────────────────────────────────────────
@@ -225,92 +225,136 @@ function FacilityDetailModal({
   facility: any | null; images: any[]; upcomingBookings: any[]; open: boolean;
   onClose: () => void; typeName: string; currency: string;
 }) {
+  const [activeImg, setActiveImg] = useState(0);
   if (!facility) return null;
+
+  const sortedImages = [...images].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const videoSignedUrl = facility.video_path
+    ? supabase.storage.from("facility-videos").getPublicUrl(facility.video_path).data.publicUrl
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">{facility.name}</DialogTitle>
-        </DialogHeader>
-
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
         {/* Image gallery */}
-        {images.length > 0 ? (
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {images.map((img: any) => (
-              <img
-                key={img.id}
-                src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl}
-                alt=""
-                className="h-40 w-60 object-cover rounded-lg shrink-0"
-              />
-            ))}
+        {sortedImages.length > 0 ? (
+          <div className="relative">
+            <img
+              src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
+              alt={facility.name}
+              className="w-full h-56 object-cover rounded-t-xl"
+            />
+            {sortedImages.length > 1 && (
+              <div className="flex gap-1.5 absolute bottom-2 left-1/2 -translate-x-1/2">
+                {sortedImages.map((_: any, i: number) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImg(i)}
+                    className={`h-1.5 rounded-full transition-all ${i === activeImg ? "w-5 bg-white" : "w-1.5 bg-white/60"}`}
+                  />
+                ))}
+              </div>
+            )}
+            {sortedImages.length > 1 && (
+              <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 pointer-events-none">
+                <button
+                  className="pointer-events-auto h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
+                  onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
+                >‹</button>
+                <button
+                  className="pointer-events-auto h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
+                  onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
+                >›</button>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="h-40 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-lg flex items-center justify-center">
+          <div className="h-40 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-t-xl flex items-center justify-center">
             <Building2 className="h-16 w-16 text-white/60" />
           </div>
         )}
 
-        {/* Details */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          {typeName && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Type</p>
-              <p className="text-slate-800 dark:text-slate-200">{typeName}</p>
-            </div>
-          )}
-          {facility.capacity && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Capacity</p>
-              <p className="text-slate-800 dark:text-slate-200">{facility.capacity} people</p>
-            </div>
-          )}
-          {facility.quotation > 0 && (
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Price</p>
-              <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatCurrencyFull(facility.quotation, currency)}</p>
-            </div>
-          )}
-          <div>
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Status</p>
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-              facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
-            }`}>
-              {facility.is_active ? "Active" : "Inactive"}
-            </span>
+        {/* Thumbnail strip */}
+        {sortedImages.length > 1 && (
+          <div className="flex gap-2 px-5 pt-3 overflow-x-auto">
+            {sortedImages.map((img: any, i: number) => (
+              <button key={i} onClick={() => setActiveImg(i)} className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
+                <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
           </div>
+        )}
+
+        <div className="px-5 pb-5 pt-4 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">{facility.name}</DialogTitle>
+          </DialogHeader>
+
+          {/* Details grid */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            {typeName && (
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Type</p>
+                <p className="text-slate-800 dark:text-slate-200">{typeName}</p>
+              </div>
+            )}
+            {facility.capacity && (
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Capacity</p>
+                <p className="text-slate-800 dark:text-slate-200">{facility.capacity} people</p>
+              </div>
+            )}
+            {facility.quotation > 0 && (
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Price</p>
+                <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatCurrencyFull(facility.quotation, currency)}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Status</p>
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                facility.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+              }`}>
+                {facility.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </div>
+
+          {facility.description && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Description</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">{facility.description}</p>
+            </div>
+          )}
+
+          {/* Video player */}
+          {videoSignedUrl && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Video</p>
+              <video
+                src={videoSignedUrl}
+                controls
+                className="w-full rounded-lg max-h-48 bg-black"
+                preload="metadata"
+              />
+            </div>
+          )}
+
+          {/* Upcoming bookings */}
+          {upcomingBookings.length > 0 && (
+            <div>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Upcoming Bookings</p>
+              <div className="space-y-2">
+                {upcomingBookings.slice(0, 5).map((b: any) => (
+                  <div key={b.id} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-700 rounded-lg px-3 py-2">
+                    <span className="text-slate-700 dark:text-slate-300">{b.purpose || "Booking"}</span>
+                    <span className="text-slate-500 text-xs">{b.booking_date} {b.start_time?.slice(0, 5)}–{b.end_time?.slice(0, 5)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-
-        {facility.description && (
-          <div>
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Description</p>
-            <p className="text-sm text-slate-700 dark:text-slate-300">{facility.description}</p>
-          </div>
-        )}
-
-        {facility.video_url && (
-          <div>
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1">Video</p>
-            <a href={facility.video_url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline">
-              {facility.video_url}
-            </a>
-          </div>
-        )}
-
-        {/* Upcoming bookings */}
-        {upcomingBookings.length > 0 && (
-          <div>
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Upcoming Bookings</p>
-            <div className="space-y-2">
-              {upcomingBookings.slice(0, 5).map((b: any) => (
-                <div key={b.id} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-700 rounded-lg px-3 py-2">
-                  <span className="text-slate-700 dark:text-slate-300">{b.purpose || "Booking"}</span>
-                  <span className="text-slate-500 text-xs">{b.booking_date} {b.start_time?.slice(0, 5)}–{b.end_time?.slice(0, 5)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
@@ -326,7 +370,9 @@ function AddEditFacilityModal({
 }) {
   const qc = useQueryClient();
   const isEdit = !!editData;
-  const [images, setImages] = useState<any[]>([]);
+  const [images, setImages] = useState<{ path: string; name: string; existing?: boolean }[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null); // existing video_path
   const [uploading, setUploading] = useState(false);
 
   const form = useForm<FacilityFormValues>({
@@ -348,38 +394,82 @@ function AddEditFacilityModal({
         quotation: editData.quotation ?? undefined,
         is_active: editData.is_active ?? true,
       });
-      // Load existing images if any
-      const existingImgs = (editData.facility_images ?? []).map((img: any) => ({
-        path: img.image_path,
-        name: img.image_path?.split("/").pop() ?? "image",
-        existing: true,
-      }));
+      const existingImgs = [...(editData.facility_images ?? [])]
+        .sort((a: any, b: any) => a.sort_order - b.sort_order)
+        .map((img: any) => ({ path: img.image_path, name: img.image_path?.split("/").pop() ?? "image", existing: true }));
       setImages(existingImgs);
+      setVideoFile(null);
+      setVideoPreview(editData.video_path ?? null);
     } else if (open) {
       form.reset({ name: "", type: "", capacity: undefined, description: "", quotation: undefined, is_active: true });
       setImages([]);
+      setVideoFile(null);
+      setVideoPreview(null);
     }
   }, [open, editData]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: FacilityFormValues) => {
-      const payload: any = {
-        tenant_id: tenantId,
-        name: values.name.trim(),
-        type: values.type || null,
-        capacity: values.capacity || null,
-        description: values.description?.trim() || null,
-        quotation: values.quotation || null,
-        is_active: values.is_active,
-      };
-      if (isEdit) {
-        const { error } = await supabase.from(TABLES.FACILITIES as any).update(payload).eq(COLS.ID, editData.id);
-        if (error) throw error;
-        return editData.id;
-      } else {
-        const { data, error } = await supabase.from(TABLES.FACILITIES as any).insert(payload).select("id").single();
-        if (error) throw error;
-        return (data as any).id;
+      setUploading(true);
+      try {
+        // 1. Upload video if a new file was selected
+        let videoPath = editData?.video_path ?? null;
+        if (videoFile) {
+          const vPath = `${tenantId}/${Date.now()}-${videoFile.name}`;
+          const { error: vErr } = await supabase.storage.from("facility-videos").upload(vPath, videoFile);
+          if (vErr) throw new Error("Failed to upload video");
+          videoPath = vPath;
+        }
+
+        // 2. Save facility record
+        const payload: any = {
+          tenant_id: tenantId,
+          name: values.name.trim(),
+          type: values.type || null,
+          capacity: values.capacity || null,
+          description: values.description?.trim() || null,
+          quotation: values.quotation || null,
+          is_active: values.is_active,
+          video_path: videoPath,
+        };
+
+        let facilityId: string;
+        if (isEdit) {
+          const { error } = await supabase.from(TABLES.FACILITIES as any).update(payload).eq(COLS.ID, editData.id);
+          if (error) throw error;
+          facilityId = editData.id;
+        } else {
+          const { data, error } = await supabase.from(TABLES.FACILITIES as any).insert(payload).select("id").single();
+          if (error) throw error;
+          facilityId = (data as any).id;
+        }
+
+        // 3. Sync facility_images — delete removed, insert new
+        const existingPaths = new Set((editData?.facility_images ?? []).map((i: any) => i.image_path));
+        const keptPaths = new Set(images.filter(i => i.existing).map(i => i.path));
+        const removedPaths = [...existingPaths].filter(p => !keptPaths.has(p as string));
+        const newImages = images.filter(i => !i.existing);
+
+        if (removedPaths.length > 0) {
+          await supabase.from(TABLES.FACILITY_IMAGES as any)
+            .delete()
+            .eq("facility_id", facilityId)
+            .in("image_path", removedPaths);
+        }
+        if (newImages.length > 0) {
+          const rows = newImages.map((img, idx) => ({
+            facility_id: facilityId,
+            tenant_id: tenantId,
+            image_path: img.path,
+            sort_order: keptPaths.size + idx,
+          }));
+          const { error: imgErr } = await supabase.from(TABLES.FACILITY_IMAGES as any).insert(rows);
+          if (imgErr) throw imgErr;
+        }
+
+        return facilityId;
+      } finally {
+        setUploading(false);
       }
     },
     onSuccess: () => {
@@ -387,16 +477,13 @@ function AddEditFacilityModal({
       toast.success(isEdit ? "Facility updated." : "Facility created.");
       onClose();
     },
-    onError: () => toast.error("Failed to save facility."),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save facility."),
   });
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    if (images.length + files.length > 5) {
-      toast.error("Maximum 5 images per facility.");
-      return;
-    }
+    if (images.length + files.length > 5) { toast.error("Maximum 5 images per facility."); return; }
     setUploading(true);
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} exceeds 5 MB limit.`); continue; }
@@ -406,6 +493,14 @@ function AddEditFacilityModal({
       setImages(prev => [...prev, { path, name: file.name }]);
     }
     setUploading(false);
+    e.target.value = "";
+  };
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { toast.error("Video exceeds 50 MB limit."); return; }
+    setVideoFile(file);
     e.target.value = "";
   };
 
@@ -494,6 +589,36 @@ function AddEditFacilityModal({
               {images.length >= 5 && <p className="text-xs text-slate-500 mt-1">Maximum 5 images per facility</p>}
             </div>
 
+            {/* Video upload */}
+            <div>
+              <p className="text-sm font-medium mb-2">Video (max 50 MB)</p>
+              {videoPreview && !videoFile && (
+                <div className="flex items-center gap-2 mb-2 text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
+                  <Video className="h-4 w-4 text-indigo-500 shrink-0" />
+                  <span className="truncate">{videoPreview.split("/").pop()}</span>
+                  <button type="button" onClick={() => setVideoPreview(null)} className="ml-auto text-red-500 hover:text-red-700">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+              {videoFile && (
+                <div className="flex items-center gap-2 mb-2 text-sm text-slate-600 bg-indigo-50 rounded-lg px-3 py-2">
+                  <Video className="h-4 w-4 text-indigo-500 shrink-0" />
+                  <span className="truncate">{videoFile.name}</span>
+                  <button type="button" onClick={() => setVideoFile(null)} className="ml-auto text-red-500 hover:text-red-700">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+              {!videoFile && (
+                <label className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <Plus className="h-4 w-4" />
+                  {videoPreview ? "Replace Video" : "Add Video"}
+                  <input type="file" accept="video/*" className="hidden" onChange={handleVideoSelect} />
+                </label>
+              )}
+            </div>
+
             <FormField control={form.control} name="is_active" render={({ field }) => (
               <FormItem>
                 <div className="flex items-center justify-between">
@@ -505,8 +630,8 @@ function AddEditFacilityModal({
 
             <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? "Saving..." : isEdit ? "Update" : "Create"}
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={saveMutation.isPending || uploading}>
+                {saveMutation.isPending || uploading ? "Saving..." : isEdit ? "Update" : "Create"}
               </Button>
             </div>
           </form>

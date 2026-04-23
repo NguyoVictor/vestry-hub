@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS sms_settings (
 );
 ALTER TABLE sms_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "sms_settings_tenant" ON sms_settings FOR ALL USING (tenant_id = get_my_tenant_id());
-
 -- SMS history
 CREATE TABLE IF NOT EXISTS sms_history (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS sms_history (
 CREATE INDEX IF NOT EXISTS idx_sms_history_tenant ON sms_history(tenant_id);
 ALTER TABLE sms_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "sms_history_tenant" ON sms_history FOR ALL USING (tenant_id = get_my_tenant_id());
-
 -- SMS templates
 CREATE TABLE IF NOT EXISTS sms_templates (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,

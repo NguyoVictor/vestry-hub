@@ -1,0 +1,1 @@
+ALTER TABLE facilities ADD COLUMN IF NOT EXISTS video_path TEXT;;

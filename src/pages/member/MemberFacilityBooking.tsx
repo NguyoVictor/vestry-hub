@@ -16,12 +16,13 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
-  ArrowLeft, Building2, Users, Calendar, Clock, CheckCircle2,
+  ArrowLeft, Building2, Users, Calendar, Clock, CheckCircle2, Video, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ interface Facility {
   quotation: number | null;
   is_active: boolean;
   type: string | null;
+  video_path: string | null;
   facility_images: FacilityImage[];
 }
 
@@ -232,14 +234,133 @@ function MemberBookingModal({
   );
 }
 
+// ─── Facility Detail Sheet ────────────────────────────────────────────────────
+
+function FacilityDetailSheet({
+  facility,
+  open,
+  onClose,
+  onBookNow,
+}: {
+  facility: Facility | null;
+  open: boolean;
+  onClose: () => void;
+  onBookNow: () => void;
+}) {
+  const [activeImg, setActiveImg] = useState(0);
+  if (!facility) return null;
+
+  const sortedImages = [...(facility.facility_images ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+  const videoUrl = facility.video_path
+    ? supabase.storage.from("facility-videos").getPublicUrl(facility.video_path).data.publicUrl
+    : null;
+
+  return (
+    <Sheet open={open} onOpenChange={v => !v && onClose()}>
+      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto rounded-t-2xl p-0">
+        {/* Image gallery */}
+        {sortedImages.length > 0 ? (
+          <div className="relative">
+            <img
+              src={supabase.storage.from("facility-images").getPublicUrl(sortedImages[activeImg]?.image_path).data.publicUrl}
+              alt={facility.name}
+              className="w-full h-52 object-cover"
+            />
+            {sortedImages.length > 1 && (
+              <>
+                <div className="flex gap-1.5 absolute bottom-2 left-1/2 -translate-x-1/2">
+                  {sortedImages.map((_: any, i: number) => (
+                    <button key={i} onClick={() => setActiveImg(i)}
+                      className={`h-1.5 rounded-full transition-all ${i === activeImg ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />
+                  ))}
+                </div>
+                <button
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
+                  onClick={() => setActiveImg(i => (i - 1 + sortedImages.length) % sortedImages.length)}
+                ><ChevronLeft className="h-4 w-4" /></button>
+                <button
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-black/40 text-white flex items-center justify-center"
+                  onClick={() => setActiveImg(i => (i + 1) % sortedImages.length)}
+                ><ChevronRight className="h-4 w-4" /></button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="h-40 bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+            <Building2 className="h-14 w-14 text-white/60" />
+          </div>
+        )}
+
+        {/* Thumbnail strip */}
+        {sortedImages.length > 1 && (
+          <div className="flex gap-2 px-4 pt-3 overflow-x-auto">
+            {sortedImages.map((img: any, i: number) => (
+              <button key={i} onClick={() => setActiveImg(i)}
+                className={`shrink-0 h-12 w-16 rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? "border-indigo-500" : "border-transparent"}`}>
+                <img src={supabase.storage.from("facility-images").getPublicUrl(img.image_path).data.publicUrl} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="px-4 pt-4 pb-6 space-y-4">
+          <SheetHeader>
+            <SheetTitle className="text-lg font-bold text-slate-900 dark:text-white">{facility.name}</SheetTitle>
+          </SheetHeader>
+
+          {/* Meta chips */}
+          <div className="flex flex-wrap gap-2 text-xs">
+            {facility.type && (
+              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 font-medium bg-indigo-100 text-indigo-700">{facility.type}</span>
+            )}
+            {facility.capacity && (
+              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-medium bg-slate-100 text-slate-600">
+                <Users className="h-3 w-3" />{facility.capacity} people
+              </span>
+            )}
+            {facility.quotation && facility.quotation > 0 && (
+              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 font-medium bg-amber-100 text-amber-700">
+                KES {facility.quotation.toLocaleString()}
+              </span>
+            )}
+          </div>
+
+          {facility.description && (
+            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{facility.description}</p>
+          )}
+
+          {/* Video */}
+          {videoUrl && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Video className="h-3.5 w-3.5" /> Video
+              </p>
+              <video src={videoUrl} controls className="w-full rounded-xl max-h-48 bg-black" preload="metadata" />
+            </div>
+          )}
+
+          <Button
+            className="w-full rounded-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+            onClick={() => { onClose(); onBookNow(); }}
+          >
+            Book This Space
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 // ─── Facility Card (read-only member variant) ─────────────────────────────────
 
 function MemberFacilityCard({
   facility,
   onBookNow,
+  onViewDetails,
 }: {
   facility: Facility;
   onBookNow: () => void;
+  onViewDetails: () => void;
 }) {
   const sortedImages = [...(facility.facility_images ?? [])].sort(
     (a, b) => a.sort_order - b.sort_order
@@ -253,7 +374,10 @@ function MemberFacilityCard({
     : null;
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+    <div
+      className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm cursor-pointer"
+      onClick={onViewDetails}
+    >
       {/* Image / Gradient */}
       <div className={cn("h-36 relative", !imageUrl && `bg-gradient-to-br ${gradient}`)}>
         {imageUrl ? (
@@ -262,6 +386,17 @@ function MemberFacilityCard({
           <div className="flex items-center justify-center h-full">
             <Building2 className="h-12 w-12 text-white/60" />
           </div>
+        )}
+        {/* Image count badge */}
+        {sortedImages.length > 1 && (
+          <span className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+            {sortedImages.length} photos
+          </span>
+        )}
+        {facility.video_path && (
+          <span className="absolute bottom-2 left-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full flex items-center gap-1">
+            <Video className="h-2.5 w-2.5" /> Video
+          </span>
         )}
       </div>
 
@@ -290,13 +425,23 @@ function MemberFacilityCard({
           </p>
         )}
 
-        <Button
-          size="sm"
-          className="w-full rounded-full h-9 mt-1 bg-indigo-600 hover:bg-indigo-700 text-white"
-          onClick={onBookNow}
-        >
-          Book Now
-        </Button>
+        <div className="flex gap-2 mt-1" onClick={e => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 rounded-full h-9 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+            onClick={onViewDetails}
+          >
+            View Details
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1 rounded-full h-9 bg-indigo-600 hover:bg-indigo-700 text-white"
+            onClick={onBookNow}
+          >
+            Book Now
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -396,7 +541,7 @@ export default function MemberFacilityBooking() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITIES as any)
-        .select("id, name, description, capacity, quotation, is_active, type, facility_images(image_path, sort_order)")
+        .select("id, name, description, capacity, quotation, is_active, type, video_path, facility_images(image_path, sort_order)")
         .eq(COLS.TENANT_ID, member.churchId)
         .neq("is_active", false)
         .order("name");
@@ -410,6 +555,8 @@ export default function MemberFacilityBooking() {
     setSelectedFacility(facility);
     setModalOpen(true);
   };
+
+  const [detailFacility, setDetailFacility] = useState<Facility | null>(null);
 
   return (
     <>
@@ -466,6 +613,7 @@ export default function MemberFacilityBooking() {
                   key={facility.id}
                   facility={facility}
                   onBookNow={() => handleBookNow(facility)}
+                  onViewDetails={() => setDetailFacility(facility)}
                 />
               ))}
             </div>
@@ -488,6 +636,14 @@ export default function MemberFacilityBooking() {
         facility={selectedFacility}
         churchId={member.churchId}
         memberId={member.memberId}
+      />
+
+      {/* Facility detail sheet */}
+      <FacilityDetailSheet
+        facility={detailFacility}
+        open={!!detailFacility}
+        onClose={() => setDetailFacility(null)}
+        onBookNow={() => { if (detailFacility) handleBookNow(detailFacility); }}
       />
     </>
   );

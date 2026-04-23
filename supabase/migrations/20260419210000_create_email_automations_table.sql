@@ -14,9 +14,7 @@ CREATE TABLE IF NOT EXISTS email_automations (
   updated_at timestamptz DEFAULT now(),
   UNIQUE(tenant_id, automation_key)
 );
-
 CREATE INDEX IF NOT EXISTS idx_email_automations_tenant ON email_automations(tenant_id);
-
 ALTER TABLE email_automations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "email_automations_tenant_rls" ON email_automations;
 CREATE POLICY "email_automations_tenant_rls" ON email_automations

@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS broadcast_templates (
 CREATE INDEX IF NOT EXISTS idx_broadcast_templates_tenant ON broadcast_templates(tenant_id);
 ALTER TABLE broadcast_templates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "broadcast_templates_tenant" ON broadcast_templates FOR ALL USING (tenant_id = get_my_tenant_id());
-
 -- Admin broadcasts
 CREATE TABLE IF NOT EXISTS admin_broadcasts (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -38,7 +37,6 @@ CREATE TABLE IF NOT EXISTS admin_broadcasts (
 CREATE INDEX IF NOT EXISTS idx_admin_broadcasts_tenant ON admin_broadcasts(tenant_id);
 ALTER TABLE admin_broadcasts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "admin_broadcasts_tenant" ON admin_broadcasts FOR ALL USING (tenant_id = get_my_tenant_id());
-
 -- Device tokens for FCM push notifications
 CREATE TABLE IF NOT EXISTS device_tokens (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
