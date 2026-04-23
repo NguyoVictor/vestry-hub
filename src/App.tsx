@@ -150,6 +150,7 @@ const EventsPage = lazy(() => import("./pages/operations/Events"));
 const Volunteering = lazy(() => import("./pages/operations/Volunteering"));
 const MemberRequestsPage = lazy(() => import("./pages/operations/MemberRequests"));
 const BoardMeetingsPage = lazy(() => import("./pages/operations/BoardMeetings"));
+const MeetingMinutesPage = lazy(() => import("./pages/operations/MeetingMinutes"));
 const FacilityBooking = lazy(() => import("./pages/operations/FacilityBooking"));
 
 // Security pages
@@ -278,6 +279,7 @@ const App = () => (
                 <Route path="/volunteering" element={<Suspense fallback={<Fallback />}><Volunteering /></Suspense>} />
                 <Route path="/member-requests" element={<Suspense fallback={<Fallback />}><MemberRequestsPage /></Suspense>} />
                 <Route path="/board-meetings" element={<Suspense fallback={<Fallback />}><BoardMeetingsPage /></Suspense>} />
+                <Route path="/board-meetings/:id/minutes" element={<Suspense fallback={<Fallback />}><MeetingMinutesPage /></Suspense>} />
                 <Route path="/facility-booking" element={<Suspense fallback={<Fallback />}><FacilityBooking /></Suspense>} />
                 {/* Security & Communications routes */}
                 <Route path="/security-centre" element={<Suspense fallback={<Fallback />}><SecurityCentre /></Suspense>} />

@@ -94,6 +94,8 @@ export const TABLES = {
   BOARD_MEETINGS: "board_meetings",
   MEETING_ATTENDEES: "meeting_attendees",
   MEETING_ACTION_ITEMS: "meeting_action_items",
+  MEETING_MINUTES: "meeting_minutes",
+  MEETING_DECISIONS: "meeting_decisions",
   FACILITIES: "facilities",
   FACILITY_BOOKINGS: "facility_bookings",
   FACILITY_BOOKING_RESPONSES: "facility_booking_responses",

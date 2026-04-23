@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -439,12 +440,12 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
 
 // ─── Meeting Card ─────────────────────────────────────────────────────────────
 function MeetingCard({
-  m, attendeeCount, onEdit, onDelete, onAdvance, onJump, onView,
+  m, attendeeCount, onEdit, onDelete, onAdvance, onJump, onView, onMinutes, hasMinutes,
 }: {
   m: any; attendeeCount: number;
   onEdit: () => void; onDelete: () => void;
   onAdvance: (s: string) => void; onJump: (s: string) => void;
-  onView: () => void;
+  onView: () => void; onMinutes: () => void; hasMinutes: boolean;
 }) {
   const status = m.status || "scheduled";
   const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label || m.type?.replace(/_/g, " ") || "Meeting";
@@ -517,6 +518,23 @@ function MeetingCard({
         <div className="pt-1 border-t border-slate-100 dark:border-slate-800" onClick={e => e.stopPropagation()}>
           <StatusPipeline status={status} onAdvance={onAdvance} onJump={onJump} />
         </div>
+
+        {/* Minutes button — only for completed meetings */}
+        {status === "completed" && (
+          <div onClick={e => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant={hasMinutes ? "default" : "outline"}
+              className={hasMinutes
+                ? "w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                : "w-full text-xs border-orange-300 text-orange-600 hover:bg-orange-50"}
+              onClick={onMinutes}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              {hasMinutes ? "View Minutes" : "Write Minutes"}
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -524,6 +542,7 @@ function MeetingCard({
 
 export default function BoardMeetingsPage() {
   const { tenantId, userId } = useChurch();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [view, setView] = useState<"cards" | "list" | "calendar">("cards");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -569,6 +588,19 @@ export default function BoardMeetingsPage() {
       const counts: Record<string, number> = {};
       (data || []).forEach((a: any) => { counts[a.meeting_id] = (counts[a.meeting_id] || 0) + 1; });
       return counts;
+    },
+    enabled: !!tenantId,
+    staleTime: 60000,
+  });
+
+  // Minutes existence per meeting
+  const { data: minutesMap = {} } = useQuery({
+    queryKey: ["meeting-minutes-map", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from("meeting_minutes").select("meeting_id, minutes_text").eq("tenant_id", tenantId);
+      const map: Record<string, boolean> = {};
+      (data || []).forEach((m: any) => { map[m.meeting_id] = !!(m.minutes_text && m.minutes_text.trim()); });
+      return map;
     },
     enabled: !!tenantId,
     staleTime: 60000,
@@ -637,7 +669,6 @@ export default function BoardMeetingsPage() {
       if (selectedAttendees.length && meetingId) {
         await supabase.from("meeting_attendees").insert(
           selectedAttendees.map(memberId => ({
-            id: crypto.randomUUID(),
             meeting_id: meetingId,
             member_id: memberId,
             attendance_status: "expected",
@@ -753,9 +784,11 @@ export default function BoardMeetingsPage() {
               key={m.id}
               m={m}
               attendeeCount={(attendeeCounts as Record<string, number>)[m.id] || 0}
+              hasMinutes={!!(minutesMap as Record<string, boolean>)[m.id]}
               onView={() => setViewingMeeting(m)}
               onEdit={() => openEdit(m)}
               onDelete={() => setDeleteId(m.id)}
+              onMinutes={() => navigate(`/board-meetings/${m.id}/minutes`)}
               onAdvance={s => updateStatusMutation.mutate({ id: m.id, status: s })}
               onJump={s => updateStatusMutation.mutate({ id: m.id, status: s })}
             />
@@ -799,9 +832,29 @@ export default function BoardMeetingsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {(m as any).minutes_content || m.minutes
-                        ? <Badge variant="secondary" className="text-xs">Recorded</Badge>
-                        : "—"}
+                      {(() => {
+                        const status = (m as any).status || "scheduled";
+                        const has = !!(minutesMap as Record<string, boolean>)[m.id];
+                        if (has) {
+                          return (
+                            <Button size="sm" variant="default"
+                              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-2.5"
+                              onClick={() => navigate(`/board-meetings/${m.id}/minutes`)}>
+                              <FileText className="h-3 w-3 mr-1" />View Minutes
+                            </Button>
+                          );
+                        }
+                        if (status === "completed") {
+                          return (
+                            <Button size="sm" variant="outline"
+                              className="text-xs border-orange-300 text-orange-600 hover:bg-orange-50 h-7 px-2.5"
+                              onClick={() => navigate(`/board-meetings/${m.id}/minutes`)}>
+                              <FileText className="h-3 w-3 mr-1" />Write Minutes
+                            </Button>
+                          );
+                        }
+                        return <span className="text-xs text-slate-400">Pending</span>;
+                      })()}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
