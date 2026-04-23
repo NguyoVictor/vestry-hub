@@ -527,7 +527,7 @@ function MeetingCard({
               variant={hasMinutes ? "default" : "outline"}
               className={hasMinutes
                 ? "w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                : "w-full text-xs border-orange-300 text-orange-600 hover:bg-orange-50"}
+                : "w-full text-xs border-orange-400 text-orange-600 bg-white hover:bg-orange-500 hover:text-white hover:border-orange-500"}
               onClick={onMinutes}
             >
               <FileText className="h-3.5 w-3.5 mr-1.5" />
