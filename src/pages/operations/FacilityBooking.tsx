@@ -189,7 +189,7 @@ function BookingStatusBadge({ status, rejectionReason }: { status: string; rejec
       return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">Pending</span>;
     case "in_progress":
     case "completed":
-      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">Approved</span>;
+      return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">Accepted</span>;
     case "cancelled":
       return <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-100 text-red-600">Rejected</span>;
     default:
@@ -1402,7 +1402,10 @@ export default function FacilityBookingPage() {
   const filteredBookings = bookings.filter(b => {
     const matchSearch = !bookingSearch || (b.facility_name ?? "").toLowerCase().includes(bookingSearch.toLowerCase()) || (b.purpose ?? "").toLowerCase().includes(bookingSearch.toLowerCase());
     const matchFacility = bookingFacilityFilter === "all" || b.facility_id === bookingFacilityFilter;
-    const matchStatus = bookingStatusFilter === "all" || b.status === bookingStatusFilter;
+    let matchStatus = true;
+    if (bookingStatusFilter === "pending") matchStatus = b.status === "open";
+    else if (bookingStatusFilter === "accepted") matchStatus = b.status === "in_progress" || b.status === "completed";
+    else if (bookingStatusFilter === "rejected") matchStatus = b.status === "cancelled";
     return matchSearch && matchFacility && matchStatus;
   });
 
@@ -1443,7 +1446,7 @@ export default function FacilityBookingPage() {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total Facilities" value={stats?.totalFacilities} icon={Building2} color="bg-indigo-500" />
-        <StatCard label="Approved Bookings" value={stats?.activeBookings} icon={Calendar} color="bg-emerald-500" />
+        <StatCard label="Accepted Bookings" value={stats?.activeBookings} icon={Calendar} color="bg-emerald-500" />
         <StatCard label="Pending Requests" value={stats?.pendingRequests} icon={Users} color="bg-amber-500" />
         <StatCard label="External Requests" value={stats?.externalRequests} icon={MessageSquare} color="bg-violet-500" />
       </div>
@@ -1538,9 +1541,9 @@ export default function FacilityBookingPage() {
               <SelectTrigger className="w-40"><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Pending</SelectItem>
-                <SelectItem value="in_progress">Approved</SelectItem>
-                <SelectItem value="cancelled">Rejected / Withdrawn</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="accepted">Accepted</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
 
