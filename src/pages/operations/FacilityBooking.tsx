@@ -11,6 +11,7 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
 import { formatCurrencyFull } from "@/lib/format";
 import { convertToWebP } from "@/lib/imageUtils";
+import { cn } from "@/lib/utils";
 import Papa from "papaparse";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
@@ -1084,14 +1085,18 @@ function AcceptRejectModal({
               <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold px-1.5 py-0.5">Coming Soon</span>
             </Button>
             <Button
-              variant="outline"
-              className={`border-indigo-300 text-indigo-700 hover:bg-indigo-50 ${!booking.booked_by ? "opacity-50 cursor-not-allowed" : ""}`}
-              onClick={handleInApp}
               type="button"
+              className={cn(
+                "w-full border font-medium rounded-lg h-10 transition-colors",
+                booking.booked_by
+                  ? "border-indigo-400 text-indigo-700 bg-white hover:bg-indigo-600 hover:text-white hover:border-indigo-600"
+                  : "border-slate-200 text-slate-400 bg-white cursor-not-allowed opacity-50"
+              )}
+              onClick={handleInApp}
               disabled={!booking.booked_by}
             >
               {mode === "accept" ? "Accept & Send In-App" : "Reject & Send In-App"}
-              {!booking.booked_by && <span className="ml-2 text-xs text-slate-400">(no member)</span>}
+              {!booking.booked_by && <span className="ml-2 text-xs">(no member)</span>}
             </Button>
           </div>
         </div>
