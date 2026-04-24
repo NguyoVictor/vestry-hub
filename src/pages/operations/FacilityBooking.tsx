@@ -969,6 +969,7 @@ function AcceptRejectModal({
           to: contactEmail,
           booking_id: booking.id,
           tenant_id: tenantId,
+          from_name: churchName,
           subject,
           body: message.replace(/\n/g, "<br>"),
         },
