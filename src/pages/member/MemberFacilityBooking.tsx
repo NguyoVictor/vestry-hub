@@ -646,6 +646,68 @@ function MyBookingsSection({
   );
 }
 
+// ─── Responses Section ────────────────────────────────────────────────────────
+
+function ResponsesSection({ memberId, churchId }: { memberId: string; churchId: string }) {
+  const { data: responses = [], isLoading } = useQuery({
+    queryKey: ["member-facility-responses", memberId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.FACILITY_BOOKING_RESPONSES as any)
+        .select("*")
+        .eq(COLS.TENANT_ID, churchId)
+        .eq("member_id", memberId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
+      </div>
+    );
+  }
+
+  if (responses.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center">
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No responses yet</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+          Responses from the church will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      {responses.map((r: any, idx: number) => (
+        <div
+          key={r.id}
+          className={`p-4 ${idx < responses.length - 1 ? "border-b border-slate-100 dark:border-slate-800" : ""}`}
+        >
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">{r.facility_name}</p>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold shrink-0 ${
+              r.status === "accepted" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
+            }`}>
+              {r.status === "accepted" ? "Accepted" : "Rejected"}
+            </span>
+          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line">{r.message}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+            {r.created_at ? format(new Date(r.created_at), "d MMM yyyy · h:mm a") : ""}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MemberFacilityBooking() {
@@ -744,6 +806,14 @@ export default function MemberFacilityBooking() {
             My Bookings
           </p>
           <MyBookingsSection memberId={member.memberId} churchId={member.churchId} />
+        </section>
+
+        {/* Responses from Church */}
+        <section>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+            Responses from Church
+          </p>
+          <ResponsesSection memberId={member.memberId} churchId={member.churchId} />
         </section>
       </div>
 

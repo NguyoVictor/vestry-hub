@@ -982,6 +982,35 @@ function AcceptRejectModal({
     toast.info("SMS confirmation coming soon.");
   };
 
+  const handleInApp = async () => {
+    if (!booking.booked_by) { toast.error("No member linked to this booking."); return; }
+    try {
+      await updateStatus();
+      // Save response record
+      await supabase.from(TABLES.FACILITY_BOOKING_RESPONSES as any).insert({
+        tenant_id: tenantId,
+        booking_id: booking.id,
+        member_id: booking.booked_by,
+        facility_name: facilityName,
+        message,
+        status: mode === "accept" ? "accepted" : "rejected",
+      });
+      // Send bell notification
+      const notifText = `You have a new response for your booking — ${facilityName}. Check Facility Booking for details.`;
+      await supabase.from(TABLES.NOTIFICATIONS as any).insert({
+        tenant_id: tenantId,
+        user_id: booking.booked_by,
+        title: mode === "accept" ? "Booking Accepted" : "Booking Update",
+        body: notifText,
+        type: "facility_booking",
+        is_read: false,
+        link: "/member/facility-booking",
+      });
+      toast.success(`Booking ${mode === "accept" ? "accepted" : "rejected"} and in-app notification sent.`);
+      onClose();
+    } catch { toast.error("Failed to update booking."); }
+  };
+
   if (!booking) return null;
 
   return (
@@ -1036,6 +1065,16 @@ function AcceptRejectModal({
             >
               {mode === "accept" ? "Accept & Send SMS" : "Reject & Send SMS"}
               <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold px-1.5 py-0.5">Coming Soon</span>
+            </Button>
+            <Button
+              variant="outline"
+              className={`border-indigo-300 text-indigo-700 hover:bg-indigo-50 ${!booking.booked_by ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={handleInApp}
+              type="button"
+              disabled={!booking.booked_by}
+            >
+              {mode === "accept" ? "Accept & Send In-App" : "Reject & Send In-App"}
+              {!booking.booked_by && <span className="ml-2 text-xs text-slate-400">(no member)</span>}
             </Button>
           </div>
         </div>
