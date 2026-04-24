@@ -35,15 +35,20 @@ const SIDEBAR_NAV = [
   { path: "/member/settings", label: "Settings", icon: User },
 ];
 
-// ─── Notification Bell ────────────────────────────────────────────────────────
+// ─── Pure Bell UI (no data fetching) ─────────────────────────────────────────
 
-function MemberNotificationBell({ memberId, tenantId }: { memberId: string; tenantId: string }) {
+interface BellProps {
+  notifications: any[];
+  unreadCount: number;
+  onMarkRead: (id: string) => void;
+  onMarkAllRead: () => void;
+}
+
+function BellPanel({ notifications, unreadCount, onMarkRead, onMarkAllRead }: BellProps) {
   const navigate = useNavigate();
-  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -55,59 +60,8 @@ function MemberNotificationBell({ memberId, tenantId }: { memberId: string; tena
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const { data: notifications = [] } = useQuery({
-    queryKey: ["member-notifications", memberId, tenantId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("user_id", memberId)
-        .order("created_at", { ascending: false })
-        .limit(30);
-      return data ?? [];
-    },
-    staleTime: 30000,
-  });
-
-  const unreadCount = notifications.filter((n: any) => !n.is_read).length;
-
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel(`member-notifs-${memberId}`)
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "notifications",
-        filter: `user_id=eq.${memberId}`,
-      }, () => {
-        qc.invalidateQueries({ queryKey: ["member-notifications", memberId, tenantId] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [memberId, tenantId, qc]);
-
-  const markRead = useMutation({
-    mutationFn: async (id: string) => {
-      await supabase.from("notifications").update({ is_read: true } as any).eq("id", id);
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["member-notifications", memberId, tenantId] }),
-  });
-
-  const markAllRead = useMutation({
-    mutationFn: async () => {
-      await supabase.from("notifications")
-        .update({ is_read: true } as any)
-        .eq("tenant_id", tenantId)
-        .eq("user_id", memberId)
-        .eq("is_read", false);
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["member-notifications", memberId, tenantId] }),
-  });
-
   const handleNotifClick = (notif: any) => {
-    markRead.mutate(notif.id);
+    onMarkRead(notif.id);
     setOpen(false);
     if (notif.link) navigate(notif.link);
   };
@@ -129,20 +83,17 @@ function MemberNotificationBell({ memberId, tenantId }: { memberId: string; tena
 
       {open && (
         <div className="absolute right-0 top-11 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
             <p className="text-sm font-semibold text-slate-900 dark:text-white">Notifications</p>
             {unreadCount > 0 && (
               <button
                 className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-                onClick={() => markAllRead.mutate()}
+                onClick={() => { onMarkAllRead(); }}
               >
                 Mark all read
               </button>
             )}
           </div>
-
-          {/* List */}
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="py-10 text-center">
@@ -159,10 +110,7 @@ function MemberNotificationBell({ memberId, tenantId }: { memberId: string; tena
                   )}
                   onClick={() => handleNotifClick(n)}
                 >
-                  {!n.is_read && (
-                    <span className="mt-1.5 h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
-                  )}
-                  {n.is_read && <span className="mt-1.5 h-2 w-2 shrink-0" />}
+                  <span className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", !n.is_read ? "bg-indigo-500" : "bg-transparent")} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-slate-800 dark:text-slate-200 leading-snug">{n.body || n.title}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
@@ -185,10 +133,69 @@ function MemberNotificationBell({ memberId, tenantId }: { memberId: string; tena
 export function MemberPortalLayout() {
   const member = useMemberPortal();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const signOut = async () => {
     localStorage.removeItem("member_session");
     navigate("/member/login");
+  };
+
+  // ── Notifications — fetched once at layout level ──
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["member-notifications", member.memberId, member.tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("tenant_id", member.tenantId)
+        .eq("user_id", member.memberId)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      return data ?? [];
+    },
+    staleTime: 30000,
+  });
+
+  const unreadCount = notifications.filter((n: any) => !n.is_read).length;
+
+  // Single realtime subscription at layout level
+  useEffect(() => {
+    const channel = supabase.channel(`member-notifs-layout-${member.memberId}`);
+    channel.on("postgres_changes" as any, {
+      event: "INSERT",
+      schema: "public",
+      table: "notifications",
+      filter: `user_id=eq.${member.memberId}`,
+    }, () => {
+      qc.invalidateQueries({ queryKey: ["member-notifications", member.memberId, member.tenantId] });
+    });
+    channel.subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [member.memberId, member.tenantId, qc]);
+
+  const markRead = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from("notifications").update({ is_read: true } as any).eq("id", id);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["member-notifications", member.memberId, member.tenantId] }),
+  });
+
+  const markAllRead = useMutation({
+    mutationFn: async () => {
+      await supabase.from("notifications")
+        .update({ is_read: true } as any)
+        .eq("tenant_id", member.tenantId)
+        .eq("user_id", member.memberId)
+        .eq("is_read", false);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["member-notifications", member.memberId, member.tenantId] }),
+  });
+
+  const bellProps: BellProps = {
+    notifications,
+    unreadCount,
+    onMarkRead: (id) => markRead.mutate(id),
+    onMarkAllRead: () => markAllRead.mutate(),
   };
 
   return (
@@ -231,8 +238,7 @@ export function MemberPortalLayout() {
               </div>
               <p className="text-sm font-medium truncate">{member.firstName} {member.lastName}</p>
             </div>
-            {/* Desktop bell */}
-            <MemberNotificationBell memberId={member.memberId} tenantId={member.tenantId} />
+            <BellPanel {...bellProps} />
           </div>
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-slate-500" onClick={signOut}>
             <LogOut className="h-4 w-4" />Sign Out
@@ -254,8 +260,7 @@ export function MemberPortalLayout() {
             )}
             <span className="font-semibold text-sm">{member.churchName}</span>
           </div>
-          {/* Mobile bell */}
-          <MemberNotificationBell memberId={member.memberId} tenantId={member.tenantId} />
+          <BellPanel {...bellProps} />
         </header>
 
         {/* Page Content */}
