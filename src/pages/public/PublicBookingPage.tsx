@@ -19,9 +19,9 @@ import { Building2, Users, CheckCircle2, AlertCircle } from "lucide-react";
 // ─── Booking form schema ──────────────────────────────────────────────────────
 
 const publicBookingSchema = z.object({
-  external_name: z.string().min(1, "Name is required"),
-  external_email: z.string().email("Valid email required").optional().or(z.literal("")),
-  external_phone: z.string().optional(),
+  external_name: z.string().min(1, "Full name is required"),
+  external_email: z.string().email("Valid email is required").min(1, "Email is required"),
+  external_phone: z.string().min(7, "Phone number is required"),
   external_org: z.string().optional(),
   purpose: z.string().min(1, "Purpose is required"),
   booking_date: z.string().min(1, "Date is required"),
@@ -292,14 +292,14 @@ export default function PublicBookingPage() {
                   )} />
                   <FormField control={form.control} name="external_email" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email <span className="text-red-500">*</span></FormLabel>
                       <FormControl><Input type="email" placeholder="email@example.com" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="external_phone" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone</FormLabel>
+                      <FormLabel>Phone <span className="text-red-500">*</span></FormLabel>
                       <FormControl><Input placeholder="+1234567890" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>

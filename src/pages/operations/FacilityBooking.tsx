@@ -801,10 +801,11 @@ function AddEditFacilityModal({
 // ─── BookingDetailDrawer ──────────────────────────────────────────────────────
 
 function BookingDetailDrawer({
-  booking, open, onClose, tenantId, userId, onCreateFromResponse,
+  booking, open, onClose, tenantId, userId, onAccept, onReject,
 }: {
   booking: any | null; open: boolean; onClose: () => void;
-  tenantId: string; userId: string; onCreateFromResponse?: () => void;
+  tenantId: string; userId: string;
+  onAccept?: () => void; onReject?: () => void;
 }) {
   const qc = useQueryClient();
 
@@ -872,25 +873,20 @@ function BookingDetailDrawer({
                 <span className="h-2 w-2 rounded-full bg-slate-400 shrink-0" />
                 Booker withdrew this request — no further action available.
               </div>
-            ) : (
+            ) : booking.status === "open" ? (
               <>
-                {booking.status !== "in_progress" && booking.status !== "cancelled" && (
-                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => updateStatus.mutate({ status: "in_progress" })}>
-                    Approve
-                  </Button>
-                )}
-                {booking.status !== "cancelled" && (
-                  <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
-                    Reject
-                  </Button>
-                )}
-                {booking.status !== "cancelled" && (
-                  <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
-                    Cancel
-                  </Button>
-                )}
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { onClose(); onAccept?.(); }}>
+                  Accept
+                </Button>
+                <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => { onClose(); onReject?.(); }}>
+                  Reject
+                </Button>
               </>
-            )}
+            ) : booking.status === "in_progress" ? (
+              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
+                Revoke Acceptance
+              </Button>
+            ) : null}
           </div>
         </div>
       </SheetContent>
@@ -898,13 +894,164 @@ function BookingDetailDrawer({
   );
 }
 
+// ─── AcceptRejectModal ────────────────────────────────────────────────────────
+
+function AcceptRejectModal({
+  booking, mode, open, onClose, tenantId, userId, churchName,
+}: {
+  booking: any | null; mode: "accept" | "reject"; open: boolean; onClose: () => void;
+  tenantId: string; userId: string; churchName: string;
+}) {
+  const qc = useQueryClient();
+  const contactName = booking?.booker_name || booking?.external_name || "there";
+  const facilityName = booking?.facility_name || "the facility";
+  const date = booking?.booking_date || "";
+  const startTime = booking?.start_time?.slice(0, 5) || "";
+  const endTime = booking?.end_time?.slice(0, 5) || "";
+  const contactEmail = booking?.booker_email || booking?.external_email || "";
+  const bookedBy = booking?.booked_by || null;
+
+  const defaultAcceptMsg = `Hi ${contactName}, your booking for ${facilityName} on ${date} (${startTime} - ${endTime}) has been accepted. We look forward to hosting you.\n— ${churchName} via Vestry Hub`;
+  const defaultRejectMsg = `Hi ${contactName}, unfortunately your booking for ${facilityName} on ${date} (${startTime} - ${endTime}) has not been accepted at this time.\n— ${churchName} via Vestry Hub`;
+
+  const [message, setMessage] = useState(mode === "accept" ? defaultAcceptMsg : defaultRejectMsg);
+
+  useEffect(() => {
+    setMessage(mode === "accept" ? defaultAcceptMsg : defaultRejectMsg);
+  }, [booking, mode]);
+
+  const newStatus = mode === "accept" ? "in_progress" : "cancelled";
+
+  const updateStatus = async () => {
+    const updates: any = { status: newStatus };
+    if (newStatus === "in_progress") { updates.approved_at = new Date().toISOString(); updates.approved_by = userId; }
+    const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq(COLS.ID, booking.id);
+    if (error) throw error;
+
+    // Send in-app notification if member booking
+    if (bookedBy) {
+      const notifText = mode === "accept"
+        ? `Your booking for ${facilityName} on ${date} has been accepted.`
+        : `Your booking for ${facilityName} on ${date} has not been accepted.`;
+      await supabase.from(TABLES.NOTIFICATIONS as any).insert({
+        tenant_id: tenantId,
+        user_id: bookedBy,
+        title: mode === "accept" ? "Booking Accepted" : "Booking Update",
+        body: notifText,
+        type: "facility_booking",
+        is_read: false,
+        link: "/member/facility-booking",
+      });
+    }
+
+    qc.invalidateQueries({ queryKey: ["facility-bookings", tenantId] });
+  };
+
+  const handleActionOnly = async () => {
+    try {
+      await updateStatus();
+      toast.success(mode === "accept" ? "Booking accepted." : "Booking rejected.");
+      onClose();
+    } catch { toast.error("Failed to update booking."); }
+  };
+
+  const handleWithEmail = async () => {
+    if (!contactEmail) { toast.error("No email address on this booking."); return; }
+    try {
+      await updateStatus();
+      const subject = mode === "accept"
+        ? `Your Booking has been Accepted — ${facilityName}`
+        : `Booking Update — ${facilityName}`;
+      const { error } = await supabase.functions.invoke("send-booking-confirmation", {
+        body: {
+          channel: "email",
+          to: contactEmail,
+          booking_id: booking.id,
+          tenant_id: tenantId,
+          subject,
+          body: message.replace(/\n/g, "<br>"),
+        },
+      });
+      if (error) toast.error("Status updated, but email failed to send.");
+      else toast.success(`Booking ${mode === "accept" ? "accepted" : "rejected"} and email sent.`);
+      onClose();
+    } catch { toast.error("Failed to update booking."); }
+  };
+
+  const handleWithSms = () => {
+    toast.info("SMS confirmation coming soon.");
+  };
+
+  if (!booking) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className={mode === "accept" ? "text-emerald-700" : "text-red-600"}>
+            {mode === "accept" ? "Accept Booking" : "Reject Booking"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 text-sm space-y-1">
+            <p><span className="text-slate-500">Facility: </span><span className="font-medium">{facilityName}</span></p>
+            <p><span className="text-slate-500">Date: </span><span className="font-medium">{date} · {startTime}–{endTime}</span></p>
+            <p><span className="text-slate-500">Booker: </span><span className="font-medium">{contactName}</span></p>
+            {contactEmail && <p><span className="text-slate-500">Email: </span><span className="font-medium">{contactEmail}</span></p>}
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">
+              Message (editable)
+            </label>
+            <Textarea
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              rows={5}
+              className="text-sm resize-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+            <Button
+              className={mode === "accept" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-500 hover:bg-red-600 text-white"}
+              onClick={handleActionOnly}
+            >
+              {mode === "accept" ? "Accept Only" : "Reject Only"}
+            </Button>
+            <Button
+              variant="outline"
+              className={mode === "accept" ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50" : "border-red-300 text-red-600 hover:bg-red-50"}
+              onClick={handleWithEmail}
+              disabled={!contactEmail}
+            >
+              {mode === "accept" ? "Accept & Send Email" : "Reject & Send Email"}
+              {!contactEmail && <span className="ml-2 text-xs text-slate-400">(no email)</span>}
+            </Button>
+            <Button
+              variant="outline"
+              className="opacity-50 cursor-not-allowed"
+              onClick={handleWithSms}
+              type="button"
+            >
+              {mode === "accept" ? "Accept & Send SMS" : "Reject & Send SMS"}
+              <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold px-1.5 py-0.5">Coming Soon</span>
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── NewBookingDrawer ─────────────────────────────────────────────────────────
 
 function NewBookingDrawer({
-  open, onClose, tenantId, userId, facilities, preselectedFacilityId, editData,
+  open, onClose, tenantId, userId, facilities, preselectedFacilityId, editData, churchName,
 }: {
   open: boolean; onClose: () => void; tenantId: string; userId: string;
   facilities: any[]; preselectedFacilityId?: string | null; editData?: any | null;
+  churchName: string;
 }) {
   const qc = useQueryClient();
 
@@ -1009,26 +1156,29 @@ function NewBookingDrawer({
     if (!email) { form.setError("external_email", { message: "Email required for email confirmation" }); return; }
     const id = await saveBooking(values);
     if (!id) return;
+    const facility = facilities.find(f => f.id === values.facility_id);
+    const facilityName = facility?.name ?? values.facility_id;
+    const contactName = values.external_name || values.external_contact_person || "there";
+    const body = `Hi ${contactName}, your booking for ${facilityName} on ${values.booking_date} (${values.start_time} - ${values.end_time}) has been submitted successfully. You will be notified once it is reviewed.\n— ${churchName} via Vestry Hub`;
     const { error } = await supabase.functions.invoke("send-booking-confirmation", {
-      body: { channel: "email", to: email, booking_id: id, tenant_id: tenantId,
-        subject: `Booking Confirmation`, body: `Your booking for ${values.purpose} on ${values.booking_date} has been received.` },
+      body: {
+        channel: "email",
+        to: email,
+        booking_id: id,
+        tenant_id: tenantId,
+        subject: `Booking Confirmation — ${facilityName}`,
+        body: body.replace(/\n/g, "<br>"),
+      },
     });
     if (error) toast.error("Booking saved, but failed to send confirmation.");
-    else toast.success("Email confirmation sent.");
+    else toast.success("Booking saved and email confirmation sent.");
     onClose();
   };
 
   const handleSmsConfirm = async (values: BookingFormValues) => {
-    const phone = values.external_phone;
-    if (!phone) { form.setError("external_phone", { message: "Phone required for SMS confirmation" }); return; }
     const id = await saveBooking(values);
     if (!id) return;
-    const { error } = await supabase.functions.invoke("send-booking-confirmation", {
-      body: { channel: "sms", to: phone, booking_id: id, tenant_id: tenantId,
-        body: `Your booking for ${values.purpose} on ${values.booking_date} has been received.` },
-    });
-    if (error) toast.error("Booking saved, but failed to send confirmation.");
-    else toast.success("SMS confirmation sent.");
+    toast.success("SMS confirmation coming soon. Booking saved successfully.");
     onClose();
   };
 
@@ -1227,7 +1377,7 @@ function ResponseDetailModal({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FacilityBookingPage() {
-  const { tenantId, userId, currency } = useChurch();
+  const { tenantId, userId, currency, name: churchName } = useChurch();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "facilities";
@@ -1251,10 +1401,9 @@ export default function FacilityBookingPage() {
   const [preselectedFacilityId, setPreselectedFacilityId] = useState<string | null>(null);
   const [deleteBooking, setDeleteBooking] = useState<string | null>(null);
 
-  // Response state
-  const [responseFilter, setResponseFilter] = useState("all");
-  const [viewResponse, setViewResponse] = useState<any | null>(null);
-  const [responseBookingPrefill, setResponseBookingPrefill] = useState<any | null>(null);
+  // Accept/Reject modal state
+  const [acceptBooking, setAcceptBooking] = useState<any | null>(null);
+  const [rejectBooking, setRejectBooking] = useState<any | null>(null);
 
   // ── Queries ──────────────────────────────────────────────────────────────────
 
@@ -1322,35 +1471,7 @@ export default function FacilityBookingPage() {
     staleTime: 300000,
   });
 
-  const { data: responses = [], isLoading: responsesLoading } = useQuery({
-    queryKey: ["facility-responses", tenantId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from(TABLES.FACILITY_RESPONSES)
-        .select("*")
-        .eq(COLS.TENANT_ID, tenantId)
-        .order(COLS.CREATED_AT, { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    staleTime: 300000,
-  });
-
-  const unreadCount = responses.filter((r: any) => r.status === "new").length;
-
-  const markResponsesRead = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from(TABLES.FACILITY_RESPONSES)
-        .update({ status: "read" } as never)
-        .eq(COLS.TENANT_ID, tenantId)
-        .eq(COLS.STATUS, "new");
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["facility-responses", tenantId] }),
-  });
-
-  const deleteFacilityMutation = useMutation({
+  const { data: bookings = [], isLoading: bookLoading } = useQuery({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from(TABLES.FACILITIES as any).delete().eq(COLS.ID, id);
       if (error) throw error;
@@ -1380,11 +1501,6 @@ export default function FacilityBookingPage() {
     onError: () => toast.error("Failed to remove booking."),
   });
 
-  function handleTabChange(value: string) {
-    setSearchParams(value === "facilities" ? {} : { tab: value });
-    if (value === "responses" && unreadCount > 0) markResponsesRead.mutate();
-  }
-
   const handleShare = useCallback((facility: any) => {
     const url = `${window.location.origin}/book/${tenantId}/${facility.id}`;
     navigator.clipboard.writeText(url).then(() => toast.success("Booking link copied!"));
@@ -1407,10 +1523,6 @@ export default function FacilityBookingPage() {
     else if (bookingStatusFilter === "accepted") matchStatus = b.status === "in_progress" || b.status === "completed";
     else if (bookingStatusFilter === "rejected") matchStatus = b.status === "cancelled";
     return matchSearch && matchFacility && matchStatus;
-  });
-
-  const filteredResponses = responses.filter(r => {
-    return responseFilter === "all" || r.source === responseFilter;
   });
 
   const getTypeName = (typeLabel: string) => typeLabel ?? "";
@@ -1451,18 +1563,10 @@ export default function FacilityBookingPage() {
         <StatCard label="External Requests" value={stats?.externalRequests} icon={MessageSquare} color="bg-violet-500" />
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={activeTab} onValueChange={v => setSearchParams(v === "facilities" ? {} : { tab: v })}>
         <TabsList className="mb-4">
           <TabsTrigger value="facilities">Facilities</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="responses" className="relative">
-            Responses
-            {unreadCount > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold min-w-[16px] h-4 px-1">
-                {unreadCount}
-              </span>
-            )}
-          </TabsTrigger>
         </TabsList>
 
         {/* ── Facilities Tab ── */}
@@ -1639,6 +1743,12 @@ export default function FacilityBookingPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setViewBooking(b)}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setEditBooking(b); setPreselectedFacilityId(null); setNewBookingOpen(true); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                            {b.status === "open" && b.rejection_reason !== "booker_withdrew" && (
+                              <>
+                                <DropdownMenuItem className="text-emerald-600 focus:text-emerald-700" onClick={() => setAcceptBooking(b)}>Accept</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600 focus:text-red-700" onClick={() => setRejectBooking(b)}>Reject</DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteBooking(b.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1646,82 +1756,6 @@ export default function FacilityBookingPage() {
                     </TableRow>
                     );
                   })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ── Responses Tab ── */}
-        <TabsContent value="responses">
-          {/* Filter pills */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {["all", "in_app", "external", "email", "sms", "whatsapp"].map(f => (
-              <button
-                key={f}
-                onClick={() => setResponseFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  responseFilter === f
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {f === "all" ? "All" : f === "in_app" ? "In-App" : f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {responsesLoading ? (
-            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
-          ) : filteredResponses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <MessageSquare className="h-12 w-12 text-slate-300" />
-              <p className="text-base font-semibold text-slate-600">No responses yet</p>
-              <p className="text-sm text-slate-400">Responses from members and external visitors will appear here.</p>
-            </div>
-          ) : (
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 dark:bg-slate-900">
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Respondent</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Message</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Source</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Received</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredResponses.map(r => (
-                    <TableRow key={r.id} className="cursor-pointer hover:bg-slate-50/60 dark:hover:bg-slate-700/30" onClick={() => setViewResponse(r)}>
-                      <TableCell>
-                        <p className="font-medium text-sm">{r.respondent_name}</p>
-                        {r.respondent_email && <p className="text-xs text-slate-500">{r.respondent_email}</p>}
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-600 hidden md:table-cell max-w-[200px]">
-                        <p className="truncate">{r.message}</p>
-                      </TableCell>
-                      <TableCell><SourceBadge source={r.source} /></TableCell>
-                      <TableCell className="text-xs text-slate-500 hidden lg:table-cell">
-                        {r.created_at ? format(new Date(r.created_at), "PP") : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                          r.status === "new" ? "bg-blue-100 text-blue-700" :
-                          r.status === "converted" ? "bg-emerald-100 text-emerald-700" :
-                          "bg-slate-100 text-slate-600"
-                        }`}>
-                          {r.status}
-                        </span>
-                      </TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewResponse(r)}>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -1757,24 +1791,8 @@ export default function FacilityBookingPage() {
         facilities={facilities}
         preselectedFacilityId={preselectedFacilityId}
         editData={editBooking}
+        churchName={churchName}
       />
-
-      {/* New booking from response prefill */}
-      {responseBookingPrefill && (
-        <NewBookingDrawer
-          open={!!responseBookingPrefill}
-          onClose={() => setResponseBookingPrefill(null)}
-          tenantId={tenantId}
-          userId={userId}
-          facilities={facilities}
-          editData={{
-            external_name: responseBookingPrefill.respondent_name,
-            external_email: responseBookingPrefill.respondent_email,
-            external_phone: responseBookingPrefill.respondent_phone,
-            external_org: responseBookingPrefill.respondent_org,
-          }}
-        />
-      )}
 
       <BookingDetailDrawer
         booking={viewBooking}
@@ -1782,13 +1800,8 @@ export default function FacilityBookingPage() {
         onClose={() => setViewBooking(null)}
         tenantId={tenantId}
         userId={userId}
-      />
-
-      <ResponseDetailModal
-        response={viewResponse}
-        open={!!viewResponse}
-        onClose={() => setViewResponse(null)}
-        onCreateBooking={r => setResponseBookingPrefill(r)}
+        onAccept={() => { setAcceptBooking(viewBooking); setViewBooking(null); }}
+        onReject={() => { setRejectBooking(viewBooking); setViewBooking(null); }}
       />
 
       {/* Delete facility confirm */}
@@ -1822,6 +1835,26 @@ export default function FacilityBookingPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Accept/Reject modals */}
+      <AcceptRejectModal
+        booking={acceptBooking}
+        mode="accept"
+        open={!!acceptBooking}
+        onClose={() => setAcceptBooking(null)}
+        tenantId={tenantId}
+        userId={userId}
+        churchName={churchName}
+      />
+      <AcceptRejectModal
+        booking={rejectBooking}
+        mode="reject"
+        open={!!rejectBooking}
+        onClose={() => setRejectBooking(null)}
+        tenantId={tenantId}
+        userId={userId}
+        churchName={churchName}
+      />
     </>
   );
 }
