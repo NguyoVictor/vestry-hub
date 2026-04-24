@@ -105,6 +105,7 @@ export const TABLES = {
 
   // Security & Communications
   INCIDENTS: "incidents",
+  INCIDENT_STATUS_LOGS: "incident_status_logs",
   INCIDENT_UPDATES: "incident_updates",
   SECURITY_ALERTS: "security_alerts",
   LOGIN_EVENTS: "login_events",
