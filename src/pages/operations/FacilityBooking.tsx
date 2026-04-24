@@ -1471,7 +1471,7 @@ export default function FacilityBookingPage() {
     staleTime: 300000,
   });
 
-  const { data: bookings = [], isLoading: bookLoading } = useQuery({
+  const deleteFacilityMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from(TABLES.FACILITIES as any).delete().eq(COLS.ID, id);
       if (error) throw error;
