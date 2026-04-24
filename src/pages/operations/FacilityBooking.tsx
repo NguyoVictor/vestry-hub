@@ -986,8 +986,9 @@ function AcceptRejectModal({
     if (!booking.booked_by) { toast.error("No member linked to this booking."); return; }
     try {
       await updateStatus();
+
       // Save response record
-      await supabase.from(TABLES.FACILITY_BOOKING_RESPONSES as any).insert({
+      const { error: respErr } = await supabase.from(TABLES.FACILITY_BOOKING_RESPONSES as any).insert({
         tenant_id: tenantId,
         booking_id: booking.id,
         member_id: booking.booked_by,
@@ -995,9 +996,15 @@ function AcceptRejectModal({
         message,
         status: mode === "accept" ? "accepted" : "rejected",
       });
+      if (respErr) {
+        console.error("facility_booking_responses insert error:", respErr);
+        toast.error(`Failed to save response: ${respErr.message}`);
+        return;
+      }
+
       // Send bell notification
       const notifText = `You have a new response for your booking — ${facilityName}. Check Facility Booking for details.`;
-      await supabase.from(TABLES.NOTIFICATIONS as any).insert({
+      const { error: notifErr } = await supabase.from(TABLES.NOTIFICATIONS as any).insert({
         tenant_id: tenantId,
         user_id: booking.booked_by,
         title: mode === "accept" ? "Booking Accepted" : "Booking Update",
@@ -1006,9 +1013,19 @@ function AcceptRejectModal({
         is_read: false,
         link: "/member/facility-booking",
       });
+      if (notifErr) {
+        console.error("notifications insert error:", notifErr);
+        toast.error(`Response saved but notification failed: ${notifErr.message}`);
+        onClose();
+        return;
+      }
+
       toast.success(`Booking ${mode === "accept" ? "accepted" : "rejected"} and in-app notification sent.`);
       onClose();
-    } catch { toast.error("Failed to update booking."); }
+    } catch (e: any) {
+      console.error("handleInApp error:", e);
+      toast.error(`Failed: ${e?.message ?? "Unknown error"}`);
+    }
   };
 
   if (!booking) return null;
