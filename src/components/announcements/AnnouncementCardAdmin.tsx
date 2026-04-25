@@ -13,6 +13,7 @@ import {
   UserCheck,
   Globe,
   Paperclip,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,10 +27,12 @@ import {
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { AnnouncementReadReceiptsModal } from "@/components/announcements/AnnouncementReadReceiptsModal";
+import { AnnouncementDetailModal } from "@/components/announcements/AnnouncementDetailModal";
 import type {
   Announcement,
   AnnouncementType,
   AnnouncementAttachment,
+  AnnouncementReaction,
 } from "@/types/announcements";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -38,6 +41,7 @@ interface AnnouncementCardAdminProps {
   announcement: Announcement & {
     announcement_types: Pick<AnnouncementType, "label" | "color" | "icon"> | null;
     announcement_attachments: AnnouncementAttachment[];
+    announcement_reactions: AnnouncementReaction[];
   };
   groups: { id: string; name: string }[];
   onEdit: (ann: Announcement) => void;
@@ -52,6 +56,7 @@ interface AnnouncementCardAdminProps {
 
 const MAX_THUMBNAILS = 3;
 const THUMBNAIL_SIZE = 80;
+const REACTION_EMOJIS = ["🔥", "❤️", "🙏", "🎉"] as const;
 
 function getAudienceLabel(
   audience: Announcement["audience"],
@@ -66,15 +71,9 @@ function getAudienceLabel(
     };
   }
   if (audience === "leaders_only") {
-    return {
-      label: "Leaders Only",
-      icon: <UserCheck className="h-3 w-3" />,
-    };
+    return { label: "Leaders Only", icon: <UserCheck className="h-3 w-3" /> };
   }
-  return {
-    label: "All Members",
-    icon: <Globe className="h-3 w-3" />,
-  };
+  return { label: "All Members", icon: <Globe className="h-3 w-3" /> };
 }
 
 function stripHtml(html: string): string {
@@ -95,6 +94,7 @@ export function AnnouncementCardAdmin({
 }: AnnouncementCardAdminProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [receiptsOpen, setReceiptsOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const type = announcement.announcement_types;
   const color = type?.color ?? "#6366f1";
@@ -107,70 +107,60 @@ export function AnnouncementCardAdmin({
   const extraCount = imageAttachments.length - MAX_THUMBNAILS;
   const nonImageAttachments = attachments.filter((a) => a.type !== "image");
 
-  const audience = getAudienceLabel(
-    announcement.audience,
-    announcement.group_id,
-    groups
-  );
+  const audience = getAudienceLabel(announcement.audience, announcement.group_id, groups);
 
   const bodyText = announcement.rich_body
     ? stripHtml(announcement.rich_body)
     : (announcement.body ?? "");
 
-  const authorName = ""; // author info not in base Announcement type; rendered via created_by if available
   const createdAt = announcement.created_at
     ? formatDistanceToNow(new Date(announcement.created_at), { addSuffix: true })
     : "";
 
+  // ── Reactions summary ──
+  const reactions = announcement.announcement_reactions ?? [];
+  const reactionCounts = REACTION_EMOJIS.reduce<Record<string, number>>((acc, emoji) => {
+    acc[emoji] = reactions.filter((r) => r.emoji === emoji).length;
+    return acc;
+  }, {} as Record<string, number>);
+  const hasAnyReaction = REACTION_EMOJIS.some((e) => reactionCounts[e] > 0);
+
   return (
     <>
-      {/* Card */}
+      {/* ── Card ── */}
       <div
         className={cn(
           "font-jakarta rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-5",
-          "hover:shadow-md transition-all duration-200 ease-out",
-          isPinned &&
-            "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800"
+          "hover:shadow-md transition-all duration-200 ease-out cursor-pointer",
+          isPinned && "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800"
         )}
-        style={{
-          borderLeft: `4px solid ${color}`,
-        }}
+        style={{ borderLeft: `4px solid ${color}` }}
+        onClick={() => setDetailOpen(true)}
       >
         {/* ── Top row: badges + actions ── */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex flex-wrap items-center gap-2 min-w-0">
-            {/* Pinned indicator */}
             {isPinned && (
               <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                 <Pin className="h-3 w-3" />
                 Pinned
               </span>
             )}
-
-            {/* Category badge */}
             {type && (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                style={{
-                  backgroundColor: `${color}1a`,
-                  color: color,
-                }}
+                style={{ backgroundColor: `${color}1a`, color }}
               >
-                {/* Urgent pulsing dot */}
                 {isUrgent && (
                   <span className="animate-pulse bg-red-500 rounded-full h-2 w-2 inline-block" />
                 )}
                 {type.label}
               </span>
             )}
-
-            {/* Audience badge */}
             <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
               {audience.icon}
               {audience.label}
             </span>
-
-            {/* Status badge (scheduled / draft) */}
             {announcement.status === "scheduled" && (
               <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                 Scheduled
@@ -183,7 +173,7 @@ export function AnnouncementCardAdmin({
             )}
           </div>
 
-          {/* ⋮ Actions menu */}
+          {/* ⋮ Actions menu — stop propagation so card click doesn't fire */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -191,6 +181,7 @@ export function AnnouncementCardAdmin({
                 size="sm"
                 className="h-8 w-8 p-0 shrink-0 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                 aria-label="Announcement actions"
+                onClick={(e) => e.stopPropagation()}
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -198,7 +189,15 @@ export function AnnouncementCardAdmin({
             <DropdownMenuContent align="end" className="w-52 font-jakarta">
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
-                onClick={() => onEdit(announcement)}
+                onClick={(e) => { e.stopPropagation(); setDetailOpen(true); }}
+              >
+                <ExternalLink className="h-4 w-4 text-slate-400" />
+                View
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                className="gap-2 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); onEdit(announcement); }}
               >
                 <Pencil className="h-4 w-4 text-slate-400" />
                 Edit
@@ -206,24 +205,18 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
-                onClick={() => onTogglePin(announcement.id, !isPinned)}
+                onClick={(e) => { e.stopPropagation(); onTogglePin(announcement.id, !isPinned); }}
               >
                 {isPinned ? (
-                  <>
-                    <PinOff className="h-4 w-4 text-slate-400" />
-                    Unpin
-                  </>
+                  <><PinOff className="h-4 w-4 text-slate-400" />Unpin</>
                 ) : (
-                  <>
-                    <Pin className="h-4 w-4 text-slate-400" />
-                    Pin
-                  </>
+                  <><Pin className="h-4 w-4 text-slate-400" />Pin</>
                 )}
               </DropdownMenuItem>
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
-                onClick={() => onDuplicate(announcement)}
+                onClick={(e) => { e.stopPropagation(); onDuplicate(announcement); }}
               >
                 <Copy className="h-4 w-4 text-slate-400" />
                 Duplicate
@@ -233,7 +226,7 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
-                onClick={() => onArchive(announcement.id)}
+                onClick={(e) => { e.stopPropagation(); onArchive(announcement.id); }}
               >
                 <Archive className="h-4 w-4 text-slate-400" />
                 Archive
@@ -241,7 +234,8 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   onViewReceipts(announcement.id);
                   setReceiptsOpen(true);
                 }}
@@ -254,7 +248,7 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
-                onClick={() => setDeleteOpen(true)}
+                onClick={(e) => { e.stopPropagation(); setDeleteOpen(true); }}
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
@@ -268,7 +262,7 @@ export function AnnouncementCardAdmin({
           {announcement.title}
         </h3>
 
-        {/* ── Body ── */}
+        {/* ── Body preview ── */}
         {bodyText && (
           <p className="text-sm text-slate-600 dark:text-slate-400 font-jakarta line-clamp-3 leading-relaxed mb-3">
             {bodyText}
@@ -320,30 +314,49 @@ export function AnnouncementCardAdmin({
           </div>
         )}
 
+        {/* ── Reaction summary (read-only, admin view) ── */}
+        {hasAnyReaction && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {REACTION_EMOJIS.filter((e) => reactionCounts[e] > 0).map((emoji) => (
+              <span
+                key={emoji}
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+              >
+                {emoji}
+                <span className="font-semibold">{reactionCounts[emoji]}</span>
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* ── Author row ── */}
         <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
-          <MemberAvatar
-            name={authorName || "Admin"}
-            size="sm"
-            className="shrink-0"
-          />
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            {authorName && (
-              <span className="text-xs font-medium text-slate-700 dark:text-slate-300 font-jakarta truncate">
-                {authorName}
-              </span>
-            )}
-            {authorName && createdAt && (
-              <span className="text-xs text-slate-400 dark:text-slate-500">·</span>
-            )}
-            {createdAt && (
-              <span className="text-xs text-slate-400 dark:text-slate-500 font-jakarta">
-                {createdAt}
-              </span>
-            )}
-          </div>
+          <MemberAvatar name="Admin" size="sm" className="shrink-0" />
+          <span className="text-xs text-slate-400 dark:text-slate-500 font-jakarta">{createdAt}</span>
+          {attachments.length > 0 && (
+            <span className="ml-auto text-xs text-slate-400 dark:text-slate-500 font-jakarta">
+              {attachments.length} attachment{attachments.length !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
       </div>
+
+      {/* ── Detail modal ── */}
+      <AnnouncementDetailModal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        announcement={announcement}
+        groups={groups}
+      />
+
+      {/* ── Read receipts modal ── */}
+      <AnnouncementReadReceiptsModal
+        open={receiptsOpen}
+        onClose={() => setReceiptsOpen(false)}
+        announcementId={announcement.id}
+        tenantId={announcement.tenant_id}
+        announcement={announcement}
+      />
 
       {/* ── Delete confirmation ── */}
       <ConfirmDialog
@@ -357,15 +370,6 @@ export function AnnouncementCardAdmin({
           onDelete(announcement.id);
           setDeleteOpen(false);
         }}
-      />
-
-      {/* ── Read receipts modal ── */}
-      <AnnouncementReadReceiptsModal
-        open={receiptsOpen}
-        onClose={() => setReceiptsOpen(false)}
-        announcementId={announcement.id}
-        tenantId={announcement.tenant_id}
-        totalAudienceCount={0}
       />
     </>
   );

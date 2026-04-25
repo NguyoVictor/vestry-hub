@@ -11,15 +11,16 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { supabase } from "@/integrations/supabase/client";
-import { TABLES } from "@/lib/schema";
-import type { ReadReceipt } from "@/types/announcements";
+import { TABLES, COLS } from "@/lib/schema";
+import type { Announcement, ReadReceipt } from "@/types/announcements";
 
 interface AnnouncementReadReceiptsModalProps {
   open: boolean;
   onClose: () => void;
   announcementId: string;
   tenantId: string;
-  totalAudienceCount: number;
+  /** Pass the full announcement so we can compute the correct audience size */
+  announcement?: Pick<Announcement, "audience" | "group_id">;
 }
 
 const AVATAR_DISPLAY_LIMIT = 5;
@@ -29,8 +30,9 @@ export function AnnouncementReadReceiptsModal({
   onClose,
   announcementId,
   tenantId,
-  totalAudienceCount,
+  announcement,
 }: AnnouncementReadReceiptsModalProps) {
+  // ── Read receipts ──────────────────────────────────────────────────────────
   const { data, isLoading } = useQuery({
     queryKey: ["read-receipts", announcementId],
     queryFn: async () => {
@@ -39,7 +41,6 @@ export function AnnouncementReadReceiptsModal({
         .select(`*, members(first_name, last_name, avatar_url)`)
         .eq("announcement_id", announcementId)
         .order("read_at", { ascending: false });
-
       if (error) throw error;
       return data as ReadReceipt[];
     },
@@ -47,9 +48,48 @@ export function AnnouncementReadReceiptsModal({
     enabled: open,
   });
 
+  // ── Audience count — dynamically computed based on announcement audience ──
+  const { data: audienceCount = 0 } = useQuery({
+    queryKey: ["audience-count", tenantId, announcement?.audience, announcement?.group_id],
+    queryFn: async () => {
+      const audience = announcement?.audience ?? "all";
+
+      if (audience === "specific_group" && announcement?.group_id) {
+        const { count, error } = await supabase
+          .from(TABLES.GROUP_MEMBERS)
+          .select("member_id", { count: "exact", head: true })
+          .eq("group_id", announcement.group_id);
+        if (error) throw error;
+        return count ?? 0;
+      }
+
+      if (audience === "leaders_only") {
+        const { count, error } = await supabase
+          .from(TABLES.MEMBERS)
+          .select("id", { count: "exact", head: true })
+          .eq(COLS.TENANT_ID, tenantId)
+          .eq("status", "active")
+          .in("member_type", ["leader", "staff"]);
+        if (error) throw error;
+        return count ?? 0;
+      }
+
+      // "all" — count all active members
+      const { count, error } = await supabase
+        .from(TABLES.MEMBERS)
+        .select("id", { count: "exact", head: true })
+        .eq(COLS.TENANT_ID, tenantId)
+        .eq("status", "active");
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 300_000,
+    enabled: open,
+  });
+
   const receipts = data ?? [];
   const readCount = receipts.length;
-  const hasOverflow = readCount >= AVATAR_DISPLAY_LIMIT;
+  const hasOverflow = readCount > AVATAR_DISPLAY_LIMIT;
   const visibleReceipts = hasOverflow
     ? receipts.slice(0, AVATAR_DISPLAY_LIMIT)
     : receipts;
@@ -59,25 +99,26 @@ export function AnnouncementReadReceiptsModal({
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-md rounded-2xl p-0 font-jakarta">
         {/* Header */}
-        <DialogHeader className="px-6 pt-6 pb-5 border-b border-slate-100">
+        <DialogHeader className="px-6 pt-6 pb-5 border-b border-slate-100 dark:border-slate-700">
           <div className="flex items-center gap-2">
             <Eye className="h-5 w-5 text-slate-400" />
-            <DialogTitle className="text-lg font-semibold text-slate-900 font-jakarta">
+            <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100 font-jakarta">
               Read Receipts
             </DialogTitle>
           </div>
-          {!isLoading && (
+          {isLoading ? (
+            <Skeleton className="h-4 w-40 mt-1" />
+          ) : (
             <p className="text-sm text-slate-500 font-jakarta mt-1">
               Seen by{" "}
-              <span className="font-semibold text-slate-700">{readCount}</span>{" "}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">{readCount}</span>{" "}
               of{" "}
-              <span className="font-semibold text-slate-700">
-                {totalAudienceCount}
+              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                {audienceCount}
               </span>{" "}
               members
             </p>
           )}
-          {isLoading && <Skeleton className="h-4 w-40 mt-1" />}
         </DialogHeader>
 
         {/* Body */}
@@ -120,10 +161,7 @@ export function AnnouncementReadReceiptsModal({
                   : "";
 
                 return (
-                  <li
-                    key={receipt.id}
-                    className="flex items-center gap-3"
-                  >
+                  <li key={receipt.id} className="flex items-center gap-3">
                     <MemberAvatar
                       name={fullName}
                       avatarUrl={member?.avatar_url}
@@ -131,7 +169,7 @@ export function AnnouncementReadReceiptsModal({
                       className="shrink-0"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-800 font-jakarta truncate">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 font-jakarta truncate">
                         {fullName}
                       </p>
                       <p className="text-xs text-slate-400 font-jakarta">

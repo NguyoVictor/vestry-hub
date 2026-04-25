@@ -16,6 +16,7 @@ import type {
   Announcement,
   AnnouncementType,
   AnnouncementAttachment,
+  AnnouncementReaction,
 } from "@/types/announcements";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ interface AnnouncementFeedAdminProps {
 type AnnouncementWithRelations = Announcement & {
   announcement_types: Pick<AnnouncementType, "label" | "color" | "icon"> | null;
   announcement_attachments: AnnouncementAttachment[];
+  announcement_reactions: AnnouncementReaction[];
 };
 
 // ─── Animation variants ───────────────────────────────────────────────────────
@@ -85,7 +87,7 @@ export function AnnouncementFeedAdmin({
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.ANNOUNCEMENTS)
-        .select(`*, announcement_types(label, color, icon), announcement_attachments(*)`)
+        .select(`*, announcement_types(label, color, icon), announcement_attachments(*), announcement_reactions(*)`)
         .eq(COLS.TENANT_ID, tenantId)
         .neq("status", "archived")
         .order("is_pinned", { ascending: false })
