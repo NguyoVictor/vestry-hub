@@ -33,6 +33,7 @@ import type {
   AnnouncementType,
   AnnouncementAttachment,
   AnnouncementReaction,
+  AnnouncementComment,
 } from "@/types/announcements";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ interface AnnouncementCardAdminProps {
     announcement_types: Pick<AnnouncementType, "label" | "color" | "icon"> | null;
     announcement_attachments: AnnouncementAttachment[];
     announcement_reactions: AnnouncementReaction[];
+    announcement_comments: AnnouncementComment[];
   };
   groups: { id: string; name: string }[];
   onEdit: (ann: Announcement) => void;
@@ -125,9 +127,10 @@ export function AnnouncementCardAdmin({
   }, {} as Record<string, number>);
   const hasAnyReaction = REACTION_EMOJIS.some((e) => reactionCounts[e] > 0);
 
+  // ── Comments count ──
+  const commentCount = (announcement.announcement_comments ?? []).filter((c) => !c.is_deleted).length;
+
   return (
-    <>
-      {/* ── Card ── */}
       <div
         className={cn(
           "font-jakarta rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-5",
@@ -333,11 +336,18 @@ export function AnnouncementCardAdmin({
         <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
           <MemberAvatar name="Admin" size="sm" className="shrink-0" />
           <span className="text-xs text-slate-400 dark:text-slate-500 font-jakarta">{createdAt}</span>
-          {attachments.length > 0 && (
-            <span className="ml-auto text-xs text-slate-400 dark:text-slate-500 font-jakarta">
-              {attachments.length} attachment{attachments.length !== 1 ? "s" : ""}
-            </span>
-          )}
+          <div className="ml-auto flex items-center gap-3">
+            {commentCount > 0 && (
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-jakarta">
+                💬 {commentCount} comment{commentCount !== 1 ? "s" : ""}
+              </span>
+            )}
+            {attachments.length > 0 && (
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-jakarta">
+                {attachments.length} attachment{attachments.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

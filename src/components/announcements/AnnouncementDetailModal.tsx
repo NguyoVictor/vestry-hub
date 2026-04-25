@@ -5,6 +5,7 @@ import {
   ExternalLink,
   FileText,
   Globe,
+  MessageCircle,
   Pin,
   UserCheck,
   Users,
@@ -20,8 +21,10 @@ import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import type {
   Announcement,
   AnnouncementAttachment,
+  AnnouncementComment,
   AnnouncementReaction,
   AnnouncementType,
+  CommentNode,
 } from "@/types/announcements";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -33,6 +36,7 @@ interface AnnouncementDetailModalProps {
     announcement_types: Pick<AnnouncementType, "label" | "color" | "icon"> | null;
     announcement_attachments: AnnouncementAttachment[];
     announcement_reactions?: AnnouncementReaction[];
+    announcement_comments?: AnnouncementComment[];
   }) | null;
   groups: { id: string; name: string }[];
 }
@@ -54,6 +58,73 @@ function getAudienceLabel(
     return { label: "Leaders Only", icon: <UserCheck className="h-3.5 w-3.5" /> };
   }
   return { label: "All Members", icon: <Globe className="h-3.5 w-3.5" /> };
+}
+
+// ─── Comment tree builder ─────────────────────────────────────────────────────
+
+function buildCommentTree(comments: AnnouncementComment[]): CommentNode[] {
+  const map = new Map<string, CommentNode>();
+  for (const c of comments) {
+    map.set(c.id, {
+      ...c,
+      author: c.members ?? { first_name: "Unknown", last_name: "", avatar_url: null },
+      replies: [],
+    });
+  }
+  const roots: CommentNode[] = [];
+  for (const node of map.values()) {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id)!.replies.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+// ─── Read-only comment item ───────────────────────────────────────────────────
+
+function ReadOnlyCommentItem({ comment, depth = 0 }: { comment: CommentNode; depth?: number }) {
+  const authorName = comment.is_deleted
+    ? "[deleted]"
+    : `${comment.author.first_name} ${comment.author.last_name}`;
+
+  return (
+    <div className={depth > 0 ? "pl-6 border-l border-slate-100 dark:border-slate-800" : ""}>
+      <div className="flex gap-2.5 py-2">
+        {!comment.is_deleted && (
+          <MemberAvatar
+            name={authorName}
+            src={comment.author.avatar_url ?? undefined}
+            size="sm"
+            className="shrink-0 mt-0.5"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          {comment.is_deleted ? (
+            <p className="text-sm text-slate-400 italic font-jakarta">[deleted]</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 font-jakarta">
+                  {authorName}
+                </span>
+                <span className="text-xs text-slate-400 font-jakarta">
+                  {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                </span>
+              </div>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-jakarta">
+                {comment.body}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+      {comment.replies.map((reply) => (
+        <ReadOnlyCommentItem key={reply.id} comment={reply} depth={depth + 1} />
+      ))}
+    </div>
+  );
 }
 
 // ─── Attachment renderers ─────────────────────────────────────────────────────
@@ -221,6 +292,11 @@ export function AnnouncementDetailModal({
   }, {} as Record<string, number>);
   const hasAnyReaction = REACTION_EMOJIS.some((e) => reactionCounts[e] > 0);
 
+  // ── Comments ──
+  const rawComments = announcement.announcement_comments ?? [];
+  const commentTree = buildCommentTree(rawComments);
+  const commentCount = rawComments.filter((c) => !c.is_deleted).length;
+
   const createdAt = announcement.created_at
     ? formatDistanceToNow(new Date(announcement.created_at), { addSuffix: true })
     : "";
@@ -375,6 +451,33 @@ export function AnnouncementDetailModal({
               </div>
             </div>
           )}
+
+          {/* Comments section */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2 mb-3">
+              <MessageCircle className="h-4 w-4 text-slate-400" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 font-jakarta">
+                Comments
+                {commentCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal">
+                    {commentCount}
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {commentTree.length === 0 ? (
+              <p className="text-sm text-slate-400 font-jakarta py-3 text-center">
+                No comments yet
+              </p>
+            ) : (
+              <div className="space-y-0 divide-y divide-slate-50 dark:divide-slate-800/60">
+                {commentTree.map((comment) => (
+                  <ReadOnlyCommentItem key={comment.id} comment={comment} depth={0} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
