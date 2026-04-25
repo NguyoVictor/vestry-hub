@@ -131,6 +131,7 @@ export function AnnouncementCardAdmin({
   const commentCount = (announcement.announcement_comments ?? []).filter((c) => !c.is_deleted).length;
 
   return (
+    <>
       <div
         className={cn(
           "font-jakarta rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-5",
