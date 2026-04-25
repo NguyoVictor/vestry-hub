@@ -1,0 +1,2 @@
+.animated-gradient-text { position: relative; display: inline-flex; }
+.text-content { display: inline-block; background-clip: text; -webkit-background-clip: text; color: transparent; }

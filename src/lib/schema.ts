@@ -123,6 +123,8 @@ export const TABLES = {
   NOTIFICATIONS: "notifications",
   NOTIFICATION_PREFERENCES: "notification_preferences",
   TESTIMONIES: "testimonies",
+  TESTIMONY_CATEGORIES: "testimony_categories",
+  TESTIMONY_REACTIONS: "testimony_reactions",
   SURVEYS: "surveys",
   SURVEY_RESPONSES: "survey_responses",
   SURVEY_ANSWERS: "survey_answers",
