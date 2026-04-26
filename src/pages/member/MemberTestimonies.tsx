@@ -1,5 +1,5 @@
 // Member portal testimonies page — Wall of Faith
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -192,11 +192,21 @@ interface ShareDrawerProps {
 function ShareTestimonyDrawer({ open, onClose, editing, categories, memberId, tenantId, memberName, onSuccess }: ShareDrawerProps) {
   const queryClient = useQueryClient();
   const { notifyAdminNewTestimony } = useTestimonyNotifications();
-  const [form, setForm] = useState<ShareFormState>(() => editing ? {
-    title: editing.title, category_id: editing.category_id ?? "", body: editing.body,
-    date_of_testimony: editing.date_of_testimony ?? format(new Date(), "yyyy-MM-dd"),
-    is_anonymous: editing.is_anonymous, allow_featuring: editing.allow_featuring,
-  } : DEFAULT_SHARE_FORM);
+  const [form, setForm] = useState<ShareFormState>(DEFAULT_SHARE_FORM);
+
+  // Sync form when drawer opens or editing changes
+  useEffect(() => {
+    if (open) {
+      setForm(editing ? {
+        title: editing.title,
+        category_id: editing.category_id ?? "",
+        body: editing.body,
+        date_of_testimony: editing.date_of_testimony ?? format(new Date(), "yyyy-MM-dd"),
+        is_anonymous: editing.is_anonymous,
+        allow_featuring: editing.allow_featuring,
+      } : DEFAULT_SHARE_FORM);
+    }
+  }, [open, editing]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {

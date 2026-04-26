@@ -1,5 +1,5 @@
 // Admin testimonies management page
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -171,12 +171,23 @@ interface TestimonyDrawerProps {
   categories: TestimonyCategory[]; tenantId: string; userId: string; onSuccess: () => void;
 }
 function TestimonyDrawer({ open, onClose, editing, categories, tenantId, userId, onSuccess }: TestimonyDrawerProps) {
-  const [form, setForm] = useState<FormState>(() => editing ? {
-    title: editing.title, category_id: editing.category_id ?? "", body: editing.body,
-    is_anonymous: editing.is_anonymous, member_name: editing.author_name ?? "",
-    date_of_testimony: editing.date_of_testimony ?? format(new Date(), "yyyy-MM-dd"),
-  } : DEFAULT_FORM);
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const queryClient = useQueryClient();
+
+  // Sync form when drawer opens or editing changes
+  useEffect(() => {
+    if (open) {
+      setForm(editing ? {
+        title: editing.title,
+        category_id: editing.category_id ?? "",
+        body: editing.body,
+        is_anonymous: editing.is_anonymous,
+        member_name: editing.author_name ?? "",
+        date_of_testimony: editing.date_of_testimony ?? format(new Date(), "yyyy-MM-dd"),
+      } : DEFAULT_FORM);
+    }
+  }, [open, editing]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {

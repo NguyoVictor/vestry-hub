@@ -95,8 +95,23 @@ export default function CMKiosk() {
 
   // Start QR scanner when entering scan screen
   useEffect(() => {
-    if (screen !== "scan") { scannerRef.current?.stop().catch(() => {}); return; }
+    if (screen !== "scan") {
+      // Only stop if the scanner is actually running
+      if (scannerRef.current) {
+        try {
+          const state = scannerRef.current.getState?.();
+          // State 2 = SCANNING, State 3 = PAUSED
+          if (state === 2 || state === 3) {
+            scannerRef.current.stop().catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
+      }
+      return;
+    }
     let scanner: Html5Qrcode;
+    let started = false;
     try {
       scanner = new Html5Qrcode("kiosk-qr-reader");
       scannerRef.current = scanner;
@@ -108,11 +123,22 @@ export default function CMKiosk() {
           await handleQRScan(qrData);
         },
         () => {}
-      ).catch(() => {});
+      ).then(() => { started = true; }).catch(() => {});
     } catch {
       // camera not available
     }
-    return () => { scannerRef.current?.stop().catch(() => {}); };
+    return () => {
+      if (started && scannerRef.current) {
+        try {
+          const state = scannerRef.current.getState?.();
+          if (state === 2 || state === 3) {
+            scannerRef.current.stop().catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
   }, [screen]);
 
   const checkInMutation = useMutation({
