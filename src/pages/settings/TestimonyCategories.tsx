@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -173,13 +173,16 @@ export default function TestimonyCategories() {
     staleTime: 300_000,
   });
 
-  // Seed defaults on first load
+  const seedingRef = useRef(false);
+
+  // Seed defaults on first load — use a ref to prevent re-triggering
   useEffect(() => {
-    if (!isLoading && categories.length === 0 && !seeding) {
+    if (!isLoading && categories.length === 0 && !seedingRef.current) {
+      seedingRef.current = true;
       handleSeedDefaults();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, categories.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, categories.length]); // primitives only — no object refs
 
   const handleSeedDefaults = async () => {
     setSeeding(true);
@@ -221,8 +224,14 @@ export default function TestimonyCategories() {
   });
 
   // ── Drag-to-reorder ──────────────────────────────────────────────────────
+  // Build a stable cache key from the server data so the effect only fires
+  // when the actual content changes — not on every render due to new array refs.
+  const categoriesCacheKey = categories.map(c => `${c.id}:${c.is_active}:${c.sort_order}:${c.label}`).join('|');
   const [rows, setRows] = useState<TestimonyCategory[]>([]);
-  useEffect(() => { setRows(categories); }, [categories]);
+  useEffect(() => {
+    setRows(categories);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesCacheKey]);
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
   const handleDragOver = (e: React.DragEvent, idx: number) => {

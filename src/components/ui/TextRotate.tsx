@@ -6,19 +6,9 @@ interface TextRotateProps {
   texts: string[];
   interval?: number;
   className?: string;
-  charClassName?: string;
-  staggerDuration?: number;
-  exitDuration?: number;
 }
 
-export function TextRotate({
-  texts,
-  interval = 2800,
-  className,
-  charClassName,
-  staggerDuration = 0.03,
-  exitDuration = 0.2,
-}: TextRotateProps) {
+export function TextRotate({ texts, interval = 2800, className }: TextRotateProps) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -28,42 +18,19 @@ export function TextRotate({
     return () => clearInterval(timer);
   }, [texts.length, interval]);
 
-  const currentText = texts[index];
-
   return (
-    <span className={cn('inline-flex overflow-hidden', className)}>
+    // min-w keeps the h1 from collapsing when the word transitions
+    <span className={cn('relative inline-block', className)} style={{ minWidth: '1ch' }}>
       <AnimatePresence mode="wait">
         <motion.span
-          key={currentText}
-          className="inline-flex"
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          variants={{
-            hidden: {},
-            visible: { transition: { staggerChildren: staggerDuration } },
-            exit: { transition: { staggerChildren: staggerDuration / 2, staggerDirection: -1 } },
-          }}
+          key={texts[index]}
+          className="inline-block whitespace-nowrap"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.35, ease: 'easeInOut' }}
         >
-          {currentText.split('').map((char, i) => (
-            <motion.span
-              key={i}
-              className={cn('inline-block', charClassName)}
-              variants={{
-                hidden: { opacity: 0, y: 20, filter: 'blur(4px)' },
-                visible: {
-                  opacity: 1, y: 0, filter: 'blur(0px)',
-                  transition: { type: 'spring', stiffness: 400, damping: 28 },
-                },
-                exit: {
-                  opacity: 0, y: -16, filter: 'blur(4px)',
-                  transition: { duration: exitDuration, ease: 'easeIn' },
-                },
-              }}
-            >
-              {char === ' ' ? '\u00A0' : char}
-            </motion.span>
-          ))}
+          {texts[index]}
         </motion.span>
       </AnimatePresence>
     </span>

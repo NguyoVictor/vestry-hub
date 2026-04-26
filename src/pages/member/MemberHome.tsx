@@ -55,7 +55,7 @@ const ALL_MODULES = [
   { key: "upcoming_events", label: "Upcoming Events & Services", desc: "Church services, events and programs", icon: CalendarDays, color: "bg-violet-500", path: "/member/events" },
   { key: "watch_live", label: "Watch Live", desc: "Join our live stream services", icon: Tv, color: "bg-red-600", path: "/member/sermons" },
   { key: "sermons", label: "Sermons & Messages", desc: "Watch and listen to teachings", icon: PlayCircle, color: "bg-indigo-500", path: "/member/sermons" },
-  { key: "church_media", label: "Church Media", desc: "Photos, videos, and audio photos", icon: Image, color: "bg-cyan-500", path: "/member/sermons" },
+  { key: "church_media", label: "Church Media", desc: "Photos, videos, and audio photos", icon: Image, color: "bg-cyan-500", path: "/member/church-media" },
   { key: "outreach_impact", label: "Outreach Impact", desc: "Statistics & data from our outreach", icon: Globe, color: "bg-green-600", path: "#" },
   { key: "volunteer", label: "Volunteer", desc: "View current service and sign up to serve", icon: HandHeart, color: "bg-orange-400", path: "/member/volunteer" },
   { key: "house_fellowships", label: "House Fellowships", desc: "Join and view home cell groups", icon: Home, color: "bg-amber-600", path: "/member/groups" },

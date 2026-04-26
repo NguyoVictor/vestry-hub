@@ -21,7 +21,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { PageTransition } from "@/components/ui/PageTransition";
 import { BlurFadeIn } from "@/components/ui/BlurFadeIn";
 import MasonryGrid from "@/components/ui/MasonryGrid";
-import GradientText from "@/components/ui/GradientText";
 import { TextRotate } from "@/components/ui/TextRotate";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { TestimonyStatusBadge } from "@/components/ui/TestimonyStatusBadge";
@@ -399,11 +398,11 @@ export default function MemberTestimonies() {
           <div className="max-w-2xl mx-auto text-center space-y-4">
             <BlurFadeIn delay={0}><p className="text-xs uppercase tracking-widest text-muted-foreground font-jakarta">Wall of Faith</p></BlurFadeIn>
             <BlurFadeIn delay={0.1}>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 font-jakarta leading-tight">
-                Stories of God's{" "}
-                <GradientText colors={["#7c3aed", "#a78bfa", "#6d28d9", "#7c3aed"]} className="inline">
+              <h1 className="flex flex-wrap items-baseline justify-center gap-x-2 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 font-jakarta leading-tight">
+                <span>Stories of God's</span>
+                <span className="text-violet-600">
                   <TextRotate texts={["Faithfulness", "Provision", "Healing", "Grace", "Power"]} interval={2800} />
-                </GradientText>
+                </span>
               </h1>
             </BlurFadeIn>
             <BlurFadeIn delay={0.2}><p className="text-sm text-slate-500 dark:text-slate-400 font-jakarta leading-relaxed max-w-lg mx-auto">Read how God is moving in our community. Every testimony here is a real story from a real person.</p></BlurFadeIn>

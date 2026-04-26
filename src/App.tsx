@@ -23,6 +23,8 @@ import { MemberAuthGuard } from "./components/layout/MemberAuthGuard";
 import { MemberPortalLayout } from "./components/layout/MemberPortalLayout";
 import { SettingsLayout } from "./components/settings/SettingsLayout";
 import { allNavItems } from "./config/navigation";
+import { SuperAdminGuard } from "./components/layout/SuperAdminGuard";
+import { SuperAdminLayout } from "./components/layout/SuperAdminLayout";
 import { lazy, Suspense } from "react";
 import { Loader2, Settings } from "lucide-react";
 
@@ -44,6 +46,13 @@ const MemberGivingHistory = lazy(() => import("./pages/member/MemberGivingHistor
 const MemberAnnouncements = lazy(() => import("./pages/member/MemberAnnouncements"));
 const MemberRequests = lazy(() => import("./pages/member/MemberRequests"));
 const MemberTestimonies = lazy(() => import("./pages/member/MemberTestimonies"));
+const MemberChurchMedia = lazy(() => import("./pages/member/MemberChurchMedia"));
+const MemberAlbumDetail = lazy(() => import("./pages/member/MemberAlbumDetail"));
+
+// Super-admin pages
+const SuperAdminDashboard = lazy(() => import("./pages/superadmin/SuperAdminDashboard"));
+const SuperAdminChurches = lazy(() => import("./pages/superadmin/SuperAdminChurches"));
+const SuperAdminStorageRequests = lazy(() => import("./pages/superadmin/SuperAdminStorageRequests"));
 const MemberProfilePage = lazy(() => import("./pages/member/MemberProfile"));
 const MemberSettingsPage = lazy(() => import("./pages/member/MemberSettings"));
 const MemberEventsPage = lazy(() => import("./pages/member/MemberEvents").then(m => ({ default: m.MemberEvents })));
@@ -108,6 +117,7 @@ const TaxSettingsPage = lazy(() => import("./pages/settings/TaxSettings"));
 const CommunicationsSettingsPage = lazy(() => import("./pages/settings/CommunicationsSettings"));
 const AnnouncementTypesSettingsPage = lazy(() => import("./pages/settings/AnnouncementTypes"));
 const TestimonyCategoriesSettingsPage = lazy(() => import("./pages/settings/TestimonyCategories"));
+const MediaCategoriesSettingsPage = lazy(() => import("./pages/settings/MediaCategories"));
 const DataCompliancePage = lazy(() => import("./pages/DataCompliance"));
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfServicePage = lazy(() => import("./pages/legal/TermsOfService"));
@@ -239,6 +249,15 @@ const App = () => (
             <Route path="/member-registration/:orgId" element={<Suspense fallback={<Fallback />}><MemberRegistration /></Suspense>} />
             <Route path="/data-compliance" element={<Suspense fallback={<Fallback />}><DataCompliancePage /></Suspense>} />
             <Route path="/privacy-policy" element={<Suspense fallback={<Fallback />}><PrivacyPolicyPage /></Suspense>} />
+
+            {/* ── Super-admin panel (no link in regular nav — access by URL) ── */}
+            <Route element={<SuperAdminGuard />}>
+              <Route element={<SuperAdminLayout />}>
+                <Route path="/superadmin" element={<Suspense fallback={<Fallback />}><SuperAdminDashboard /></Suspense>} />
+                <Route path="/superadmin/churches" element={<Suspense fallback={<Fallback />}><SuperAdminChurches /></Suspense>} />
+                <Route path="/superadmin/storage-requests" element={<Suspense fallback={<Fallback />}><SuperAdminStorageRequests /></Suspense>} />
+              </Route>
+            </Route>
             <Route path="/terms-of-service" element={<Suspense fallback={<Fallback />}><TermsOfServicePage /></Suspense>} />
             <Route path="/data-policy" element={<Suspense fallback={<Fallback />}><DataPolicyPage /></Suspense>} />
             {/* Design System reference — dev only, not in production nav */}
@@ -372,6 +391,8 @@ const App = () => (
                   <Route path="announcement-types" element={<Suspense fallback={<Fallback />}><AnnouncementTypesSettingsPage /></Suspense>} />
                   {/* Testimony Categories settings */}
                   <Route path="testimony-categories" element={<Suspense fallback={<Fallback />}><TestimonyCategoriesSettingsPage /></Suspense>} />
+                  {/* Media Categories settings */}
+                  <Route path="media-categories" element={<Suspense fallback={<Fallback />}><MediaCategoriesSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
                   {["branding","payments","whatsapp","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
@@ -412,6 +433,8 @@ const App = () => (
                 <Route path="/member/groups/:groupId" element={<Suspense fallback={<Fallback />}><MemberGroupDetailPage /></Suspense>} />
                 <Route path="/member/requests" element={<Suspense fallback={<Fallback />}><MemberRequests /></Suspense>} />
                 <Route path="/member/testimonies" element={<Suspense fallback={<Fallback />}><MemberTestimonies /></Suspense>} />
+                <Route path="/member/church-media" element={<Suspense fallback={<Fallback />}><MemberChurchMedia /></Suspense>} />
+                <Route path="/member/church-media/albums/:albumId" element={<Suspense fallback={<Fallback />}><MemberAlbumDetail /></Suspense>} />
                 <Route path="/member/profile" element={<Suspense fallback={<Fallback />}><MemberProfilePage /></Suspense>} />
                 <Route path="/member/settings" element={<Suspense fallback={<Fallback />}><MemberSettingsPage /></Suspense>} />
                 <Route path="/member/messages" element={<Suspense fallback={<Fallback />}><MemberMessagesPage /></Suspense>} />

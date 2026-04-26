@@ -125,6 +125,13 @@ export const TABLES = {
   TESTIMONIES: "testimonies",
   TESTIMONY_CATEGORIES: "testimony_categories",
   TESTIMONY_REACTIONS: "testimony_reactions",
+
+  // Church Media
+  CHURCH_MEDIA_ITEMS: "church_media_items",
+  MEDIA_ALBUMS: "media_albums",
+  MEDIA_CATEGORIES: "media_categories",
+  CHURCH_STORAGE: "church_storage",
+  STORAGE_PLANS: "storage_plans",
   SURVEYS: "surveys",
   SURVEY_RESPONSES: "survey_responses",
   SURVEY_ANSWERS: "survey_answers",
@@ -138,7 +145,6 @@ export const TABLES = {
   SET_LIST_SONGS: "set_list_songs",
   MEDIA_ASSETS: "media_assets",
   MEDIA_FOLDERS: "media_folders",
-  MEDIA_ALBUMS: "media_albums",
   MEDIA_PHOTOS: "media_photos",
   CHURCH_ASSETS: "church_assets",
   ASSET_MAINTENANCE: "asset_maintenance",
