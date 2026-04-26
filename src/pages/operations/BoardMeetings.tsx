@@ -454,12 +454,12 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
 
 // ─── Meeting Card ─────────────────────────────────────────────────────────────
 function MeetingCard({
-  m, attendeeCount, onEdit, onDelete, onAdvance, onJump, onView, onMinutes, hasMinutes,
+  m, attendeeCount, onEdit, onDelete, onAdvance, onJump, onView, onMinutes, hasMinutes, userName,
 }: {
   m: any; attendeeCount: number;
   onEdit: () => void; onDelete: () => void;
   onAdvance: (s: string) => void; onJump: (s: string) => void;
-  onView: () => void; onMinutes: () => void; hasMinutes: boolean;
+  onView: () => void; onMinutes: () => void; hasMinutes: boolean; userName: string;
 }) {
   const status = m.status || "scheduled";
   const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label || m.type?.replace(/_/g, " ") || "Meeting";
@@ -528,6 +528,18 @@ function MeetingCard({
           )}
         </div>
 
+        {/* Join Meeting button */}
+        <div onClick={e => e.stopPropagation()}>
+          <JoinMeetingButton
+            meetingDate={m.meeting_date}
+            meetingTime={m.start_time?.toString().slice(0, 5)}
+            roomName={`vestryhub-bm-${m.id}`}
+            displayName={userName}
+            title={m.title}
+            size="sm"
+          />
+        </div>
+
         {/* Progress pipeline */}
         <div className="pt-1 border-t border-slate-100 dark:border-slate-800" onClick={e => e.stopPropagation()}>
           <StatusPipeline status={status} onAdvance={onAdvance} onJump={onJump} />
@@ -555,7 +567,7 @@ function MeetingCard({
 }
 
 export default function BoardMeetingsPage() {
-  const { tenantId, userId } = useChurch();
+  const { tenantId, userId, userName } = useChurch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [view, setView] = useState<"cards" | "list" | "calendar">("cards");
@@ -799,6 +811,7 @@ export default function BoardMeetingsPage() {
               m={m}
               attendeeCount={(attendeeCounts as Record<string, number>)[m.id] || 0}
               hasMinutes={!!(minutesMap as Record<string, boolean>)[m.id]}
+              userName={userName}
               onView={() => setViewingMeeting(m)}
               onEdit={() => openEdit(m)}
               onDelete={() => setDeleteId(m.id)}
@@ -819,6 +832,7 @@ export default function BoardMeetingsPage() {
                 <TableHead>Location</TableHead>
                 <TableHead>Progress</TableHead>
                 <TableHead>Minutes</TableHead>
+                <TableHead>Join</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
@@ -869,6 +883,16 @@ export default function BoardMeetingsPage() {
                         }
                         return <span className="text-xs text-slate-400">Pending</span>;
                       })()}
+                    </TableCell>
+                    <TableCell>
+                      <JoinMeetingButton
+                        meetingDate={m.meeting_date}
+                        meetingTime={m.start_time?.toString().slice(0, 5)}
+                        roomName={`vestryhub-bm-${m.id}`}
+                        displayName={userName}
+                        title={m.title}
+                        size="sm"
+                      />
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
