@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  Heart, HandHeart, CalendarDays, MessageCircle, BookOpen, Share2,
+  Heart, HandHeart, CalendarDays, MessageCircle, BookOpen,
   Receipt, Megaphone, MessageSquare, Quote, DollarSign, Wrench,
   Lightbulb, Users, Video, PlayCircle, Image, Globe, UserCheck,
   Home, BarChart2, BookCheck, PenLine, Building2, ShoppingBag,
@@ -49,7 +49,6 @@ const ALL_MODULES = [
   { key: "messages", label: "Messages", desc: "Direct messages from church staff", icon: MessageCircle, color: "bg-blue-500", path: "/member/messages" },
   { key: "chat_on_whatsapp", label: "Chat on WhatsApp", desc: "WhatsApp not yet configured for your church", icon: MessageSquare, color: "bg-green-500", path: "#" },
   { key: "testimonies", label: "Testimonies", desc: "Read inspiring testimonies from members", icon: Quote, color: "bg-purple-500", path: "/member/testimonies" },
-  { key: "share_your_testimony", label: "Share Your Testimony", desc: "Share what God has done for you", icon: Share2, color: "bg-pink-500", path: "/member/testimonies" },
   { key: "member_request", label: "Member Request", desc: "Submit a request to the church", icon: Wrench, color: "bg-slate-500", path: "/member/requests" },
   { key: "my_appointments", label: "My Appointments", desc: "View scheduled counselling meetings", icon: Clock, color: "bg-indigo-400", path: "/member/requests" },
   { key: "upcoming_events", label: "Upcoming Events & Services", desc: "Church services, events and programs", icon: CalendarDays, color: "bg-violet-500", path: "/member/events" },
