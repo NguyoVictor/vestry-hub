@@ -54,6 +54,7 @@ export const navigationGroups: NavGroup[] = [
     { title: "Communications", path: "/communications", icon: Send },
     { title: "Announcements", path: "/announcements", icon: Megaphone },
     { title: "Member Messaging", path: "/member-messaging", icon: MessageCircle },
+    { title: "Appointments", path: "/appointments", icon: CalendarDays },
     { title: "Testimonies", path: "/testimonies", icon: Quote },
     { title: "Surveys", path: "/surveys", icon: BarChart2 },
   ]},

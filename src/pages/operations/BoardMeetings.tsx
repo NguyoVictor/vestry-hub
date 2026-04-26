@@ -26,6 +26,7 @@ import {
   isSameDay, isSameMonth, isToday, addMonths, subMonths,
 } from "date-fns";
 import { Plus, Video, Calendar, MapPin, Clock, Users, MoreHorizontal, Pencil, Trash2, ChevronRight, UserCheck, ChevronLeft, LayoutList, LayoutGrid, Eye, FileText, Link } from "lucide-react";
+import { JoinMeetingButton } from "@/components/shared/JoinMeetingButton";
 
 const MEETING_TYPES = [
   { value: "board_meeting", label: "Board Meeting" },
@@ -266,7 +267,7 @@ const STATUS_BANNER: Record<string, string> = {
 
 // ─── Meeting View Modal ───────────────────────────────────────────────────────
 function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose: () => void; onEdit: () => void }) {
-  const { tenantId } = useChurch();
+  const { tenantId, userName } = useChurch();
   const status = meeting.status || "scheduled";
   const typeLabel = MEETING_TYPES.find(t => t.value === meeting.type)?.label || meeting.type?.replace(/_/g, " ") || "Meeting";
 
@@ -349,12 +350,25 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
                 </p>
               </div>
             )}
+            {meeting.meeting_date && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Join Meeting</p>
+                <JoinMeetingButton
+                  meetingDate={meeting.meeting_date}
+                  meetingTime={meeting.start_time?.toString().slice(0, 5)}
+                  roomName={`vestryhub-bm-${meeting.id}`}
+                  displayName={userName}
+                  title={meeting.title}
+                  size="sm"
+                />
+              </div>
+            )}
             {meeting.online_link && (
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Online Link</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">External Link</p>
                 <a href={meeting.online_link} target="_blank" rel="noopener noreferrer"
                   className="text-sm text-orange-500 hover:underline flex items-center gap-1.5">
-                  <Link className="h-3.5 w-3.5" />Join Meeting
+                  <Link className="h-3.5 w-3.5" />Open Link
                 </a>
               </div>
             )}

@@ -46,6 +46,7 @@ const MemberGivingHistory = lazy(() => import("./pages/member/MemberGivingHistor
 const MemberAnnouncements = lazy(() => import("./pages/member/MemberAnnouncements"));
 const MemberRequests = lazy(() => import("./pages/member/MemberRequests"));
 const MemberTestimonies = lazy(() => import("./pages/member/MemberTestimonies"));
+const MemberAppointments = lazy(() => import("./pages/member/MemberAppointments"));
 const MemberChurchMedia = lazy(() => import("./pages/member/MemberChurchMedia"));
 const MemberAlbumDetail = lazy(() => import("./pages/member/MemberAlbumDetail"));
 
@@ -118,6 +119,7 @@ const CommunicationsSettingsPage = lazy(() => import("./pages/settings/Communica
 const AnnouncementTypesSettingsPage = lazy(() => import("./pages/settings/AnnouncementTypes"));
 const TestimonyCategoriesSettingsPage = lazy(() => import("./pages/settings/TestimonyCategories"));
 const MediaCategoriesSettingsPage = lazy(() => import("./pages/settings/MediaCategories"));
+const AppointmentTypesSettingsPage = lazy(() => import("./pages/settings/AppointmentTypes"));
 const DataCompliancePage = lazy(() => import("./pages/DataCompliance"));
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfServicePage = lazy(() => import("./pages/legal/TermsOfService"));
@@ -182,6 +184,7 @@ const ComposeEmailPage = lazy(() => import("./pages/communications/ComposeEmail"
 const AnnouncementsPage = lazy(() => import("./pages/communications/Announcements"));
 const MemberMessaging = lazy(() => import("./pages/communications/MemberMessaging"));
 const TestimoniesPage = lazy(() => import("./pages/communications/Testimonies"));
+const AppointmentsPage = lazy(() => import("./pages/engagement/Appointments"));
 const SurveysPage = lazy(() => import("./pages/communications/Surveys"));
 
 // Design System reference — dev only
@@ -312,6 +315,7 @@ const App = () => (
                 <Route path="/communications/compose" element={<Suspense fallback={<Fallback />}><ComposeEmailPage /></Suspense>} />
                 <Route path="/announcements" element={<Suspense fallback={<Fallback />}><AnnouncementsPage /></Suspense>} />
                 <Route path="/member-messaging" element={<Suspense fallback={<Fallback />}><MemberMessaging /></Suspense>} />
+                <Route path="/appointments" element={<Suspense fallback={<Fallback />}><AppointmentsPage /></Suspense>} />
                 <Route path="/testimonies" element={<Suspense fallback={<Fallback />}><TestimoniesPage /></Suspense>} />
                 <Route path="/surveys" element={<Suspense fallback={<Fallback />}><SurveysPage /></Suspense>} />
                 <Route path="/surveys/:surveyId/responses" element={<Suspense fallback={<Fallback />}><SurveyResponsesPage /></Suspense>} />
@@ -393,6 +397,7 @@ const App = () => (
                   <Route path="testimony-categories" element={<Suspense fallback={<Fallback />}><TestimonyCategoriesSettingsPage /></Suspense>} />
                   {/* Media Categories settings */}
                   <Route path="media-categories" element={<Suspense fallback={<Fallback />}><MediaCategoriesSettingsPage /></Suspense>} />
+                  <Route path="appointment-types" element={<Suspense fallback={<Fallback />}><AppointmentTypesSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
                   {["branding","payments","whatsapp","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
@@ -432,6 +437,7 @@ const App = () => (
                 <Route path="/member/groups" element={<Suspense fallback={<Fallback />}><MemberGroupsPage /></Suspense>} />
                 <Route path="/member/groups/:groupId" element={<Suspense fallback={<Fallback />}><MemberGroupDetailPage /></Suspense>} />
                 <Route path="/member/requests" element={<Suspense fallback={<Fallback />}><MemberRequests /></Suspense>} />
+                <Route path="/member/appointments" element={<Suspense fallback={<Fallback />}><MemberAppointments /></Suspense>} />
                 <Route path="/member/testimonies" element={<Suspense fallback={<Fallback />}><MemberTestimonies /></Suspense>} />
                 <Route path="/member/church-media" element={<Suspense fallback={<Fallback />}><MemberChurchMedia /></Suspense>} />
                 <Route path="/member/church-media/albums/:albumId" element={<Suspense fallback={<Fallback />}><MemberAlbumDetail /></Suspense>} />

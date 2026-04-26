@@ -196,6 +196,10 @@ export const TABLES = {
   BIBLE_HIGHLIGHTS: "bible_highlights",
   BIBLE_FAVORITES: "bible_favorites",
 
+  // Appointments
+  APPOINTMENTS: "appointments",
+  APPOINTMENT_TYPES: "appointment_types",
+
   // Canva integration
   CANVA_TOKENS: "canva_tokens",
   CANVA_OAUTH_STATE: "canva_oauth_state",

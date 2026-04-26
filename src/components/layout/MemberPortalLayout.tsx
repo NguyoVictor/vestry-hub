@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import {
   Home, Heart, CalendarDays, MessageCircle, User, BookOpen,
-  Megaphone, Users, LogOut, HandHeart, Quote, Baby,
+  Megaphone, Users, LogOut, HandHeart, Quote, Baby, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/ui/notifications-1";
@@ -32,6 +32,7 @@ const SIDEBAR_NAV = [
   { path: "/member/groups", label: "My Groups", icon: Users },
   { path: "/member/giving-history", label: "My Giving", icon: Heart },
   { path: "/member/requests", label: "My Requests", icon: HandHeart },
+  { path: "/member/appointments", label: "My Appointments", icon: Clock },
   { path: "/member/children", label: "My Children", icon: Baby },
   { path: "/member/testimonies", label: "Testimonies", icon: Quote },
   { path: "/member/settings", label: "Settings", icon: User },

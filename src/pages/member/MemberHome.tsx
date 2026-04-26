@@ -50,7 +50,7 @@ const ALL_MODULES = [
   { key: "chat_on_whatsapp", label: "Chat on WhatsApp", desc: "WhatsApp not yet configured for your church", icon: MessageSquare, color: "bg-green-500", path: "#" },
   { key: "testimonies", label: "Testimonies", desc: "Read inspiring testimonies from members", icon: Quote, color: "bg-purple-500", path: "/member/testimonies" },
   { key: "member_request", label: "Member Request", desc: "Submit a request to the church", icon: Wrench, color: "bg-slate-500", path: "/member/requests" },
-  { key: "my_appointments", label: "My Appointments", desc: "View scheduled counselling meetings", icon: Clock, color: "bg-indigo-400", path: "/member/requests" },
+  { key: "my_appointments", label: "My Appointments", desc: "View scheduled counselling meetings", icon: Clock, color: "bg-indigo-400", path: "/member/appointments" },
   { key: "upcoming_events", label: "Upcoming Events & Services", desc: "Church services, events and programs", icon: CalendarDays, color: "bg-violet-500", path: "/member/events" },
   { key: "watch_live", label: "Watch Live", desc: "Join our live stream services", icon: Tv, color: "bg-red-600", path: "/member/sermons" },
   { key: "sermons", label: "Sermons & Messages", desc: "Watch and listen to teachings", icon: PlayCircle, color: "bg-indigo-500", path: "/member/sermons" },
