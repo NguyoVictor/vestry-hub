@@ -187,7 +187,14 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
             <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white" onClick={handleUpload} disabled={(!file && !files.length) || uploading}>
               {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</> : <><Upload className="mr-2 h-4 w-4" />Upload</>}
             </Button>
-          </div> { item: any; onClose: () => void; onSuccess: () => void; categories: Array<{ id: string; name: string; color: string }>; }
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface EditDialogProps { item: any; onClose: () => void; onSuccess: () => void; categories: Array<{ id: string; name: string; color: string }>; }
 function EditDialog({ item, onClose, onSuccess, categories }: EditDialogProps) {
   const [title, setTitle] = useState(item.title || "");
   const [description, setDescription] = useState(item.description || "");
