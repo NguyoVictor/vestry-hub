@@ -391,36 +391,38 @@ const Groups = () => {
                     const mtCfg = MEETING_TYPE_CONFIG[mt as keyof typeof MEETING_TYPE_CONFIG] || MEETING_TYPE_CONFIG.onsite;
                     const MtIcon = mtCfg.icon;
                     return (
-                      <BlurFadeIn key={g.id} delay={i * 0.04}>
-                        <tr className="border-b border-border/30 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/groups/${g.id}`)}>
-                          <td className="px-4 py-3.5">
-                            <span className="h-3 w-3 rounded-full block" style={{ backgroundColor: color }} />
-                          </td>
-                          <td className="px-4 py-3.5 font-medium text-foreground">{g.name}</td>
-                          <td className="px-4 py-3.5 hidden md:table-cell">
-                            {g.group_type_label && (
-                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
-                                style={{ backgroundColor: `${g.group_type_color || "#6366f1"}20`, color: g.group_type_color || "#6366f1" }}>
-                                {g.group_type_label}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3.5 hidden sm:table-cell">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${mtCfg.bg} ${mtCfg.text}`}>
-                              <MtIcon className="h-2.5 w-2.5" />{mtCfg.label}
+                      <motion.tr key={g.id}
+                        initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04, duration: 0.25 }}
+                        className="border-b border-border/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/groups/${g.id}`)}>
+                        <td className="px-4 py-3.5">
+                          <span className="h-3 w-3 rounded-full block" style={{ backgroundColor: color }} />
+                        </td>
+                        <td className="px-4 py-3.5 font-medium text-foreground">{g.name}</td>
+                        <td className="px-4 py-3.5 hidden md:table-cell">
+                          {g.group_type_label && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+                              style={{ backgroundColor: `${g.group_type_color || "#6366f1"}20`, color: g.group_type_color || "#6366f1" }}>
+                              {g.group_type_label}
                             </span>
-                          </td>
-                          <td className="px-4 py-3.5 text-muted-foreground">{memberCounts[g.id] || 0}</td>
-                          <td className="px-4 py-3.5 text-muted-foreground hidden lg:table-cell">
-                            {g.meeting_day ? `${g.meeting_day}${g.meeting_time ? ` · ${g.meeting_time}` : ""}` : "—"}
-                          </td>
-                          <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs text-primary gap-1" onClick={() => navigate(`/groups/${g.id}`)}>
-                              View <ChevronRight className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      </BlurFadeIn>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 hidden sm:table-cell">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${mtCfg.bg} ${mtCfg.text}`}>
+                            <MtIcon className="h-2.5 w-2.5" />{mtCfg.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-muted-foreground">{memberCounts[g.id] || 0}</td>
+                        <td className="px-4 py-3.5 text-muted-foreground hidden lg:table-cell">
+                          {g.meeting_day ? `${g.meeting_day}${g.meeting_time ? ` · ${g.meeting_time}` : ""}` : "—"}
+                        </td>
+                        <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-primary gap-1" onClick={() => navigate(`/groups/${g.id}`)}>
+                            View <ChevronRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </motion.tr>
                     );
                   })}
                 </tbody>
