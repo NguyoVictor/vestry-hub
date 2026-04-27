@@ -14,7 +14,7 @@ export function JitsiModal({ open, onClose, roomName, displayName, title }: Jits
   const encodedName = encodeURIComponent(displayName);
 
   const src = [
-    `https://meet.jit.si/${roomName}`,
+    `https://jitsi.riot.im/${roomName}`,
     `#config.prejoinPageEnabled=false`,
     `&config.lobby.enabled=false`,
     `&config.enableLobbyChat=false`,
