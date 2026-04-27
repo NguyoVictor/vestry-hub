@@ -83,8 +83,9 @@ function nanoid() {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function MeetingMinutesPage() {
-  const { id: meetingId } = useParams<{ id: string }>();
+export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { meetingIdProp?: string; inline?: boolean } = {}) {
+  const params = useParams<{ id: string }>();
+  const meetingId = meetingIdProp ?? params.id;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { tenantId, name: churchName } = useChurch();
@@ -466,9 +467,11 @@ export default function MeetingMinutesPage() {
         <div className="text-center space-y-3">
           <AlertCircle className="h-12 w-12 text-slate-300 mx-auto" />
           <p className="text-base font-semibold text-slate-600">Meeting not found</p>
+          {!inline && (
           <Button variant="outline" onClick={() => navigate("/board-meetings")}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Back to Meetings
           </Button>
+          )}
         </div>
       </div>
     );
@@ -489,14 +492,16 @@ export default function MeetingMinutesPage() {
         {/* ── Page Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-0.5 text-slate-500 hover:text-slate-900"
-              onClick={() => navigate("/board-meetings")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            {!inline && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-0.5 text-slate-500 hover:text-slate-900"
+                onClick={() => navigate("/board-meetings")}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             <div>
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{meeting.title}</h1>
               <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-slate-500">
@@ -903,7 +908,7 @@ export default function MeetingMinutesPage() {
                 <p className="text-sm text-slate-500 mb-4">Schedule the next meeting to keep momentum going.</p>
                 <Button
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold"
-                  onClick={() => navigate("/board-meetings?action=new")}
+                  onClick={() => !inline && navigate("/board-meetings?action=new")}
                 >
                   <Plus className="h-4 w-4 mr-1.5" />
                   Schedule Next Meeting

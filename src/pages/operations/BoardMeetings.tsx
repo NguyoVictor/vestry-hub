@@ -360,6 +360,8 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
                   roomName={`vestryhub-bm-${meeting.id}`}
                   displayName={userName}
                   title={meeting.title}
+                  boardMeetingId={meeting.id}
+                  meetingStatus={meeting.status}
                   size="sm"
                 />
               </div>
@@ -505,6 +507,22 @@ function MeetingCard({
           <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${STATUS_COLORS[status]}`}>
             {STATUS_LABELS[status]}
           </span>
+          {/* Location type pill */}
+          {m.location_type === 'online' && (
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">
+              <Video className="h-2.5 w-2.5" />Online
+            </span>
+          )}
+          {m.location_type === 'on_site' && (
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600">
+              <MapPin className="h-2.5 w-2.5" />Onsite
+            </span>
+          )}
+          {m.location_type === 'hybrid' && (
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-violet-100 text-violet-700">
+              <Video className="h-2.5 w-2.5" />Hybrid
+            </span>
+          )}
         </div>
 
         {/* Title */}
@@ -517,9 +535,11 @@ function MeetingCard({
               <Clock className="h-3 w-3" />{m.start_time.toString().slice(0, 5)}
             </span>
           )}
-          {m.location && (
-            <span className="flex items-center gap-1 truncate max-w-[120px]">
-              <MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{m.location}</span>
+          {/* Show location for on_site and hybrid */}
+          {(m.location_type === 'on_site' || m.location_type === 'hybrid') && (m.venue || m.location) && (
+            <span className="flex items-center gap-1 truncate max-w-[140px]">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{m.venue || m.location}</span>
             </span>
           )}
           {attendeeCount > 0 && (
@@ -529,40 +549,42 @@ function MeetingCard({
           )}
         </div>
 
-        {/* Join Meeting button */}
-        <div onClick={e => e.stopPropagation()}>
-          <JoinMeetingButton
-            meetingDate={m.meeting_date}
-            meetingTime={m.start_time?.toString().slice(0, 5)}
-            endTime={m.end_time?.toString().slice(0, 5)}
-            roomName={`vestryhub-bm-${m.id}`}
-            displayName={userName}
-            title={m.title}
-            size="sm"
-          />
-        </div>
+        {/* Join Meeting — only for online and hybrid */}
+        {(m.location_type === 'online' || m.location_type === 'hybrid') && (
+          <div onClick={e => e.stopPropagation()}>
+            <JoinMeetingButton
+              meetingDate={m.meeting_date}
+              meetingTime={m.start_time?.toString().slice(0, 5)}
+              endTime={m.end_time?.toString().slice(0, 5)}
+              roomName={`vestryhub-bm-${m.id}`}
+              displayName={userName}
+              title={m.title}
+              boardMeetingId={m.id}
+              meetingStatus={status}
+              size="sm"
+            />
+          </div>
+        )}
 
         {/* Progress pipeline */}
         <div className="pt-1 border-t border-slate-100 dark:border-slate-800" onClick={e => e.stopPropagation()}>
           <StatusPipeline status={status} onAdvance={onAdvance} onJump={onJump} />
         </div>
 
-        {/* Minutes button — only for completed meetings */}
-        {status === "completed" && (
-          <div onClick={e => e.stopPropagation()}>
-            <Button
-              size="sm"
-              variant={hasMinutes ? "default" : "outline"}
-              className={hasMinutes
-                ? "w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                : "w-full text-xs border-orange-400 text-orange-600 bg-white hover:bg-orange-500 hover:text-white hover:border-orange-500"}
-              onClick={onMinutes}
-            >
-              <FileText className="h-3.5 w-3.5 mr-1.5" />
-              {hasMinutes ? "View Minutes" : "Write Minutes"}
-            </Button>
-          </div>
-        )}
+        {/* Write / View Minutes — always visible regardless of status */}
+        <div onClick={e => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant={hasMinutes ? "default" : "outline"}
+            className={hasMinutes
+              ? "w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              : "w-full text-xs border-orange-400 text-orange-600 bg-white hover:bg-orange-500 hover:text-white hover:border-orange-500"}
+            onClick={onMinutes}
+          >
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+            {hasMinutes ? "View Minutes" : "Write Minutes"}
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -736,11 +758,30 @@ export default function BoardMeetingsPage() {
       const { error } = await supabase.from("board_meetings").update({ status } as any).eq("id", id);
       if (error) throw error;
     },
+    // Optimistic update — only the targeted card changes, others stay untouched
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["board_meetings", tenantId] });
+      const previous = queryClient.getQueryData(["board_meetings", tenantId]);
+      queryClient.setQueryData(["board_meetings", tenantId], (old: any[]) =>
+        (old ?? []).map(m => m.id === id ? { ...m, status } : m)
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context: any) => {
+      // Roll back only the affected card on error
+      if (context?.previous) {
+        queryClient.setQueryData(["board_meetings", tenantId], context.previous);
+      }
+      toast.error("Failed to update status");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["board_meetings", tenantId] });
       toast.success("Status updated");
     },
-    onError: () => toast.error("Failed to update status"),
+    onSettled: () => {
+      // Sync with server in the background — won't cause visible flash because
+      // optimistic data is already correct
+      queryClient.invalidateQueries({ queryKey: ["board_meetings", tenantId] });
+    },
   });
 
   const upcoming = meetings?.filter(m => new Date(m.meeting_date) >= new Date() && (m as any).status !== "cancelled") || [];
@@ -845,15 +886,36 @@ export default function BoardMeetingsPage() {
                   <TableRow key={m.id}>
                     <TableCell className="font-medium">{m.title}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {(m as any).type?.replace(/_/g, " ") || "—"}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {(m as any).type?.replace(/_/g, " ") || "—"}
+                        </Badge>
+                        {(m as any).location_type === 'online' && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">
+                            <Video className="h-2.5 w-2.5" />Online
+                          </span>
+                        )}
+                        {(m as any).location_type === 'on_site' && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600">
+                            <MapPin className="h-2.5 w-2.5" />Onsite
+                          </span>
+                        )}
+                        {(m as any).location_type === 'hybrid' && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-violet-100 text-violet-700">
+                            <Video className="h-2.5 w-2.5" />Hybrid
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {format(new Date(m.meeting_date), "dd MMM yyyy")}
                       {m.start_time && ` · ${m.start_time.toString().slice(0, 5)}`}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{m.location || "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {((m as any).location_type === 'on_site' || (m as any).location_type === 'hybrid')
+                        ? ((m as any).venue || m.location || "—")
+                        : "—"}
+                    </TableCell>
                     <TableCell>
                       <StatusPipeline
                         status={status}
@@ -863,39 +925,32 @@ export default function BoardMeetingsPage() {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const status = (m as any).status || "scheduled";
                         const has = !!(minutesMap as Record<string, boolean>)[m.id];
-                        if (has) {
-                          return (
-                            <Button size="sm" variant="default"
-                              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-2.5"
-                              onClick={() => navigate(`/board-meetings/${m.id}/minutes`)}>
-                              <FileText className="h-3 w-3 mr-1" />View Minutes
-                            </Button>
-                          );
-                        }
-                        if (status === "completed") {
-                          return (
-                            <Button size="sm" variant="outline"
-                              className="text-xs border-orange-300 text-orange-600 hover:bg-orange-50 h-7 px-2.5"
-                              onClick={() => navigate(`/board-meetings/${m.id}/minutes`)}>
-                              <FileText className="h-3 w-3 mr-1" />Write Minutes
-                            </Button>
-                          );
-                        }
-                        return <span className="text-xs text-slate-400">Pending</span>;
+                        return (
+                          <Button size="sm" variant={has ? "default" : "outline"}
+                            className={has
+                              ? "text-xs bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-2.5"
+                              : "text-xs border-orange-300 text-orange-600 hover:bg-orange-50 h-7 px-2.5"}
+                            onClick={() => navigate(`/board-meetings/${m.id}/minutes`)}>
+                            <FileText className="h-3 w-3 mr-1" />{has ? "View Minutes" : "Write Minutes"}
+                          </Button>
+                        );
                       })()}
                     </TableCell>
                     <TableCell>
-                      <JoinMeetingButton
-                        meetingDate={m.meeting_date}
-                        meetingTime={m.start_time?.toString().slice(0, 5)}
-                        endTime={m.end_time?.toString().slice(0, 5)}
-                        roomName={`vestryhub-bm-${m.id}`}
-                        displayName={userName}
-                        title={m.title}
-                        size="sm"
-                      />
+                      {((m as any).location_type === 'online' || (m as any).location_type === 'hybrid') && (
+                        <JoinMeetingButton
+                          meetingDate={m.meeting_date}
+                          meetingTime={m.start_time?.toString().slice(0, 5)}
+                          endTime={m.end_time?.toString().slice(0, 5)}
+                          roomName={`vestryhub-bm-${m.id}`}
+                          displayName={userName}
+                          title={m.title}
+                          boardMeetingId={m.id}
+                          meetingStatus={(m as any).status}
+                          size="sm"
+                        />
+                      )}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>

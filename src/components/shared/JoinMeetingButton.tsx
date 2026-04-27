@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { JitsiModal } from './JitsiModal';
+import { MeetingRoomLayout } from '@/components/meetings/MeetingRoomLayout';
 
 interface JoinMeetingButtonProps {
   meetingDate: string;    // yyyy-MM-dd
@@ -14,6 +15,10 @@ interface JoinMeetingButtonProps {
   displayName: string;
   title?: string;
   size?: 'sm' | 'default';
+  // Board meeting split-screen props (optional)
+  boardMeetingId?: string;
+  meetingDate2?: string;
+  meetingStatus?: string;
 }
 
 /**
@@ -79,6 +84,7 @@ function formatMobileLabel(meetingDate: string, meetingTime?: string): string {
 
 export function JoinMeetingButton({
   meetingDate, meetingTime, endTime, roomName, displayName, title, size = 'default',
+  boardMeetingId, meetingStatus,
 }: JoinMeetingButtonProps) {
   const [active, setActive] = useState(() => isMeetingActive(meetingDate, meetingTime, endTime));
   const [jitsiOpen, setJitsiOpen] = useState(false);
@@ -141,13 +147,28 @@ export function JoinMeetingButton({
         )}
       </div>
 
-      <JitsiModal
-        open={jitsiOpen}
-        onClose={() => setJitsiOpen(false)}
-        roomName={roomName}
-        displayName={displayName}
-        title={title}
-      />
+      {/* Board meetings: split-screen layout with minutes panel */}
+      {boardMeetingId && jitsiOpen && (
+        <MeetingRoomLayout
+          meetingId={boardMeetingId}
+          meetingTitle={title ?? 'Board Meeting'}
+          meetingDate={meetingDate}
+          startTime={meetingTime}
+          status={meetingStatus}
+          onClose={() => setJitsiOpen(false)}
+        />
+      )}
+
+      {/* Appointments / other: plain fullscreen Jitsi modal */}
+      {!boardMeetingId && (
+        <JitsiModal
+          open={jitsiOpen}
+          onClose={() => setJitsiOpen(false)}
+          roomName={roomName}
+          displayName={displayName}
+          title={title}
+        />
+      )}
     </>
   );
 }
