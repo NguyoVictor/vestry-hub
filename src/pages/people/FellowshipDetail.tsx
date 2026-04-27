@@ -12,7 +12,12 @@ import { BlurFadeIn } from "@/components/ui/BlurFadeIn";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import {
@@ -24,6 +29,9 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
+
+const PRESET_COLORS_DETAIL = ["#f97316","#7c3aed","#3b82f6","#10b981","#f59e0b","#ef4444","#ec4899","#14b8a6","#6366f1","#84cc16"];
+const DAYS_DETAIL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
 function getInitials(name: string) {
   return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -116,6 +124,20 @@ const FellowshipDetail = () => {
   const [activeTab, setActiveTab] = useState<"members"|"attendance"|"analytics"|"details">("members");
   const [selectedMember, setSelectedMember] = useState("");
   const [recordingAttendance, setRecordingAttendance] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  // Edit form state
+  const [eName, setEName] = useState("");
+  const [eZone, setEZone] = useState("");
+  const [eHostName, setEHostName] = useState("");
+  const [eHostAddress, setEHostAddress] = useState("");
+  const [eMeetingDay, setEMeetingDay] = useState("");
+  const [eMeetingTime, setEMeetingTime] = useState("");
+  const [eMaxCapacity, setEMaxCapacity] = useState("");
+  const [eNotes, setENotes] = useState("");
+  const [eIsActive, setEIsActive] = useState(true);
+  const [eColor, setEColor] = useState("#f97316");
+  const [eSaving, setESaving] = useState(false);
 
   // ── Fellowship data ──────────────────────────────────────────────────────
   const { data: fellowship, isLoading } = useQuery({
@@ -215,6 +237,42 @@ const FellowshipDetail = () => {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fellowship", fellowshipId] }); toast.success("Leader updated"); },
   });
 
+  const openEdit = () => {
+    if (!fellowship) return;
+    setEName((fellowship as any).name || "");
+    setEZone((fellowship as any).zone || "");
+    setEHostName((fellowship as any).host_name || "");
+    setEHostAddress((fellowship as any).host_address || "");
+    setEMeetingDay((fellowship as any).meeting_day || "");
+    setEMeetingTime((fellowship as any).meeting_time || "");
+    setEMaxCapacity((fellowship as any).max_capacity ? String((fellowship as any).max_capacity) : "");
+    setENotes((fellowship as any).notes || "");
+    setEIsActive((fellowship as any).is_active ?? true);
+    setEColor((fellowship as any).cover_color || "#f97316");
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!eName.trim()) { toast.error("Name is required"); return; }
+    setESaving(true);
+    try {
+      const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS).update({
+        name: eName.trim(), zone: eZone.trim() || null, host_name: eHostName.trim() || null,
+        host_address: eHostAddress.trim() || null, meeting_day: eMeetingDay || null,
+        meeting_time: eMeetingTime || null, max_capacity: eMaxCapacity ? parseInt(eMaxCapacity) : null,
+        notes: eNotes.trim() || null, is_active: eIsActive, cover_color: eColor,
+      } as any).eq("id", fellowshipId!);
+      if (error) throw error;
+      toast.success("Fellowship updated");
+      qc.invalidateQueries({ queryKey: ["fellowship", fellowshipId] });
+      setEditOpen(false);
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save");
+    } finally {
+      setESaving(false);
+    }
+  };
+
   if (isLoading) return (
     <div className="space-y-6 font-jakarta">
       <Skeleton className="h-48 w-full rounded-2xl" />
@@ -297,7 +355,7 @@ const FellowshipDetail = () => {
                     )}
                   </div>
                   <Button variant="outline" size="sm" className="gap-1.5"
-                    onClick={() => navigate(`/house-fellowships/${fellowshipId}?edit=1`)}>
+                    onClick={openEdit}>
                     <Pencil className="h-3.5 w-3.5" />Edit
                   </Button>
                 </div>
@@ -553,6 +611,74 @@ const FellowshipDetail = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Edit Sheet */}
+      <Sheet open={editOpen} onOpenChange={v => { setEditOpen(v); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto font-jakarta" side="right">
+          <SheetHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+            <SheetTitle className="font-jakarta">Edit Fellowship</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-5 pt-5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Fellowship Name *</Label>
+              <Input value={eName} onChange={e => setEName(e.target.value)} className="h-10 border-slate-200 focus:border-orange-500 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Zone / Area</Label>
+              <Input value={eZone} onChange={e => setEZone(e.target.value)} placeholder="e.g. Westlands Zone" className="h-10 border-slate-200 focus:border-orange-500 text-sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Host Name</Label>
+                <Input value={eHostName} onChange={e => setEHostName(e.target.value)} className="h-10 border-slate-200 focus:border-orange-500 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Max Capacity</Label>
+                <Input type="number" value={eMaxCapacity} onChange={e => setEMaxCapacity(e.target.value)} placeholder="Unlimited" className="h-10 border-slate-200 focus:border-orange-500 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Host Address</Label>
+              <Textarea value={eHostAddress} onChange={e => setEHostAddress(e.target.value)} rows={2} className="border-slate-200 focus:border-orange-500 text-sm resize-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Meeting Day</Label>
+                <Select value={eMeetingDay} onValueChange={setEMeetingDay}>
+                  <SelectTrigger className="h-10 border-slate-200 text-sm"><SelectValue placeholder="Select day" /></SelectTrigger>
+                  <SelectContent>{DAYS_DETAIL.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Time</Label>
+                <Input type="time" value={eMeetingTime} onChange={e => setEMeetingTime(e.target.value)} className="h-10 border-slate-200 focus:border-orange-500 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Notes</Label>
+              <Textarea value={eNotes} onChange={e => setENotes(e.target.value)} rows={3} className="border-slate-200 focus:border-orange-500 text-sm resize-none" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-slate-600">Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS_DETAIL.map(c => (
+                  <button key={c} type="button" onClick={() => setEColor(c)}
+                    className={`w-7 h-7 rounded-full border-2 transition-all ${eColor === c ? "border-slate-900 dark:border-white scale-110" : "border-transparent"}`}
+                    style={{ backgroundColor: c }} />
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium text-slate-600">Active</Label>
+              <Switch checked={eIsActive} onCheckedChange={setEIsActive} />
+            </div>
+            <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-jakarta font-semibold h-11"
+              onClick={handleEditSave} disabled={!eName.trim() || eSaving}>
+              {eSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Record Attendance Modal */}
       <AnimatePresence>
