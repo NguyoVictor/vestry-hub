@@ -120,6 +120,7 @@ const AnnouncementTypesSettingsPage = lazy(() => import("./pages/settings/Announ
 const TestimonyCategoriesSettingsPage = lazy(() => import("./pages/settings/TestimonyCategories"));
 const MediaCategoriesSettingsPage = lazy(() => import("./pages/settings/MediaCategories"));
 const AppointmentTypesSettingsPage = lazy(() => import("./pages/settings/AppointmentTypes"));
+const GroupTypesSettingsPage = lazy(() => import("./pages/settings/GroupTypes"));
 const DataCompliancePage = lazy(() => import("./pages/DataCompliance"));
 const PrivacyPolicyPage = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfServicePage = lazy(() => import("./pages/legal/TermsOfService"));
@@ -398,6 +399,7 @@ const App = () => (
                   {/* Media Categories settings */}
                   <Route path="media-categories" element={<Suspense fallback={<Fallback />}><MediaCategoriesSettingsPage /></Suspense>} />
                   <Route path="appointment-types" element={<Suspense fallback={<Fallback />}><AppointmentTypesSettingsPage /></Suspense>} />
+                  <Route path="group-types" element={<Suspense fallback={<Fallback />}><GroupTypesSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
                   {["branding","payments","whatsapp","verification"].map(slug => (
                     <Route key={slug} path={slug} element={

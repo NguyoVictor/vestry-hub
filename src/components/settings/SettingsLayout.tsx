@@ -4,7 +4,7 @@ import {
   Users, UserCheck, ClipboardList, ShieldCheck,
   CreditCard, Banknote, Heart, Receipt,
   SlidersHorizontal, CalendarCheck, Bell, MessageSquare, Wrench, Globe,
-  Lock, Scale, Database, BadgeCheck, QrCode, ExternalLink, Building2, Megaphone, Quote, Image, CalendarClock,
+  Lock, Scale, Database, BadgeCheck, QrCode, ExternalLink, Building2, Megaphone, Quote, Image, CalendarClock, UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -54,6 +54,7 @@ const NAV_GROUPS = [
       { label: "Testimony Categories", icon: Quote,       path: "/settings/testimony-categories" },
       { label: "Media Categories",     icon: Image,       path: "/settings/media-categories" },
       { label: "Appointment Types",    icon: CalendarClock, path: "/settings/appointment-types" },
+      { label: "Group Types",          icon: UsersRound,    path: "/settings/group-types" },
       { label: "Website",          icon: Globe,           path: "/settings/website" },
     ],
   },

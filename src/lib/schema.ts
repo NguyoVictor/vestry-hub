@@ -20,6 +20,8 @@ export const TABLES = {
   // People
   GROUPS: "groups",
   GROUP_MEMBERS: "group_members",
+  GROUP_TYPES: "group_types",
+  JOIN_REQUESTS: "join_requests",
   FAMILIES: "families",
   FAMILY_MEMBERS: "family_members",
   HOUSE_FELLOWSHIPS: "house_fellowships",
