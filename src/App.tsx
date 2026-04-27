@@ -140,6 +140,7 @@ const HouseFellowships = lazy(() => import("./pages/people/HouseFellowships"));
 const FellowshipDetail = lazy(() => import("./pages/people/FellowshipDetail"));
 const MemberHouseFellowship = lazy(() => import("./pages/member/MemberHouseFellowship"));
 const Families = lazy(() => import("./pages/people/Families"));
+const FamilyDetailPage = lazy(() => import("./pages/people/FamilyDetailPage"));
 const Visitors = lazy(() => import("./pages/people/Visitors"));
 const FollowUpTasks = lazy(() => import("./pages/people/FollowUpTasks"));
 const NewConverts = lazy(() => import("./pages/people/NewConverts"));
@@ -281,6 +282,7 @@ const App = () => (
                 <Route path="/house-fellowships" element={<Suspense fallback={<Fallback />}><HouseFellowships /></Suspense>} />
                 <Route path="/house-fellowships/:fellowshipId" element={<Suspense fallback={<Fallback />}><FellowshipDetail /></Suspense>} />
                 <Route path="/families" element={<Suspense fallback={<Fallback />}><Families /></Suspense>} />
+                <Route path="/families/:id" element={<Suspense fallback={<Fallback />}><FamilyDetailPage /></Suspense>} />
                 <Route path="/visitors" element={<Suspense fallback={<Fallback />}><Visitors /></Suspense>} />
                 <Route path="/follow-up-tasks" element={<Suspense fallback={<Fallback />}><FollowUpTasks /></Suspense>} />
                 <Route path="/new-converts" element={<Suspense fallback={<Fallback />}><NewConverts /></Suspense>} />
