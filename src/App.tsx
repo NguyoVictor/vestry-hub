@@ -137,6 +137,8 @@ const MemberProfile = lazy(() => import("./pages/people/MemberProfile"));
 const Groups = lazy(() => import("./pages/people/Groups"));
 const GroupDetail = lazy(() => import("./pages/people/GroupDetail"));
 const HouseFellowships = lazy(() => import("./pages/people/HouseFellowships"));
+const FellowshipDetail = lazy(() => import("./pages/people/FellowshipDetail"));
+const MemberHouseFellowship = lazy(() => import("./pages/member/MemberHouseFellowship"));
 const Families = lazy(() => import("./pages/people/Families"));
 const Visitors = lazy(() => import("./pages/people/Visitors"));
 const FollowUpTasks = lazy(() => import("./pages/people/FollowUpTasks"));
@@ -277,6 +279,7 @@ const App = () => (
                 <Route path="/groups" element={<Suspense fallback={<Fallback />}><Groups /></Suspense>} />
                 <Route path="/groups/:groupId" element={<Suspense fallback={<Fallback />}><GroupDetail /></Suspense>} />
                 <Route path="/house-fellowships" element={<Suspense fallback={<Fallback />}><HouseFellowships /></Suspense>} />
+                <Route path="/house-fellowships/:fellowshipId" element={<Suspense fallback={<Fallback />}><FellowshipDetail /></Suspense>} />
                 <Route path="/families" element={<Suspense fallback={<Fallback />}><Families /></Suspense>} />
                 <Route path="/visitors" element={<Suspense fallback={<Fallback />}><Visitors /></Suspense>} />
                 <Route path="/follow-up-tasks" element={<Suspense fallback={<Fallback />}><FollowUpTasks /></Suspense>} />
@@ -438,6 +441,7 @@ const App = () => (
                 <Route path="/member/announcements" element={<Suspense fallback={<Fallback />}><MemberAnnouncements /></Suspense>} />
                 <Route path="/member/groups" element={<Suspense fallback={<Fallback />}><MemberGroupsPage /></Suspense>} />
                 <Route path="/member/groups/:groupId" element={<Suspense fallback={<Fallback />}><MemberGroupDetailPage /></Suspense>} />
+                <Route path="/member/house-fellowships" element={<Suspense fallback={<Fallback />}><MemberHouseFellowship /></Suspense>} />
                 <Route path="/member/requests" element={<Suspense fallback={<Fallback />}><MemberRequests /></Suspense>} />
                 <Route path="/member/appointments" element={<Suspense fallback={<Fallback />}><MemberAppointments /></Suspense>} />
                 <Route path="/member/testimonies" element={<Suspense fallback={<Fallback />}><MemberTestimonies /></Suspense>} />

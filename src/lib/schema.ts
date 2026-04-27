@@ -26,6 +26,8 @@ export const TABLES = {
   FAMILY_MEMBERS: "family_members",
   HOUSE_FELLOWSHIPS: "house_fellowships",
   FELLOWSHIP_MEMBERS: "fellowship_members",
+  FELLOWSHIP_ATTENDANCE: "fellowship_attendance",
+  FELLOWSHIP_RSVP: "fellowship_rsvp",
   VISITORS: "visitors",
   VISITOR_FOLLOWUP_NOTES: "visitor_followup_notes",
   FOLLOW_UP_TASKS: "follow_up_tasks",

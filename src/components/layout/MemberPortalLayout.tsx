@@ -30,6 +30,7 @@ const SIDEBAR_NAV = [
   { path: "/member/announcements", label: "Announcements", icon: Megaphone },
   { path: "/member/messages", label: "Messages", icon: MessageCircle },
   { path: "/member/groups", label: "My Groups", icon: Users },
+  { path: "/member/house-fellowships", label: "House Fellowships", icon: Home },
   { path: "/member/giving-history", label: "My Giving", icon: Heart },
   { path: "/member/requests", label: "My Requests", icon: HandHeart },
   { path: "/member/appointments", label: "My Appointments", icon: Clock },
