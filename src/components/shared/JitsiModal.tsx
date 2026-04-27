@@ -22,9 +22,9 @@ export function JitsiModal({ open, onClose, roomName, displayName, title }: Jits
   useEffect(() => {
     if (!open || !containerRef.current) return;
 
-    const loadJitsi = () => {
-      if (!window.JitsiMeetExternalAPI) return;
-      if (apiRef.current) { apiRef.current.dispose(); apiRef.current = null; }
+    const initJitsi = () => {
+      if (!window.JitsiMeetExternalAPI || !containerRef.current) return;
+      if (apiRef.current) { try { apiRef.current.dispose(); } catch {} apiRef.current = null; }
 
       apiRef.current = new window.JitsiMeetExternalAPI('meet.jit.si', {
         roomName,
@@ -32,15 +32,31 @@ export function JitsiModal({ open, onClose, roomName, displayName, title }: Jits
         width: '100%',
         height: '100%',
         configOverwrite: {
+          // ── Disable ALL waiting room / lobby / prejoin screens ──
           prejoinPageEnabled: false,
+          prejoinConfig: { enabled: false },
+          lobby: { autoKnock: false, enableChat: false },
+          enableLobbyChat: false,
+          hideLobbyButton: true,
+          // ── Disable moderator requirement ──
+          enableFeaturesBasedOnToken: false,
+          requireDisplayName: false,
+          // ── Audio/video defaults ──
           startWithAudioMuted: false,
           startWithVideoMuted: false,
           disableDeepLinking: true,
+          disableInviteFunctions: true,
         },
         interfaceConfigOverwrite: {
-          TOOLBAR_BUTTONS: ['microphone','camera','closedcaptions','desktop','fullscreen','fodeviceselection','hangup','chat','recording','livestreaming','etherpad','sharedvideo','settings','raisehand','videoquality','filmstrip','invite','feedback','stats','shortcuts','tileview','videobackgroundblur','download','help','mute-everyone'],
           SHOW_JITSI_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
+          SHOW_BRAND_WATERMARK: false,
+          SHOW_POWERED_BY: false,
+          TOOLBAR_BUTTONS: [
+            'microphone', 'camera', 'desktop', 'fullscreen',
+            'fodeviceselection', 'hangup', 'chat', 'raisehand',
+            'videoquality', 'filmstrip', 'tileview', 'help',
+          ],
         },
         userInfo: { displayName },
       });
@@ -49,17 +65,22 @@ export function JitsiModal({ open, onClose, roomName, displayName, title }: Jits
     };
 
     if (window.JitsiMeetExternalAPI) {
-      loadJitsi();
+      initJitsi();
     } else {
-      const script = document.createElement('script');
-      script.src = 'https://meet.jit.si/external_api.js';
-      script.async = true;
-      script.onload = loadJitsi;
-      document.head.appendChild(script);
+      const existing = document.querySelector('script[src="https://meet.jit.si/external_api.js"]');
+      if (existing) {
+        existing.addEventListener('load', initJitsi);
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://meet.jit.si/external_api.js';
+        script.async = true;
+        script.onload = initJitsi;
+        document.head.appendChild(script);
+      }
     }
 
     return () => {
-      if (apiRef.current) { apiRef.current.dispose(); apiRef.current = null; }
+      if (apiRef.current) { try { apiRef.current.dispose(); } catch {} apiRef.current = null; }
     };
   }, [open, roomName, displayName]);
 
@@ -72,22 +93,16 @@ export function JitsiModal({ open, onClose, roomName, displayName, title }: Jits
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[100] bg-black flex flex-col"
         >
-          {/* Header bar */}
           <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 shrink-0">
             <div className="flex items-center gap-2">
               <Video className="h-5 w-5 text-green-400" />
               <span className="text-white font-semibold text-sm font-jakarta">{title ?? 'Meeting'}</span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-slate-400 hover:text-white hover:bg-slate-700 h-8 w-8 p-0"
-            >
+            <Button variant="ghost" size="sm" onClick={onClose}
+              className="text-slate-400 hover:text-white hover:bg-slate-700 h-8 w-8 p-0">
               <X className="h-4 w-4" />
             </Button>
           </div>
-          {/* Jitsi container */}
           <div ref={containerRef} className="flex-1 w-full" />
         </motion.div>
       )}

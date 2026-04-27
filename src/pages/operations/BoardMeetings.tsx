@@ -356,6 +356,7 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
                 <JoinMeetingButton
                   meetingDate={meeting.meeting_date}
                   meetingTime={meeting.start_time?.toString().slice(0, 5)}
+                  endTime={meeting.end_time?.toString().slice(0, 5)}
                   roomName={`vestryhub-bm-${meeting.id}`}
                   displayName={userName}
                   title={meeting.title}
@@ -533,6 +534,7 @@ function MeetingCard({
           <JoinMeetingButton
             meetingDate={m.meeting_date}
             meetingTime={m.start_time?.toString().slice(0, 5)}
+            endTime={m.end_time?.toString().slice(0, 5)}
             roomName={`vestryhub-bm-${m.id}`}
             displayName={userName}
             title={m.title}
@@ -888,6 +890,7 @@ export default function BoardMeetingsPage() {
                       <JoinMeetingButton
                         meetingDate={m.meeting_date}
                         meetingTime={m.start_time?.toString().slice(0, 5)}
+                        endTime={m.end_time?.toString().slice(0, 5)}
                         roomName={`vestryhub-bm-${m.id}`}
                         displayName={userName}
                         title={m.title}
