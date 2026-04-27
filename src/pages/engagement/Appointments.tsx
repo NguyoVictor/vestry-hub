@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, isToday, parseISO } from 'date-fns';
+import {
+  format, isToday, parseISO, startOfMonth, endOfMonth,
+  eachDayOfInterval, getDay, isSameDay, isSameMonth, addMonths, subMonths,
+} from 'date-fns';
 import { Helmet } from 'react-helmet-async';
 import {
-  Calendar, List, Filter, CalendarDays, Clock, User, CheckCircle2,
-  XCircle, RotateCcw, ChevronDown, Video, MapPin, SlidersHorizontal,
-  Loader2, Plus, X, ChevronRight,
+  Calendar, List, CalendarDays, Clock, CheckCircle2,
+  XCircle, RotateCcw, Video, MapPin,
+  Loader2, X, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useChurch } from '@/contexts/ChurchContext';
 import { TABLES, COLS } from '@/lib/schema';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,13 +27,13 @@ import { MemberAvatar } from '@/components/shared/MemberAvatar';
 import { JoinMeetingButton } from '@/components/shared/JoinMeetingButton';
 import type { Appointment, AppointmentStatus } from '@/types/appointments';
 
-const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
-  pending:     { label: 'Pending',     color: 'text-amber-700',  bg: 'bg-amber-100' },
-  confirmed:   { label: 'Confirmed',   color: 'text-green-700',  bg: 'bg-green-100' },
-  declined:    { label: 'Declined',    color: 'text-red-700',    bg: 'bg-red-100' },
-  rescheduled: { label: 'Rescheduled', color: 'text-blue-700',   bg: 'bg-blue-100' },
-  cancelled:   { label: 'Cancelled',   color: 'text-slate-600',  bg: 'bg-slate-100' },
-  completed:   { label: 'Completed',   color: 'text-slate-500',  bg: 'bg-slate-100' },
+const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string; dot: string }> = {
+  pending:     { label: 'Pending',     color: 'text-amber-700',  bg: 'bg-amber-100',  dot: 'bg-amber-400' },
+  confirmed:   { label: 'Confirmed',   color: 'text-green-700',  bg: 'bg-green-100',  dot: 'bg-green-500' },
+  declined:    { label: 'Declined',    color: 'text-red-700',    bg: 'bg-red-100',    dot: 'bg-red-400' },
+  rescheduled: { label: 'Rescheduled', color: 'text-blue-700',   bg: 'bg-blue-100',   dot: 'bg-blue-400' },
+  cancelled:   { label: 'Cancelled',   color: 'text-slate-600',  bg: 'bg-slate-100',  dot: 'bg-slate-400' },
+  completed:   { label: 'Completed',   color: 'text-slate-500',  bg: 'bg-slate-100',  dot: 'bg-slate-300' },
 };
 
 function StatusBadge({ status }: { status: AppointmentStatus }) {
@@ -40,6 +42,98 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.bg} ${cfg.color}`}>
       {cfg.label}
     </span>
+  );
+}
+
+// ── Calendar View ─────────────────────────────────────────────────────────────
+function AppointmentsCalendar({ appointments, onSelect }: { appointments: Appointment[]; onSelect: (a: Appointment) => void }) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Pad start so week begins on Monday
+  const startPad = (getDay(monthStart) + 6) % 7;
+  const paddedDays: (Date | null)[] = [...Array(startPad).fill(null), ...days];
+
+  const aptsByDate: Record<string, Appointment[]> = {};
+  for (const apt of appointments) {
+    const key = apt.preferred_date;
+    if (!aptsByDate[key]) aptsByDate[key] = [];
+    aptsByDate[key].push(apt);
+  }
+
+  const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      {/* Month nav */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <button onClick={() => setCurrentMonth(m => subMonths(m, 1))} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors">
+          <ChevronLeft className="h-4 w-4 text-slate-500" />
+        </button>
+        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 font-jakarta">
+          {format(currentMonth, 'MMMM yyyy')}
+        </h2>
+        <button onClick={() => setCurrentMonth(m => addMonths(m, 1))} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors">
+          <ChevronRight className="h-4 w-4 text-slate-500" />
+        </button>
+      </div>
+
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 border-b border-slate-100 dark:border-slate-700">
+        {WEEKDAYS.map(d => (
+          <div key={d} className="py-2 text-center text-xs font-semibold text-slate-400 uppercase tracking-wide">{d}</div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7">
+        {paddedDays.map((day, i) => {
+          if (!day) return <div key={`pad-${i}`} className="min-h-[80px] border-b border-r border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/20" />;
+
+          const dateKey = format(day, 'yyyy-MM-dd');
+          const dayApts = aptsByDate[dateKey] ?? [];
+          const today = isToday(day);
+          const inMonth = isSameMonth(day, currentMonth);
+
+          return (
+            <div key={dateKey} className={`min-h-[80px] border-b border-r border-slate-100 dark:border-slate-700/50 p-1.5 ${!inMonth ? 'bg-slate-50/50 dark:bg-slate-900/20' : ''}`}>
+              <div className={`text-xs font-semibold mb-1 h-6 w-6 flex items-center justify-center rounded-full ${today ? 'bg-orange-500 text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                {format(day, 'd')}
+              </div>
+              <div className="space-y-0.5">
+                {dayApts.slice(0, 3).map(apt => {
+                  const cfg = STATUS_CONFIG[apt.status];
+                  const member = apt.members;
+                  const name = member ? `${member.first_name} ${member.last_name}` : 'Member';
+                  return (
+                    <button key={apt.id} onClick={() => onSelect(apt)}
+                      className={`w-full text-left rounded px-1.5 py-0.5 text-[10px] font-medium truncate transition-opacity hover:opacity-80 ${cfg.bg} ${cfg.color}`}>
+                      {apt.preferred_time.slice(0, 5)} {name.split(' ')[0]}
+                    </button>
+                  );
+                })}
+                {dayApts.length > 3 && (
+                  <p className="text-[10px] text-slate-400 pl-1">+{dayApts.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-3">
+        {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+          <div key={k} className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${v.dot}`} />
+            <span className="text-xs text-slate-500 font-jakarta">{v.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -138,7 +232,8 @@ export default function Appointments() {
           ))}
         </div>
 
-        {/* Filters */}
+        {/* Filters — only show in list view */}
+        {view === 'list' && (
         <div className="flex flex-wrap gap-3 items-center">
           <Input placeholder="Search member or type..." value={search} onChange={e => setSearch(e.target.value)} className="h-9 w-56 text-sm border-slate-200 focus:border-orange-500" />
           <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -162,7 +257,22 @@ export default function Appointments() {
             </Button>
           )}
         </div>
+        )}
 
+        {/* Calendar or Table */}
+        <AnimatePresence mode="wait">
+          {view === 'calendar' ? (
+            <motion.div key="calendar" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+              {isLoading ? (
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 p-5 space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-lg" />)}
+                </div>
+              ) : (
+                <AppointmentsCalendar appointments={appointments} onSelect={setSelectedApt} />
+              )}
+            </motion.div>
+          ) : (
+            <motion.div key="list" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
         {/* Table */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           {isLoading ? (
@@ -224,6 +334,9 @@ export default function Appointments() {
             </div>
           )}
         </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Detail Drawer */}
