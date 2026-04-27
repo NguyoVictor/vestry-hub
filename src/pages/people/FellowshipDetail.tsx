@@ -1,4 +1,3 @@
-placeholder
 // Fellowship Detail Page
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";

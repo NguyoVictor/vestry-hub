@@ -147,10 +147,15 @@ export function MemberGroups() {
   const { data: allGroupMembers = [] } = useQuery({
     queryKey: ["all-group-members-preview", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.GROUP_MEMBERS)
-        .select("group_id, member_id, members(first_name, last_name)")
-        .eq(COLS.TENANT_ID, member.churchId);
-      return data || [];
+      const { data: gm } = await supabase.from(TABLES.GROUP_MEMBERS)
+        .select("group_id, member_id").eq(COLS.TENANT_ID, member.churchId);
+      if (!gm?.length) return [];
+      const ids = [...new Set(gm.map(r => r.member_id))];
+      const { data: memberDetails } = await supabase.from(TABLES.MEMBERS)
+        .select("id, first_name, last_name").in("id", ids);
+      const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
+      return gm.map(r => ({ ...r, members: map[r.member_id] || null }));
+    },
     },
     staleTime: 300_000,
   });
