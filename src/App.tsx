@@ -80,6 +80,11 @@ const ChurchMediaPage = lazy(() => import("./pages/media/ChurchMedia"));
 const SermonPreparationPage = lazy(() => import("./pages/media/SermonPreparation"));
 const BibleExplorerPage = lazy(() => import("./pages/media/BibleExplorer"));
 const SermonsPage = lazy(() => import("./pages/media/Sermons"));
+const SermonsRevampedPage = lazy(() => import("./pages/media/SermonsRevamped"));
+const PublicSermonsPage = lazy(() => import("./pages/public/PublicSermons"));
+const PublicSermonDetailPage = lazy(() => import("./pages/public/PublicSermonDetail"));
+const MemberSermonsRevampedPage = lazy(() => import("./pages/member/MemberSermonsRevamped"));
+const MemberSermonDetailRevampedPage = lazy(() => import("./pages/member/MemberSermonDetailRevamped"));
 const Discipleship = lazy(() => import("./pages/growth/Discipleship"));
 const DiscipleshipResources = lazy(() => import("./pages/growth/DiscipleshipResources"));
 const DiscipleshipGraduates = lazy(() => import("./pages/growth/DiscipleshipGraduates"));
@@ -256,6 +261,10 @@ const App = () => (
             <Route path="/member-registration/:orgId" element={<Suspense fallback={<Fallback />}><MemberRegistration /></Suspense>} />
             <Route path="/data-compliance" element={<Suspense fallback={<Fallback />}><DataCompliancePage /></Suspense>} />
             <Route path="/privacy-policy" element={<Suspense fallback={<Fallback />}><PrivacyPolicyPage /></Suspense>} />
+            
+            {/* Public sermon pages — no auth required */}
+            <Route path="/sermons/:tenantId" element={<Suspense fallback={<Fallback />}><PublicSermonsPage /></Suspense>} />
+            <Route path="/sermons/:tenantId/:sermonId" element={<Suspense fallback={<Fallback />}><PublicSermonDetailPage /></Suspense>} />
 
             {/* ── Super-admin panel (no link in regular nav — access by URL) ── */}
             <Route element={<SuperAdminGuard />}>
@@ -349,7 +358,7 @@ const App = () => (
                 <Route path="/graphics-studio" element={<Suspense fallback={<Fallback />}><GraphicsStudioPage /></Suspense>} />
                 <Route path="/sermon-preparation" element={<Suspense fallback={<Fallback />}><SermonPreparationPage /></Suspense>} />
                 <Route path="/bible-explorer" element={<Suspense fallback={<Fallback />}><BibleExplorerPage /></Suspense>} />
-                <Route path="/sermons" element={<Suspense fallback={<Fallback />}><SermonsPage /></Suspense>} />
+                <Route path="/sermons" element={<Suspense fallback={<Fallback />}><SermonsRevampedPage /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/general" replace />} />
@@ -452,8 +461,8 @@ const App = () => (
                 <Route path="/member/profile" element={<Suspense fallback={<Fallback />}><MemberProfilePage /></Suspense>} />
                 <Route path="/member/settings" element={<Suspense fallback={<Fallback />}><MemberSettingsPage /></Suspense>} />
                 <Route path="/member/messages" element={<Suspense fallback={<Fallback />}><MemberMessagesPage /></Suspense>} />
-                <Route path="/member/sermons" element={<Suspense fallback={<Fallback />}><MemberSermonsPage /></Suspense>} />
-                <Route path="/member/sermons/:sermonId" element={<Suspense fallback={<Fallback />}><MemberSermonDetailPage /></Suspense>} />
+                <Route path="/member/sermons" element={<Suspense fallback={<Fallback />}><MemberSermonsRevampedPage /></Suspense>} />
+                <Route path="/member/sermons/:sermonId" element={<Suspense fallback={<Fallback />}><MemberSermonDetailRevampedPage /></Suspense>} />
                 <Route path="/member/bible" element={<Suspense fallback={<Fallback />}><MemberBiblePage /></Suspense>} />
                 <Route path="/member/volunteer" element={<Suspense fallback={<Fallback />}><MemberVolunteerPage /></Suspense>} />
                 <Route path="/member/children" element={<Suspense fallback={<Fallback />}><MemberChildrenPage /></Suspense>} />
