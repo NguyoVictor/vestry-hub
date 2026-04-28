@@ -2054,7 +2054,7 @@ const BibleExplorer = () => {
                 }}>
                   <Share2 className="h-3.5 w-3.5 mr-1" />Share
                 </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => loadVotd()}>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => loadVotd("refresh")}>
                   <RefreshCw className="h-3.5 w-3.5 mr-1" />Refresh
                 </Button>
               </div>
