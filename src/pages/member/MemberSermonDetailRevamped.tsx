@@ -152,24 +152,30 @@ export default function MemberSermonDetailRevamped() {
   const toggleReaction = useMutation({
     mutationFn: async (reactionType: string) => {
       if (userReactions.includes(reactionType)) {
-        await supabase
+        const { error } = await supabase
           .from('sermon_reactions')
           .delete()
           .eq('sermon_id', sermonId!)
           .eq('member_id', member.userId)
           .eq('reaction_type', reactionType);
+        if (error) throw error;
       } else {
-        await supabase.from('sermon_reactions').insert({
+        const { error } = await supabase.from('sermon_reactions').insert({
           tenant_id: member.churchId,
           sermon_id: sermonId!,
           member_id: member.userId,
           reaction_type: reactionType,
         } as any);
+        if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sermon-user-reactions'] });
       queryClient.invalidateQueries({ queryKey: ['sermon-reaction-counts'] });
+    },
+    onError: (error: any) => {
+      console.error('Reaction error:', error);
+      toast.error(error.message || 'Failed to update reaction');
     },
   });
 

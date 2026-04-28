@@ -163,9 +163,10 @@ export default function SermonDrawer({
   if (!open) return null;
 
   return (
-    <AnimatePresence>
+    <>
       {/* Backdrop */}
       <motion.div
+        key="sermon-drawer-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -175,6 +176,7 @@ export default function SermonDrawer({
 
       {/* Drawer */}
       <motion.div
+        key="sermon-drawer-content"
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
@@ -437,6 +439,6 @@ export default function SermonDrawer({
           </Button>
         </div>
       </motion.div>
-    </AnimatePresence>
+    </>
   );
 }
