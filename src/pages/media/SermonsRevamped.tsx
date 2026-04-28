@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, QrCode, Share2, MoreHorizontal, Eye, Pencil, Trash2, Copy,
   BookOpen, Calendar, User, Video, Music, FileText, Star, X, Upload, Loader2,
-  Download
+  Download, Heart, Flame
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -43,17 +43,40 @@ export default function SermonsRevamped() {
 
   const publicSermonUrl = `${window.location.origin}/sermons/${church.tenantId}`;
 
-  // Fetch sermons
+  // Fetch sermons with reaction counts
   const { data: sermons = [], isLoading } = useQuery({
     queryKey: ['sermons-admin', church.tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch sermons
+      const { data: sermonsData, error: sermonsError } = await supabase
         .from('sermons')
         .select('*')
         .eq('tenant_id', church.tenantId!)
         .order('sermon_date', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      
+      if (sermonsError) throw sermonsError;
+      
+      // Fetch reaction counts for all sermons
+      const { data: reactionsData } = await supabase
+        .from('sermon_reactions')
+        .select('sermon_id, reaction_type, member_id')
+        .eq('tenant_id', church.tenantId!);
+      
+      // Aggregate reactions by sermon
+      const reactionsBySermon = (reactionsData || []).reduce((acc: any, r: any) => {
+        if (!acc[r.sermon_id]) {
+          acc[r.sermon_id] = { prayer: 0, heart: 0, fire: 0, total: 0 };
+        }
+        acc[r.sermon_id][r.reaction_type]++;
+        acc[r.sermon_id].total++;
+        return acc;
+      }, {});
+      
+      // Merge reactions into sermons
+      return (sermonsData || []).map((s: any) => ({
+        ...s,
+        reactions: reactionsBySermon[s.id] || { prayer: 0, heart: 0, fire: 0, total: 0 }
+      }));
     },
     staleTime: 60000,
   });
@@ -333,6 +356,9 @@ export default function SermonsRevamped() {
                     Views
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide font-jakarta">
+                    Reactions
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide font-jakarta">
                     Actions
                   </th>
                 </tr>
@@ -428,6 +454,34 @@ export default function SermonsRevamped() {
                       <div className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400 font-jakarta">
                         <Eye className="h-4 w-4" />
                         <span>{sermon.view_count || 0}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-jakarta">
+                        {sermon.reactions?.total > 0 ? (
+                          <>
+                            {sermon.reactions.prayer > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span>🙏</span>
+                                <span>{sermon.reactions.prayer}</span>
+                              </div>
+                            )}
+                            {sermon.reactions.heart > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Heart className="h-3 w-3 fill-red-500 text-red-500" />
+                                <span>{sermon.reactions.heart}</span>
+                              </div>
+                            )}
+                            {sermon.reactions.fire > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Flame className="h-3 w-3 fill-orange-500 text-orange-500" />
+                                <span>{sermon.reactions.fire}</span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-4">

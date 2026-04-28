@@ -55,6 +55,14 @@ export default function SermonDrawer({
     setThumbnailPreview(URL.createObjectURL(f));
   };
 
+  const removeThumbnail = () => {
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
+    if (thumbnailRef.current) {
+      thumbnailRef.current.value = '';
+    }
+  };
+
   const saveMut = useMutation({
     mutationFn: async () => {
       if (!title.trim()) throw new Error('Title is required');
@@ -64,17 +72,33 @@ export default function SermonDrawer({
       // Upload thumbnail
       let thumbnailUrl = sermon?.thumbnail_url || null;
       let thumbnailPath = sermon?.thumbnail_path || null;
+      
+      // If thumbnail was removed, clear it
+      if (!thumbnailPreview && sermon?.thumbnail_url) {
+        thumbnailUrl = null;
+        thumbnailPath = null;
+      }
+      
+      // If new thumbnail file selected, upload it
       if (thumbnailFile) {
         thumbnailPath = `${tenantId}/${Date.now()}-${thumbnailFile.name}`;
         const { error: upErr } = await supabase.storage
           .from('sermon-thumbnails')
-          .upload(thumbnailPath, thumbnailFile);
-        if (!upErr) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('sermon-thumbnails')
-            .getPublicUrl(thumbnailPath);
-          thumbnailUrl = publicUrl;
+          .upload(thumbnailPath, thumbnailFile, {
+            upsert: false,
+            contentType: thumbnailFile.type
+          });
+        
+        if (upErr) {
+          console.error('Thumbnail upload error:', upErr);
+          toast.error(`Failed to upload thumbnail: ${upErr.message}`);
+          throw upErr;
         }
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('sermon-thumbnails')
+          .getPublicUrl(thumbnailPath);
+        thumbnailUrl = publicUrl;
       }
 
       // Upload audio file
@@ -243,9 +267,18 @@ export default function SermonDrawer({
               <ImageIcon className="h-4 w-4" />Thumbnail Image
             </h3>
             <div className="flex items-center gap-4">
-              <div className="h-24 w-32 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center bg-slate-50 dark:bg-slate-800 shrink-0 overflow-hidden">
+              <div className="h-24 w-32 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center bg-slate-50 dark:bg-slate-800 shrink-0 overflow-hidden relative group">
                 {thumbnailPreview ? (
-                  <img src={thumbnailPreview} className="w-full h-full object-cover" alt="" />
+                  <>
+                    <img src={thumbnailPreview} className="w-full h-full object-cover" alt="" />
+                    <button
+                      onClick={removeThumbnail}
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      type="button"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </>
                 ) : (
                   <div className="text-center">
                     <ImageIcon className="h-6 w-6 text-slate-300 mx-auto" />
