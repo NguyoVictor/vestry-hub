@@ -22,24 +22,15 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-// ── API.Bible config ──────────────────────────────────────────────────────────
+// ── Local Bible Service (replaces api.bible) ─────────────────────────────────
 
-const API_KEY = import.meta.env.VITE_BIBLE_API_KEY as string;
-const BASE = "https://rest.api.bible/v1";
+import { getVerse, getChapterVerses, searchVerses, stripHtml as stripHtmlUtil } from "@/lib/bibleService";
 
 const VERSIONS = [
   { id: "de4e12af7f28f599-02", label: "King James Version (KJV)" },
-  { id: "06125adad2d5898a-01", label: "New International Version (NIV)" },
-  { id: "65eec8e0b60e656b-01", label: "New Living Translation (NLT)" },
+  { id: "06125adad2d5898a-01", label: "World English Bible (WEB)" },
+  { id: "65eec8e0b60e656b-01", label: "American Standard Version (ASV)" },
 ];
-
-async function bibleGet(path: string) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "api-key": API_KEY },
-  });
-  if (!res.ok) throw new Error(`API.Bible error: ${res.status}`);
-  return res.json();
-}
 
 // ── Bible books ───────────────────────────────────────────────────────────────
 
@@ -75,10 +66,10 @@ function lsSet(key: string, val: unknown) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-// ── Strip HTML from API.Bible content ────────────────────────────────────────
+// ── Strip HTML from content ──────────────────────────────────────────────────
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  return stripHtmlUtil(html);
 }
 
 // ── 30-day reading plan ───────────────────────────────────────────────────────
@@ -1899,12 +1890,36 @@ const BibleExplorer = () => {
     }
   }, []);
 
-  // ── Load VOTD ──
+  // ── Load VOTD (changes daily at midnight) ──
   const loadVotd = useCallback(async (refOverride?: string) => {
     setVotdLoading(true);
     try {
-      const ref = refOverride || VOTD_REFS[Math.floor(Math.random() * VOTD_REFS.length)];
-      const data = await bibleGet(`/bibles/${VERSIONS[0].id}/verses/${ref}?content-type=text&include-verse-numbers=false`);
+      let ref: string;
+      
+      if (refOverride) {
+        // Manual refresh - pick random verse
+        ref = VOTD_REFS[Math.floor(Math.random() * VOTD_REFS.length)];
+      } else {
+        // Date-based selection - same verse all day, changes at midnight
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const savedVotd = lsGet<{ date: string; ref: string } | null>("bible_votd_daily", null);
+        
+        if (savedVotd && savedVotd.date === today) {
+          // Use saved VOTD for today
+          ref = savedVotd.ref;
+        } else {
+          // New day - pick new verse based on date
+          // Use date as seed for consistent daily selection
+          const dateNum = new Date(today).getTime();
+          const index = Math.floor((dateNum / 86400000) % VOTD_REFS.length);
+          ref = VOTD_REFS[index];
+          
+          // Save for today
+          lsSet("bible_votd_daily", { date: today, ref });
+        }
+      }
+      
+      const data = await getVerse(VERSIONS[0].id, ref);
       setVotd({ text: stripHtml(data.data.content), ref: data.data.reference, version: "KJV" });
     } catch { setVotd({ text: "Fear thou not; for I am with thee.", ref: "Isaiah 41:10", version: "KJV" }); }
     finally { setVotdLoading(false); }
@@ -1912,24 +1927,38 @@ const BibleExplorer = () => {
 
   useEffect(() => { loadVotd(); }, []);
 
+  // ── Auto-refresh VOTD at midnight ──
+  useEffect(() => {
+    const checkMidnight = () => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+      
+      // Set timeout to refresh VOTD at midnight
+      const timeoutId = setTimeout(() => {
+        loadVotd(); // Load new VOTD for the new day
+        checkMidnight(); // Schedule next midnight check
+      }, msUntilMidnight);
+      
+      return timeoutId;
+    };
+    
+    const timeoutId = checkMidnight();
+    return () => clearTimeout(timeoutId);
+  }, [loadVotd]);
+
   // ── Load chapter ──
   const loadChapter = useCallback(async () => {
     setReaderLoading(true);
     try {
       const bookId = BOOK_IDS[book];
       const chapterId = `${bookId}.${chapter}`;
-      const data = await bibleGet(`/bibles/${versionId}/chapters/${chapterId}/verses`);
-      const verseList = data.data || [];
-      // Fetch each verse text
-      const withText = await Promise.all(
-        verseList.slice(0, 50).map(async (v: any) => {
-          try {
-            const vd = await bibleGet(`/bibles/${versionId}/verses/${v.id}?content-type=text&include-verse-numbers=false`);
-            return { id: v.id, number: v.id.split(".")[2], text: stripHtml(vd.data.content) };
-          } catch { return { id: v.id, number: v.id.split(".")[2], text: "" }; }
-        })
-      );
-      setVerses(withText.filter(v => v.text));
+      const data = await getChapterVerses(versionId, chapterId);
+      const verses = data.data || [];
+      setVerses(verses.filter(v => v.text));
       // Track chapter read
       const chKey = `${versionId}:${book}:${chapter}`;
       if (!chaptersRead.some(e => (typeof e === "string" ? e : e.key) === chKey)) {
@@ -1939,7 +1968,7 @@ const BibleExplorer = () => {
         lsSet("bible_chapters_read", updated);
       }
     } catch (err: any) {
-      toast.error("Failed to load chapter — check API key");
+      toast.error("Failed to load chapter");
       setVerses([]);
     } finally { setReaderLoading(false); }
   }, [versionId, book, chapter]);
@@ -1951,7 +1980,7 @@ const BibleExplorer = () => {
     if (!searchQuery.trim()) { toast.error("Enter A Search Term"); return; }
     setSearching(true);
     try {
-      const data = await bibleGet(`/bibles/${versionId}/search?query=${encodeURIComponent(searchQuery)}&limit=20`);
+      const data = await searchVerses(versionId, searchQuery, 20);
       setSearchResults(data.data?.verses || []);
     } catch { toast.error("Search failed"); }
     finally { setSearching(false); }
@@ -1969,7 +1998,7 @@ const BibleExplorer = () => {
       const bookId = BOOK_IDS[bookName];
       if (!bookId) throw new Error(`Unknown book: ${bookName}`);
       const verseId = `${bookId}.${parts[2]}.${parts[3]}`;
-      const data = await bibleGet(`/bibles/${versionId}/verses/${verseId}?content-type=text&include-verse-numbers=false`);
+      const data = await getVerse(versionId, verseId);
       setLookupResult({ text: stripHtml(data.data.content), ref: data.data.reference });
       const newCount = versesLooked + 1;
       setVersesLooked(newCount);
