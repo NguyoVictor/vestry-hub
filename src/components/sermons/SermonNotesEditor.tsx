@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
@@ -10,6 +10,7 @@ import {
   Heading1, Heading2, Heading3, List, ListOrdered, Lock, Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import './SermonNotesEditor.css';
 
 interface SermonNotesEditorProps {
   initialContent: string;
@@ -25,6 +26,7 @@ export default function SermonNotesEditor({
   lastSaved,
 }: SermonNotesEditorProps) {
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showBubbleMenu, setShowBubbleMenu] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -60,6 +62,10 @@ export default function SermonNotesEditor({
       }, 1000);
 
       setSaveTimeout(timeout);
+    },
+    onSelectionUpdate: ({ editor }) => {
+      const { from, to } = editor.state.selection;
+      setShowBubbleMenu(from !== to);
     },
   });
 
@@ -218,66 +224,6 @@ export default function SermonNotesEditor({
             label="Highlight"
           />
         </div>
-
-        {/* Bubble Menu (appears on text selection) */}
-        {editor && (
-          <BubbleMenu
-            editor={editor}
-            tippyOptions={{ duration: 100 }}
-            className="flex items-center gap-1 bg-slate-900 dark:bg-slate-800 text-white rounded-full px-2 py-1.5 shadow-lg"
-          >
-            <button
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              className={cn(
-                'p-1.5 rounded-full hover:bg-slate-700 transition-colors',
-                editor.isActive('bold') && 'bg-orange-500'
-              )}
-              type="button"
-            >
-              <Bold className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              className={cn(
-                'p-1.5 rounded-full hover:bg-slate-700 transition-colors',
-                editor.isActive('italic') && 'bg-orange-500'
-              )}
-              type="button"
-            >
-              <Italic className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
-              className={cn(
-                'p-1.5 rounded-full hover:bg-slate-700 transition-colors',
-                editor.isActive('underline') && 'bg-orange-500'
-              )}
-              type="button"
-            >
-              <UnderlineIcon className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => editor.chain().focus().toggleHighlight().run()}
-              className={cn(
-                'p-1.5 rounded-full hover:bg-slate-700 transition-colors',
-                editor.isActive('highlight') && 'bg-orange-500'
-              )}
-              type="button"
-            >
-              <Highlighter className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              className={cn(
-                'p-1.5 rounded-full hover:bg-slate-700 transition-colors',
-                editor.isActive('blockquote') && 'bg-orange-500'
-              )}
-              type="button"
-            >
-              <Quote className="h-3.5 w-3.5" />
-            </button>
-          </BubbleMenu>
-        )}
 
         {/* Editor Content */}
         <EditorContent editor={editor} />
