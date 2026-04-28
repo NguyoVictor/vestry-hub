@@ -5,9 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMemberPortal } from '@/contexts/MemberPortalContext';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
+import SermonNotesEditor from '@/components/sermons/SermonNotesEditor';
+import '@/components/sermons/SermonNotesEditor.css';
 import {
   ArrowLeft, Calendar, User, BookOpen, Share2, Bookmark, BookmarkCheck,
   Save
@@ -22,6 +23,8 @@ export default function MemberSermonDetailRevamped() {
   const member = useMemberPortal();
   const queryClient = useQueryClient();
   const [personalNotes, setPersonalNotes] = useState('');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [lastSavedNotes, setLastSavedNotes] = useState<Date | null>(null);
 
   // Fetch sermon
   const { data: sermon, isLoading } = useQuery({
@@ -179,9 +182,9 @@ export default function MemberSermonDetailRevamped() {
     },
   });
 
-  // Save notes
+  // Save notes (auto-save)
   const saveNotes = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (content: string) => {
       const { data: existing } = await supabase
         .from('sermon_notes')
         .select('id')
@@ -192,22 +195,36 @@ export default function MemberSermonDetailRevamped() {
       if (existing) {
         await supabase
           .from('sermon_notes')
-          .update({ notes_content: personalNotes })
+          .update({ notes_content: content })
           .eq('id', existing.id);
       } else {
         await supabase.from('sermon_notes').insert({
           tenant_id: member.churchId,
           sermon_id: sermonId!,
           member_id: member.userId,
-          notes_content: personalNotes,
+          notes_content: content,
         } as any);
       }
     },
+    onMutate: () => {
+      setIsSavingNotes(true);
+    },
     onSuccess: () => {
+      setIsSavingNotes(false);
+      setLastSavedNotes(new Date());
       queryClient.invalidateQueries({ queryKey: ['sermon-notes'] });
-      toast.success('Notes saved');
+    },
+    onError: (error: any) => {
+      setIsSavingNotes(false);
+      console.error('Failed to save notes:', error);
     },
   });
+
+  // Handle auto-save
+  const handleNotesChange = (content: string) => {
+    setPersonalNotes(content);
+    saveNotes.mutate(content);
+  };
 
   const handleShare = () => {
     const url = `${window.location.origin}/sermons/${member.churchId}/${sermonId}`;
@@ -410,30 +427,13 @@ export default function MemberSermonDetailRevamped() {
           </div>
         )}
 
-        {/* Personal Notes */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-900 dark:text-white font-jakarta">My Personal Notes</h3>
-            <Button
-              onClick={() => saveNotes.mutate()}
-              disabled={saveNotes.isPending}
-              size="sm"
-              className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {saveNotes.isPending ? 'Saving...' : 'Save Notes'}
-            </Button>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 font-jakarta">
-            These notes are private and only visible to you
-          </p>
-          <Textarea
-            value={personalNotes}
-            onChange={(e) => setPersonalNotes(e.target.value)}
-            placeholder="Add your personal notes, reflections, or takeaways from this sermon..."
-            className="min-h-[200px] resize-none font-jakarta"
-          />
-        </div>
+        {/* Personal Notes - Notion-style Editor */}
+        <SermonNotesEditor
+          initialContent={personalNotes}
+          onSave={handleNotesChange}
+          isSaving={isSavingNotes}
+          lastSaved={lastSavedNotes}
+        />
       </motion.div>
     </>
   );
