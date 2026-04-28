@@ -16,7 +16,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-export function MemberSermonDetail() {
+export default function MemberSermonDetailRevamped() {
   const { sermonId } = useParams<{ sermonId: string }>();
   const navigate = useNavigate();
   const member = useMemberPortal();

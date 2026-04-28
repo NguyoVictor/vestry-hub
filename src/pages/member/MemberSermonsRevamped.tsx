@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 type ViewMode = 'grid' | 'list';
 type TabType = 'all' | 'bookmarks';
 
-export function MemberSermons() {
+export default function MemberSermonsRevamped() {
   const member = useMemberPortal();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
