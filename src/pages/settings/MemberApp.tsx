@@ -12,7 +12,7 @@ import {
   Heart, Target, Receipt, Megaphone, MessageCircle, MessageSquare,
   Quote, Share2, Wrench, DollarSign, Lightbulb, Stethoscope, Clock,
   CalendarDays, Tv, PlayCircle, Image, Globe, HandHeart, Users,
-  Home, BarChart2, BookOpen, BookCheck, Video, UserCheck, PenLine,
+  Home, BarChart2, BookOpen, BookCheck, Video, UserCheck,
   Building2, ShoppingBag,
 } from "lucide-react";
 
@@ -43,7 +43,6 @@ const MODULES = [
   { key: "daily_devotionals", label: "Daily Devotionals", desc: "Access daily Bible readings", icon: BookCheck, defaultOn: true },
   { key: "training_courses", label: "Training & Courses", desc: "Enroll in discipleship training programs", icon: Video, defaultOn: true },
   { key: "my_discipleship_journey", label: "My Discipleship Journey", desc: "Track discipleship, maturity & milestones", icon: UserCheck, defaultOn: true },
-  { key: "my_sermon_notes", label: "My Sermon Notes", desc: "View and edit sermon notes", icon: PenLine, defaultOn: true },
   { key: "facility_booking", label: "Facility Booking", desc: "Book church spaces for personal events", icon: Building2, defaultOn: false },
   { key: "resource_store", label: "Resource Store", desc: "Books, courses, and resources", icon: ShoppingBag, defaultOn: true },
 ];
