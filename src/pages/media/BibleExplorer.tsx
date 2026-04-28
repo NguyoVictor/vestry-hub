@@ -1497,6 +1497,9 @@ function RemindersTab({ tenantId, userId }: { tenantId: string; userId: string |
   const plans: any[] = lsGet("bible_reading_plans", []);
   const [exportPlanId, setExportPlanId] = useState<string>(plans[0]?.id || "");
   const selectedExportPlan = plans.find((p: any) => p.id === exportPlanId) || plans[0] || null;
+  
+  // Active plan for sharing progress
+  const activePlan = plans.find((p: any) => p.isActive) || plans[0] || null;
 
   const toggleDay = (d: number) => {
     const updated = days.includes(d) ? days.filter(x => x !== d) : [...days, d];
