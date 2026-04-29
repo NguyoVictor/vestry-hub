@@ -17,28 +17,22 @@ CREATE TABLE IF NOT EXISTS announcement_types (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_announcement_types_tenant_id ON announcement_types(tenant_id);
 ALTER TABLE announcement_types ENABLE ROW LEVEL SECURITY;
-
 -- RLS policies for announcement_types
 CREATE POLICY "announcement_types_select" ON announcement_types
   FOR SELECT TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1)
     OR tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_types_insert" ON announcement_types
   FOR INSERT TO authenticated
   WITH CHECK (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_types_update" ON announcement_types
   FOR UPDATE TO authenticated
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_types_delete" ON announcement_types
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 -- 2. Extend announcements table
 ALTER TABLE announcements
   ADD COLUMN IF NOT EXISTS category_id       VARCHAR REFERENCES announcement_types(id) ON DELETE SET NULL,
@@ -50,17 +44,14 @@ ALTER TABLE announcements
   ADD COLUMN IF NOT EXISTS comments_enabled  BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS reactions_enabled BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS rich_body         TEXT;
-
 -- Add audience check constraint
 ALTER TABLE announcements DROP CONSTRAINT IF EXISTS announcements_audience_check;
 ALTER TABLE announcements ADD CONSTRAINT announcements_audience_check
   CHECK (audience IN ('all', 'specific_group', 'leaders_only'));
-
 -- Update status constraint to include scheduled and archived
 ALTER TABLE announcements DROP CONSTRAINT IF EXISTS announcements_status_check;
 ALTER TABLE announcements ADD CONSTRAINT announcements_status_check
   CHECK (status IN ('active', 'scheduled', 'archived', 'draft'));
-
 -- 3. Create announcement_attachments table
 CREATE TABLE IF NOT EXISTS announcement_attachments (
   id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -77,28 +68,22 @@ CREATE TABLE IF NOT EXISTS announcement_attachments (
   display_order   INTEGER NOT NULL DEFAULT 0,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_announcement_attachments_tenant_id ON announcement_attachments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_announcement_attachments_announcement_id ON announcement_attachments(announcement_id);
 ALTER TABLE announcement_attachments ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "announcement_attachments_select" ON announcement_attachments
   FOR SELECT TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1)
     OR tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_attachments_insert" ON announcement_attachments
   FOR INSERT TO authenticated
   WITH CHECK (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_attachments_update" ON announcement_attachments
   FOR UPDATE TO authenticated
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_attachments_delete" ON announcement_attachments
   FOR DELETE TO authenticated
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 -- 4. Create announcement_reactions table
 CREATE TABLE IF NOT EXISTS announcement_reactions (
   id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -109,28 +94,22 @@ CREATE TABLE IF NOT EXISTS announcement_reactions (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (announcement_id, member_id, emoji)
 );
-
 CREATE INDEX IF NOT EXISTS idx_announcement_reactions_tenant_id ON announcement_reactions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_announcement_reactions_announcement_member ON announcement_reactions(announcement_id, member_id);
 ALTER TABLE announcement_reactions ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "announcement_reactions_select" ON announcement_reactions
   FOR SELECT TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1)
     OR tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_reactions_insert" ON announcement_reactions
   FOR INSERT TO authenticated
   WITH CHECK (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_reactions_update" ON announcement_reactions
   FOR UPDATE TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_reactions_delete" ON announcement_reactions
   FOR DELETE TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 -- 5. Create announcement_comments table
 CREATE TABLE IF NOT EXISTS announcement_comments (
   id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -143,28 +122,22 @@ CREATE TABLE IF NOT EXISTS announcement_comments (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_announcement_comments_tenant_id ON announcement_comments(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_announcement_comments_announcement_id ON announcement_comments(announcement_id);
 ALTER TABLE announcement_comments ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "announcement_comments_select" ON announcement_comments
   FOR SELECT TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1)
     OR tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_comments_insert" ON announcement_comments
   FOR INSERT TO authenticated
   WITH CHECK (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_comments_update" ON announcement_comments
   FOR UPDATE TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_comments_delete" ON announcement_comments
   FOR DELETE TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 -- 6. Create announcement_read_receipts table
 CREATE TABLE IF NOT EXISTS announcement_read_receipts (
   id              VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -174,28 +147,22 @@ CREATE TABLE IF NOT EXISTS announcement_read_receipts (
   read_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (announcement_id, member_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_announcement_read_receipts_tenant_id ON announcement_read_receipts(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_announcement_read_receipts_announcement_member ON announcement_read_receipts(announcement_id, member_id);
 ALTER TABLE announcement_read_receipts ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "announcement_read_receipts_select" ON announcement_read_receipts
   FOR SELECT TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1)
     OR tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_read_receipts_insert" ON announcement_read_receipts
   FOR INSERT TO authenticated
   WITH CHECK (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_read_receipts_update" ON announcement_read_receipts
   FOR UPDATE TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "announcement_read_receipts_delete" ON announcement_read_receipts
   FOR DELETE TO authenticated
   USING (tenant_id = (SELECT tenant_id FROM members WHERE id = auth.uid()::text LIMIT 1));
-
 -- 7. RPC function for incrementing usage count
 CREATE OR REPLACE FUNCTION increment_announcement_type_usage(p_type_id VARCHAR)
 RETURNS void

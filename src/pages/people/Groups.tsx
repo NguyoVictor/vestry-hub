@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { logActivity } from "@/lib/activityLogger";
 import {
   Users, UserCheck, Globe, MapPin, LayoutGrid, List, Search,
-  Plus, Video, GitMerge, ChevronRight, Crown,
+  Plus, Video, GitMerge, ChevronRight, Crown, Calendar, Clock,
 } from "lucide-react";
 import { GroupDrawer } from "./GroupDrawer";
 
@@ -91,7 +91,8 @@ function GroupCard({ g, memberCount, members, index, onJoin }: {
           {g.description && <p className="text-xs text-muted-foreground line-clamp-2">{g.description}</p>}
           {/* Meeting info */}
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            {g.meeting_day && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{g.meeting_day}{g.meeting_time ? ` · ${g.meeting_time}` : ""}</span>}
+            {g.meeting_day && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{g.meeting_day}{g.meeting_time ? ` · ${g.meeting_time}` : ""}</span>}
+            {g.meeting_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Next: {new Date(g.meeting_date).toLocaleDateString()}</span>}
             {(g.meeting_type === "online" || g.meeting_type === "hybrid") && <span className="flex items-center gap-1"><Globe className="h-3 w-3" />Online via Jitsi</span>}
             {g.meeting_type === "onsite" && g.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{g.location}</span>}
           </div>
@@ -453,7 +454,16 @@ const Groups = () => {
                         </td>
                         <td className="px-4 py-3.5 text-muted-foreground">{memberCounts[g.id] || 0}</td>
                         <td className="px-4 py-3.5 text-muted-foreground hidden lg:table-cell">
-                          {g.meeting_day ? `${g.meeting_day}${g.meeting_time ? ` · ${g.meeting_time}` : ""}` : "—"}
+                          <div className="space-y-1">
+                            {g.meeting_day ? (
+                              <div className="text-xs">{g.meeting_day}{g.meeting_time ? ` · ${g.meeting_time}` : ""}</div>
+                            ) : (
+                              <div className="text-xs">—</div>
+                            )}
+                            {g.meeting_date && (
+                              <div className="text-[10px] text-muted-foreground">Next: {new Date(g.meeting_date).toLocaleDateString()}</div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="sm" className="h-7 text-xs text-primary gap-1" onClick={() => navigate(`/groups/${g.id}`)}>

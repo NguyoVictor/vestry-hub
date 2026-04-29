@@ -7,7 +7,6 @@ ALTER TABLE sermons ADD COLUMN IF NOT EXISTS video_url TEXT;
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS audio_url TEXT;
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS audio_file_path TEXT;
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS doc_file_path TEXT;
-
 -- Add sermon preparation columns
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS sermon_type TEXT DEFAULT 'sermon';
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS style TEXT;
@@ -17,18 +16,14 @@ ALTER TABLE sermons ADD COLUMN IF NOT EXISTS draft_notes TEXT;
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS additional_instructions TEXT;
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS manuscript TEXT;
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT false;
-
 -- Add status column if not exists
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'draft';
-
 -- Add sermon date if not exists
 ALTER TABLE sermons ADD COLUMN IF NOT EXISTS sermon_date DATE;
-
 -- Add indexes for performance
 CREATE INDEX IF NOT EXISTS idx_sermons_tenant_status ON sermons(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_sermons_tenant_published ON sermons(tenant_id, is_published);
 CREATE INDEX IF NOT EXISTS idx_sermons_sermon_date ON sermons(sermon_date);
-
 -- Add comment
 COMMENT ON COLUMN sermons.thumbnail_url IS 'Public URL for sermon thumbnail image';
 COMMENT ON COLUMN sermons.audio_file_path IS 'Storage path for audio file in private bucket';

@@ -227,13 +227,11 @@ const Dashboard = () => {
                groupDistribution?.length ? (
                 <div className="flex flex-col items-center">
                   <div className="relative">
-                    <ResponsiveContainer width={200} height={200}>
-                      <PieChart>
-                        <Pie data={groupDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={85} dataKey="value" paddingAngle={3}>
-                          {groupDistribution.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <PieChart width={200} height={200}>
+                      <Pie data={groupDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={85} dataKey="value" paddingAngle={3}>
+                        {groupDistribution.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      </Pie>
+                    </PieChart>
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
                         <p className="text-xl font-bold text-foreground">{totalGroupMembers}</p>
@@ -243,7 +241,7 @@ const Dashboard = () => {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
                     {groupDistribution.map((g, i) => (
-                      <div key={g.name} className="flex items-center gap-2 text-xs">
+                      <div key={`${g.name}-${i}`} className="flex items-center gap-2 text-xs">
                         <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                         <span className="truncate text-muted-foreground">{g.name}</span>
                         <span className="font-medium">{g.value}</span>

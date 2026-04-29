@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS children_classes (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_children_classes_tenant ON children_classes(tenant_id);
-
 -- Children records
 CREATE TABLE IF NOT EXISTS children (
   id                     VARCHAR PRIMARY KEY DEFAULT 'chd_' || substr(md5(random()::text), 1, 12),
@@ -34,7 +33,6 @@ CREATE TABLE IF NOT EXISTS children (
 CREATE INDEX IF NOT EXISTS idx_children_tenant    ON children(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_children_class     ON children(class_id);
 CREATE INDEX IF NOT EXISTS idx_children_guardian  ON children(guardian_primary_id);
-
 -- Check-in / check-out records
 CREATE TABLE IF NOT EXISTS children_checkins (
   id                VARCHAR PRIMARY KEY DEFAULT 'cin_' || substr(md5(random()::text), 1, 12),
@@ -54,7 +52,6 @@ CREATE INDEX IF NOT EXISTS idx_checkins_tenant    ON children_checkins(tenant_id
 CREATE INDEX IF NOT EXISTS idx_checkins_child     ON children_checkins(child_id);
 CREATE INDEX IF NOT EXISTS idx_checkins_service   ON children_checkins(service_id);
 CREATE INDEX IF NOT EXISTS idx_checkins_date      ON children_checkins(checked_in_at);
-
 -- QR codes for child check-in
 CREATE TABLE IF NOT EXISTS children_qr_codes (
   id          VARCHAR PRIMARY KEY DEFAULT 'qrc_' || substr(md5(random()::text), 1, 12),
@@ -69,7 +66,6 @@ CREATE TABLE IF NOT EXISTS children_qr_codes (
 CREATE INDEX IF NOT EXISTS idx_qr_codes_tenant  ON children_qr_codes(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_qr_codes_child   ON children_qr_codes(child_id);
 CREATE INDEX IF NOT EXISTS idx_qr_codes_qr_data ON children_qr_codes(qr_data);
-
 -- Children's Ministry settings per tenant
 CREATE TABLE IF NOT EXISTS children_ministry_settings (
   id                          VARCHAR PRIMARY KEY DEFAULT 'cms_' || substr(md5(random()::text), 1, 12),
@@ -88,29 +84,22 @@ CREATE TABLE IF NOT EXISTS children_ministry_settings (
   updated_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_cm_settings_tenant ON children_ministry_settings(tenant_id);
-
 -- Enable RLS on all tables
 ALTER TABLE children_classes              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE children                      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE children_checkins             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE children_qr_codes             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE children_ministry_settings    ENABLE ROW LEVEL SECURITY;
-
 -- RLS policies (authenticated users can access their own tenant's data)
 CREATE POLICY "tenant_isolation_children_classes" ON children_classes
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "tenant_isolation_children" ON children
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "tenant_isolation_children_checkins" ON children_checkins
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "tenant_isolation_children_qr_codes" ON children_qr_codes
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE POLICY "tenant_isolation_cm_settings" ON children_ministry_settings
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 -- Seed default classes for existing tenants (runs once)
--- New tenants get seeded on first visit via the app
+-- New tenants get seeded on first visit via the app;

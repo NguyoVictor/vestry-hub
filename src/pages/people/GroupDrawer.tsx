@@ -37,6 +37,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
   const [meetingType, setMeetingType] = useState<"onsite"|"online"|"hybrid">("onsite");
   const [meetingDay, setMeetingDay] = useState("");
   const [meetingTime, setMeetingTime] = useState("");
+  const [meetingDate, setMeetingDate] = useState("");
   const [location, setLocation] = useState("");
   const [isActive, setIsActive] = useState(true);
   // Advanced
@@ -77,6 +78,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
         setMeetingType(editData.meeting_type ?? "onsite");
         setMeetingDay(editData.meeting_day ?? "");
         setMeetingTime(editData.meeting_time ?? "");
+        setMeetingDate(editData.meeting_date ?? "");
         setLocation(editData.location ?? editData.meeting_location ?? "");
         setIsActive(editData.is_active ?? true);
         setMaxMembers(editData.max_members ? String(editData.max_members) : "");
@@ -87,7 +89,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
         setTags(regularTags);
       } else {
         setName(""); setTypeId(""); setDescription(""); setColor("#4F46E5");
-        setMeetingType("onsite"); setMeetingDay(""); setMeetingTime(""); setLocation("");
+        setMeetingType("onsite"); setMeetingDay(""); setMeetingTime(""); setMeetingDate(""); setLocation("");
         setIsActive(true); setMaxMembers(""); setVisibility("private"); setTags([]);
         setAdvancedOpen(false);
       }
@@ -141,6 +143,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
         meeting_type: meetingType,
         meeting_day: meetingDay || null,
         meeting_time: meetingTime || null,
+        meeting_date: meetingDate || null,
         location: location.trim() || null,
         meeting_location: location.trim() || null,
         is_active: isActive,
@@ -274,6 +277,19 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
               <Label className="font-jakarta text-xs font-medium text-slate-600">Time</Label>
               <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} className="h-10 border-slate-200 focus:border-orange-500 font-jakarta text-sm" />
             </div>
+          </div>
+
+          {/* Meeting Date */}
+          <div className="space-y-1.5">
+            <Label className="font-jakarta text-xs font-medium text-slate-600">Next Meeting Date</Label>
+            <Input 
+              type="date" 
+              value={meetingDate} 
+              onChange={e => setMeetingDate(e.target.value)} 
+              className="h-10 border-slate-200 focus:border-orange-500 font-jakarta text-sm" 
+              placeholder="Select the date for the next meeting"
+            />
+            <p className="text-[10px] text-slate-400">Specify exactly when the next meeting will take place</p>
           </div>
 
           {/* Location — only for onsite/hybrid */}

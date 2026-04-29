@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   Users, Globe, MapPin, GitMerge, Video, Crown, ArrowLeft,
-  CalendarDays, CheckCircle2, ChevronRight,
+  CalendarDays, CheckCircle2, ChevronRight, Calendar,
 } from "lucide-react";
 
 function getInitials(name: string) {
@@ -64,6 +64,7 @@ function MemberGroupCard({ g, isLeader, memberCount, members, onJoin, showJoin }
         {g.description && <p className="text-xs text-muted-foreground line-clamp-2">{g.description}</p>}
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           {g.meeting_day && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{g.meeting_day}{g.meeting_time ? ` · ${g.meeting_time}` : ""}</span>}
+          {g.meeting_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Next: {new Date(g.meeting_date).toLocaleDateString()}</span>}
           {(mt === "online" || mt === "hybrid") && <span className="flex items-center gap-1"><Globe className="h-3 w-3" />Online via Jitsi</span>}
           {mt === "onsite" && g.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{g.location}</span>}
         </div>
@@ -116,7 +117,7 @@ export function MemberGroups() {
     queryKey: ["member-my-groups", member.memberId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.GROUP_MEMBERS)
-        .select("group_id, groups(id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, location, is_active, jitsi_room_name, leader_id, type)")
+        .select("group_id, groups(id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, meeting_date, location, is_active, jitsi_room_name, leader_id, type)")
         .eq("member_id", member.memberId);
       return (data || []).map((gm: any) => gm.groups).filter(Boolean);
     },
@@ -127,7 +128,7 @@ export function MemberGroups() {
     queryKey: ["public-groups", member.churchId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.GROUPS)
-        .select("id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, location, jitsi_room_name, type")
+        .select("id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, meeting_date, location, jitsi_room_name, type")
         .eq(COLS.TENANT_ID, member.churchId).eq("visibility", "public").eq("is_active", true);
       return data || [];
     },
@@ -331,6 +332,7 @@ export function MemberGroups() {
                             {g.description && <p className="text-xs text-muted-foreground line-clamp-2">{g.description}</p>}
                             <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                               {g.meeting_day && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{g.meeting_day}</span>}
+                              {g.meeting_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Next: {new Date(g.meeting_date).toLocaleDateString()}</span>}
                             </div>
                           </div>
                           <div className="border-t border-border/50 px-4 pb-4 pt-3 flex items-center justify-end">
@@ -442,6 +444,7 @@ export function MemberGroupDetail() {
         </div>
         <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
           {(group as any).meeting_day && <span className="flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{(group as any).meeting_day}{(group as any).meeting_time ? ` at ${(group as any).meeting_time}` : ""}</span>}
+          {(group as any).meeting_date && <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4" />Next Meeting: {new Date((group as any).meeting_date).toLocaleDateString()}</span>}
           {(group as any).location && <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" />{(group as any).location}</span>}
         </div>
         {showJoin && (

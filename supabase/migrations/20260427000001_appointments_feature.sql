@@ -15,7 +15,6 @@ CREATE POLICY "apt_types_select" ON appointment_types FOR SELECT TO authenticate
 CREATE POLICY "apt_types_insert" ON appointment_types FOR INSERT TO authenticated WITH CHECK (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
 CREATE POLICY "apt_types_update" ON appointment_types FOR UPDATE TO authenticated USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
 CREATE POLICY "apt_types_delete" ON appointment_types FOR DELETE TO authenticated USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 -- appointments
 CREATE TABLE IF NOT EXISTS appointments (
   id                  VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -47,7 +46,6 @@ CREATE POLICY "appointments_member_select" ON appointments FOR SELECT TO authent
 CREATE POLICY "appointments_member_insert" ON appointments FOR INSERT TO authenticated WITH CHECK (member_id = auth.uid()::text OR tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
 CREATE POLICY "appointments_member_update" ON appointments FOR UPDATE TO authenticated USING (member_id = auth.uid()::text OR tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
 CREATE POLICY "appointments_admin_delete" ON appointments FOR DELETE TO authenticated USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 -- Seed default appointment types
 INSERT INTO appointment_types (tenant_id, label, description, is_active, is_default, sort_order)
 SELECT t.id, v.label, v.description, true, true, v.sort_order

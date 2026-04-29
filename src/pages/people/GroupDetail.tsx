@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, Video, Pencil, Users, Clock, Activity, Crown,
   UserPlus, Trash2, MoreHorizontal, ChevronDown, Globe, MapPin, GitMerge,
-  CheckCircle2, XCircle,
+  CheckCircle2, XCircle, Calendar,
 } from "lucide-react";
 
 function getInitials(name: string) {
@@ -228,10 +228,20 @@ const GroupDetail = () => {
                       <span className="font-semibold text-foreground">{memberCount}{maxM ? `/${maxM}` : ""}</span>
                       <span className="text-muted-foreground">Members</span>
                     </div>
-                    {(group as any).meeting_day && (
-                      <div className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5 text-sm">
-                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-foreground">{(group as any).meeting_day}{(group as any).meeting_time ? ` · ${(group as any).meeting_time}` : ""}</span>
+                    {((group as any).meeting_day || (group as any).meeting_date) && (
+                      <div className="space-y-2">
+                        {(group as any).meeting_day && (
+                          <div className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5 text-sm">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-foreground">{(group as any).meeting_day}{(group as any).meeting_time ? ` · ${(group as any).meeting_time}` : ""}</span>
+                          </div>
+                        )}
+                        {(group as any).meeting_date && (
+                          <div className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 text-sm">
+                            <Calendar className="h-3.5 w-3.5 text-orange-600" />
+                            <span className="text-orange-700 font-medium">Next Meeting: {new Date((group as any).meeting_date).toLocaleDateString()}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -425,6 +435,7 @@ const GroupDetail = () => {
                   {[
                     { label: "Description", value: (group as any).description },
                     { label: "Meeting Schedule", value: (group as any).meeting_day ? `${(group as any).meeting_day}${(group as any).meeting_time ? ` · ${(group as any).meeting_time}` : ""}` : null },
+                    { label: "Next Meeting Date", value: (group as any).meeting_date ? new Date((group as any).meeting_date).toLocaleDateString() : null },
                     { label: "Location", value: (group as any).location || (group as any).meeting_location },
                     { label: "Status", value: group.is_active ? "Active" : "Inactive" },
                     { label: "Max Members", value: (group as any).max_members ? String((group as any).max_members) : "Unlimited" },

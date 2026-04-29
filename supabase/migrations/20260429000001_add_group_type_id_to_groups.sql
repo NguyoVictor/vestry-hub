@@ -3,10 +3,8 @@
 
 ALTER TABLE groups 
   ADD COLUMN IF NOT EXISTS group_type_id TEXT REFERENCES group_types(id) ON DELETE SET NULL;
-
 -- Create index for better query performance
 CREATE INDEX IF NOT EXISTS idx_groups_group_type_id ON groups(group_type_id);
-
 -- Ensure all expected columns exist (some may have been added in different migrations)
 ALTER TABLE groups
   ADD COLUMN IF NOT EXISTS cover_color TEXT,
@@ -19,7 +17,6 @@ ALTER TABLE groups
   ADD COLUMN IF NOT EXISTS tags TEXT[],
   ADD COLUMN IF NOT EXISTS meeting_day TEXT,
   ADD COLUMN IF NOT EXISTS meeting_time TEXT;
-
 -- Update existing groups to use the new group_type_id system
 -- This migration preserves existing data by mapping old 'type' enum values to new group_types
 -- Note: This assumes group_types have been created for the tenant

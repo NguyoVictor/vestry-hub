@@ -9,7 +9,6 @@ ALTER TABLE groups
   ADD COLUMN IF NOT EXISTS meeting_day TEXT,
   ADD COLUMN IF NOT EXISTS meeting_time TEXT,
   ADD COLUMN IF NOT EXISTS location TEXT;
-
 CREATE TABLE IF NOT EXISTS group_types (
   id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -23,7 +22,6 @@ CREATE TABLE IF NOT EXISTS group_types (
 );
 CREATE INDEX IF NOT EXISTS idx_group_types_tenant_id ON group_types(tenant_id);
 ALTER TABLE group_types ENABLE ROW LEVEL SECURITY;
-
 CREATE TABLE IF NOT EXISTS join_requests (
   id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   group_id    TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,

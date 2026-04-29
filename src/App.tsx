@@ -81,6 +81,7 @@ const SermonPreparationPage = lazy(() => import("./pages/media/SermonPreparation
 const BibleExplorerPage = lazy(() => import("./pages/media/BibleExplorer"));
 const SermonsPage = lazy(() => import("./pages/media/Sermons"));
 const SermonsRevampedPage = lazy(() => import("./pages/media/SermonsRevamped"));
+const AIToolsPage = lazy(() => import("./pages/media/AITools"));
 const PublicSermonsPage = lazy(() => import("./pages/public/PublicSermons"));
 const PublicSermonDetailPage = lazy(() => import("./pages/public/PublicSermonDetail"));
 const MemberSermonsRevampedPage = lazy(() => import("./pages/member/MemberSermonsRevamped"));
@@ -232,7 +233,7 @@ const OPS_PATHS = ["/services", "/events", "/volunteering", "/member-requests", 
 const SEC_COMM_PATHS = ["/security-centre", "/incident-management", "/communications", "/communications/compose", "/announcements", "/member-messaging", "/testimonies", "/surveys"];
 const GROWTH_PATHS = ["/discipleship", "/discipleship/graduates", "/discipleship-resources", "/outreach", "/resources-store", "/training"];
 const ADMIN_PATHS = ["/reports", "/branches"];
-const MEDIA_PATHS = ["/church-media", "/asset-management", "/song-library", "/graphics-studio", "/sermon-preparation", "/bible-explorer", "/sermons"];
+const MEDIA_PATHS = ["/church-media", "/asset-management", "/song-library", "/graphics-studio", "/sermon-preparation", "/bible-explorer", "/sermons", "/ai-tools"];
 
 const App = () => (
   <Sentry.ErrorBoundary fallback={<div className="flex items-center justify-center min-h-screen p-12 text-muted-foreground">Something went wrong. Please refresh the page.</div>}>
@@ -356,6 +357,7 @@ const App = () => (
                 <Route path="/asset-management" element={<Suspense fallback={<Fallback />}><AssetManagementPage /></Suspense>} />
                 <Route path="/song-library" element={<Suspense fallback={<Fallback />}><SongLibraryPage /></Suspense>} />
                 <Route path="/graphics-studio" element={<Suspense fallback={<Fallback />}><GraphicsStudioPage /></Suspense>} />
+                <Route path="/ai-tools" element={<Suspense fallback={<Fallback />}><AIToolsPage /></Suspense>} />
                 <Route path="/sermon-preparation" element={<Suspense fallback={<Fallback />}><SermonPreparationPage /></Suspense>} />
                 <Route path="/bible-explorer" element={<Suspense fallback={<Fallback />}><BibleExplorerPage /></Suspense>} />
                 <Route path="/sermons" element={<Suspense fallback={<Fallback />}><SermonsRevampedPage /></Suspense>} />

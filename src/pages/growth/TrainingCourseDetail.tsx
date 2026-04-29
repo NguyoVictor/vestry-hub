@@ -439,7 +439,7 @@ export default function TrainingCourseDetail() {
 
       {/* Certificate Dialog */}
       <Dialog open={certDialogOpen} onOpenChange={setCertDialogOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-amber-500" />Certificate Ready</DialogTitle></DialogHeader>
           <div className="text-center space-y-4 py-4">
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
