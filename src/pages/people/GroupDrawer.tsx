@@ -51,7 +51,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
     if (open) {
       if (editData) {
         setName(editData.name ?? "");
-        setTypeId(editData.group_type_id ?? "");
+        setTypeId(editData.type ?? editData.group_type_id ?? ""); // Check both type and group_type_id for backward compatibility
         setDescription(editData.description ?? "");
         setColor(editData.cover_color || editData.color || "#4F46E5");
         setMeetingType(editData.meeting_type ?? "onsite");
@@ -91,7 +91,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
 
       const payload: any = {
         name: name.trim(),
-        group_type_id: typeId || null,
+        type: typeId || 'other', // Use existing 'type' column instead of 'group_type_id'
         description: description.trim() || null,
         cover_color: color,
         color,

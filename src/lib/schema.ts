@@ -200,6 +200,14 @@ export const TABLES = {
   BIBLE_HIGHLIGHTS: "bible_highlights",
   BIBLE_FAVORITES: "bible_favorites",
 
+  // Bible Explorer (Member Side)
+  VERSE_HIGHLIGHTS: "verse_highlights",
+  VERSE_BOOKMARKS: "verse_bookmarks",
+  VERSE_REACTIONS: "verse_reactions",
+  READING_PROGRESS: "reading_progress",
+  VERSE_NOTES: "verse_notes",
+  MEMBER_PREFERENCES: "member_preferences",
+
   // Appointments
   APPOINTMENTS: "appointments",
   APPOINTMENT_TYPES: "appointment_types",
@@ -276,6 +284,17 @@ export const COLS = {
   NOTIF_TITLE: "title",
   NOTIF_BODY: "body",
   NOTIF_USER_ID: "user_id",
+
+  // Bible Explorer columns
+  BIBLE_SETTINGS: "bible_settings",
+  BOOK_ID: "book_id",
+  VERSE_NUMBER: "verse_number",
+  REACTION: "reaction",
+  COLOR: "color",
+  VERSE_TEXT: "verse_text",
+  TRANSLATION: "translation",
+  READ_AT: "read_at",
+  CONTENT: "content",
 } as const;
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────

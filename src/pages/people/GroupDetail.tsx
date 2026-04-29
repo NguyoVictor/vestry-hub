@@ -169,7 +169,7 @@ const GroupDetail = () => {
   const mtCfg = MT_CONFIG[mt as keyof typeof MT_CONFIG] || MT_CONFIG.onsite;
   const MtIcon = mtCfg.icon;
   const initials = getInitials(group.name || "G");
-  const typeInfo = groupTypes.find((t: any) => t.id === (group as any).group_type_id);
+  const typeInfo = groupTypes.find((t: any) => t.id === (group as any).type || t.id === (group as any).group_type_id);
   const showJoin = (mt === "online" || mt === "hybrid") && (group as any).jitsi_room_name;
   const memberCount = groupMembers.length;
   const maxM = (group as any).max_members;

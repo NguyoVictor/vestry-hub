@@ -62,7 +62,7 @@ const MemberGroupsPage = lazy(() => import("./pages/member/MemberGroups").then(m
 const MemberGroupDetailPage = lazy(() => import("./pages/member/MemberGroups").then(m => ({ default: m.MemberGroupDetail })));
 const MemberSermonsPage = lazy(() => import("./pages/member/MemberSermons").then(m => ({ default: m.MemberSermons })));
 const MemberSermonDetailPage = lazy(() => import("./pages/member/MemberSermons").then(m => ({ default: m.MemberSermonDetail })));
-const MemberBiblePage = lazy(() => import("./pages/member/MemberBible"));
+const MemberBiblePage = lazy(() => import("./pages/member/BibleExplorer"));
 const MemberMessagesPage = lazy(() => import("./pages/member/MemberMessages"));
 const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"));
 const MemberChildrenPage = lazy(() => import("./pages/member/MemberChildren"));

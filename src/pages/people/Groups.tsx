@@ -202,7 +202,6 @@ const Groups = () => {
       const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
       return gm.map(r => ({ ...r, members: map[r.member_id] || null }));
     },
-    },
     staleTime: 300_000,
   });
 
@@ -216,8 +215,8 @@ const Groups = () => {
   // Enrich groups with type label/color
   const enrichedGroups = useMemo(() => groups.map((g: any) => ({
     ...g,
-    group_type_label: g.group_type_id ? typeMap[g.group_type_id]?.label : (g.type ? g.type.replace(/_/g, " ") : null),
-    group_type_color: g.group_type_id ? typeMap[g.group_type_id]?.color : "#6366f1",
+    group_type_label: g.type ? g.type.replace(/_/g, " ") : (g.group_type_id ? typeMap[g.group_type_id]?.label : null),
+    group_type_color: g.type ? "#6366f1" : (g.group_type_id ? typeMap[g.group_type_id]?.color : "#6366f1"),
   })), [groups, typeMap]);
 
   // Members per group (first 4 for avatar stack)
@@ -239,7 +238,7 @@ const Groups = () => {
   const filtered = useMemo(() => {
     let list = [...enrichedGroups];
     if (search) list = list.filter(g => g.name?.toLowerCase().includes(search.toLowerCase()) || g.description?.toLowerCase().includes(search.toLowerCase()));
-    if (filterType !== "all") list = list.filter(g => g.group_type_id === filterType || g.type === filterType);
+    if (filterType !== "all") list = list.filter(g => g.type === filterType || g.group_type_id === filterType);
     if (filterMeeting !== "all") list = list.filter(g => (g.meeting_type || "onsite") === filterMeeting);
     if (sortBy === "az") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortBy === "members") list.sort((a, b) => (memberCounts[b.id] || 0) - (memberCounts[a.id] || 0));

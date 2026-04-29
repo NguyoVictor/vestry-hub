@@ -116,7 +116,7 @@ export function MemberGroups() {
     queryKey: ["member-my-groups", member.memberId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.GROUP_MEMBERS)
-        .select("group_id, groups(id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, location, is_active, jitsi_room_name, leader_id, group_type_id)")
+        .select("group_id, groups(id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, location, is_active, jitsi_room_name, leader_id, type)")
         .eq("member_id", member.memberId);
       return (data || []).map((gm: any) => gm.groups).filter(Boolean);
     },
@@ -127,7 +127,7 @@ export function MemberGroups() {
     queryKey: ["public-groups", member.churchId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.GROUPS)
-        .select("id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, location, jitsi_room_name, group_type_id")
+        .select("id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, location, jitsi_room_name, type")
         .eq(COLS.TENANT_ID, member.churchId).eq("visibility", "public").eq("is_active", true);
       return data || [];
     },
@@ -155,7 +155,6 @@ export function MemberGroups() {
         .select("id, first_name, last_name").in("id", ids);
       const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
       return gm.map(r => ({ ...r, members: map[r.member_id] || null }));
-    },
     },
     staleTime: 300_000,
   });
