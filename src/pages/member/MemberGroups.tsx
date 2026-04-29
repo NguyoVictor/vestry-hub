@@ -147,14 +147,59 @@ export function MemberGroups() {
   const { data: allGroupMembers = [] } = useQuery({
     queryKey: ["all-group-members-preview", member.churchId],
     queryFn: async () => {
-      const { data: gm } = await supabase.from(TABLES.GROUP_MEMBERS)
-        .select("group_id, member_id").eq(COLS.TENANT_ID, member.churchId);
-      if (!gm?.length) return [];
-      const ids = [...new Set(gm.map(r => r.member_id))];
-      const { data: memberDetails } = await supabase.from(TABLES.MEMBERS)
-        .select("id, first_name, last_name").in("id", ids);
-      const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
-      return gm.map(r => ({ ...r, members: map[r.member_id] || null }));
+      // Get all groups for this tenant first
+      const { data: tenantGroups, error: groupsError } = await supabase
+        .from(TABLES.GROUPS)
+        .select("id")
+        .eq("tenant_id", member.churchId);
+      
+      if (groupsError) {
+        console.error("Error fetching tenant groups:", groupsError);
+        return [];
+      }
+      
+      if (!tenantGroups?.length) {
+        return [];
+      }
+      
+      const groupIds = tenantGroups.map(g => g.id);
+      
+      // Get all group members for these groups
+      const { data: groupMembers, error: gmError } = await supabase
+        .from(TABLES.GROUP_MEMBERS)
+        .select("group_id, member_id")
+        .in("group_id", groupIds);
+      
+      if (gmError) {
+        console.error("Error fetching group members:", gmError);
+        return [];
+      }
+      
+      if (!groupMembers?.length) {
+        return [];
+      }
+      
+      // Get member details for all member IDs
+      const memberIds = [...new Set(groupMembers.map(gm => gm.member_id))];
+      const { data: memberDetails, error: memberError } = await supabase
+        .from(TABLES.MEMBERS)
+        .select("id, first_name, last_name")
+        .in("id", memberIds)
+        .eq("tenant_id", member.churchId);
+      
+      if (memberError) {
+        console.error("Error fetching member details:", memberError);
+        return [];
+      }
+      
+      // Create a map of member details
+      const memberMap = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
+      
+      // Combine group members with member details
+      return groupMembers.map(gm => ({
+        ...gm,
+        members: memberMap[gm.member_id] || null
+      })).filter(item => item.members !== null);
     },
     staleTime: 300_000,
   });
@@ -338,9 +383,35 @@ export function MemberGroupDetail() {
   const { data: groupMembers = [] } = useQuery({
     queryKey: ["group-members-list", groupId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.GROUP_MEMBERS)
-        .select("member_id, members(id, first_name, last_name, avatar_url)").eq("group_id", groupId!);
-      return (data || []).map((gm: any) => gm.members).filter(Boolean);
+      // Get group members and then get member details separately
+      const { data: groupMemberIds, error: gmError } = await supabase
+        .from(TABLES.GROUP_MEMBERS)
+        .select("member_id")
+        .eq("group_id", groupId!);
+      
+      if (gmError) {
+        console.error("Error fetching group member IDs:", gmError);
+        return [];
+      }
+      
+      if (!groupMemberIds?.length) {
+        return [];
+      }
+      
+      // Get member details for those IDs, filtered by tenant
+      const memberIds = groupMemberIds.map(gm => gm.member_id);
+      const { data: memberDetails, error: memberError } = await supabase
+        .from(TABLES.MEMBERS)
+        .select("id, first_name, last_name, avatar_url")
+        .in("id", memberIds)
+        .eq("tenant_id", member.churchId);
+      
+      if (memberError) {
+        console.error("Error fetching member details:", memberError);
+        return [];
+      }
+      
+      return memberDetails || [];
     },
     enabled: !!groupId,
     staleTime: 300_000,

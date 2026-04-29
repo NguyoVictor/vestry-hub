@@ -51,14 +51,26 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
     if (open) {
       if (editData) {
         setName(editData.name ?? "");
-        // For editing, try to find a matching group type based on the enum value
+        
+        // For editing, try to find the group type
         let matchingTypeId = "";
-        if (editData.type && editData.type !== 'other') {
+        
+        // First check if there's a custom group type stored in tags
+        if (editData.tags && Array.isArray(editData.tags)) {
+          const groupTypeTag = editData.tags.find((tag: string) => tag.startsWith('group_type:'));
+          if (groupTypeTag) {
+            matchingTypeId = groupTypeTag.replace('group_type:', '');
+          }
+        }
+        
+        // If no custom type found, try to match by enum value
+        if (!matchingTypeId && editData.type && editData.type !== 'other') {
           const matchingType = groupTypes.find(t => 
             t.label.toLowerCase().replace(/\s+/g, '_') === editData.type
           );
           matchingTypeId = matchingType?.id || "";
         }
+        
         setTypeId(matchingTypeId);
         setDescription(editData.description ?? "");
         setColor(editData.cover_color || editData.color || "#4F46E5");
@@ -69,7 +81,10 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
         setIsActive(editData.is_active ?? true);
         setMaxMembers(editData.max_members ? String(editData.max_members) : "");
         setVisibility(editData.visibility ?? "private");
-        setTags(editData.tags ?? []);
+        
+        // Filter out group_type tags from regular tags
+        const regularTags = (editData.tags || []).filter((tag: string) => !tag.startsWith('group_type:'));
+        setTags(regularTags);
       } else {
         setName(""); setTypeId(""); setDescription(""); setColor("#4F46E5");
         setMeetingType("onsite"); setMeetingDay(""); setMeetingTime(""); setLocation("");
@@ -102,11 +117,18 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
       if (typeId && typeId !== 'none') {
         const selectedType = groupTypes.find(t => t.id === typeId);
         if (selectedType) {
-          // Map the group type label to enum value
+          // First, try to map the group type label to enum value
           const label = selectedType.label.toLowerCase().replace(/\s+/g, '_');
-          // Check if it matches any of the known enum values
-          const enumValues = ['ministry', 'cell_group', 'choir', 'youth', 'house_fellowship', 'department', 'children', 'women', 'men', 'prayer', 'outreach', 'bible_study', 'other'];
-          groupTypeEnum = enumValues.includes(label) ? label : 'other';
+          const enumValues = ['ministry', 'cell_group', 'choir', 'youth', 'house_fellowship', 'department', 'children', 'women', 'men', 'prayer', 'outreach', 'bible_study'];
+          
+          if (enumValues.includes(label)) {
+            groupTypeEnum = label;
+          } else {
+            // For custom group types that don't match enum values, use 'other'
+            // but we could store the actual type info in a separate field if needed
+            groupTypeEnum = 'other';
+            console.log(`Custom group type "${selectedType.label}" mapped to 'other' enum value`);
+          }
         }
       }
 
@@ -126,6 +148,15 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
         visibility,
         tags: tags.length > 0 ? tags : null,
       };
+
+      // Store the selected group type ID in tags for reference if it's a custom type
+      if (typeId && typeId !== 'none' && groupTypeEnum === 'other') {
+        const selectedType = groupTypes.find(t => t.id === typeId);
+        if (selectedType) {
+          payload.tags = payload.tags || [];
+          payload.tags.push(`group_type:${typeId}`);
+        }
+      }
 
       if (isEdit && editData) {
         // Generate room name if switching to online/hybrid and none exists

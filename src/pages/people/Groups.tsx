@@ -215,9 +215,32 @@ const Groups = () => {
   // Enrich groups with type label/color
   const enrichedGroups = useMemo(() => groups.map((g: any) => ({
     ...g,
-    group_type_label: g.type && g.type !== 'other' ? g.type.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : null,
-    group_type_color: "#6366f1", // Default color for enum types
-  })), [groups]);
+    group_type_label: (() => {
+      // Check if there's a custom group type stored in tags
+      if (g.tags && Array.isArray(g.tags)) {
+        const groupTypeTag = g.tags.find((tag: string) => tag.startsWith('group_type:'));
+        if (groupTypeTag) {
+          const typeId = groupTypeTag.replace('group_type:', '');
+          const customType = groupTypes.find(t => t.id === typeId);
+          if (customType) return customType.label;
+        }
+      }
+      // Fall back to enum value display
+      return g.type && g.type !== 'other' ? g.type.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : null;
+    })(),
+    group_type_color: (() => {
+      // Check if there's a custom group type stored in tags
+      if (g.tags && Array.isArray(g.tags)) {
+        const groupTypeTag = g.tags.find((tag: string) => tag.startsWith('group_type:'));
+        if (groupTypeTag) {
+          const typeId = groupTypeTag.replace('group_type:', '');
+          const customType = groupTypes.find(t => t.id === typeId);
+          if (customType) return customType.color;
+        }
+      }
+      return "#6366f1"; // Default color for enum types
+    })(),
+  })), [groups, groupTypes]);
 
   // Members per group (first 4 for avatar stack)
   const membersByGroup = useMemo(() => {
