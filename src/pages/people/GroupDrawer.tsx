@@ -51,7 +51,15 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
     if (open) {
       if (editData) {
         setName(editData.name ?? "");
-        setTypeId(editData.type ?? editData.group_type_id ?? ""); // Check both type and group_type_id for backward compatibility
+        // For editing, try to find a matching group type based on the enum value
+        let matchingTypeId = "";
+        if (editData.type && editData.type !== 'other') {
+          const matchingType = groupTypes.find(t => 
+            t.label.toLowerCase().replace(/\s+/g, '_') === editData.type
+          );
+          matchingTypeId = matchingType?.id || "";
+        }
+        setTypeId(matchingTypeId);
         setDescription(editData.description ?? "");
         setColor(editData.cover_color || editData.color || "#4F46E5");
         setMeetingType(editData.meeting_type ?? "onsite");
@@ -89,9 +97,22 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
       // Generate jitsi room name if online/hybrid and not already set
       let jitsiRoom = editData?.jitsi_room_name ?? null;
 
+      // Map group type ID to enum value if a type is selected
+      let groupTypeEnum = 'other'; // default
+      if (typeId && typeId !== 'none') {
+        const selectedType = groupTypes.find(t => t.id === typeId);
+        if (selectedType) {
+          // Map the group type label to enum value
+          const label = selectedType.label.toLowerCase().replace(/\s+/g, '_');
+          // Check if it matches any of the known enum values
+          const enumValues = ['ministry', 'cell_group', 'choir', 'youth', 'house_fellowship', 'department', 'children', 'women', 'men', 'prayer', 'outreach', 'bible_study', 'other'];
+          groupTypeEnum = enumValues.includes(label) ? label : 'other';
+        }
+      }
+
       const payload: any = {
         name: name.trim(),
-        type: typeId || 'other', // Use existing 'type' column instead of 'group_type_id'
+        type: groupTypeEnum, // Use mapped enum value
         description: description.trim() || null,
         cover_color: color,
         color,

@@ -215,9 +215,9 @@ const Groups = () => {
   // Enrich groups with type label/color
   const enrichedGroups = useMemo(() => groups.map((g: any) => ({
     ...g,
-    group_type_label: g.type ? g.type.replace(/_/g, " ") : (g.group_type_id ? typeMap[g.group_type_id]?.label : null),
-    group_type_color: g.type ? "#6366f1" : (g.group_type_id ? typeMap[g.group_type_id]?.color : "#6366f1"),
-  })), [groups, typeMap]);
+    group_type_label: g.type && g.type !== 'other' ? g.type.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : null,
+    group_type_color: "#6366f1", // Default color for enum types
+  })), [groups]);
 
   // Members per group (first 4 for avatar stack)
   const membersByGroup = useMemo(() => {
@@ -238,7 +238,18 @@ const Groups = () => {
   const filtered = useMemo(() => {
     let list = [...enrichedGroups];
     if (search) list = list.filter(g => g.name?.toLowerCase().includes(search.toLowerCase()) || g.description?.toLowerCase().includes(search.toLowerCase()));
-    if (filterType !== "all") list = list.filter(g => g.type === filterType || g.group_type_id === filterType);
+    if (filterType !== "all") {
+      list = list.filter(g => {
+        // Check if filtering by group type ID (from group_types table)
+        if (groupTypes.some(t => t.id === filterType)) {
+          const selectedType = groupTypes.find(t => t.id === filterType);
+          const enumValue = selectedType?.label.toLowerCase().replace(/\s+/g, '_');
+          return g.type === enumValue;
+        }
+        // Direct enum value match
+        return g.type === filterType;
+      });
+    }
     if (filterMeeting !== "all") list = list.filter(g => (g.meeting_type || "onsite") === filterMeeting);
     if (sortBy === "az") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortBy === "members") list.sort((a, b) => (memberCounts[b.id] || 0) - (memberCounts[a.id] || 0));
