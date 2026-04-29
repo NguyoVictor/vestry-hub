@@ -287,7 +287,9 @@ export const COLS = {
 
   // Bible Explorer columns
   BIBLE_SETTINGS: "bible_settings",
+  MEMBER_ID: "member_id",
   BOOK_ID: "book_id",
+  CHAPTER: "chapter",
   VERSE_NUMBER: "verse_number",
   REACTION: "reaction",
   COLOR: "color",

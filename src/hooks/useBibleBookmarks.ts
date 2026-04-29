@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { TABLES, COLS } from '@/lib/schema';
+import { supabase } from '../integrations/supabase/client';
+import { TABLES, COLS } from '../lib/schema';
 import { toast } from 'sonner';
 
 interface VerseBookmark {
@@ -83,7 +83,7 @@ export function useBibleBookmarks(tenantId: string, memberId: string) {
             [COLS.TENANT_ID]: tenantId,
             [COLS.MEMBER_ID]: memberId,
             [COLS.BOOK_ID]: verse.bookId,
-            chapter: verse.chapter,
+            [COLS.CHAPTER]: verse.chapter,
             [COLS.VERSE_NUMBER]: verse.verseNumber,
             [COLS.VERSE_TEXT]: verse.verseText,
             [COLS.TRANSLATION]: verse.translation,
@@ -93,48 +93,14 @@ export function useBibleBookmarks(tenantId: string, memberId: string) {
         return { action: 'insert', verse };
       }
     },
-    onMutate: async (verse) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousBookmarks = queryClient.getQueryData<VerseBookmark[]>(queryKey);
-
-      queryClient.setQueryData<VerseBookmark[]>(queryKey, (old = []) => {
-        const existing = old.find(
-          b =>
-            b.book_id === verse.bookId &&
-            b.chapter === verse.chapter &&
-            b.verse_number === verse.verseNumber
-        );
-
-        if (existing) {
-          return old.filter(b => b.id !== existing.id);
-        } else {
-          return [
-            {
-              id: `temp-${Date.now()}`,
-              tenant_id: tenantId,
-              member_id: memberId,
-              book_id: verse.bookId,
-              chapter: verse.chapter,
-              verse_number: verse.verseNumber,
-              verse_text: verse.verseText,
-              translation: verse.translation,
-              created_at: new Date().toISOString(),
-            },
-            ...old,
-          ];
-        }
-      });
-
-      return { previousBookmarks };
+    onSuccess: () => {
+      // Invalidate queries to refetch fresh data
+      queryClient.invalidateQueries({ queryKey });
     },
-    onError: (error, variables, context) => {
-      if (context?.previousBookmarks) {
-        queryClient.setQueryData(queryKey, context.previousBookmarks);
-      }
+    onError: (error) => {
       toast.error('Failed to save bookmark');
       console.error('Bookmark mutation error:', error);
-    },
-    onSuccess: () => {
+      // Invalidate queries to reset to server state
       queryClient.invalidateQueries({ queryKey });
     },
   });

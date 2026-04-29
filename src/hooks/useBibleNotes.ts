@@ -37,7 +37,7 @@ export function useBibleNotes(
         .eq(COLS.TENANT_ID, tenantId)
         .eq(COLS.MEMBER_ID, memberId)
         .eq(COLS.BOOK_ID, bookId)
-        .eq('chapter', chapter);
+        .eq(COLS.CHAPTER, chapter);
 
       if (error) throw error;
       return data || [];
@@ -82,7 +82,7 @@ export function useBibleNotes(
             [COLS.TENANT_ID]: tenantId,
             [COLS.MEMBER_ID]: memberId,
             [COLS.BOOK_ID]: bookId,
-            chapter,
+            [COLS.CHAPTER]: chapter,
             [COLS.VERSE_NUMBER]: verseNumber,
             [COLS.CONTENT]: content,
           });

@@ -7058,6 +7058,33 @@ export type Database = {
           },
         ]
       }
+      reading_progress: {
+        Row: {
+          book_id: string
+          chapter: number
+          id: string
+          member_id: string
+          read_at: string | null
+          tenant_id: string
+        }
+        Insert: {
+          book_id: string
+          chapter: number
+          id?: string
+          member_id: string
+          read_at?: string | null
+          tenant_id: string
+        }
+        Update: {
+          book_id?: string
+          chapter?: number
+          id?: string
+          member_id?: string
+          read_at?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       resource_assignments: {
         Row: {
           assigned_at: string | null
@@ -10370,6 +10397,141 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      verse_bookmarks: {
+        Row: {
+          book_id: string
+          chapter: number
+          created_at: string | null
+          id: string
+          member_id: string
+          tenant_id: string
+          translation: string
+          verse_number: number
+          verse_text: string
+        }
+        Insert: {
+          book_id: string
+          chapter: number
+          created_at?: string | null
+          id?: string
+          member_id: string
+          tenant_id: string
+          translation: string
+          verse_number: number
+          verse_text: string
+        }
+        Update: {
+          book_id?: string
+          chapter?: number
+          created_at?: string | null
+          id?: string
+          member_id?: string
+          tenant_id?: string
+          translation?: string
+          verse_number?: number
+          verse_text?: string
+        }
+        Relationships: []
+      }
+      verse_highlights: {
+        Row: {
+          book_id: string
+          chapter: number
+          color: string
+          created_at: string | null
+          id: string
+          member_id: string
+          tenant_id: string
+          verse_number: number
+        }
+        Insert: {
+          book_id: string
+          chapter: number
+          color: string
+          created_at?: string | null
+          id?: string
+          member_id: string
+          tenant_id: string
+          verse_number: number
+        }
+        Update: {
+          book_id?: string
+          chapter?: number
+          color?: string
+          created_at?: string | null
+          id?: string
+          member_id?: string
+          tenant_id?: string
+          verse_number?: number
+        }
+        Relationships: []
+      }
+      verse_notes: {
+        Row: {
+          book_id: string
+          chapter: number
+          content: string
+          id: string
+          member_id: string
+          tenant_id: string
+          updated_at: string | null
+          verse_number: number
+        }
+        Insert: {
+          book_id: string
+          chapter: number
+          content: string
+          id?: string
+          member_id: string
+          tenant_id: string
+          updated_at?: string | null
+          verse_number: number
+        }
+        Update: {
+          book_id?: string
+          chapter?: number
+          content?: string
+          id?: string
+          member_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+          verse_number?: number
+        }
+        Relationships: []
+      }
+      verse_reactions: {
+        Row: {
+          book_id: string
+          chapter: number
+          created_at: string | null
+          id: string
+          member_id: string
+          reaction: string
+          tenant_id: string
+          verse_number: number
+        }
+        Insert: {
+          book_id: string
+          chapter: number
+          created_at?: string | null
+          id?: string
+          member_id: string
+          reaction: string
+          tenant_id: string
+          verse_number: number
+        }
+        Update: {
+          book_id?: string
+          chapter?: number
+          created_at?: string | null
+          id?: string
+          member_id?: string
+          reaction?: string
+          tenant_id?: string
+          verse_number?: number
+        }
+        Relationships: []
       }
       visitor_followup_notes: {
         Row: {

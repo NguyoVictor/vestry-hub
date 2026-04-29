@@ -37,7 +37,7 @@ export function useBibleReactions(
         .select('*')
         .eq(COLS.TENANT_ID, tenantId)
         .eq(COLS.BOOK_ID, bookId)
-        .eq('chapter', chapter);
+        .eq(COLS.CHAPTER, chapter);
 
       if (error) throw error;
       return data || [];
@@ -113,7 +113,7 @@ export function useBibleReactions(
             [COLS.TENANT_ID]: tenantId,
             [COLS.MEMBER_ID]: memberId,
             [COLS.BOOK_ID]: bookId,
-            chapter,
+            [COLS.CHAPTER]: chapter,
             [COLS.VERSE_NUMBER]: verseNumber,
             [COLS.REACTION]: reaction,
           });

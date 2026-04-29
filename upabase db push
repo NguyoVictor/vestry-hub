@@ -1,0 +1,72 @@
+[33mcommit 0c0d3cf5ee37fb993eeff8f359c46811bba99a1f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: NguyoVictor <victor.nguyo@student.moringaschool.com>
+Date:   Wed Apr 29 16:19:27 2026 +0300
+
+    feat: AI Tools security refactor and UI enhancements
+    
+    - Refactor AI Tools to use Supabase Edge Functions for secure API key management
+      - Create generate-ai-content Edge Function for all AI content generation
+      - Create transcribe-audio Edge Function for voice-to-sermon-notes
+      - Remove VITE_GROQ_API_KEY from frontend (.env)
+      - GROQ_API_KEY now stored securely in Supabase secrets
+    
+    - Fix AI Tools page grid layout and responsive design
+      - Move col-span classes to BlurFadeIn wrapper (actual grid child)
+      - Remove col-span from PremiumToolCard inner elements
+      - Add explicit grid-cols-12 classes for Tailwind detection
+      - Fix card spacing and width distribution on desktop/tablet/mobile
+    
+    - Fix expanded tool panel scrolling issues
+      - Add proper overflow-y-auto to content area
+      - Fix container height (h-[95vh] instead of max-h-[95vh])
+      - Add flex-shrink-0 to header to prevent content cutoff
+      - Add extra bottom padding (pb-24) for generate button visibility
+    
+    - Update Bible Study Generator route
+      - Change route from /bible-explorer to /sermon-preparation
+      - Align with sermon preparation workflow
+    
+    - Fix JSX syntax errors and TypeScript issues
+      - Remove illegal .then().catch() chaining on Supabase queries
+      - Fix unclosed div tags in JSX structure
+      - Update all Groq API calls to use Edge Functions
+    
+    - Add deployment documentation and scripts
+      - Create AI_TOOLS_SECURITY_REFACTOR.md
+      - Create DEPLOYMENT_COMPLETE.md
+      - Add deploy-ai-functions.sh and .bat scripts
+    
+    All AI tools now use secure server-side API calls with proper error handling and responsive UI.
+
+ .env                                                 |     2 [31m-[m
+ .kiro/specs/AI-TOOLS-PAGE/ai-tools-page.md           |  1430 [32m+++[m
+ AI_TOOLS_SECURITY_REFACTOR.md                        |   129 [32m+[m
+ DEPLOYMENT_COMPLETE.md                               |   150 [32m+[m
+ GROUP_MEETING_DATE_ENHANCEMENT_COMPLETE.md           |   118 [32m+[m
+ deploy-ai-functions.bat                              |    36 [32m+[m
+ deploy-ai-functions.sh                               |    39 [32m+[m
+ src/App.tsx                                          |     4 [32m+[m[31m-[m
+ src/integrations/supabase/types.ts                   | 11274 [32m++++++++++++++++++[m[31m-[m
+ src/pages/Dashboard.tsx                              |    14 [32m+[m[31m-[m
+ src/pages/growth/TrainingCourseDetail.tsx            |     2 [32m+[m[31m-[m
+ src/pages/media/AITools.tsx                          |  2501 [32m+++[m[31m-[m
+ src/pages/member/MemberGroups.tsx                    |     9 [32m+[m[31m-[m
+ src/pages/people/GroupDetail.tsx                     |    21 [32m+[m[31m-[m
+ src/pages/people/GroupDrawer.tsx                     |    18 [32m+[m[31m-[m
+ src/pages/people/Groups.tsx                          |    16 [32m+[m[31m-[m
+ supabase/functions/generate-ai-content/index.ts      |    65 [32m+[m
+ supabase/functions/transcribe-audio/index.ts         |   108 [32m+[m
+ ...260421120000_create_childrens_ministry_tables.sql |    67 [32m+[m[31m-[m
+ .../20260422000001_member_portal_events_rls.sql      |    39 [32m+[m[31m-[m
+ ...260424000001_announcements_module_enhancement.sql |   123 [32m+[m[31m-[m
+ .../20260425000000_testimonies_enhancement.sql       |    44 [32m+[m[31m-[m
+ .../20260426000001_church_media_enhancement.sql      |    79 [32m+[m[31m-[m
+ .../20260427000001_appointments_feature.sql          |    38 [32m+[m[31m-[m
+ .../migrations/20260427000002_groups_enhancement.sql |    18 [32m+[m[31m-[m
+ .../20260428000000_add_sermons_columns.sql           |    57 [32m+[m[31m-[m
+ .../20260428000001_add_sermon_engagement_tables.sql  |    98 [32m+[m[31m-[m
+ .../20260428000002_fix_sermon_reactions_rls.sql      |    52 [32m+[m[31m-[m
+ .../20260428000003_add_bible_explorer_tables.sql     |    91 [32m+[m[31m-[m
+ .../20260429000001_add_group_type_id_to_groups.sql   |    11 [32m+[m[31m-[m
+ .../20260429075601_add_meeting_date_to_groups.sql    |     7 [32m+[m
+ 31 files changed, 16059 insertions(+), 601 deletions(-)
