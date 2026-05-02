@@ -97,7 +97,11 @@ Deno.serve(async (req: Request) => {
     // Persist the new code and reset usage counter
     const { error: updateError } = await supabase
       .from("tenants")
-      .update({ church_code: newCode, invite_code_uses: 0 })
+      .update({ 
+        church_code: newCode, 
+        invite_code: newCode,
+        invite_code_uses: 0 
+      })
       .eq("id", tenantId);
 
     if (updateError) throw updateError;

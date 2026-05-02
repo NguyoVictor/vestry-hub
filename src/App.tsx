@@ -68,6 +68,7 @@ const MemberVolunteerPage = lazy(() => import("./pages/member/MemberVolunteer"))
 const MemberChildrenPage = lazy(() => import("./pages/member/MemberChildren"));
 const MemberSurveysPage = lazy(() => import("./pages/member/MemberSurveys"));
 const MemberFacilityBookingPage = lazy(() => import("./pages/member/MemberFacilityBooking"));
+const MemberLivestreamingPage = lazy(() => import("./pages/member/MemberLivestreaming"));
 const SurveyTakePage = lazy(() => import("./pages/public/SurveyTake"));
 const PublicBookingPage = lazy(() => import("./pages/public/PublicBookingPage"));
 const SurveyResponsesPage = lazy(() => import("./pages/communications/SurveyResponses"));
@@ -82,6 +83,7 @@ const BibleExplorerPage = lazy(() => import("./pages/media/BibleExplorer"));
 const SermonsPage = lazy(() => import("./pages/media/Sermons"));
 const SermonsRevampedPage = lazy(() => import("./pages/media/SermonsRevamped"));
 const AIToolsPage = lazy(() => import("./pages/media/AITools"));
+const LivestreamingPage = lazy(() => import("./pages/Livestreaming"));
 const PublicSermonsPage = lazy(() => import("./pages/public/PublicSermons"));
 const PublicSermonDetailPage = lazy(() => import("./pages/public/PublicSermonDetail"));
 const MemberSermonsRevampedPage = lazy(() => import("./pages/member/MemberSermonsRevamped"));
@@ -122,6 +124,7 @@ const LegalSettingsPage = lazy(() => import("./pages/settings/Legal"));
 const GivingSettingsPage = lazy(() => import("./pages/settings/GivingSettings"));
 const TaxSettingsPage = lazy(() => import("./pages/settings/TaxSettings"));
 const CommunicationsSettingsPage = lazy(() => import("./pages/settings/CommunicationsSettings"));
+const LivestreamingSettingsPage = lazy(() => import("./pages/settings/LivestreamingSettings"));
 const AnnouncementTypesSettingsPage = lazy(() => import("./pages/settings/AnnouncementTypes"));
 const TestimonyCategoriesSettingsPage = lazy(() => import("./pages/settings/TestimonyCategories"));
 const MediaCategoriesSettingsPage = lazy(() => import("./pages/settings/MediaCategories"));
@@ -361,6 +364,7 @@ const App = () => (
                 <Route path="/sermon-preparation" element={<Suspense fallback={<Fallback />}><SermonPreparationPage /></Suspense>} />
                 <Route path="/bible-explorer" element={<Suspense fallback={<Fallback />}><BibleExplorerPage /></Suspense>} />
                 <Route path="/sermons" element={<Suspense fallback={<Fallback />}><SermonsRevampedPage /></Suspense>} />
+                <Route path="/livestreaming" element={<Suspense fallback={<Fallback />}><LivestreamingPage /></Suspense>} />
                 {/* Settings */}
                 <Route path="/settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="/settings/general" replace />} />
@@ -408,6 +412,8 @@ const App = () => (
                   <Route path="tax" element={<Suspense fallback={<Fallback />}><TaxSettingsPage /></Suspense>} />
                   {/* Communications settings */}
                   <Route path="communications-settings" element={<Suspense fallback={<Fallback />}><CommunicationsSettingsPage /></Suspense>} />
+                  {/* Livestreaming settings */}
+                  <Route path="livestreaming" element={<Suspense fallback={<Fallback />}><LivestreamingSettingsPage /></Suspense>} />
                   {/* Announcement Types settings */}
                   <Route path="announcement-types" element={<Suspense fallback={<Fallback />}><AnnouncementTypesSettingsPage /></Suspense>} />
                   {/* Testimony Categories settings */}
@@ -470,6 +476,7 @@ const App = () => (
                 <Route path="/member/children" element={<Suspense fallback={<Fallback />}><MemberChildrenPage /></Suspense>} />
                 <Route path="/member/surveys" element={<Suspense fallback={<Fallback />}><MemberSurveysPage /></Suspense>} />
                 <Route path="/member/facility-booking" element={<Suspense fallback={<Fallback />}><MemberFacilityBookingPage /></Suspense>} />
+                <Route path="/member/livestreaming" element={<Suspense fallback={<Fallback />}><MemberLivestreamingPage /></Suspense>} />
               </Route>
             </Route>
             {/* Public survey-taking — no auth required */}

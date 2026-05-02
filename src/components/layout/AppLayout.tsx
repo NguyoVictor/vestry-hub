@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ChevronLeft, ChevronRight, LogOut, GitBranch, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { TABLES, COLS } from "@/lib/schema";
 
 // ─── Branch switching helpers (sessionStorage-based) ─────────────────────────
 function getActiveBranch(): { id: string; name: string } | null {
@@ -33,6 +34,7 @@ export const AppLayout = () => {
   );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeBranch, setActiveBranchState] = useState<{ id: string; name: string } | null>(getActiveBranch);
+  const [isLiveNow, setIsLiveNow] = useState(false);
 
   // Persist sidebar scroll position across navigation
   const sidebarScrollRef = useRef<HTMLDivElement>(null);
@@ -59,6 +61,44 @@ export const AppLayout = () => {
     window.addEventListener("branch_changed", handler);
     return () => window.removeEventListener("branch_changed", handler);
   });
+
+  // Subscribe to livestream status changes
+  useEffect(() => {
+    const checkLiveStatus = async () => {
+      const { data } = await supabase
+        .from(TABLES.LIVESTREAM_SCHEDULES)
+        .select(COLS.IS_LIVE)
+        .eq(COLS.TENANT_ID, church.tenantId)
+        .eq(COLS.IS_LIVE, true)
+        .limit(1);
+      
+      setIsLiveNow(!!data && data.length > 0);
+    };
+
+    // Check initial status
+    checkLiveStatus();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel(`livestream_status:${church.tenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: TABLES.LIVESTREAM_SCHEDULES,
+          filter: `${COLS.TENANT_ID}=eq.${church.tenantId}`
+        },
+        () => {
+          checkLiveStatus();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [church.tenantId]);
 
   const clearBranch = () => {
     setActiveBranch(null);
@@ -127,7 +167,12 @@ export const AppLayout = () => {
                   )
                 }
               >
-                <item.icon className="h-5 w-5 shrink-0" />
+                <div className="relative">
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  {item.path === "/livestreaming" && isLiveNow && (
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse absolute -top-1 -right-1" />
+                  )}
+                </div>
                 {(mobile || !collapsed) && <span className="truncate">{item.title}</span>}
               </NavLink>
             ))}

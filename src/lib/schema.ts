@@ -229,6 +229,13 @@ export const TABLES = {
 
   // Service attendance
   SERVICE_ATTENDANCE: "service_attendance",
+
+  // Livestreaming
+  LIVESTREAM_CONFIGS: "livestream_configs",
+  LIVESTREAM_SCHEDULES: "livestream_schedules",
+  LIVESTREAM_HISTORY: "livestream_history",
+  LIVESTREAM_PRAYER_REQUESTS: "livestream_prayer_requests",
+  LIVESTREAM_REMINDERS: "livestream_reminders",
 } as const;
 
 // ─── Column Names ─────────────────────────────────────────────────────────────
@@ -336,6 +343,27 @@ export const COLS = {
   TRANSLATION: "translation",
   READ_AT: "read_at",
   CONTENT: "content",
+
+  // Livestreaming columns
+  PLATFORM_TYPE: "platform_type",
+  PLATFORM_URL: "platform_url",
+  EMBED_URL: "embed_url",
+  SUBSCRIBE_URL: "subscribe_url",
+  SUBSCRIBE_LABEL: "subscribe_label",
+  START_TIME: "start_time",
+  RECURRENCE_PATTERN: "recurrence_pattern",
+  RECURRENCE_DAY: "recurrence_day",
+  IS_RECURRING: "is_recurring",
+  IS_LIVE: "is_live",
+  STREAM_DATE: "stream_date",
+  THUMBNAIL_URL: "thumbnail_url",
+  YOUTUBE_VIDEO_ID: "youtube_video_id",
+  SOURCE: "source",
+  PRAYER_TEXT: "prayer_text",
+  IS_ANONYMOUS: "is_anonymous",
+  IS_PRAYED_FOR: "is_prayed_for",
+  PRAYED_AT: "prayed_at",
+  SCHEDULE_ID: "schedule_id",
 } as const;
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────
