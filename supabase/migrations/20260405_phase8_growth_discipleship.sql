@@ -3,6 +3,26 @@
 -- Adapted for actual DB schema: tenant_id (VARCHAR), tenants table
 -- ============================================================
 
+-- Drop existing policies to avoid conflicts
+DO $$
+BEGIN
+  -- Drop all policies that might conflict
+  DROP POLICY IF EXISTS "Staff can manage discipleship resources" ON discipleship_resources;
+  DROP POLICY IF EXISTS "Staff can manage resource assignments" ON resource_assignments;
+  DROP POLICY IF EXISTS "Staff can manage collections" ON resource_collections;
+  DROP POLICY IF EXISTS "Staff can manage collection resources" ON collection_resources;
+  DROP POLICY IF EXISTS "Staff can manage products" ON store_products;
+  DROP POLICY IF EXISTS "Members can view active products" ON store_products;
+  DROP POLICY IF EXISTS "Staff can manage orders" ON store_orders;
+  DROP POLICY IF EXISTS "Staff can manage order items" ON order_items;
+  DROP POLICY IF EXISTS "Users can manage their own enrollments" ON course_enrollments;
+  DROP POLICY IF EXISTS "Admins can view all enrollments" ON course_enrollments;
+  DROP POLICY IF EXISTS "Users can manage their own lesson completions" ON lesson_completions;
+  DROP POLICY IF EXISTS "Enrolled users can view and add comments" ON course_comments;
+EXCEPTION
+  WHEN OTHERS THEN NULL; -- Ignore errors if policies don't exist
+END $$;
+
 -- DISCIPLESHIP RESOURCES TABLE
 CREATE TABLE IF NOT EXISTS discipleship_resources (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -25,8 +45,19 @@ CREATE TABLE IF NOT EXISTS discipleship_resources (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE discipleship_resources ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Staff can manage discipleship resources" ON discipleship_resources FOR ALL
-  USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
+
+-- Create policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'Staff can manage discipleship resources' 
+    AND tablename = 'discipleship_resources'
+  ) THEN
+    CREATE POLICY "Staff can manage discipleship resources" ON discipleship_resources FOR ALL
+      USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_discipleship_resources_tenant ON discipleship_resources(tenant_id);
 
 -- RESOURCE ASSIGNMENTS TABLE
@@ -42,8 +73,19 @@ CREATE TABLE IF NOT EXISTS resource_assignments (
   UNIQUE(resource_id, convert_id)
 );
 ALTER TABLE resource_assignments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Staff can manage resource assignments" ON resource_assignments FOR ALL
-  USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
+
+-- Create policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'Staff can manage resource assignments' 
+    AND tablename = 'resource_assignments'
+  ) THEN
+    CREATE POLICY "Staff can manage resource assignments" ON resource_assignments FOR ALL
+      USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_resource_assignments_tenant ON resource_assignments(tenant_id);
 
 -- RESOURCE COLLECTIONS TABLE

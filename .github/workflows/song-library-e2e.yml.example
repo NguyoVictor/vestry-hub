@@ -1,0 +1,327 @@
+# Song Library E2E Tests - GitHub Actions Workflow
+# 
+# This workflow runs the Song Library E2E tests on:
+# - Every push to main
+# - Every pull request
+# - Nightly schedule
+# - Manual trigger
+
+name: Song Library E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/pages/media/SongLibrary/**'
+      - 'e2e/song-library/**'
+      - 'package.json'
+      - 'playwright.config.ts'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/pages/media/SongLibrary/**'
+      - 'e2e/song-library/**'
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - workflows
+          - performance
+          - accessibility
+
+jobs:
+  # Job 1: Complete Workflows Tests
+  workflows:
+    name: Complete Workflows
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_suite == 'workflows' || github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == ''
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run workflow tests
+        run: npx playwright test e2e/song-library/complete-workflows.spec.ts --project=${{ matrix.browser }}
+        env:
+          BASE_URL: http://localhost:5173
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflows-results-${{ matrix.browser }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflows-screenshots-${{ matrix.browser }}
+          path: test-results/**/*.png
+          retention-days: 7
+
+  # Job 2: Performance Benchmarks
+  performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_suite == 'performance' || github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == ''
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run performance tests
+        run: npx playwright test e2e/song-library/performance-benchmarks.spec.ts --project=chromium
+        env:
+          BASE_URL: http://localhost:5173
+
+      - name: Parse performance results
+        if: always()
+        run: |
+          echo "## Performance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Performance benchmarks completed. Check artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
+
+      - name: Comment PR with performance results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = `## 🚀 Performance Test Results
+            
+            Performance benchmarks have completed. 
+            
+            📊 [View detailed report in artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            Key metrics:
+            - Initial load time
+            - Search response time
+            - Scroll FPS
+            - Real-time sync latency
+            
+            Check the artifacts for complete performance data.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Job 3: Accessibility Compliance
+  accessibility:
+    name: Accessibility Compliance
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_suite == 'accessibility' || github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == ''
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run accessibility tests
+        run: npx playwright test e2e/song-library/accessibility-compliance.spec.ts --project=chromium
+        env:
+          BASE_URL: http://localhost:5173
+
+      - name: Parse accessibility results
+        if: always()
+        run: |
+          echo "## ♿ Accessibility Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "WCAG 2.1 AA compliance tests completed." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload accessibility results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
+
+      - name: Fail on accessibility violations
+        if: failure()
+        run: |
+          echo "❌ Accessibility violations detected!"
+          echo "Please review the test results and fix all violations."
+          exit 1
+
+  # Job 4: Mobile Tests
+  mobile:
+    name: Mobile Tests
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_suite == 'all' || github.event.inputs.test_suite == ''
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        device: ['Mobile Chrome', 'Mobile Safari', 'iPad']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run mobile tests
+        run: npx playwright test e2e/song-library/complete-workflows.spec.ts --project="${{ matrix.device }}"
+        env:
+          BASE_URL: http://localhost:5173
+
+      - name: Upload mobile test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-results-${{ matrix.device }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
+  # Job 5: Test Summary
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [workflows, performance, accessibility, mobile]
+    if: always()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results
+
+      - name: Generate summary
+        run: |
+          echo "# 🎯 Song Library E2E Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Complete Workflows | ${{ needs.workflows.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance Benchmarks | ${{ needs.performance.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Accessibility Compliance | ${{ needs.accessibility.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mobile Tests | ${{ needs.mobile.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test results and reports are available in the artifacts section." >> $GITHUB_STEP_SUMMARY
+
+      - name: Check overall status
+        if: needs.workflows.result == 'failure' || needs.performance.result == 'failure' || needs.accessibility.result == 'failure' || needs.mobile.result == 'failure'
+        run: |
+          echo "❌ Some tests failed. Please review the results."
+          exit 1
+
+  # Job 6: Notify on Failure
+  notify:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [workflows, performance, accessibility, mobile]
+    if: failure() && github.event_name == 'schedule'
+    
+    steps:
+      - name: Send notification
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Nightly E2E Tests Failed - Song Library',
+              body: `The nightly E2E tests for Song Library have failed.
+              
+              **Run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              **Branch**: ${{ github.ref }}
+              **Commit**: ${{ github.sha }}
+              
+              Please investigate and fix the failing tests.`,
+              labels: ['bug', 'e2e-tests', 'song-library']
+            });

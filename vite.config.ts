@@ -16,8 +16,19 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Fix react-bits trying to import non-existent react-native-web subpaths
+      "react-native-web/dist/apis/StyleSheet/registry": "react-native-web",
+      // Fix @react-native/normalize-colors default export issue
+      "@react-native/normalize-colors": "@react-native/normalize-colors/index.js",
     },
     dedupe: ["react", "react-dom"],
+  },
+  optimizeDeps: {
+    exclude: ["react-bits"],
+    include: ["@react-native/normalize-colors"],
+    esbuildOptions: {
+      resolveExtensions: [".web.js", ".js", ".ts", ".tsx", ".jsx"],
+    },
   },
   build: {
     // Split large vendor chunks so the browser can cache them independently

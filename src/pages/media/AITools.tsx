@@ -22,99 +22,69 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Premium AI Tool definitions with explicit col-span values for Tailwind
+// Premium AI Tool definitions with exact col-span values per specification
 const TOOLS = [
   {
     id: 'weekly-bulletin',
     icon: Newspaper,
-    accent: '#8b5cf6',
-    accentLight: '#a78bfa',
+    accent: '#7c3aed', // violet
     category: "Communications",
     name: "Weekly Bulletin Generator",
     description: "Automatically pulls your upcoming events, announcements, sermon series, and giving goals to create your entire weekly bulletin in seconds.",
-    features: ["Live Data Integration", "Smart Formatting", "Multi-Language Support"],
-    complexity: "Advanced",
-    estimatedTime: "30 seconds",
-    colSpan: 8 // Explicit number for lookup
+    colSpan: 7
   },
   {
     id: 'translation',
     icon: Languages,
-    accent: '#06b6d4',
-    accentLight: '#22d3ee',
+    accent: '#0ea5e9', // sky blue
     category: "Communications", 
     name: "Translation Tool",
     description: "Translate sermons, announcements, and bulletins into 14+ African and international languages with theological accuracy.",
-    features: ["14+ Languages", "Theological Context", "Cultural Adaptation"],
-    complexity: "Intermediate",
-    estimatedTime: "15 seconds",
-    colSpan: 4
+    colSpan: 5
   },
   {
     id: 'childrens-lesson',
     icon: BookHeart,
-    accent: '#f59e0b',
-    accentLight: '#fbbf24',
+    accent: '#f59e0b', // amber
     category: "Ministry",
     name: "Children's Lesson Planner",
     description: "Generate complete, age-appropriate lesson plans for any Bible story with activities, crafts, and interactive materials.",
-    features: ["Age-Specific Content", "Activity Ideas", "Material Lists"],
-    complexity: "Intermediate",
-    estimatedTime: "45 seconds",
-    colSpan: 6
+    colSpan: 4
   },
   {
     id: 'pastoral-letter',
     icon: PenLine,
-    accent: '#10b981',
-    accentLight: '#34d399',
+    accent: '#10b981', // emerald
     category: "Communications",
     name: "Pastoral Letter Writer", 
     description: "Create formal pastoral letters for any occasion — condolence, welcome, congratulations, membership certificates, and more.",
-    features: ["6 Letter Types", "Tone Control", "Scripture Integration"],
-    complexity: "Simple",
-    estimatedTime: "20 seconds",
-    colSpan: 6
+    colSpan: 4
   },
   {
     id: 'worship-suggester',
     icon: Music2,
-    accent: '#ec4899',
-    accentLight: '#f472b6',
+    accent: '#ec4899', // pink
     category: "Worship",
     name: "Worship Song Suggester",
     description: "Enter your sermon topic and get intelligent worship song suggestions that perfectly match your message from your Song Library.",
-    features: ["Song Library Integration", "Mood Matching", "Service Flow"],
-    complexity: "Simple",
-    estimatedTime: "10 seconds",
     colSpan: 4
   },
   {
     id: 'voice-notes',
     icon: Mic,
-    accent: '#ef4444',
-    accentLight: '#f87171',
+    accent: '#ef4444', // red
     category: "Preaching",
     name: "Voice to Sermon Notes",
     description: "Speak naturally into your microphone and watch your words transform into structured, organized sermon notes automatically.",
-    features: ["Real-time Transcription", "Smart Formatting", "Cross-browser Support"],
-    complexity: "Advanced",
-    estimatedTime: "Real-time",
-    colSpan: 8
+    colSpan: 5
   }
 ];
 
-// Tailwind col-span lookup map to ensure classes are included in build
-const colSpanMap = {
-  4: 'col-span-4',
-  5: 'col-span-5',
-  6: 'col-span-6',
-  7: 'col-span-7',
-  8: 'col-span-8',
-  9: 'col-span-9',
-  10: 'col-span-10',
-  11: 'col-span-11',
-  12: 'col-span-12'
+// Tailwind col-span lookup map
+const colSpanMap: Record<number, string> = {
+  4: 'md:col-span-6 lg:col-span-4',
+  5: 'md:col-span-6 lg:col-span-5',
+  7: 'md:col-span-6 lg:col-span-7'
 };
 
 const EXISTING_TOOLS = [
@@ -179,150 +149,59 @@ function AnimatedCounter({ value, duration = 2 }: { value: number; duration?: nu
   return <motion.span>{rounded}</motion.span>;
 }
 
-function PremiumToolCard({ tool, index, onClick }: { tool: any; index: number; onClick: () => void }) {
-  const [isHovered, setIsHovered] = useState(false);
-  
+function ToolCard({ tool, index, onClick }: { tool: any; index: number; onClick: () => void }) {
   return (
-    <motion.div
-      layoutId={`tool-card-${tool.id}`}
-      onClick={onClick}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      whileHover={{
-        y: -12,
-        scale: 1.02,
-        transition: { type: 'spring', stiffness: 400, damping: 25 }
-      }}
-      whileTap={{ scale: 0.98 }}
-      className="w-full h-full relative rounded-3xl border border-border/50 bg-gradient-to-br from-background via-background to-muted/30 overflow-hidden cursor-pointer group"
-      style={{
-        minHeight: '400px',
-        padding: '32px',
-        width: '100%',
-        maxWidth: '100%',
-        boxSizing: 'border-box'
-      }}
-    >
-      {/* Animated background gradient */}
+    <BlurFadeIn delay={index * 0.08}>
       <motion.div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-        style={{
-          background: `radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${tool.accent}08, transparent 40%)`
+        layoutId={`tool-card-${tool.id}`}
+        onClick={onClick}
+        whileHover={{
+          y: -4,
+          scale: 1.01,
+          transition: { type: 'spring', stiffness: 400, damping: 25 }
         }}
-      />
-      
-      {/* Floating orbs */}
-      <FloatingOrb delay={index * 0.5} size={140} color={tool.accent} />
-      <FloatingOrb delay={index * 0.5 + 2} size={100} color={tool.accentLight} />
-      
-      {/* Premium border glow */}
-      <motion.div
-        className="absolute inset-0 rounded-3xl"
-        style={{
-          background: `linear-gradient(135deg, ${tool.accent}20, transparent, ${tool.accentLight}20)`,
-          padding: '1px'
-        }}
-        animate={{
-          opacity: isHovered ? 1 : 0,
-        }}
-        transition={{ duration: 0.3 }}
+        className={`rounded-2xl border border-border/50 bg-card overflow-hidden cursor-pointer p-6 relative h-full flex flex-col col-span-12 ${colSpanMap[tool.colSpan]}`}
       >
-        <div className="w-full h-full rounded-3xl bg-background" />
-      </motion.div>
-      
-      <div className="relative z-10 h-full flex flex-col">
-        {/* Header with more spacing */}
-        <div className="flex items-start justify-between mb-8">
-          <motion.div 
-            className="w-20 h-20 rounded-3xl flex items-center justify-center relative"
-            style={{ 
-              background: `linear-gradient(135deg, ${tool.accent}15, ${tool.accentLight}10)`
-            }}
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          >
-            {/* Icon glow effect */}
-            <motion.div
-              className="absolute inset-0 rounded-3xl"
-              style={{
-                background: `linear-gradient(135deg, ${tool.accent}30, ${tool.accentLight}20)`,
-                filter: 'blur(12px)'
-              }}
-              animate={{
-                opacity: isHovered ? 0.6 : 0,
-                scale: isHovered ? 1.2 : 1
-              }}
-              transition={{ duration: 0.3 }}
-            />
-            <tool.icon className="h-10 w-10 relative z-10" style={{ color: tool.accent }} />
-          </motion.div>
-          
-          <div className="flex flex-col items-end gap-3">
-            <PremiumBadge variant={tool.complexity === "Advanced" ? "premium" : tool.complexity === "Intermediate" ? "pro" : "default"}>
-              {tool.complexity}
-            </PremiumBadge>
-            <span className="text-sm text-muted-foreground font-medium px-3 py-1.5 bg-muted/50 rounded-full">
-              {tool.estimatedTime}
-            </span>
-          </div>
-        </div>
+        {/* Radial gradient decoration */}
+        <div 
+          className="absolute top-0 right-0 w-[200px] h-[200px] pointer-events-none"
+          style={{
+            background: `radial-gradient(circle, ${tool.accent}14, transparent)`
+          }}
+        />
         
-        {/* Content with better spacing */}
-        <div className="flex-1 space-y-6">
-          <div>
-            <h3 className="text-2xl font-bold text-foreground mb-3 group-hover:text-foreground transition-colors duration-200 leading-tight">
+        {/* Content */}
+        <div className="relative z-10 flex flex-col h-full">
+          {/* Icon */}
+          <div 
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+            style={{ backgroundColor: `${tool.accent}26` }}
+          >
+            <tool.icon className="h-6 w-6" style={{ color: tool.accent }} />
+          </div>
+          
+          {/* Middle section */}
+          <div className="flex-1">
+            <h3 className={`font-semibold text-foreground mb-1.5 ${tool.colSpan === 7 ? 'text-lg' : 'text-base'}`}>
               {tool.name}
             </h3>
-            <PremiumBadge>
+            <p className={`text-sm text-muted-foreground leading-relaxed ${tool.colSpan === 7 ? 'line-clamp-3' : 'line-clamp-2'}`}>
+              {tool.description}
+            </p>
+          </div>
+          
+          {/* Bottom section */}
+          <div className="mt-auto pt-4 flex items-center justify-between">
+            <span className="text-xs bg-muted rounded-full px-2.5 py-1 text-muted-foreground">
               {tool.category}
-            </PremiumBadge>
-          </div>
-          
-          <p className="text-base text-muted-foreground leading-relaxed">
-            {tool.description}
-          </p>
-          
-          {/* Features with better spacing */}
-          <div className="space-y-3">
-            {tool.features.map((feature: string, idx: number) => (
-              <motion.div
-                key={feature}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 + idx * 0.05 }}
-                className="flex items-center gap-3 text-sm text-muted-foreground"
-              >
-                <div 
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: tool.accent }}
-                />
-                <span>{feature}</span>
-              </motion.div>
-            ))}
+            </span>
+            <motion.div whileHover={{ x: 4 }}>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </motion.div>
           </div>
         </div>
-        
-        {/* Footer with better spacing */}
-        <div className="flex items-center justify-between pt-6 mt-auto">
-          <motion.div
-            className="flex items-center gap-3 text-sm font-medium px-4 py-2 rounded-full bg-muted/30"
-            style={{ color: tool.accent }}
-            whileHover={{ x: 4, scale: 1.05 }}
-          >
-            <Sparkles className="h-4 w-4" />
-            AI Powered
-          </motion.div>
-          
-          <motion.div
-            whileHover={{ x: 8, scale: 1.15 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            className="p-4 rounded-2xl bg-muted/50 group-hover:bg-muted transition-colors duration-200"
-          >
-            <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors duration-200" />
-          </motion.div>
-        </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </BlurFadeIn>
   );
 }
 function AILabel({ children }: { children: React.ReactNode }) {
@@ -1976,8 +1855,8 @@ PRIORITISE songs from the Song Library above all. If suggesting songs not in the
             <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-5xl w-full h-[95vh] bg-gradient-to-br from-background via-background to-muted/20 rounded-3xl border border-border/50 shadow-2xl shadow-black/20 overflow-hidden z-50 flex flex-col">
               {/* Animated background elements */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <FloatingOrb delay={0} size={200} color={activeToolData?.accent || '#8b5cf6'} />
-                <FloatingOrb delay={2} size={150} color={activeToolData?.accentLight || '#a78bfa'} />
+                <FloatingOrb delay={0} size={200} color={activeToolData?.accent || '#7c3aed'} />
+                <FloatingOrb delay={2} size={150} color={activeToolData?.accent || '#7c3aed'} />
               </div>
             
             <div className="flex flex-col h-full relative z-10">
@@ -2001,7 +1880,7 @@ PRIORITISE songs from the Song Library above all. If suggesting songs not in the
                       <motion.div 
                         className="w-20 h-20 rounded-2xl flex items-center justify-center relative"
                         style={{ 
-                          background: `linear-gradient(135deg, ${activeToolData?.accent}15, ${activeToolData?.accentLight}10)`
+                          background: `linear-gradient(135deg, ${activeToolData?.accent}15, ${activeToolData?.accent}10)`
                         }}
                         whileHover={{ scale: 1.05, rotate: 2 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -2010,7 +1889,7 @@ PRIORITISE songs from the Song Library above all. If suggesting songs not in the
                         <motion.div
                           className="absolute inset-0 rounded-2xl"
                           style={{
-                            background: `linear-gradient(135deg, ${activeToolData?.accent}30, ${activeToolData?.accentLight}20)`,
+                            background: `linear-gradient(135deg, ${activeToolData?.accent}30, ${activeToolData?.accent}20)`,
                             filter: 'blur(12px)'
                           }}
                           animate={{
@@ -2034,14 +1913,11 @@ PRIORITISE songs from the Song Library above all. If suggesting songs not in the
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
                           <GradientText
-                            colors={[activeToolData?.accent || '#8b5cf6', activeToolData?.accentLight || '#a78bfa', activeToolData?.accent || '#8b5cf6']}
+                            colors={[activeToolData?.accent || '#7c3aed', activeToolData?.accent || '#7c3aed']}
                             className="text-3xl font-bold"
                           >
                             {activeToolData?.name}
                           </GradientText>
-                          <PremiumBadge variant={activeToolData?.complexity === "Advanced" ? "premium" : activeToolData?.complexity === "Intermediate" ? "pro" : "default"}>
-                            {activeToolData?.complexity}
-                          </PremiumBadge>
                         </div>
                         
                         <p className="text-muted-foreground leading-relaxed mb-4 max-w-2xl">
@@ -2049,10 +1925,6 @@ PRIORITISE songs from the Song Library above all. If suggesting songs not in the
                         </p>
                         
                         <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            <span>{activeToolData?.estimatedTime}</span>
-                          </div>
                           <div className="flex items-center gap-2">
                             <PremiumBadge>{activeToolData?.category}</PremiumBadge>
                           </div>
@@ -2288,7 +2160,7 @@ PRIORITISE songs from the Song Library above all. If suggesting songs not in the
                   delay={index * 0.1}
                   className={`${colSpanMap[tool.colSpan]} md:col-span-6 sm:col-span-12`}
                 >
-                  <PremiumToolCard
+                  <ToolCard
                     tool={tool}
                     index={index}
                     onClick={() => handleToolClick(tool.id)}

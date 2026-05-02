@@ -18,12 +18,12 @@ import {
   BookOpen, ChevronLeft, ChevronRight, Search, Bookmark, 
   PenLine, Flame, Eye, EyeOff, Command, RefreshCw, BookmarkIcon
 } from 'lucide-react';
-import { useBibleHighlights } from '@/hooks/useBibleHighlights';
-import { useBibleBookmarks } from '@/hooks/useBibleBookmarks';
-import { useBibleReactions } from '@/hooks/useBibleReactions';
-import { useBibleProgress } from '@/hooks/useBibleProgress';
-import { useBibleNotes } from '@/hooks/useBibleNotes';
-import { useMemberPreferences } from '@/hooks/useMemberPreferences';
+import { useBibleHighlightsLocal } from '@/hooks/useBibleHighlightsLocal';
+import { useBibleBookmarksLocal } from '@/hooks/useBibleBookmarksLocal';
+import { useBibleReactionsLocal } from '@/hooks/useBibleReactionsLocal';
+import { useBibleProgressLocal } from '@/hooks/useBibleProgressLocal';
+import { useBibleNotesLocal } from '@/hooks/useBibleNotesLocal';
+import { useMemberPreferencesLocal } from '@/hooks/useMemberPreferencesLocal';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 
@@ -391,7 +391,7 @@ export default function BibleExplorer() {
   }
 
   // Load preferences
-  const { bibleSettings, updateBibleSettings } = useMemberPreferences(tenantId, memberId);
+  const { bibleSettings, updateBibleSettings } = useMemberPreferencesLocal(tenantId, memberId);
 
   // State
   const [book, setBook] = useState(bibleSettings.lastBook);
@@ -421,11 +421,11 @@ export default function BibleExplorer() {
 
   // Hooks
   const bookId = BOOK_IDS[book];
-  const { highlights, toggleHighlight } = useBibleHighlights(tenantId, memberId, bookId, chapter);
-  const { bookmarks, isBookmarked, toggleBookmark } = useBibleBookmarks(tenantId, memberId);
-  const { reactionCounts, toggleReaction, reactions } = useBibleReactions(tenantId, memberId, bookId, chapter);
-  const { chaptersRead, percentComplete, markChapterRead, progress } = useBibleProgress(tenantId, memberId);
-  const { hasNote, getNote, saveNote } = useBibleNotes(tenantId, memberId, bookId, chapter);
+  const { highlights, toggleHighlight } = useBibleHighlightsLocal(tenantId, memberId, bookId, chapter);
+  const { bookmarks, isBookmarked, toggleBookmark } = useBibleBookmarksLocal(tenantId, memberId);
+  const { reactionCounts, toggleReaction, reactions } = useBibleReactionsLocal(tenantId, memberId, bookId, chapter);
+  const { chaptersRead, percentComplete, markChapterRead, progress } = useBibleProgressLocal(tenantId, memberId);
+  const { hasNote, getNote, saveNote } = useBibleNotesLocal(tenantId, memberId, bookId, chapter);
 
   // A2: Debounce search query
   useEffect(() => {

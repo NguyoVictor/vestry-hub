@@ -555,3 +555,51 @@ Props: `variant` — `card | table | list | stat`
 - Add `toast.success()` / `toast.error()` on all mutations
 - Filter every Supabase query by `tenant_id` from `useChurch()`
 - Use `TABLES` and `COLS` constants from `src/lib/schema.ts` — never hardcode table/column names
+
+# VestryHub Design System Rules
+
+## Protected Files — NEVER MODIFY
+- src/index.css
+- tailwind.config.ts
+- src/components/ui/button.tsx
+- src/components/ui/card.tsx
+- src/components/ui/input.tsx
+- src/components/ui/textarea.tsx
+- src/components/ui/select.tsx
+- src/components/ui/tabs.tsx
+- src/components/ui/dialog.tsx
+- src/components/ui/dropdown-menu.tsx
+- src/components/ui/checkbox.tsx
+- src/components/ui/switch.tsx
+- src/components/ui/slider.tsx
+- src/components/ui/popover.tsx
+- src/components/layout/AppLayout.tsx
+
+These files define the global design system.
+Modifying them breaks every page in the app.
+
+## For New Features
+- Create new components in src/components/shared/
+- Create new pages in src/pages/
+- Use existing Tailwind classes only
+- Use existing shadcn components as-is
+- Reuse BlurFadeIn and GradientText from
+  their existing locations in the project
+
+## Package Rules
+- Do NOT upgrade lucide-react (locked at 0.383.0)
+- Do NOT install new UI component libraries
+- Do NOT install new CSS frameworks
+- Do NOT modify package.json for UI purposes
+
+## Color System
+- Primary color: violet (#7c3aed)
+- Do NOT add orange as primary anywhere
+- Category accent colors are per-feature only
+- Always include dark: variant for every color
+
+## Animation Rules
+- Use motion/react for all animations
+- Reuse BlurFadeIn for page entrances
+- Reuse GradientText for gradient headings
+- Spring transitions: stiffness 400, damping 25

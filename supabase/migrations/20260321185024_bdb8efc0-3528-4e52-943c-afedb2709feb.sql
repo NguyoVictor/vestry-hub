@@ -35,7 +35,19 @@ CREATE TABLE IF NOT EXISTS house_fellowships (
   updated_at timestamptz DEFAULT now()
 );
 ALTER TABLE house_fellowships ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "hf_tenant_rls" ON house_fellowships FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
+
+-- Create hf_tenant_rls policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'hf_tenant_rls' 
+    AND tablename = 'house_fellowships'
+  ) THEN
+    CREATE POLICY "hf_tenant_rls" ON house_fellowships 
+    FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
+  END IF;
+END $$;
 -- Create fellowship_members table
 CREATE TABLE IF NOT EXISTS fellowship_members (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -46,7 +58,19 @@ CREATE TABLE IF NOT EXISTS fellowship_members (
   UNIQUE(fellowship_id, member_id)
 );
 ALTER TABLE fellowship_members ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "fm_tenant_rls" ON fellowship_members FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
+
+-- Create fm_tenant_rls policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'fm_tenant_rls' 
+    AND tablename = 'fellowship_members'
+  ) THEN
+    CREATE POLICY "fm_tenant_rls" ON fellowship_members 
+    FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
+  END IF;
+END $$;
 -- Create family_members join table
 CREATE TABLE IF NOT EXISTS family_members (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -56,9 +80,20 @@ CREATE TABLE IF NOT EXISTS family_members (
   UNIQUE(family_id, member_id)
 );
 ALTER TABLE family_members ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "fam_members_rls" ON family_members FOR ALL USING (
-  (family_id)::text IN (SELECT id FROM families WHERE (tenant_id)::text = (get_my_tenant_id())::text)
-);
+
+-- Create fam_members_rls policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'fam_members_rls' 
+    AND tablename = 'family_members'
+  ) THEN
+    CREATE POLICY "fam_members_rls" ON family_members FOR ALL USING (
+      (family_id)::text IN (SELECT id FROM families WHERE (tenant_id)::text = (get_my_tenant_id())::text)
+    );
+  END IF;
+END $$;
 -- Create visitor_followup_notes
 CREATE TABLE IF NOT EXISTS visitor_followup_notes (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -69,9 +104,20 @@ CREATE TABLE IF NOT EXISTS visitor_followup_notes (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE visitor_followup_notes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "vfn_tenant_rls" ON visitor_followup_notes FOR ALL USING (
-  (visitor_id)::text IN (SELECT id FROM visitors WHERE (tenant_id)::text = (get_my_tenant_id())::text)
-);
+
+-- Create vfn_tenant_rls policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'vfn_tenant_rls' 
+    AND tablename = 'visitor_followup_notes'
+  ) THEN
+    CREATE POLICY "vfn_tenant_rls" ON visitor_followup_notes FOR ALL USING (
+      (visitor_id)::text IN (SELECT id FROM visitors WHERE (tenant_id)::text = (get_my_tenant_id())::text)
+    );
+  END IF;
+END $$;
 -- Create convert_checkins
 CREATE TABLE IF NOT EXISTS convert_checkins (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -82,9 +128,20 @@ CREATE TABLE IF NOT EXISTS convert_checkins (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE convert_checkins ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "cc_tenant_rls" ON convert_checkins FOR ALL USING (
-  (convert_id)::text IN (SELECT id FROM new_converts WHERE (tenant_id)::text = (get_my_tenant_id())::text)
-);
+
+-- Create cc_tenant_rls policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'cc_tenant_rls' 
+    AND tablename = 'convert_checkins'
+  ) THEN
+    CREATE POLICY "cc_tenant_rls" ON convert_checkins FOR ALL USING (
+      (convert_id)::text IN (SELECT id FROM new_converts WHERE (tenant_id)::text = (get_my_tenant_id())::text)
+    );
+  END IF;
+END $$;
 -- Create convert_stage_history
 CREATE TABLE IF NOT EXISTS convert_stage_history (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -96,6 +153,17 @@ CREATE TABLE IF NOT EXISTS convert_stage_history (
   advanced_at timestamptz DEFAULT now()
 );
 ALTER TABLE convert_stage_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "csh_tenant_rls" ON convert_stage_history FOR ALL USING (
-  (convert_id)::text IN (SELECT id FROM new_converts WHERE (tenant_id)::text = (get_my_tenant_id())::text)
-);
+
+-- Create csh_tenant_rls policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'csh_tenant_rls' 
+    AND tablename = 'convert_stage_history'
+  ) THEN
+    CREATE POLICY "csh_tenant_rls" ON convert_stage_history FOR ALL USING (
+      (convert_id)::text IN (SELECT id FROM new_converts WHERE (tenant_id)::text = (get_my_tenant_id())::text)
+    );
+  END IF;
+END $$;

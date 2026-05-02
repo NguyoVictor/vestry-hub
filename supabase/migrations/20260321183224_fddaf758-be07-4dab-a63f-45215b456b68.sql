@@ -34,8 +34,32 @@ CREATE TABLE IF NOT EXISTS public.tenant_seo_settings (
   updated_at timestamptz DEFAULT now()
 );
 ALTER TABLE public.tenant_seo_settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "seo_tenant_rls" ON public.tenant_seo_settings FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
-CREATE POLICY "seo_public_read" ON public.tenant_seo_settings FOR SELECT TO anon USING (public_page_visible = true);
+
+-- Create seo_tenant_rls policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'seo_tenant_rls' 
+    AND tablename = 'tenant_seo_settings'
+  ) THEN
+    CREATE POLICY "seo_tenant_rls" ON public.tenant_seo_settings 
+    FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
+  END IF;
+END $$;
+
+-- Create seo_public_read policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'seo_public_read' 
+    AND tablename = 'tenant_seo_settings'
+  ) THEN
+    CREATE POLICY "seo_public_read" ON public.tenant_seo_settings 
+    FOR SELECT TO anon USING (public_page_visible = true);
+  END IF;
+END $$;
 -- Notification preferences
 CREATE TABLE IF NOT EXISTS public.notification_preferences (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -58,7 +82,19 @@ CREATE TABLE IF NOT EXISTS public.notification_preferences (
   UNIQUE(user_id, tenant_id)
 );
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "notif_prefs_own" ON public.notification_preferences FOR ALL USING ((user_id)::text = (auth.uid())::text);
+
+-- Create notif_prefs_own policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'notif_prefs_own' 
+    AND tablename = 'notification_preferences'
+  ) THEN
+    CREATE POLICY "notif_prefs_own" ON public.notification_preferences 
+    FOR ALL USING ((user_id)::text = (auth.uid())::text);
+  END IF;
+END $$;
 -- Login events
 CREATE TABLE IF NOT EXISTS public.login_events (
   id varchar NOT NULL DEFAULT (gen_random_uuid())::text PRIMARY KEY,
@@ -70,4 +106,16 @@ CREATE TABLE IF NOT EXISTS public.login_events (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE public.login_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "login_events_own" ON public.login_events FOR SELECT USING ((user_id)::text = (auth.uid())::text);
+
+-- Create login_events_own policy if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE policyname = 'login_events_own' 
+    AND tablename = 'login_events'
+  ) THEN
+    CREATE POLICY "login_events_own" ON public.login_events 
+    FOR SELECT USING ((user_id)::text = (auth.uid())::text);
+  END IF;
+END $$;

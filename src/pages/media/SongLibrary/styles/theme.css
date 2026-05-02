@@ -1,0 +1,548 @@
+/**
+ * Song Library Theme System CSS
+ * 
+ * Comprehensive CSS utilities for the dual-theme system
+ * - Vercel-inspired light mode
+ * - Spotify-inspired dark mode
+ * - Ambient color bleeding effects
+ * - Smooth transitions
+ */
+
+/* =====================================================
+   Theme Base Classes
+   ===================================================== */
+
+.song-library-light {
+  /* Vercel-inspired light theme characteristics */
+  --sl-typography-weight: 500; /* Slightly bolder for sharp appearance */
+  --sl-border-width: 1px; /* Ultra-thin borders */
+  --sl-border-radius: 8px; /* Clean, modern radius */
+  --sl-spacing-generous: 2rem; /* Generous whitespace */
+}
+
+.song-library-dark {
+  /* Spotify-inspired dark theme characteristics */
+  --sl-typography-weight: 400; /* Softer weight for dark mode */
+  --sl-border-width: 1px; /* Consistent border width */
+  --sl-border-radius: 12px; /* Slightly more rounded for warmth */
+  --sl-spacing-generous: 1.5rem; /* Tighter spacing for intimacy */
+}
+
+/* =====================================================
+   Component Base Styles
+   ===================================================== */
+
+.sl-card {
+  background-color: var(--sl-bg-surface);
+  border: var(--sl-border-width) solid var(--sl-border-default);
+  border-radius: var(--sl-border-radius);
+  box-shadow: var(--sl-shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.sl-card:hover {
+  box-shadow: var(--sl-shadow-md);
+  transform: translateY(-2px);
+}
+
+.song-library-dark .sl-card:hover {
+  box-shadow: var(--sl-shadow-md), var(--sl-ambient-glow-sm);
+}
+
+.sl-card-elevated {
+  background-color: var(--sl-bg-elevated);
+  box-shadow: var(--sl-shadow-md);
+}
+
+.sl-card-interactive {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sl-card-interactive:hover {
+  border-color: var(--sl-accent-primary);
+}
+
+.sl-card-interactive:active {
+  transform: translateY(0px) scale(0.98);
+}
+
+/* =====================================================
+   Typography Utilities
+   ===================================================== */
+
+.sl-text-primary {
+  color: var(--sl-text-primary);
+  font-weight: var(--sl-typography-weight);
+}
+
+.sl-text-secondary {
+  color: var(--sl-text-secondary);
+}
+
+.sl-text-muted {
+  color: var(--sl-text-muted);
+}
+
+.sl-text-accent {
+  color: var(--sl-accent-primary);
+}
+
+/* Sharp typography for light mode */
+.song-library-light .sl-heading {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+/* Softer typography for dark mode */
+.song-library-dark .sl-heading {
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+/* =====================================================
+   Button Styles
+   ===================================================== */
+
+.sl-button-primary {
+  background-color: var(--sl-accent-primary);
+  color: white;
+  border: none;
+  border-radius: var(--sl-border-radius);
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  cursor: pointer;
+}
+
+.sl-button-primary:hover {
+  background-color: var(--sl-accent-secondary);
+  transform: translateY(-1px);
+}
+
+.song-library-dark .sl-button-primary:hover {
+  box-shadow: var(--sl-ambient-glow-sm);
+}
+
+.sl-button-secondary {
+  background-color: transparent;
+  color: var(--sl-text-primary);
+  border: var(--sl-border-width) solid var(--sl-border-default);
+  border-radius: var(--sl-border-radius);
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  cursor: pointer;
+}
+
+.sl-button-secondary:hover {
+  border-color: var(--sl-accent-primary);
+  color: var(--sl-accent-primary);
+  background-color: var(--sl-bg-subtle);
+}
+
+/* =====================================================
+   Ambient Color Bleeding (Dark Mode)
+   ===================================================== */
+
+.sl-ambient-glow {
+  position: relative;
+}
+
+.song-library-dark .sl-ambient-glow::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: var(--sl-ambient-gradient);
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.song-library-dark .sl-ambient-glow:hover::before {
+  opacity: 0.8;
+}
+
+.sl-ambient-border {
+  position: relative;
+}
+
+.song-library-dark .sl-ambient-border {
+  border-color: var(--sl-ambient-primary);
+  box-shadow: 0 0 0 1px var(--sl-ambient-primary)30;
+}
+
+/* =====================================================
+   Layout Utilities
+   ===================================================== */
+
+.sl-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--sl-spacing-generous);
+}
+
+.sl-grid {
+  display: grid;
+  gap: var(--sl-spacing-generous);
+}
+
+.sl-grid-songs {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.sl-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sl-flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* =====================================================
+   Animation Utilities
+   ===================================================== */
+
+.sl-transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.sl-transition-fast {
+  transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.sl-hover-lift:hover {
+  transform: translateY(-4px);
+}
+
+.sl-hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* =====================================================
+   Focus States
+   ===================================================== */
+
+.sl-focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--sl-accent-primary)40;
+}
+
+.song-library-light .sl-focus-ring:focus {
+  box-shadow: 0 0 0 2px var(--sl-accent-primary)30, 0 0 0 4px white;
+}
+
+.song-library-dark .sl-focus-ring:focus {
+  box-shadow: 0 0 0 2px var(--sl-accent-primary)50, var(--sl-ambient-glow-sm);
+}
+
+/* =====================================================
+   Accessibility Enhancements
+   ===================================================== */
+
+/* High contrast mode support */
+.high-contrast {
+  --sl-bg-app: Canvas;
+  --sl-bg-surface: Canvas;
+  --sl-text-primary: CanvasText;
+  --sl-text-secondary: CanvasText;
+  --sl-border-default: CanvasText;
+  --sl-accent-primary: Highlight;
+}
+
+.high-contrast .sl-card {
+  border: 2px solid CanvasText;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.high-contrast .sl-button-primary {
+  background: Highlight;
+  color: HighlightText;
+  border: 2px solid CanvasText;
+}
+
+.high-contrast .sl-button-secondary {
+  background: Canvas;
+  color: CanvasText;
+  border: 2px solid CanvasText;
+}
+
+/* Keyboard navigation indicators */
+.keyboard-user .sl-focus-ring:focus {
+  outline: 3px solid var(--sl-accent-primary);
+  outline-offset: 2px;
+}
+
+.keyboard-user.high-contrast .sl-focus-ring:focus {
+  outline: 3px solid Highlight;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px Canvas, 0 0 0 4px Highlight;
+}
+
+/* Focus indicator styles based on preference */
+[data-focus-style="subtle"] .sl-focus-ring:focus {
+  outline: 1px solid var(--sl-accent-primary);
+  outline-offset: 1px;
+}
+
+[data-focus-style="high-contrast"] .sl-focus-ring:focus {
+  outline: 3px solid var(--sl-accent-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 1px white, 0 0 0 4px var(--sl-accent-primary);
+}
+
+/* Reduced motion support */
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.reduce-motion .sl-transition-smooth,
+.reduce-motion .sl-transition-fast {
+  transition: none;
+}
+
+.reduce-motion .sl-hover-lift:hover,
+.reduce-motion .sl-hover-scale:hover {
+  transform: none;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip links for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--sl-accent-primary);
+  color: white;
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 1000;
+  transition: top 0.3s;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Keyboard navigation active state */
+.keyboard-navigation-active {
+  /* Enhanced focus visibility when keyboard navigation is active */
+}
+
+.keyboard-navigation-active .sl-card:focus-within {
+  outline: 2px solid var(--sl-accent-primary);
+  outline-offset: 2px;
+}
+
+/* Touch target sizing for accessibility */
+@media (pointer: coarse) {
+  .sl-button-primary,
+  .sl-button-secondary {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .sl-card-interactive {
+    min-height: 44px;
+  }
+}
+
+/* Focus mode indicators */
+[data-focus-mode="keyboard"] .sl-card:focus {
+  outline: 2px solid var(--sl-accent-primary);
+  outline-offset: 2px;
+}
+
+[data-focus-mode="mouse"] .sl-card:focus {
+  outline: none;
+}
+
+[data-focus-mode="touch"] .sl-card:focus {
+  outline: 1px solid var(--sl-accent-primary);
+  outline-offset: 1px;
+}
+
+/* =====================================================
+   Responsive Design
+   ===================================================== */
+
+@media (max-width: 640px) {
+  .sl-container {
+    padding: 0 1rem;
+  }
+  
+  .sl-grid-songs {
+    grid-template-columns: 1fr;
+  }
+  
+  .song-library-light,
+  .song-library-dark {
+    --sl-spacing-generous: 1rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .sl-grid-songs {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+/* =====================================================
+   Theme Transition Animations
+   ===================================================== */
+
+.sl-theme-transition {
+  transition: 
+    background-color 0.5s cubic-bezier(0.4, 0.0, 0.2, 1),
+    color 0.5s cubic-bezier(0.4, 0.0, 0.2, 1),
+    border-color 0.5s cubic-bezier(0.4, 0.0, 0.2, 1),
+    box-shadow 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* =====================================================
+   Cover Art Integration
+   ===================================================== */
+
+.sl-cover-art-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--sl-border-radius);
+}
+
+.song-library-dark .sl-cover-art-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--sl-ambient-gradient);
+  mix-blend-mode: overlay;
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+}
+
+.song-library-dark .sl-cover-art-container:hover::after {
+  opacity: 0.5;
+}
+
+/* =====================================================
+   Loading States
+   ===================================================== */
+
+.sl-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--sl-bg-muted) 25%,
+    var(--sl-bg-subtle) 50%,
+    var(--sl-bg-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: sl-skeleton-loading 1.5s infinite;
+}
+
+@keyframes sl-skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* =====================================================
+   Scrollbar Styling
+   ===================================================== */
+
+.sl-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.sl-scrollbar::-webkit-scrollbar-track {
+  background: var(--sl-bg-subtle);
+  border-radius: 4px;
+}
+
+.sl-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--sl-border-strong);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.sl-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--sl-accent-primary);
+}
+
+.song-library-dark .sl-scrollbar::-webkit-scrollbar-thumb:hover {
+  box-shadow: var(--sl-ambient-glow-sm);
+}
+
+/* =====================================================
+   Utility Classes
+   ===================================================== */
+
+.sl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sl-no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.sl-full-bleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
+/* =====================================================
+   Print Styles
+   ===================================================== */
+
+@media print {
+  .song-library-dark,
+  .song-library-light {
+    --sl-bg-app: white;
+    --sl-bg-surface: white;
+    --sl-text-primary: black;
+    --sl-text-secondary: #333;
+    --sl-border-default: #ccc;
+  }
+  
+  .sl-ambient-glow::before,
+  .sl-cover-art-container::after {
+    display: none;
+  }
+}

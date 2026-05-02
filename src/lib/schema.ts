@@ -147,6 +147,10 @@ export const TABLES = {
   SONGS: "songs",
   SET_LISTS: "set_lists",
   SET_LIST_SONGS: "set_list_songs",
+  USER_SONG_PREFERENCES: "user_song_preferences",
+  SONG_USAGE_ANALYTICS: "song_usage_analytics",
+  SETLIST_COLLABORATIONS: "setlist_collaborations",
+  SETLIST_CHANGE_HISTORY: "setlist_change_history",
   MEDIA_ASSETS: "media_assets",
   MEDIA_FOLDERS: "media_folders",
   MEDIA_PHOTOS: "media_photos",
@@ -294,6 +298,41 @@ export const COLS = {
   REACTION: "reaction",
   COLOR: "color",
   VERSE_TEXT: "verse_text",
+
+  // Enhanced Songs columns (Song Library UI Revamp)
+  SONG_BPM: "bpm",
+  SONG_TIME_SIGNATURE: "time_signature",
+  SONG_COVER_ART_URL: "cover_art_url",
+  SONG_COVER_ART_COLORS: "cover_art_colors",
+  SONG_DURATION_SECONDS: "duration_seconds",
+  SONG_USAGE_COUNT: "usage_count",
+  SONG_LAST_PLAYED_AT: "last_played_at",
+  SONG_CUSTOM_FIELDS: "custom_fields",
+  SONG_IS_TRENDING: "is_trending",
+
+  // User Song Preferences columns
+  USER_PREF_THEME: "theme",
+  USER_PREF_VIEW_MODE: "view_mode",
+  USER_PREF_TRANSPOSITION: "transposition_preferences",
+  USER_PREF_FILTER_PRESETS: "filter_presets",
+  USER_PREF_RECENT_SEARCHES: "recent_searches",
+
+  // Song Usage Analytics columns
+  USAGE_SERVICE_TYPE: "service_type",
+  USAGE_USED_AT: "used_at",
+  USAGE_SETLIST_ID: "setlist_id",
+  USAGE_KEY_USED: "key_used",
+  USAGE_DURATION_PLAYED: "duration_played",
+
+  // Collaboration columns
+  COLLAB_IS_ACTIVE: "is_active",
+  COLLAB_LAST_SEEN_AT: "last_seen_at",
+  COLLAB_CURSOR_POSITION: "cursor_position",
+
+  // Change History columns
+  CHANGE_TYPE: "change_type",
+  CHANGE_DATA: "change_data",
+  CHANGE_PREVIOUS_STATE: "previous_state",
   TRANSLATION: "translation",
   READ_AT: "read_at",
   CONTENT: "content",
