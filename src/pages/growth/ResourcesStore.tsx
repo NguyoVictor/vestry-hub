@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -13,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { QRCodeSVG } from "qrcode.react";
@@ -21,7 +23,7 @@ import {
   Package, Tag, ShoppingCart, Star, DollarSign, TrendingUp,
   Users, QrCode, Copy, Download, Share2, Plus, Pencil, Trash2,
   LayoutDashboard, BookOpen, FolderOpen, Layers, Ticket,
-  Truck, ClipboardList, RotateCcw, Settings,
+  Truck, ClipboardList, RotateCcw, Settings, Grid, List, MapPin,
 } from "lucide-react";
 
 // ─── Store QR Modal ───────────────────────────────────────────────────────────
@@ -127,6 +129,7 @@ const defaultForm = {
   digital_file_url: "", download_limit: "",
   cover_image: null as File | null,
   gallery_images: [] as File[],
+  digital_file: null as File | null,
   tags: [] as string[], tag_input: "",
   chapters: [] as { title: string; description: string }[],
 };
@@ -192,17 +195,127 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
     download_limit: String(editProduct.download_limit || ""),
     cover_image: null as File | null,
     gallery_images: [] as File[],
+    digital_file: null as File | null,
     tags: editProduct.tags || [] as string[],
     tag_input: "",
     chapters: editProduct.chapters || [] as { title: string; description: string }[],
   } : { ...defaultForm });
 
+  // Upload progress tracking
+  const [uploadProgress, setUploadProgress] = useState({
+    cover: 0,
+    gallery: 0,
+    digital: 0,
+  });
+
   function setField(k: string, v: any) { setForm(f => ({ ...f, [k]: v })); }
+
+  // Upload helper functions
+  async function uploadCoverImage(file: File): Promise<string | null> {
+    try {
+      setUploadProgress(p => ({ ...p, cover: 10 }));
+      const ext = file.name.split(".").pop();
+      const path = `${tenantId}/${Date.now()}-cover.${ext}`;
+      
+      setUploadProgress(p => ({ ...p, cover: 50 }));
+      const { error } = await supabase.storage.from("store-covers").upload(path, file);
+      
+      if (error) throw error;
+      
+      setUploadProgress(p => ({ ...p, cover: 90 }));
+      const { data: { publicUrl } } = supabase.storage.from("store-covers").getPublicUrl(path);
+      
+      setUploadProgress(p => ({ ...p, cover: 100 }));
+      return publicUrl;
+    } catch (error) {
+      console.error("Cover upload failed:", error);
+      toast.error("Failed to upload cover image");
+      setUploadProgress(p => ({ ...p, cover: 0 }));
+      return null;
+    }
+  }
+
+  async function uploadGalleryImages(files: File[]): Promise<string[]> {
+    const urls: string[] = [];
+    try {
+      setUploadProgress(p => ({ ...p, gallery: 10 }));
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const ext = file.name.split(".").pop();
+        const path = `${tenantId}/${Date.now()}-gallery-${i}.${ext}`;
+        
+        const progress = Math.round(10 + (80 * (i + 1)) / files.length);
+        setUploadProgress(p => ({ ...p, gallery: progress }));
+        
+        const { error } = await supabase.storage.from("store-gallery").upload(path, file);
+        
+        if (error) throw error;
+        
+        const { data: { publicUrl } } = supabase.storage.from("store-gallery").getPublicUrl(path);
+        urls.push(publicUrl);
+      }
+      
+      setUploadProgress(p => ({ ...p, gallery: 100 }));
+      return urls;
+    } catch (error) {
+      console.error("Gallery upload failed:", error);
+      toast.error("Failed to upload gallery images");
+      setUploadProgress(p => ({ ...p, gallery: 0 }));
+      return urls; // Return partial uploads
+    }
+  }
+
+  async function uploadDigitalFile(file: File): Promise<string | null> {
+    try {
+      setUploadProgress(p => ({ ...p, digital: 10 }));
+      const ext = file.name.split(".").pop();
+      const path = `${tenantId}/${Date.now()}-${file.name}`;
+      
+      setUploadProgress(p => ({ ...p, digital: 50 }));
+      const { error } = await supabase.storage.from("store-digital-files").upload(path, file);
+      
+      if (error) throw error;
+      
+      setUploadProgress(p => ({ ...p, digital: 90 }));
+      // Digital files are private, so we store the path, not public URL
+      setUploadProgress(p => ({ ...p, digital: 100 }));
+      return path;
+    } catch (error) {
+      console.error("Digital file upload failed:", error);
+      toast.error("Failed to upload digital file");
+      setUploadProgress(p => ({ ...p, digital: 0 }));
+      return null;
+    }
+  }
 
   const isDigital = ["eBook", "Audio", "Video", "Course", "Template", "Document", "Other Digital"].includes(form.type);
 
   const save = useMutation({
     mutationFn: async () => {
+      // Step 1: Upload files first
+      let coverImageUrl: string | null = null;
+      let galleryImageUrls: string[] = [];
+      let digitalFilePath: string | null = null;
+
+      // Upload cover image if provided
+      if (form.cover_image) {
+        coverImageUrl = await uploadCoverImage(form.cover_image);
+        if (!coverImageUrl) throw new Error("Cover image upload failed");
+      }
+
+      // Upload gallery images if provided
+      if (form.gallery_images.length > 0) {
+        galleryImageUrls = await uploadGalleryImages(form.gallery_images);
+      }
+
+      // Upload digital file if provided
+      if (form.digital_file) {
+        digitalFilePath = await uploadDigitalFile(form.digital_file);
+        if (!digitalFilePath) throw new Error("Digital file upload failed");
+      }
+
+      // Step 2: Prepare payload with uploaded file URLs
       const payload: Record<string, any> = {
         name: form.name.trim(),
         product_type: form.type,
@@ -215,12 +328,32 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
         sku: form.sku || null,
         stock_quantity: Number(form.stock_quantity) || 0,
         status: form.status,
-        digital_file_url: form.digital_file_url || null,
         download_limit: form.download_limit ? Number(form.download_limit) : null,
         tags: form.tags,
         tenant_id: tenantId,
         created_by: userId,
       };
+
+      // Add image URLs if uploaded
+      if (coverImageUrl || galleryImageUrls.length > 0) {
+        const allImageUrls = [];
+        if (coverImageUrl) allImageUrls.push(coverImageUrl);
+        allImageUrls.push(...galleryImageUrls);
+        payload.image_urls = allImageUrls;
+      } else if (editProduct?.image_urls) {
+        // Keep existing images if no new ones uploaded
+        payload.image_urls = editProduct.image_urls;
+      }
+
+      // Add digital file path if uploaded
+      if (digitalFilePath) {
+        payload.digital_file_url = digitalFilePath;
+      } else if (editProduct?.digital_file_url) {
+        // Keep existing digital file if no new one uploaded
+        payload.digital_file_url = editProduct.digital_file_url;
+      }
+
+      // Step 3: Save to database
       if (editProduct) {
         const { error } = await supabase.from(TABLES.STORE_PRODUCTS).update(payload).eq(COLS.ID, editProduct.id);
         if (error) throw error;
@@ -228,6 +361,9 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
         const { error } = await supabase.from(TABLES.STORE_PRODUCTS).insert(payload);
         if (error) throw error;
       }
+
+      // Reset upload progress
+      setUploadProgress({ cover: 0, gallery: 0, digital: 0 });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["store-products-admin", tenantId] });
@@ -235,7 +371,10 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       toast.success(editProduct ? "Resource updated" : "Resource created");
       onSaved();
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save resource"),
+    onError: (e: Error) => {
+      toast.error(e.message || "Failed to save resource");
+      setUploadProgress({ cover: 0, gallery: 0, digital: 0 });
+    },
   });
 
   function addTag() {
@@ -370,7 +509,42 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
               </div>
               <div className="space-y-1.5">
                 <Label>Digital File</Label>
-                <Input type="file" className="text-sm" onChange={e => setField("digital_file_url", e.target.value)} />
+                <Input 
+                  type="file" 
+                  className="text-sm" 
+                  accept=".pdf,.mp3,.mp4,.zip,.epub"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Check file size (100MB limit)
+                      if (file.size > 104857600) {
+                        toast.error("File must be under 100MB");
+                        e.target.value = "";
+                        return;
+                      }
+                      setField("digital_file", file);
+                    }
+                  }}
+                />
+                {form.digital_file && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    ✓ {form.digital_file.name} ({(form.digital_file.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+                {editProduct?.digital_file_url && !form.digital_file && (
+                  <p className="text-xs text-slate-500">Current file: {editProduct.digital_file_url.split('/').pop()}</p>
+                )}
+                {uploadProgress.digital > 0 && uploadProgress.digital < 100 && (
+                  <div className="space-y-1">
+                    <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-orange-500 transition-all duration-300"
+                        style={{ width: `${uploadProgress.digital}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500">Uploading... {uploadProgress.digital}%</p>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -379,15 +553,125 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
         {/* Media */}
         <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
           <h2 className="font-semibold text-slate-800 dark:text-slate-100">Media</h2>
+          
+          {/* Cover Image */}
           <div className="space-y-1.5">
             <Label>Cover Image <span className="text-red-500">*</span></Label>
-            <Input type="file" accept="image/*" className="text-sm" />
-            <p className="text-xs text-slate-400">Main product image shown in listings</p>
+            <div className="relative">
+              <Input 
+                type="file" 
+                accept="image/jpeg,image/png,image/webp" 
+                className="text-sm"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Check file size (5MB limit)
+                    if (file.size > 5242880) {
+                      toast.error("Image must be under 5MB");
+                      e.target.value = "";
+                      return;
+                    }
+                    setField("cover_image", file);
+                  }
+                }}
+              />
+            </div>
+            {form.cover_image && (
+              <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {form.cover_image.name} ({(form.cover_image.size / 1024 / 1024).toFixed(2)} MB)
+              </div>
+            )}
+            {editProduct?.image_urls?.[0] && !form.cover_image && (
+              <div className="mt-2">
+                <img 
+                  src={editProduct.image_urls[0]} 
+                  alt="Current cover" 
+                  className="h-24 w-24 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
+                />
+                <p className="text-xs text-slate-500 mt-1">Current cover image</p>
+              </div>
+            )}
+            {uploadProgress.cover > 0 && uploadProgress.cover < 100 && (
+              <div className="space-y-1">
+                <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-orange-500 transition-all duration-300"
+                    style={{ width: `${uploadProgress.cover}%` }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500">Uploading cover... {uploadProgress.cover}%</p>
+              </div>
+            )}
+            <p className="text-xs text-slate-400">Main product image shown in listings (JPEG, PNG, or WebP, max 5MB)</p>
           </div>
+
+          {/* Gallery Images */}
           <div className="space-y-1.5">
             <Label>Gallery Images</Label>
-            <Input type="file" accept="image/*" multiple className="text-sm" />
-            <p className="text-xs text-slate-400">Additional images for product carousel</p>
+            <Input 
+              type="file" 
+              accept="image/jpeg,image/png,image/webp" 
+              multiple 
+              className="text-sm"
+              onChange={e => {
+                const files = Array.from(e.target.files || []);
+                // Check each file size
+                const validFiles = files.filter(file => {
+                  if (file.size > 5242880) {
+                    toast.error(`${file.name} is too large (max 5MB)`);
+                    return false;
+                  }
+                  return true;
+                });
+                if (validFiles.length > 0) {
+                  setField("gallery_images", validFiles);
+                }
+              }}
+            />
+            {form.gallery_images.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  ✓ {form.gallery_images.length} image{form.gallery_images.length > 1 ? 's' : ''} selected
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {form.gallery_images.map((file, i) => (
+                    <span key={i} className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">
+                      {file.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {editProduct?.image_urls && editProduct.image_urls.length > 1 && form.gallery_images.length === 0 && (
+              <div className="mt-2">
+                <div className="flex gap-2 flex-wrap">
+                  {editProduct.image_urls.slice(1).map((url: string, i: number) => (
+                    <img 
+                      key={i}
+                      src={url} 
+                      alt={`Gallery ${i + 1}`} 
+                      className="h-16 w-16 object-cover rounded border border-slate-200 dark:border-slate-700"
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Current gallery images</p>
+              </div>
+            )}
+            {uploadProgress.gallery > 0 && uploadProgress.gallery < 100 && (
+              <div className="space-y-1">
+                <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-orange-500 transition-all duration-300"
+                    style={{ width: `${uploadProgress.gallery}%` }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500">Uploading gallery... {uploadProgress.gallery}%</p>
+              </div>
+            )}
+            <p className="text-xs text-slate-400">Additional images for product carousel (JPEG, PNG, or WebP, max 5MB each)</p>
           </div>
         </section>
 
@@ -460,6 +744,7 @@ function ResourcesTab({ tenantId, currency }: { tenantId: string; currency: (n: 
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["store-products-admin", tenantId],
@@ -496,54 +781,195 @@ function ResourcesTab({ tenantId, currency }: { tenantId: string; currency: (n: 
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={() => { setEditProduct(null); setFormOpen(true); }} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
+      {/* Toolbar */}
+      <div className="flex justify-between items-center">
+        {/* View Toggle */}
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-2 rounded transition-colors ${
+              viewMode === 'grid'
+                ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Grid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-2 rounded transition-colors ${
+              viewMode === 'list'
+                ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
+
+        <Button onClick={() => { setEditProduct(null); setFormOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-white gap-1.5">
           <Plus className="h-4 w-4" /> Add Resource
         </Button>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-              {["Name", "Type", "Category", "Pricing", "Price", "Sales", "Status", "Actions"].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-sm">Loading…</td></tr>
-            ) : products.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-10 text-slate-400 text-sm">No resources yet. Add your first resource to get started.</td></tr>
-            ) : (
-              products.map((p: any) => (
-                <tr key={p.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                  <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{p.name}</td>
-                  <td className="px-4 py-3 capitalize text-slate-600 dark:text-slate-400">{p.product_type?.replace(/_/g, " ")}</td>
-                  <td className="px-4 py-3 capitalize text-slate-600 dark:text-slate-400">{p.category?.replace(/_/g, " ") || "—"}</td>
-                  <td className="px-4 py-3 capitalize text-slate-600 dark:text-slate-400">{p.pricing || "Fixed"}</td>
-                  <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{currency(p.price)}</td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.sales_count || 0}</td>
-                  <td className="px-4 py-3">
-                    <Badge className={`text-xs capitalize ${p.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{p.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => { setEditProduct(p); setFormOpen(true); }} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 transition-colors">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => remove.mutate(p.id)} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+      {/* Grid View */}
+      {viewMode === 'grid' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        >
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3 animate-pulse">
+                <div className="aspect-[3/4] bg-slate-200 dark:bg-slate-700 rounded-lg" />
+                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
+                <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2" />
+              </div>
+            ))
+          ) : products.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+              <Package className="h-12 w-12" />
+              <p className="text-base font-semibold">No resources yet</p>
+              <p className="text-sm">Add your first resource to get started</p>
+            </div>
+          ) : (
+            products.map((p: any) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ y: -6, boxShadow: "0 12px 30px rgba(0,0,0,0.12)" }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-pointer group"
+              >
+                {/* Cover Image */}
+                <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-700 dark:to-slate-800">
+                  {p.image_urls?.[0] ? (
+                    <img
+                      src={p.image_urls[0]}
+                      alt={p.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="h-16 w-16 text-amber-200 dark:text-slate-600" />
                     </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  )}
+                  {/* Status Badge */}
+                  <div className="absolute top-2 right-2">
+                    <Badge className={`text-xs ${p.status === "active" ? "bg-emerald-500 text-white" : "bg-slate-500 text-white"}`}>
+                      {p.status}
+                    </Badge>
+                  </div>
+                  {/* Pricing Badge */}
+                  {p.pricing === 'free' && (
+                    <div className="absolute top-2 left-2">
+                      <Badge className="bg-amber-500 text-white text-xs">FREE</Badge>
+                    </div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="p-4 space-y-2">
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-100 line-clamp-2 group-hover:text-amber-600 transition-colors">
+                    {p.name}
+                  </h3>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400 capitalize text-xs">
+                      {p.product_type?.replace(/_/g, " ")}
+                    </span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">
+                      {currency(p.price)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{p.sales_count || 0} sales</span>
+                    {p.stock_quantity !== null && (
+                      <span>{p.stock_quantity} in stock</span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditProduct(p); setFormOpen(true); }}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-amber-100 dark:hover:bg-amber-900/20 text-slate-700 dark:text-slate-300 hover:text-amber-700 dark:hover:text-amber-400 text-xs font-medium transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); remove.mutate(p.id); }}
+                      className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-medium transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </motion.div>
+      )}
+
+      {/* List View */}
+      {viewMode === 'list' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                {["Image", "Name", "Type", "Category", "Pricing", "Price", "Sales", "Status", "Actions"].map(h => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={9} className="text-center py-10 text-slate-400 text-sm">Loading…</td></tr>
+              ) : products.length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-10 text-slate-400 text-sm">No resources yet. Add your first resource to get started.</td></tr>
+              ) : (
+                products.map((p: any) => (
+                  <tr key={p.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
+                        {p.image_urls?.[0] ? (
+                          <img src={p.image_urls[0]} alt={p.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="h-6 w-6 text-amber-300 dark:text-slate-600" />
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{p.name}</td>
+                    <td className="px-4 py-3 capitalize text-slate-600 dark:text-slate-400">{p.product_type?.replace(/_/g, " ")}</td>
+                    <td className="px-4 py-3 capitalize text-slate-600 dark:text-slate-400">{p.category?.replace(/_/g, " ") || "—"}</td>
+                    <td className="px-4 py-3 capitalize text-slate-600 dark:text-slate-400">{p.pricing || "Fixed"}</td>
+                    <td className="px-4 py-3 font-medium text-amber-600 dark:text-amber-400">{currency(p.price)}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{p.sales_count || 0}</td>
+                    <td className="px-4 py-3">
+                      <Badge className={`text-xs capitalize ${p.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{p.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setEditProduct(p); setFormOpen(true); }} className="p-1.5 rounded hover:bg-amber-100 dark:hover:bg-amber-900/20 text-slate-400 hover:text-amber-600 transition-colors">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => remove.mutate(p.id)} className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -1674,16 +2100,52 @@ function CategoriesTab({ tenantId }: { tenantId: string }) {
   );
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
+// ─── Stat Card with Animation ────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, iconColor }: { icon: React.ElementType; label: string; value: string | number; iconColor: string }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const numericValue = typeof value === 'number' ? value : parseInt(String(value)) || 0;
+
+  useEffect(() => {
+    if (typeof value !== 'number') {
+      return;
+    }
+    
+    const duration = 1000; // 1 second
+    const steps = 30;
+    const increment = numericValue / steps;
+    let current = 0;
+    
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= numericValue) {
+        setDisplayValue(numericValue);
+        clearInterval(timer);
+      } else {
+        setDisplayValue(Math.floor(current));
+      }
+    }, duration / steps);
+    
+    return () => clearInterval(timer);
+  }, [numericValue, value]);
+
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 flex items-center gap-4">
-      <Icon className={`h-6 w-6 shrink-0 ${iconColor}`} />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      whileHover={{ y: -4, boxShadow: "0 8px 25px rgba(0,0,0,0.1)" }}
+      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-5 flex items-center gap-4 cursor-pointer transition-shadow"
+    >
+      <div className={`p-3 rounded-lg bg-gradient-to-br ${iconColor}`}>
+        <Icon className="h-6 w-6 text-white" />
+      </div>
       <div>
-        <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
+        <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+          {typeof value === 'number' ? displayValue : value}
+        </p>
         <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1694,6 +2156,296 @@ function EmptyTab({ icon: Icon, label }: { icon: React.ElementType; label: strin
       <Icon className="h-10 w-10" />
       <p className="text-sm font-medium">Nothing here yet</p>
       <p className="text-xs text-slate-400">{label} will appear here once added.</p>
+    </div>
+  );
+}
+
+// ─── Shipping Tab ─────────────────────────────────────────────────────────────
+function ShippingTab({ tenantId }: { tenantId: string }) {
+  const queryClient = useQueryClient();
+  const [settings, setSettings] = useState({
+    pickup: {
+      enabled: false,
+      location: "",
+      instructions: "",
+      fee: 0,
+    },
+    delivery: {
+      enabled: false,
+      fee: 0,
+      radius: "",
+      estimatedTime: "",
+      instructions: "",
+    },
+  });
+
+  // Fetch tenant store settings
+  const { data: tenant, isLoading } = useQuery({
+    queryKey: ["tenant-store-settings", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.TENANTS)
+        .select("store_settings")
+        .eq(COLS.ID, tenantId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+    staleTime: 300000,
+  });
+
+  // Load settings when tenant data is fetched
+  useEffect(() => {
+    if (tenant?.store_settings?.shipping) {
+      setSettings(tenant.store_settings.shipping);
+    }
+  }, [tenant]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from(TABLES.TENANTS)
+        .update({
+          store_settings: {
+            ...(tenant?.store_settings || {}),
+            shipping: settings,
+          },
+        })
+        .eq(COLS.ID, tenantId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-store-settings", tenantId] });
+      toast.success("Shipping settings saved successfully");
+    },
+    onError: () => {
+      toast.error("Failed to save shipping settings");
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Pickup Configuration */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6"
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-amber-500" />
+              Pickup from Church
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Allow customers to pick up orders from your church location
+            </p>
+          </div>
+          <Switch
+            checked={settings.pickup.enabled}
+            onCheckedChange={(checked) =>
+              setSettings((prev) => ({
+                ...prev,
+                pickup: { ...prev.pickup, enabled: checked },
+              }))
+            }
+          />
+        </div>
+
+        {settings.pickup.enabled && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800"
+          >
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Pickup Location
+              </label>
+              <Input
+                placeholder="e.g., Church office, Main entrance"
+                value={settings.pickup.location}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    pickup: { ...prev.pickup, location: e.target.value },
+                  }))
+                }
+                className="bg-white dark:bg-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Pickup Instructions
+              </label>
+              <Textarea
+                placeholder="e.g., Available Mon-Fri 9am-5pm. Please call ahead."
+                value={settings.pickup.instructions}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    pickup: { ...prev.pickup, instructions: e.target.value },
+                  }))
+                }
+                rows={3}
+                className="bg-white dark:bg-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Pickup Fee (KES)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={settings.pickup.fee}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    pickup: { ...prev.pickup, fee: parseFloat(e.target.value) || 0 },
+                  }))
+                }
+                className="bg-white dark:bg-slate-800"
+              />
+              <p className="text-xs text-slate-500 mt-1">Usually 0 for pickup</p>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+
+      {/* Delivery Configuration */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6"
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Truck className="h-5 w-5 text-amber-500" />
+              Local Delivery
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Offer delivery service within your local area
+            </p>
+          </div>
+          <Switch
+            checked={settings.delivery.enabled}
+            onCheckedChange={(checked) =>
+              setSettings((prev) => ({
+                ...prev,
+                delivery: { ...prev.delivery, enabled: checked },
+              }))
+            }
+          />
+        </div>
+
+        {settings.delivery.enabled && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800"
+          >
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Delivery Fee (KES)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="500"
+                value={settings.delivery.fee}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    delivery: { ...prev.delivery, fee: parseFloat(e.target.value) || 0 },
+                  }))
+                }
+                className="bg-white dark:bg-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Delivery Radius
+              </label>
+              <Input
+                placeholder="e.g., Within Nairobi CBD, 10km radius"
+                value={settings.delivery.radius}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    delivery: { ...prev.delivery, radius: e.target.value },
+                  }))
+                }
+                className="bg-white dark:bg-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Estimated Delivery Time
+              </label>
+              <Input
+                placeholder="e.g., 2-3 business days"
+                value={settings.delivery.estimatedTime}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    delivery: { ...prev.delivery, estimatedTime: e.target.value },
+                  }))
+                }
+                className="bg-white dark:bg-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                Delivery Instructions
+              </label>
+              <Textarea
+                placeholder="Additional delivery information..."
+                value={settings.delivery.instructions}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    delivery: { ...prev.delivery, instructions: e.target.value },
+                  }))
+                }
+                rows={3}
+                className="bg-white dark:bg-slate-800"
+              />
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+
+      {/* Save Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
+          className="bg-amber-500 hover:bg-amber-600 text-white px-6"
+        >
+          {saveMutation.isPending ? "Saving..." : "Save Shipping Settings"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1767,54 +2519,87 @@ export default function ResourcesStore() {
         <div className="absolute bottom-0 left-1/2 w-72 h-72 bg-blue-300/15 rounded-full blur-3xl" />
       </div>
 
-      <PageHeader
-        title="Resource Store"
-        subtitle="Sell books, media and resources to your congregation"
-        action={
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-1.5" onClick={() => setQrOpen(true)}>
-              <QrCode className="h-4 w-4" /> Store QR
-            </Button>
-            <Button variant="outline" className="gap-1.5" onClick={copyStoreLink}>
-              <Copy className="h-4 w-4" /> Copy Store Link
-            </Button>
-          </div>
-        }
-      />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <PageHeader
+          title="Resource Store"
+          subtitle="Sell books, media and resources to your congregation"
+          action={
+            <div className="flex gap-2">
+              <motion.div whileTap={{ scale: 0.97 }}>
+                <Button variant="outline" className="gap-1.5" onClick={() => setQrOpen(true)}>
+                  <QrCode className="h-4 w-4" /> Store QR
+                </Button>
+              </motion.div>
+              <motion.div whileTap={{ scale: 0.97 }}>
+                <Button variant="outline" className="gap-1.5" onClick={copyStoreLink}>
+                  <Copy className="h-4 w-4" /> Copy Store Link
+                </Button>
+              </motion.div>
+            </div>
+          }
+        />
+      </motion.div>
 
       {/* ── Top Stats Row ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Package}      label="Total Resources"   value={products.length}    iconColor="text-orange-500" />
-        <StatCard icon={Tag}          label="Bundles"           value={0}                  iconColor="text-pink-500" />
-        <StatCard icon={ShoppingCart} label="Completed Orders"  value={completedOrders}    iconColor="text-red-500" />
-        <StatCard icon={Star}         label="Total Sales"       value={0}                  iconColor="text-amber-500" />
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"
+      >
+        <StatCard icon={Package}      label="Total Resources"   value={products.length}    iconColor="from-amber-400 to-orange-500" />
+        <StatCard icon={Tag}          label="Bundles"           value={0}                  iconColor="from-pink-400 to-rose-500" />
+        <StatCard icon={ShoppingCart} label="Completed Orders"  value={completedOrders}    iconColor="from-emerald-400 to-green-500" />
+        <StatCard icon={Star}         label="Total Sales"       value={0}                  iconColor="from-violet-400 to-purple-500" />
+      </motion.div>
 
       {/* ── Tab Bar ── */}
-      <div className="border-b border-slate-200 dark:border-slate-700 mb-6">
-        <div className="flex gap-0 overflow-x-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        className="border-b border-slate-200 dark:border-slate-700 mb-6"
+      >
+        <div className="flex gap-0 overflow-x-auto relative">
           {TABS.map(({ key, label, icon: Icon }) => (
-            <button
+            <motion.button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
+              whileTap={{ scale: 0.97 }}
+              className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors relative
                 ${activeTab === key
-                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400"
                   : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                 }`}
             >
               <Icon className="h-4 w-4" />
               {label}
-            </button>
+              {activeTab === key && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500"
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                />
+              )}
+            </motion.button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* ── Tab Content ── */}
 
       {/* Dashboard */}
       {activeTab === "dashboard" && (
-        <div className="space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="space-y-6"
+        >
           {/* Revenue stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={DollarSign}  label="Total Revenue" value={format(totalRevenue)}  iconColor="text-emerald-500" />
@@ -1824,22 +2609,27 @@ export default function ResourcesStore() {
           </div>
 
           {/* Recent Orders */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-5">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            className="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm p-5"
+          >
             <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Recent Orders</h3>
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
               <ShoppingCart className="h-10 w-10" />
               <p className="font-medium text-sm">No orders yet</p>
               <p className="text-xs text-center max-w-xs">Orders will appear here when customers make purchases.</p>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {activeTab === "resources"  && <ResourcesTab tenantId={tenantId} currency={format} />}
       {activeTab === "categories" && <CategoriesTab tenantId={tenantId} />}
       {activeTab === "bundles"    && <BundlesTab tenantId={tenantId} formatCurrency={format} />}
       {activeTab === "coupons"    && <CouponsTab tenantId={tenantId} />}
-      {activeTab === "shipping"   && <EmptyTab icon={Truck}        label="Shipping settings" />}
+      {activeTab === "shipping"   && <ShippingTab tenantId={tenantId} />}
       {activeTab === "orders"     && <OrdersTab tenantId={tenantId} formatCurrency={format} />}
       {activeTab === "refunds"    && <RefundsTab tenantId={tenantId} />}
       {activeTab === "settings"   && <SettingsTab tenantId={tenantId} />}

@@ -73,6 +73,18 @@ interface LivestreamSchedule {
   recurrence_day?: number;
   is_recurring: boolean;
   is_live: boolean;
+  stream_provider?: string;
+  stream_url?: string;
+  jitsi_room?: string;
+  pastor_name?: string;
+  series_name?: string;
+  scripture?: string;
+  chat_enabled?: boolean;
+  thumbnail_url?: string;
+  recording_url?: string;
+  recording_duration?: number;
+  viewer_count?: number;
+  ended_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -102,11 +114,30 @@ interface PrayerRequest {
 }
 
 export default function Livestreaming() {
-  const { tenantId } = useChurch();
+  const { tenantId, churchName } = useChurch();
   const queryClient = useQueryClient();
   const [prayerFilter, setPrayerFilter] = useState<'all' | 'pending' | 'prayed'>('all');
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [pastStreamDialogOpen, setPastStreamDialogOpen] = useState(false);
+  const [goLiveDialogOpen, setGoLiveDialogOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<'youtube' | 'facebook' | 'jitsi' | 'custom'>('jitsi');
+  const [showServiceDetails, setShowServiceDetails] = useState(false);
+  
+  // Go Live form state
+  const [serviceTitle, setServiceTitle] = useState('');
+  const [streamUrl, setStreamUrl] = useState('');
+  const [pastorName, setPastorName] = useState('');
+  const [seriesName, setSeriesName] = useState('');
+  const [scripture, setScripture] = useState('');
+  const [chatEnabled, setChatEnabled] = useState(true);
+
+  // Add Recording Dialog state
+  const [addRecordingDialogOpen, setAddRecordingDialogOpen] = useState(false);
+  const [selectedScheduleForRecording, setSelectedScheduleForRecording] = useState<string | null>(null);
+  const [recordingUrl, setRecordingUrl] = useState('');
+  const [recordingDurationMinutes, setRecordingDurationMinutes] = useState('');
+  const [recordingDurationSeconds, setRecordingDurationSeconds] = useState('');
+  const [recordingThumbnailUrl, setRecordingThumbnailUrl] = useState('');
 
   // Fetch livestream configs
   const { data: configs = [], isLoading: configsLoading } = useQuery({
@@ -243,6 +274,161 @@ export default function Livestreaming() {
   const totalViews = 0; // Placeholder - would come from platform APIs
   const avgAttendance = 0; // Placeholder - would be calculated from historical data
 
+  // Task 2.4: Stats calculations
+  const totalStreams = schedules.length;
+  const liveNow = schedules.filter(s => s.is_live).length;
+  const totalRecordings = schedules.filter(s => s.recording_url).length;
+  const totalViewers = schedules.reduce((sum, s) => sum + (s.viewer_count || 0), 0);
+
+  // Generate Jitsi room name
+  const jitsiRoom = `vestryhub-live-${tenantId.slice(-6)}`;
+
+  // Go Live mutation
+  const goLiveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from(TABLES.LIVESTREAM_SCHEDULES)
+        .insert({
+          [COLS.TENANT_ID]: tenantId,
+          title: serviceTitle,
+          [COLS.IS_LIVE]: true,
+          stream_provider: selectedProvider,
+          stream_url: selectedProvider === 'jitsi' ? undefined : streamUrl,
+          jitsi_room: selectedProvider === 'jitsi' ? jitsiRoom : undefined,
+          pastor_name: pastorName || undefined,
+          series_name: seriesName || undefined,
+          scripture: scripture || undefined,
+          chat_enabled: chatEnabled,
+          [COLS.START_TIME]: new Date().toISOString(),
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['livestream_schedules', tenantId] });
+      toast.success('You are now live!');
+      setGoLiveDialogOpen(false);
+      // Reset form
+      setServiceTitle('');
+      setStreamUrl('');
+      setPastorName('');
+      setSeriesName('');
+      setScripture('');
+      setChatEnabled(true);
+      setSelectedProvider('jitsi');
+      setShowServiceDetails(false);
+    },
+    onError: () => {
+      toast.error('Failed to go live');
+    },
+  });
+
+  // Task 2.3: End Stream mutation
+  const endStreamMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const { error } = await supabase
+        .from(TABLES.LIVESTREAM_SCHEDULES)
+        .update({
+          [COLS.IS_LIVE]: false,
+          ended_at: new Date().toISOString(),
+        })
+        .eq(COLS.ID, scheduleId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['livestream_schedules', tenantId] });
+      toast.success('Stream ended');
+    },
+    onError: () => {
+      toast.error('Failed to end stream');
+    },
+  });
+
+  // Task 3.1: Add Recording mutation
+  const addRecordingMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedScheduleForRecording) throw new Error('No schedule selected');
+      
+      // Calculate total duration in seconds
+      const minutes = parseInt(recordingDurationMinutes) || 0;
+      const seconds = parseInt(recordingDurationSeconds) || 0;
+      const totalSeconds = (minutes * 60) + seconds;
+
+      const { error } = await supabase
+        .from(TABLES.LIVESTREAM_SCHEDULES)
+        .update({
+          recording_url: recordingUrl,
+          recording_duration: totalSeconds,
+          thumbnail_url: recordingThumbnailUrl || undefined,
+        })
+        .eq(COLS.ID, selectedScheduleForRecording);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['livestream_schedules', tenantId] });
+      toast.success('Recording added successfully');
+      setAddRecordingDialogOpen(false);
+      // Reset form
+      setSelectedScheduleForRecording(null);
+      setRecordingUrl('');
+      setRecordingDurationMinutes('');
+      setRecordingDurationSeconds('');
+      setRecordingThumbnailUrl('');
+    },
+    onError: () => {
+      toast.error('Failed to add recording');
+    },
+  });
+
+  // Task 3.3: Delete Recording mutation
+  const deleteRecordingMutation = useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const { error } = await supabase
+        .from(TABLES.LIVESTREAM_SCHEDULES)
+        .update({
+          recording_url: null,
+          recording_duration: null,
+          thumbnail_url: null,
+        })
+        .eq(COLS.ID, scheduleId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['livestream_schedules', tenantId] });
+      toast.success('Recording deleted successfully');
+    },
+    onError: () => {
+      toast.error('Failed to delete recording');
+    },
+  });
+
+  // Helper function to open add recording dialog
+  const openAddRecordingDialog = (scheduleId: string) => {
+    const schedule = schedules.find(s => s.id === scheduleId);
+    if (schedule) {
+      setSelectedScheduleForRecording(scheduleId);
+      
+      // Pre-populate form if editing existing recording
+      if (schedule.recording_url) {
+        setRecordingUrl(schedule.recording_url);
+        if (schedule.recording_duration) {
+          const minutes = Math.floor(schedule.recording_duration / 60);
+          const seconds = schedule.recording_duration % 60;
+          setRecordingDurationMinutes(String(minutes));
+          setRecordingDurationSeconds(String(seconds));
+        }
+        if (schedule.thumbnail_url) {
+          setRecordingThumbnailUrl(schedule.thumbnail_url);
+        }
+      }
+      
+      setAddRecordingDialogOpen(true);
+    }
+  };
+
   // Filter prayers
   const filteredPrayers = prayers.filter(p => {
     if (prayerFilter === 'pending') return !p.is_prayed_for;
@@ -257,7 +443,7 @@ export default function Livestreaming() {
       </Helmet>
 
       <div className="p-6 space-y-6 font-jakarta">
-        {/* Header Section - Task 4.2 */}
+        {/* Header Section - Task 2 */}
         <BlurFadeIn delay={0}>
           <div className="flex items-start justify-between">
             <div>
@@ -268,13 +454,310 @@ export default function Livestreaming() {
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                   Livestreaming
                 </h1>
+                {/* Task 2.1: Live Badge */}
+                {liveSession && (
+                  <motion.div
+                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500 text-white text-sm font-semibold"
+                    animate={{ opacity: [1, 0.4, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                  >
+                    <span className="h-2 w-2 rounded-full bg-white" />
+                    LIVE
+                  </motion.div>
+                )}
               </div>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Manage your church's live broadcasts
               </p>
             </div>
+            {/* Task 2.2: Action Buttons */}
+            <div className="flex items-center gap-2">
+              {liveSession ? (
+                <Button 
+                  onClick={() => endStreamMutation.mutate(liveSession.id)}
+                  disabled={endStreamMutation.isPending}
+                  variant="destructive"
+                >
+                  End Stream
+                </Button>
+              ) : (
+                <Button onClick={() => setGoLiveDialogOpen(true)} className="bg-violet-600 hover:bg-violet-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Go Live
+                </Button>
+              )}
+            </div>
           </div>
         </BlurFadeIn>
+
+        {/* Go Live Panel - Task 1 */}
+        {!liveSession && (
+          <BlurFadeIn delay={0.05}>
+            <Card className="border-2 border-violet-200 dark:border-violet-800">
+              <CardContent className="p-6">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+                  Start a Live Service
+                </h2>
+
+                {/* Service Title Input - Subtask 1.2 */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="service-title" className="text-sm font-medium mb-1.5">
+                      Service Title <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="service-title"
+                      placeholder="e.g., Sunday Morning Worship"
+                      value={serviceTitle}
+                      onChange={(e) => setServiceTitle(e.target.value)}
+                      className="h-10"
+                    />
+                  </div>
+
+                  {/* Provider Selector - Subtask 1.2 */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      Streaming Provider
+                    </Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {/* YouTube Card */}
+                      <motion.div
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedProvider('youtube')}
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedProvider === 'youtube'
+                            ? 'border-violet-600 bg-violet-50 dark:bg-violet-900/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-violet-300'
+                        }`}
+                      >
+                        <Youtube className="h-8 w-8 text-red-600 mb-2" />
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          YouTube Live
+                        </p>
+                      </motion.div>
+
+                      {/* Facebook Card */}
+                      <motion.div
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedProvider('facebook')}
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedProvider === 'facebook'
+                            ? 'border-violet-600 bg-violet-50 dark:bg-violet-900/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-violet-300'
+                        }`}
+                      >
+                        <Users className="h-8 w-8 text-blue-600 mb-2" />
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          Facebook Live
+                        </p>
+                      </motion.div>
+
+                      {/* Jitsi Card */}
+                      <motion.div
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedProvider('jitsi')}
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedProvider === 'jitsi'
+                            ? 'border-violet-600 bg-violet-50 dark:bg-violet-900/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-violet-300'
+                        }`}
+                      >
+                        <Video className="h-8 w-8 text-violet-600 mb-2" />
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          Jitsi (built-in)
+                        </p>
+                      </motion.div>
+
+                      {/* Custom URL Card */}
+                      <motion.div
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedProvider('custom')}
+                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedProvider === 'custom'
+                            ? 'border-violet-600 bg-violet-50 dark:bg-violet-900/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-violet-300'
+                        }`}
+                      >
+                        <Film className="h-8 w-8 text-slate-600 mb-2" />
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          Custom URL
+                        </p>
+                      </motion.div>
+                    </div>
+                  </div>
+
+                  {/* Conditional Stream URL Input - Subtask 1.3 */}
+                  {selectedProvider === 'youtube' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <Label htmlFor="youtube-url" className="text-sm font-medium mb-1.5">
+                        YouTube Live URL
+                      </Label>
+                      <Input
+                        id="youtube-url"
+                        placeholder="https://youtube.com/watch?v=..."
+                        value={streamUrl}
+                        onChange={(e) => setStreamUrl(e.target.value)}
+                        className="h-10"
+                      />
+                    </motion.div>
+                  )}
+
+                  {selectedProvider === 'facebook' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <Label htmlFor="facebook-url" className="text-sm font-medium mb-1.5">
+                        Facebook Live URL
+                      </Label>
+                      <Input
+                        id="facebook-url"
+                        placeholder="https://facebook.com/..."
+                        value={streamUrl}
+                        onChange={(e) => setStreamUrl(e.target.value)}
+                        className="h-10"
+                      />
+                    </motion.div>
+                  )}
+
+                  {selectedProvider === 'jitsi' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <Label htmlFor="jitsi-room" className="text-sm font-medium mb-1.5">
+                        Jitsi Room (auto-generated)
+                      </Label>
+                      <Input
+                        id="jitsi-room"
+                        value={jitsiRoom}
+                        readOnly
+                        className="h-10 bg-slate-50 dark:bg-slate-900"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        This room will be created automatically when you go live
+                      </p>
+                    </motion.div>
+                  )}
+
+                  {selectedProvider === 'custom' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <Label htmlFor="custom-url" className="text-sm font-medium mb-1.5">
+                        Custom Stream URL
+                      </Label>
+                      <Input
+                        id="custom-url"
+                        placeholder="https://..."
+                        value={streamUrl}
+                        onChange={(e) => setStreamUrl(e.target.value)}
+                        className="h-10"
+                      />
+                    </motion.div>
+                  )}
+
+                  {/* Service Details Collapsible - Subtask 1.4 */}
+                  <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowServiceDetails(!showServiceDetails)}
+                      className="mb-3"
+                    >
+                      {showServiceDetails ? 'Hide' : 'Add'} service details
+                    </Button>
+
+                    <AnimatePresence>
+                      {showServiceDetails && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="space-y-3"
+                        >
+                          <div>
+                            <Label htmlFor="pastor-name" className="text-sm font-medium mb-1.5">
+                              Pastor Name
+                            </Label>
+                            <Input
+                              id="pastor-name"
+                              placeholder="e.g., Pastor John Smith"
+                              value={pastorName}
+                              onChange={(e) => setPastorName(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor="series-name" className="text-sm font-medium mb-1.5">
+                              Series Name
+                            </Label>
+                            <Input
+                              id="series-name"
+                              placeholder="e.g., Faith Series"
+                              value={seriesName}
+                              onChange={(e) => setSeriesName(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor="scripture" className="text-sm font-medium mb-1.5">
+                              Scripture Reference
+                            </Label>
+                            <Input
+                              id="scripture"
+                              placeholder="e.g., John 3:16"
+                              value={scripture}
+                              onChange={(e) => setScripture(e.target.value)}
+                              className="h-10"
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Chat Toggle & Go Live Button - Subtask 1.5 */}
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="chat-enabled"
+                        checked={chatEnabled}
+                        onCheckedChange={setChatEnabled}
+                      />
+                      <Label htmlFor="chat-enabled" className="text-sm font-medium cursor-pointer">
+                        Enable live chat
+                      </Label>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => goLiveMutation.mutate()}
+                    disabled={!serviceTitle.trim() || goLiveMutation.isPending || (selectedProvider !== 'jitsi' && !streamUrl.trim())}
+                    className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white font-semibold"
+                  >
+                    {goLiveMutation.isPending ? 'Going Live...' : 'Go Live Now'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </BlurFadeIn>
+        )}
 
         {/* Live Banner Section - Task 4.3 */}
         {liveSession && (
@@ -343,13 +826,14 @@ export default function Livestreaming() {
           </BlurFadeIn>
         )}
 
-        {/* Analytics Dashboard Section - Task 4.4 */}
+        {/* Analytics Dashboard Section - Task 2.4: Stats Row Enhancement */}
         <BlurFadeIn delay={0.2}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Streams */}
             <Card>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
-                  <Eye className="h-5 w-5 text-violet-600" />
+                  <Video className="h-5 w-5 text-violet-600" />
                   <Badge variant="secondary" className="text-xs">Total</Badge>
                 </div>
                 <motion.div
@@ -358,17 +842,18 @@ export default function Livestreaming() {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
                 >
-                  {totalViews.toLocaleString()}
+                  {totalStreams}
                 </motion.div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Views</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Streams</p>
               </CardContent>
             </Card>
 
+            {/* Live Now */}
             <Card>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
-                  <Heart className="h-5 w-5 text-pink-600" />
-                  <Badge variant="secondary" className="text-xs">{pendingPrayers} pending</Badge>
+                  <Eye className="h-5 w-5 text-red-600" />
+                  <Badge variant="secondary" className="text-xs">{liveNow > 0 ? 'Active' : 'Offline'}</Badge>
                 </div>
                 <motion.div
                   className="text-2xl font-bold text-slate-900 dark:text-slate-100"
@@ -376,17 +861,18 @@ export default function Livestreaming() {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
                 >
-                  {totalPrayers}
+                  {liveNow}
                 </motion.div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Prayer Requests</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Live Now</p>
               </CardContent>
             </Card>
 
+            {/* Total Recordings */}
             <Card>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
-                  <Bell className="h-5 w-5 text-blue-600" />
-                  <Badge variant="secondary" className="text-xs">Active</Badge>
+                  <Film className="h-5 w-5 text-blue-600" />
+                  <Badge variant="secondary" className="text-xs">Archived</Badge>
                 </div>
                 <motion.div
                   className="text-2xl font-bold text-slate-900 dark:text-slate-100"
@@ -394,17 +880,18 @@ export default function Livestreaming() {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
                 >
-                  0
+                  {totalRecordings}
                 </motion.div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Reminders Set</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Recordings</p>
               </CardContent>
             </Card>
 
+            {/* Total Viewers */}
             <Card>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <Users className="h-5 w-5 text-emerald-600" />
-                  <Badge variant="secondary" className="text-xs">Average</Badge>
+                  <Badge variant="secondary" className="text-xs">Cumulative</Badge>
                 </div>
                 <motion.div
                   className="text-2xl font-bold text-slate-900 dark:text-slate-100"
@@ -412,9 +899,9 @@ export default function Livestreaming() {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
                 >
-                  {avgAttendance}
+                  {totalViewers.toLocaleString()}
                 </motion.div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Avg Attendance</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Viewers</p>
               </CardContent>
             </Card>
           </div>
@@ -587,13 +1074,13 @@ export default function Livestreaming() {
           </Card>
         </BlurFadeIn>
 
-        {/* Past Streams Archive Section - Task 4.7 */}
+        {/* Past Streams Archive Section - Task 3: Admin Recordings Tab Enhancement */}
         <BlurFadeIn delay={0.5}>
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Past Streams
+                  Past Streams & Recordings
                 </h2>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="outline" onClick={() => setPastStreamDialogOpen(true)}>
@@ -607,13 +1094,13 @@ export default function Livestreaming() {
                 </div>
               </div>
 
-              {historyLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {schedulesLoading ? (
+                <div className="space-y-3">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-48 rounded-lg" />
+                    <Skeleton key={i} className="h-20 rounded-lg" />
                   ))}
                 </div>
-              ) : history.length === 0 ? (
+              ) : schedules.filter(s => s.ended_at).length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <Film className="h-12 w-12 text-slate-300 dark:text-slate-600 mb-3" />
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
@@ -625,54 +1112,135 @@ export default function Livestreaming() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {history.map(stream => (
-                    <motion.div
-                      key={stream.id}
-                      className="group relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer"
-                      whileHover={{ y: -4 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="aspect-video bg-slate-100 dark:bg-slate-900 relative overflow-hidden">
-                        {stream.thumbnail_url ? (
-                          <img
-                            src={stream.thumbnail_url}
-                            alt={stream.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Film className="h-12 w-12 text-slate-300 dark:text-slate-600" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-200 flex items-center justify-center">
-                          <Play className="h-12 w-12 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1 line-clamp-2">
-                          {stream.title}
-                        </h3>
-                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                          <span>{format(new Date(stream.stream_date), 'MMM d, yyyy')}</span>
-                          {stream.source === 'youtube_api' && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Youtube className="h-3 w-3 mr-1" />
-                              YouTube
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-3">
-                          <Button size="sm" variant="ghost" className="h-7 px-2">
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 px-2">
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm font-jakarta">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Title
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Date
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Duration
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Provider
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Views
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Recording
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {schedules
+                        .filter(s => s.ended_at)
+                        .map(schedule => {
+                          const durationMinutes = schedule.recording_duration 
+                            ? Math.floor(schedule.recording_duration / 60)
+                            : 0;
+                          const durationSeconds = schedule.recording_duration 
+                            ? schedule.recording_duration % 60
+                            : 0;
+                          const formattedDuration = schedule.recording_duration
+                            ? `${durationMinutes}:${String(durationSeconds).padStart(2, '0')}`
+                            : '-';
+
+                          return (
+                            <tr 
+                              key={schedule.id}
+                              className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-900/60 transition-colors"
+                            >
+                              <td className="px-4 py-3.5 text-sm text-slate-700 dark:text-slate-300">
+                                <div>
+                                  <p className="font-medium">{schedule.title}</p>
+                                  {schedule.pastor_name && (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                      {schedule.pastor_name}
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3.5 text-sm text-slate-700 dark:text-slate-300">
+                                {format(new Date(schedule.ended_at), 'MMM d, yyyy')}
+                              </td>
+                              <td className="px-4 py-3.5 text-sm text-slate-700 dark:text-slate-300">
+                                {formattedDuration}
+                              </td>
+                              <td className="px-4 py-3.5">
+                                {schedule.stream_provider && (
+                                  <Badge variant="secondary" className="text-xs capitalize">
+                                    {schedule.stream_provider}
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-4 py-3.5 text-sm text-slate-700 dark:text-slate-300">
+                                {schedule.viewer_count || 0}
+                              </td>
+                              <td className="px-4 py-3.5">
+                                {schedule.recording_url ? (
+                                  <Badge className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                                    Available
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">
+                                    None
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center justify-end gap-2">
+                                  {schedule.recording_url ? (
+                                    <>
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost"
+                                        onClick={() => openAddRecordingDialog(schedule.id)}
+                                        className="h-7 px-2"
+                                        title="Edit Recording"
+                                      >
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost"
+                                        onClick={() => {
+                                          if (confirm('Are you sure you want to delete this recording? This action cannot be undone.')) {
+                                            deleteRecordingMutation.mutate(schedule.id);
+                                          }
+                                        }}
+                                        disabled={deleteRecordingMutation.isPending}
+                                        className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                        title="Delete Recording"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => openAddRecordingDialog(schedule.id)}
+                                      className="h-7 text-xs"
+                                    >
+                                      <Plus className="h-3 w-3 mr-1" />
+                                      Add Recording
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>
@@ -700,6 +1268,125 @@ export default function Livestreaming() {
           </DialogHeader>
           <div className="text-sm text-slate-500">
             Dialog content will be implemented in the next iteration
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Recording Dialog - Task 3.1 */}
+      <Dialog open={addRecordingDialogOpen} onOpenChange={setAddRecordingDialogOpen}>
+        <DialogContent className="max-w-2xl font-jakarta">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">
+              {selectedScheduleForRecording && schedules.find(s => s.id === selectedScheduleForRecording)?.recording_url
+                ? 'Edit Recording'
+                : 'Add Recording'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-5 py-4">
+            {/* Recording URL Input */}
+            <div className="space-y-2">
+              <Label htmlFor="recording-url" className="text-sm font-medium">
+                Recording URL <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="recording-url"
+                type="url"
+                placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
+                value={recordingUrl}
+                onChange={(e) => setRecordingUrl(e.target.value)}
+                className="h-10"
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Enter the URL of the recorded video (YouTube, Vimeo, or direct video link)
+              </p>
+            </div>
+
+            {/* Duration Input */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Duration <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="999"
+                    placeholder="Minutes"
+                    value={recordingDurationMinutes}
+                    onChange={(e) => setRecordingDurationMinutes(e.target.value)}
+                    className="h-10"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Minutes</p>
+                </div>
+                <span className="text-slate-400 font-semibold">:</span>
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    placeholder="Seconds"
+                    value={recordingDurationSeconds}
+                    onChange={(e) => setRecordingDurationSeconds(e.target.value)}
+                    className="h-10"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Seconds</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Thumbnail URL Input (Optional) */}
+            <div className="space-y-2">
+              <Label htmlFor="thumbnail-url" className="text-sm font-medium">
+                Thumbnail URL <span className="text-slate-400 text-xs">(optional)</span>
+              </Label>
+              <Input
+                id="thumbnail-url"
+                type="url"
+                placeholder="https://example.com/thumbnail.jpg"
+                value={recordingThumbnailUrl}
+                onChange={(e) => setRecordingThumbnailUrl(e.target.value)}
+                className="h-10"
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Custom thumbnail image for the recording
+              </p>
+            </div>
+          </div>
+
+          {/* Dialog Footer */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddRecordingDialogOpen(false);
+                // Reset form
+                setSelectedScheduleForRecording(null);
+                setRecordingUrl('');
+                setRecordingDurationMinutes('');
+                setRecordingDurationSeconds('');
+                setRecordingThumbnailUrl('');
+              }}
+              disabled={addRecordingMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => addRecordingMutation.mutate()}
+              disabled={
+                !recordingUrl.trim() ||
+                (!recordingDurationMinutes && !recordingDurationSeconds) ||
+                addRecordingMutation.isPending
+              }
+              className="bg-violet-600 hover:bg-violet-700"
+            >
+              {addRecordingMutation.isPending 
+                ? 'Saving...' 
+                : selectedScheduleForRecording && schedules.find(s => s.id === selectedScheduleForRecording)?.recording_url
+                  ? 'Update Recording'
+                  : 'Add Recording'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

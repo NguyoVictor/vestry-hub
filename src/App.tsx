@@ -39,6 +39,7 @@ const BranchDetail = lazy(() => import("./pages/analytics/BranchDetail"));
 // Member Portal pages
 const MemberLoginPage = lazy(() => import("./pages/member/MemberLogin"));
 const JoinChurch = lazy(() => import("./pages/member/JoinChurch"));
+const MemberStore = lazy(() => import("./pages/member/MemberStore"));
 const ProfileSetup = lazy(() => import("./pages/member/ProfileSetup"));
 const MemberHome = lazy(() => import("./pages/member/MemberHome"));
 const MemberGive = lazy(() => import("./pages/member/MemberGive"));
@@ -69,6 +70,8 @@ const MemberChildrenPage = lazy(() => import("./pages/member/MemberChildren"));
 const MemberSurveysPage = lazy(() => import("./pages/member/MemberSurveys"));
 const MemberFacilityBookingPage = lazy(() => import("./pages/member/MemberFacilityBooking"));
 const MemberLivestreamingPage = lazy(() => import("./pages/member/MemberLivestreaming"));
+const MemberWatchLivePage = lazy(() => import("./pages/member/MemberWatchLive"));
+const MemberOutreachPage = lazy(() => import("./pages/member/MemberOutreach"));
 const SurveyTakePage = lazy(() => import("./pages/public/SurveyTake"));
 const PublicBookingPage = lazy(() => import("./pages/public/PublicBookingPage"));
 const SurveyResponsesPage = lazy(() => import("./pages/communications/SurveyResponses"));
@@ -94,6 +97,7 @@ const DiscipleshipGraduates = lazy(() => import("./pages/growth/DiscipleshipGrad
 const Outreach = lazy(() => import("./pages/growth/Outreach"));
 const OutreachDetail = lazy(() => import("./pages/growth/OutreachDetail"));
 const ResourcesStore = lazy(() => import("./pages/growth/ResourcesStore"));
+const PublicStore = lazy(() => import("./pages/store/PublicStore"));
 const Training = lazy(() => import("./pages/growth/Training"));
 const TrainingCourseBuilder = lazy(() => import("./pages/growth/TrainingCourseBuilder"));
 const TrainingCourseDetail = lazy(() => import("./pages/growth/TrainingCourseDetail"));
@@ -269,6 +273,9 @@ const App = () => (
             {/* Public sermon pages — no auth required */}
             <Route path="/sermons/:tenantId" element={<Suspense fallback={<Fallback />}><PublicSermonsPage /></Suspense>} />
             <Route path="/sermons/:tenantId/:sermonId" element={<Suspense fallback={<Fallback />}><PublicSermonDetailPage /></Suspense>} />
+
+            {/* Public store page — no auth required */}
+            <Route path="/store/:tenantId" element={<Suspense fallback={<Fallback />}><PublicStore /></Suspense>} />
 
             {/* ── Super-admin panel (no link in regular nav — access by URL) ── */}
             <Route element={<SuperAdminGuard />}>
@@ -477,6 +484,9 @@ const App = () => (
                 <Route path="/member/surveys" element={<Suspense fallback={<Fallback />}><MemberSurveysPage /></Suspense>} />
                 <Route path="/member/facility-booking" element={<Suspense fallback={<Fallback />}><MemberFacilityBookingPage /></Suspense>} />
                 <Route path="/member/livestreaming" element={<Suspense fallback={<Fallback />}><MemberLivestreamingPage /></Suspense>} />
+                <Route path="/member/watch-live" element={<Suspense fallback={<Fallback />}><MemberWatchLivePage /></Suspense>} />
+                <Route path="/member/outreach" element={<Suspense fallback={<Fallback />}><MemberOutreachPage /></Suspense>} />
+                <Route path="/member/store" element={<Suspense fallback={<Fallback />}><MemberStore /></Suspense>} />
               </Route>
             </Route>
             {/* Public survey-taking — no auth required */}

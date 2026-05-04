@@ -52,10 +52,10 @@ const ALL_MODULES = [
   { key: "member_request", label: "Member Request", desc: "Submit a request to the church", icon: Wrench, color: "bg-slate-500", path: "/member/requests" },
   { key: "my_appointments", label: "My Appointments", desc: "View scheduled counselling meetings", icon: Clock, color: "bg-indigo-400", path: "/member/appointments" },
   { key: "upcoming_events", label: "Upcoming Events & Services", desc: "Church services, events and programs", icon: CalendarDays, color: "bg-violet-500", path: "/member/events" },
-  { key: "watch_live", label: "Watch Live", desc: "Join our live stream services", icon: Tv, color: "bg-red-600", path: "/member/sermons" },
+  { key: "watch_live", label: "Watch Live", desc: "Join our live stream services", icon: Tv, color: "bg-red-600", path: "/member/watch-live" },
   { key: "sermons", label: "Sermons & Messages", desc: "Watch and listen to teachings", icon: PlayCircle, color: "bg-indigo-500", path: "/member/sermons" },
   { key: "church_media", label: "Church Media", desc: "Photos, videos, and audio photos", icon: Image, color: "bg-cyan-500", path: "/member/church-media" },
-  { key: "outreach_impact", label: "Outreach Impact", desc: "Statistics & data from our outreach", icon: Globe, color: "bg-green-600", path: "#" },
+  { key: "outreach_impact", label: "Outreach Impact", desc: "Statistics & data from our outreach", icon: Globe, color: "bg-green-600", path: "/member/outreach" },
   { key: "volunteer", label: "Volunteer", desc: "View current service and sign up to serve", icon: HandHeart, color: "bg-orange-400", path: "/member/volunteer" },
   { key: "house_fellowships", label: "House Fellowships", desc: "Join and view home cell groups", icon: Home, color: "bg-amber-600", path: "/member/house-fellowships" },
   { key: "my_groups", label: "My Groups", desc: "View your ministry groups and join meetings", icon: Users, color: "bg-violet-500", path: "/member/groups" },
@@ -64,7 +64,7 @@ const ALL_MODULES = [
   { key: "training_courses", label: "Training & Courses", desc: "Enroll in discipleship training programs", icon: Video, color: "bg-indigo-600", path: "#" },
   { key: "my_discipleship_journey", label: "My Discipleship Journey", desc: "Track your discipleship, maturity & milestones", icon: UserCheck, color: "bg-violet-600", path: "#" },
   { key: "facility_booking", label: "Facility Booking", desc: "Book church spaces for personal events", icon: Building2, color: "bg-gray-500", path: "/member/facility-booking" },
-  { key: "resource_store", label: "Resource Store", desc: "Books, courses, and resources", icon: ShoppingBag, color: "bg-orange-600", path: "#" },
+  { key: "resource_store", label: "Resource Store", desc: "Books, courses, and resources", icon: ShoppingBag, color: "bg-orange-600", path: "/member/store" },
 ];
 
 export default function MemberHome() {
