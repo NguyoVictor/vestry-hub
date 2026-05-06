@@ -14,6 +14,7 @@ export interface MemberPortalData {
   email: string;
   phone: string | null;
   avatarUrl: string | null;
+  dateOfBirth: string | null;
   memberSince: string;
   profileComplete: number;
   memberType: string;
@@ -72,6 +73,7 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
         email: member.email || "",
         phone: member.phone || null,
         avatarUrl: member.avatar_url || null,
+        dateOfBirth: member.date_of_birth || null,
         memberSince: member.created_at,
         profileComplete,
         memberType: member.member_type || "member",

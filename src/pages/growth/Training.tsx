@@ -1,460 +1,932 @@
 import { useState, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Progress } from "@/components/ui/progress";
-import { CourseProgressCard, Course, Enrollment } from "@/components/growth/CourseProgressCard";
-import CreateResourceModal from "@/components/training/CreateResourceModal";
-import QuizCreator from "@/components/training/QuizCreator";
-import LibraryView from "@/components/training/LibraryView";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LaunchSessionModal } from "@/components/training/LaunchSessionModal";
+import { 
+  SplitText, 
+  BlurText, 
+  CountUp, 
+  SpotlightCard
+} from "@/components/ui/animated";
+import { 
+  Plus, 
+  Play, 
+  BookOpen, 
+  Users, 
+  Award, 
+  TrendingUp,
+  Search,
+  Filter,
+  Calendar,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Edit,
+  Rocket
+} from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { BookCheck, Plus, Search, GraduationCap, Users, Award, Pencil, Upload } from "lucide-react";
+import { format, subMonths, subWeeks, startOfWeek, endOfWeek } from "date-fns";
 
-const CATEGORIES = ["leadership", "pastoral_care", "administration", "worship_ministry", "childrens_ministry", "youth_ministry", "finance", "communications", "technology", "personal_development", "other"];
-const DIFFICULTIES = ["beginner", "intermediate", "advanced"];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const defaultCourseForm = {
-  title: "", category: "leadership", difficulty: "beginner" as string,
-  description: "", target_audience: "", has_certificate: false,
-  certificate_title: "Certificate of Completion", status: "draft" as string,
-};
-
-// ─── Time-based greeting ──────────────────────────────────────────────────────
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h >= 5  && h < 12) return "Good morning ☀️";
-  if (h >= 12 && h < 17) return "Good afternoon 🌤️";
-  if (h >= 17 && h < 21) return "Good evening 🌙";
-  return "Good night 🌙";
+interface Course {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  status: string;
+  emoji?: string;
+  age_group?: string;
+  enrollment_count: number;
+  total_duration_minutes: number;
+  modules: any[];
+  created_at: string;
 }
 
-// ─── Action tiles ─────────────────────────────────────────────────────────────
-const ACTION_TILES = [
-  { id: "create", icon: Pencil,   title: "Create",  subtitle: "a resource" },
-  { id: "search", icon: Search,   title: "Search",  subtitle: "for resources" },
-  { id: "upload", icon: Upload,   title: "Upload",  subtitle: "& enhance your content" },
-] as const;
-type TileId = typeof ACTION_TILES[number]["id"];
+interface QuizSession {
+  id: string;
+  quiz_id: string;
+  title: string;
+  status: string;
+  participant_count: number;
+  avg_score: number;
+  created_at: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const AGE_GROUP_COLORS = {
+  kids: "bg-emerald-100 text-emerald-700",
+  teens: "bg-blue-100 text-blue-700", 
+  adults: "bg-purple-100 text-purple-700",
+  all: "bg-orange-100 text-orange-700"
+};
+
+const STATUS_COLORS = {
+  draft: "bg-slate-100 text-slate-700",
+  published: "bg-emerald-100 text-emerald-700",
+  archived: "bg-red-100 text-red-700"
+};
+
+// ─── Animations ───────────────────────────────────────────────────────────────
+
+const prefersReduced = typeof window !== 'undefined' && 
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: prefersReduced ? 0 : 0.08,
+      delayChildren: prefersReduced ? 0 : 0.1
+    }
+  }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: prefersReduced ? 0 : 16 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: prefersReduced ? { duration: 0 } : {
+      type: "spring",
+      stiffness: 300,
+      damping: 28
+    }
+  }
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Training() {
-  const { tenantId, userId, userFirstName } = useChurch();
-  const queryClient = useQueryClient();
+  const { tenantId, userId } = useChurch();
   const navigate = useNavigate();
-  const [courseSheet, setCourseSheet] = useState(false);
-  const [editCourseId, setEditCourseId] = useState<string | null>(null);
-  const [courseForm, setCourseForm] = useState(defaultCourseForm);
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [difficultyFilter, setDifficultyFilter] = useState("all");
-  const [activeTile, setActiveTile] = useState<TileId>("create");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showQuizCreator, setShowQuizCreator] = useState(false);
+  const [activeTab, setActiveTab] = useState("my-courses");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [launchModalOpen, setLaunchModalOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<{ id: string; title: string } | null>(null);
 
-  const greeting = useMemo(() => getGreeting(), []);
+  // ─── Data Queries ─────────────────────────────────────────────────────────
 
-  const { data: courses = [], isLoading } = useQuery({
+  const { data: courses = [], isLoading: coursesLoading } = useQuery({
     queryKey: ["training-courses", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from(TABLES.TRAINING_COURSES).select("*").eq(COLS.TENANT_ID, tenantId).order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from(TABLES.TRAINING_COURSES)
+        .select("*")
+        .eq(COLS.TENANT_ID, tenantId)
+        .order("created_at", { ascending: false });
+      
       if (error) throw error;
       return data as Course[];
     },
     enabled: !!tenantId,
+    staleTime: 300000
   });
 
   const { data: enrollments = [] } = useQuery({
-    queryKey: ["my-enrollments", userId],
+    queryKey: ["course-enrollments", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("course_enrollments").select("*, lesson_completions(count)").eq("user_id", userId);
-      return data || [];
-    },
-    enabled: !!userId,
-  });
-
-  const getEnrollment = (courseId: string): Enrollment | undefined => {
-    const e = enrollments.find((e: any) => e.course_id === courseId);
-    if (!e) return undefined;
-    return { id: e.id, completed_at: e.completed_at, lesson_completions_count: e.lesson_completions?.[0]?.count || 0 };
-  };
-
-  const myEnrolled = courses.filter(c => enrollments.some((e: any) => e.course_id === c.id && !e.completed_at));
-  const myCompleted = courses.filter(c => enrollments.some((e: any) => e.course_id === c.id && e.completed_at));
-
-  const filtered = courses.filter(c => {
-    const matchSearch = c.title.toLowerCase().includes(search.toLowerCase());
-    const matchCat = categoryFilter === "all" || c.category === categoryFilter;
-    const matchDiff = difficultyFilter === "all" || c.difficulty === difficultyFilter;
-    return matchSearch && matchCat && matchDiff;
-  });
-
-  const enroll = useMutation({
-    mutationFn: async (courseId: string) => {
-      const { error } = await supabase.from(TABLES.COURSE_ENROLLMENTS).insert({ course_id: courseId, user_id: userId, tenant_id: tenantId });
+      const { data, error } = await supabase
+        .from(TABLES.COURSE_ENROLLMENTS)
+        .select("*")
+        .eq(COLS.TENANT_ID, tenantId);
+      
       if (error) throw error;
-      await supabase.from(TABLES.TRAINING_COURSES).update({ enrollment_count: (courses.find(c => c.id === courseId)?.enrollment_count || 0) + 1 }).eq(COLS.ID, courseId);
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-enrollments", userId] });
-      queryClient.invalidateQueries({ queryKey: ["training-courses", tenantId] });
-      toast.success("Enrolled successfully");
-    },
-    onError: () => toast.error("Failed to enroll"),
+    enabled: !!tenantId,
+    staleTime: 300000
   });
 
-  const saveCourse = useMutation({
-    mutationFn: async () => {
-      const payload = { ...courseForm, tenant_id: tenantId, created_by: userId };
-      if (editCourseId) {
-        const { error } = await supabase.from(TABLES.TRAINING_COURSES).update(payload).eq(COLS.ID, editCourseId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from(TABLES.TRAINING_COURSES).insert(payload);
-        if (error) throw error;
+  const { data: quizSessions = [] } = useQuery({
+    queryKey: ["quiz-sessions", tenantId],
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from(TABLES.QUIZ_SESSIONS)
+          .select("*")
+          .eq(COLS.TENANT_ID, tenantId)
+          .order("created_at", { ascending: false });
+        
+        if (error) {
+          // If table doesn't exist or other database error, return empty array
+          console.warn('Quiz sessions query failed:', error.message);
+          return [];
+        }
+        return data as QuizSession[];
+      } catch (error) {
+        // Catch any other errors and return empty array silently
+        console.warn('Quiz sessions not available:', error);
+        return [];
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["training-courses", tenantId] });
-      setCourseSheet(false);
-      setCourseForm(defaultCourseForm);
-      setEditCourseId(null);
-      toast.success(editCourseId ? "Course updated" : "Course created");
-    },
-    onError: () => toast.error("Failed to save course"),
+    enabled: !!tenantId,
+    staleTime: 300000,
+    retry: false // Don't retry failed queries
   });
 
-  const handleCourseClick = (course: Course) => {
-    const enrollment = getEnrollment(course.id);
-    if (!enrollment) {
-      enroll.mutate(course.id);
-    } else {
-      navigate(`/training/${course.id}`);
+  // ─── Computed Stats ───────────────────────────────────────────────────────
+
+  const stats = useMemo(() => {
+    const totalCourses = courses.length;
+    const publishedCourses = courses.filter(c => c.status === "published").length;
+    const totalEnrolled = enrollments.length;
+    const thisMonth = subMonths(new Date(), 1);
+    const liveSessionsThisMonth = quizSessions.filter(
+      s => new Date(s.created_at) > thisMonth
+    ).length;
+
+    return {
+      totalCourses,
+      publishedCourses,
+      totalEnrolled,
+      liveSessionsThisMonth
+    };
+  }, [courses, enrollments, quizSessions]);
+
+  // ─── Analytics Data ───────────────────────────────────────────────────────
+
+  const analyticsStats = useMemo(() => {
+    const totalEnrolled = enrollments.length;
+    const completed = enrollments.filter((e: any) => e.completed_at).length;
+    const completionRate = totalEnrolled > 0 ? Math.round((completed / totalEnrolled) * 100) : 0;
+    const activeLearners = totalEnrolled - completed;
+
+    return {
+      completionRate,
+      avgQuizScore: 0, // Will be calculated when quiz data is available
+      activeLearners,
+      certificatesIssued: completed
+    };
+  }, [enrollments]);
+
+  // ─── Chart Data ───────────────────────────────────────────────────────────
+
+  const enrollmentChartData = useMemo(() => {
+    const weeks = [];
+    const now = new Date();
+    
+    for (let i = 11; i >= 0; i--) {
+      const weekStart = startOfWeek(subWeeks(now, i));
+      const weekEnd = endOfWeek(weekStart);
+      
+      const weekEnrollments = enrollments.filter((e: any) => {
+        const enrollDate = new Date(e.created_at);
+        return enrollDate >= weekStart && enrollDate <= weekEnd;
+      }).length;
+
+      weeks.push({
+        week: format(weekStart, 'MMM d'),
+        enrollments: weekEnrollments
+      });
     }
+    
+    return weeks;
+  }, [enrollments]);
+
+  const ageGroupData = useMemo(() => {
+    const groups = { kids: 0, teens: 0, adults: 0 };
+    
+    courses.forEach(course => {
+      const completedCount = enrollments.filter((e: any) => 
+        e.course_id === course.id && e.completed_at
+      ).length;
+      
+      if (course.age_group && groups.hasOwnProperty(course.age_group)) {
+        groups[course.age_group as keyof typeof groups] += completedCount;
+      } else {
+        groups.adults += completedCount; // Default to adults
+      }
+    });
+
+    return [
+      { name: 'Kids', value: groups.kids, color: '#10b981' },
+      { name: 'Teens', value: groups.teens, color: '#3b82f6' },
+      { name: 'Adults', value: groups.adults, color: '#8b5cf6' }
+    ].filter(item => item.value > 0);
+  }, [courses, enrollments]);
+
+  const topCoursesData = useMemo(() => {
+    return courses
+      .map(course => ({
+        name: course.title.length > 20 ? course.title.substring(0, 20) + '...' : course.title,
+        enrollments: course.enrollment_count || 0
+      }))
+      .sort((a, b) => b.enrollments - a.enrollments)
+      .slice(0, 5);
+  }, [courses]);
+
+  // ─── Filtered Data ────────────────────────────────────────────────────────
+
+  const filteredCourses = useMemo(() => {
+    return courses.filter(course =>
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [courses, searchQuery]);
+
+  // ─── Event Handlers ───────────────────────────────────────────────────────
+
+  const handleCreateCourse = () => {
+    navigate("/training/new");
   };
+
+  const handleLaunchQuiz = (course?: { id: string; title: string }) => {
+    if (course) {
+      setSelectedCourse(course);
+    } else {
+      setSelectedCourse(null);
+    }
+    setLaunchModalOpen(true);
+  };
+
+  const handleEditCourse = (courseId: string) => {
+    navigate(`/training/${courseId}/edit`);
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <>
-      <Helmet><title>Training — Vestry</title></Helmet>
-      <PageHeader
-        title="Training"
-        subtitle="Staff development courses and learning management"
-        action={
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" />Create Course
-          </Button>
-        }
-      />
+      <Helmet>
+        <title>Training & Courses — Vestry</title>
+      </Helmet>
 
-      {/* ── Greeting + Action Tiles ── */}
-      <div className="mb-6 rounded-2xl overflow-hidden"
-        style={{ background: "linear-gradient(135deg, #fff7f0 0%, #ffe8d6 50%, #ffd6b8 100%)" }}>
-        <div className="px-6 pt-6 pb-2 text-center">
-          <p className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
-            {greeting}, {userFirstName || "there"} 👋 Let's get started.
-          </p>
-        </div>
-
-        {/* Tiles */}
-        <div className="flex items-center justify-center gap-3 px-6 pb-6 pt-4 flex-wrap">
-          {ACTION_TILES.map(({ id, icon: Icon, title, subtitle }) => {
-            const isActive = activeTile === id;
-            return (
-              <button
-                key={id}
-                onClick={() => setActiveTile(id)}
-                className={`
-                  relative flex flex-col items-center gap-1.5 px-8 py-4 rounded-xl
-                  bg-white border transition-all duration-150 min-w-[140px]
-                  ${isActive
-                    ? "border-orange-400 shadow-md"
-                    : "border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300"
-                  }
-                `}
-              >
-                <Icon className={`h-5 w-5 ${isActive ? "text-orange-500" : "text-slate-500"}`} />
-                <span className={`text-sm font-semibold leading-none ${isActive ? "text-orange-500" : "text-slate-700"}`}>
-                  {title}
-                </span>
-                <span className="text-xs text-slate-400 leading-none">{subtitle}</span>
-                {/* Orange underline for active */}
-                {isActive && (
-                  <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-orange-400" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Resource Type Cards (shown when Create tile is active) ── */}
-      {activeTile === "create" && (
-        <div className="mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {/* Assessment — clickable */}
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center transition-all hover:border-indigo-400 hover:shadow-md hover:scale-105 cursor-pointer"
+      <div className="space-y-6">
+        {/* ── Page Header ── */}
+        <div className="relative">
+          {/* Animated gradient background */}
+          <div className="absolute inset-0 opacity-[0.06] pointer-events-none overflow-hidden">
+            <div className="w-[200%] h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 animate-gradient-x" />
+          </div>
+          
+          <div className="relative flex items-start justify-between py-8 px-1">
+            <motion.div 
+              className="space-y-2"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
             >
-              <div className="bg-emerald-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
-                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800 dark:text-slate-100">Assessment</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Quick & interactive questions</p>
-              </div>
-            </button>
-
-            {/* Presentation — disabled */}
-            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
-              <div className="bg-orange-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
-                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800 dark:text-slate-100">Presentation</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Slides with questions and whiteboard</p>
-              </div>
-            </div>
-
-            {/* Video — disabled */}
-            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
-              <div className="bg-pink-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
-                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800 dark:text-slate-100">Video</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Questions at key points in the video</p>
-              </div>
-            </div>
-
-            {/* Passage — disabled */}
-            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
-              <div className="bg-blue-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
-                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800 dark:text-slate-100">Passage</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Questions based on a passage</p>
-              </div>
-            </div>
-
-            {/* Flashcards — disabled */}
-            <div className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-center opacity-40 cursor-not-allowed">
-              <div className="bg-purple-500 h-16 w-16 rounded-2xl flex items-center justify-center shadow-md">
-                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800 dark:text-slate-100">Flashcards</p>
-                <p className="text-xs text-slate-500 mt-0.5 leading-snug">Questions on front, answers on back</p>
-              </div>
-            </div>
+              <SplitText 
+                className="text-3xl font-bold text-slate-900"
+                delay={0}
+              >
+                Training & Courses
+              </SplitText>
+              <BlurText 
+                className="text-slate-600 text-lg"
+                delay={1.5}
+              >
+                Create courses, launch live quizzes & track member learning
+              </BlurText>
+            </motion.div>
+            
+            <motion.div 
+              className="flex items-center gap-3"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut", delay: 0.3 }}
+            >
+              <Button 
+                onClick={handleCreateCourse}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Course
+              </Button>
+              
+              <Button 
+                variant="outline"
+                onClick={handleLaunchQuiz}
+                className="border-purple-200 hover:border-purple-300"
+              >
+                <Rocket className="h-4 w-4 mr-2" />
+                Launch Live Quiz
+              </Button>
+            </motion.div>
           </div>
         </div>
-      )}
 
-      <Tabs defaultValue="my-learning">
-        <TabsList className="mb-4">
-          <TabsTrigger value="my-learning">My Learning</TabsTrigger>
-          <TabsTrigger value="library">Course Library</TabsTrigger>
-          <TabsTrigger value="creator-library">Library</TabsTrigger>
-        </TabsList>
+        {/* ── Stats Row ── */}
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-4 gap-4"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.div variants={cardVariants}>
+            <Card className="border border-slate-200 bg-white">
+              <CardContent className="p-5">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                  Total Courses
+                </div>
+                <CountUp 
+                  to={stats.totalCourses}
+                  className="text-2xl font-semibold text-slate-900"
+                  duration={1.8}
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
 
-        <TabsContent value="my-learning" className="space-y-6">
-          {/* Continue Learning */}
-          {myEnrolled.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-3">Continue Learning</h2>
-              <div className="flex gap-4 overflow-x-auto pb-2">
-                {myEnrolled.map(c => (
-                  <div key={c.id} className="w-64 shrink-0">
-                    <CourseProgressCard course={c} enrollment={getEnrollment(c.id)} onClick={() => navigate(`/training/${c.id}`)} />
-                  </div>
+          <motion.div variants={cardVariants}>
+            <Card className="border border-slate-200 bg-white">
+              <CardContent className="p-5">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                  Published
+                </div>
+                <CountUp 
+                  to={stats.publishedCourses}
+                  className="text-2xl font-semibold text-slate-900"
+                  duration={1.8}
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={cardVariants}>
+            <Card className="border border-slate-200 bg-white">
+              <CardContent className="p-5">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                  Members Enrolled
+                </div>
+                <CountUp 
+                  to={stats.totalEnrolled}
+                  className="text-2xl font-semibold text-slate-900"
+                  duration={1.8}
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={cardVariants}>
+            <Card className="border border-slate-200 bg-white">
+              <CardContent className="p-5">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                  Live Sessions This Month
+                </div>
+                <CountUp 
+                  to={stats.liveSessionsThisMonth}
+                  className="text-2xl font-semibold text-slate-900"
+                  duration={1.8}
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+
+        {/* ── Tab Navigation ── */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="relative">
+            <TabsList className="grid w-full grid-cols-4 bg-slate-100 p-1 rounded-lg">
+              <TabsTrigger 
+                value="my-courses" 
+                className="relative data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                My Courses
+              </TabsTrigger>
+              <TabsTrigger 
+                value="library"
+                className="relative data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                Library
+              </TabsTrigger>
+              <TabsTrigger 
+                value="live-sessions"
+                className="relative data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                Live Sessions
+              </TabsTrigger>
+              <TabsTrigger 
+                value="analytics"
+                className="relative data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                Analytics
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* ── My Courses Tab ── */}
+          <TabsContent value="my-courses" className="mt-6">
+            {coursesLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-64 w-full" />
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Recommended */}
-          <div>
-            <h2 className="text-lg font-semibold mb-3">Recommended for You</h2>
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 w-full" />)}
+            ) : filteredCourses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <motion.div
+                  animate={{ y: [0, -8, 0] }}
+                  transition={{ 
+                    duration: 3, 
+                    repeat: Infinity, 
+                    ease: "easeInOut" 
+                  }}
+                  className="mb-4"
+                >
+                  <BookOpen className="h-16 w-16 text-slate-300" />
+                </motion.div>
+                <BlurText className="text-xl font-semibold text-slate-600 mb-2">
+                  No courses yet
+                </BlurText>
+                <p className="text-slate-500 mb-6">
+                  Create your first course to get started
+                </p>
+                <Button onClick={handleCreateCourse} className="bg-purple-600 hover:bg-purple-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Course
+                </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {courses.filter(c => c.status === "published" && !enrollments.some((e: any) => e.course_id === c.id)).slice(0, 3).map(c => (
-                  <CourseProgressCard key={c.id} course={c} onClick={() => handleCourseClick(c)} />
+              <motion.div 
+                className="grid grid-cols-1 md:grid-cols-3 gap-6"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                {filteredCourses.map((course) => (
+                  <motion.div key={course.id} variants={cardVariants}>
+                    <SpotlightCard className="h-full">
+                      <Card className="h-full border border-slate-200 hover:shadow-md transition-shadow">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="text-3xl">
+                              {course.emoji || "📚"}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              {course.age_group && (
+                                <Badge className={AGE_GROUP_COLORS[course.age_group as keyof typeof AGE_GROUP_COLORS] || AGE_GROUP_COLORS.all}>
+                                  {course.age_group}
+                                </Badge>
+                              )}
+                              <Badge className={STATUS_COLORS[course.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.draft}>
+                                {course.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <CardTitle className="text-lg font-semibold line-clamp-2">
+                            {course.title}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <p className="text-sm text-slate-600 line-clamp-2 mb-4">
+                            {course.description}
+                          </p>
+                          <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
+                            <span>{course.modules?.length || 0} lessons</span>
+                            <span>{course.enrollment_count} enrolled</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={() => handleEditCourse(course.id)}
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              className="flex-1 bg-purple-600 hover:bg-purple-700"
+                              onClick={() => handleLaunchQuiz({ id: course.id, title: course.title })}
+                            >
+                              <Play className="h-3 w-3 mr-1" />
+                              Launch Live
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </SpotlightCard>
+                  </motion.div>
                 ))}
-                {courses.filter(c => c.status === "published" && !enrollments.some((e: any) => e.course_id === c.id)).length === 0 && (
-                  <div className="col-span-3 text-center py-8 text-muted-foreground">
-                    <BookCheck className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                    <p>You're enrolled in all available courses</p>
-                  </div>
-                )}
-              </div>
+              </motion.div>
             )}
-          </div>
+          </TabsContent>
 
-          {/* Completed */}
-          {myCompleted.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-3">Completed Courses</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {myCompleted.map(c => (
-                  <CourseProgressCard key={c.id} course={c} enrollment={getEnrollment(c.id)} onClick={() => navigate(`/training/${c.id}`)} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {myEnrolled.length === 0 && myCompleted.length === 0 && !isLoading && (
-            <div className="text-center py-16 text-muted-foreground">
-              <GraduationCap className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-              <p className="font-medium">No courses yet</p>
-              <p className="text-sm mt-1">Browse the course library to get started</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="library">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 mb-4">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Search courses..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Category" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c.replace(/_/g, " ")}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Difficulty" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                {DIFFICULTIES.map(d => <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-64 w-full" />)}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <BookCheck className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-              <p className="font-medium">No courses found</p>
-              <Button className="mt-4" onClick={() => setCourseSheet(true)}><Plus className="h-4 w-4 mr-1" />Create Course</Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtered.map(c => (
-                <div key={c.id} className="relative">
-                  <CourseProgressCard course={c} enrollment={getEnrollment(c.id)} onClick={() => handleCourseClick(c)} />
-                  <button
-                    className="absolute top-2 left-2 text-xs bg-white/80 dark:bg-slate-800/80 px-2 py-0.5 rounded border text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800"
-                    onClick={e => { e.stopPropagation(); setCourseForm({ ...defaultCourseForm, ...c }); setEditCourseId(c.id); setCourseSheet(true); }}
-                  >
-                    Edit
-                  </button>
+          {/* ── Library Tab ── */}
+          <TabsContent value="library" className="mt-6">
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input 
+                    placeholder="Search resources..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
                 </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter
+                </Button>
+              </div>
 
-        {/* ── Library Tab ── */}
-        <TabsContent value="creator-library">
-          <LibraryView
-            onCreateAssessment={() => {
-              setIsModalOpen(true);
-            }}
-          />
-        </TabsContent>
-      </Tabs>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {["Flashcard Decks", "Standalone Quizzes", "Documents / PDFs", "Video Resources", "Audio Lessons"].map((type, index) => (
+                  <Card key={type} className="border border-slate-200 hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <BookOpen className="h-6 w-6 text-slate-600" />
+                      </div>
+                      <h3 className="font-medium text-sm mb-1">{type}</h3>
+                      <p className="text-xs text-slate-500">0 resources</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
 
-      {/* Create/Edit Course Sheet */}
-      <Sheet open={courseSheet} onOpenChange={setCourseSheet}>
-        <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
-          <SheetHeader><SheetTitle>{editCourseId ? "Edit Course" : "Create Course"}</SheetTitle></SheetHeader>
-          <div className="space-y-4 mt-6">
-            <div className="space-y-1.5"><Label>Course Title *</Label><Input value={courseForm.title} onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))} /></div>
-            <div className="space-y-1.5">
-              <Label>Category</Label>
-              <Select value={courseForm.category} onValueChange={v => setCourseForm(f => ({ ...f, category: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Difficulty</Label>
-              <Select value={courseForm.difficulty} onValueChange={v => setCourseForm(f => ({ ...f, difficulty: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{DIFFICULTIES.map(d => <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5"><Label>Description</Label><Textarea value={courseForm.description} onChange={e => setCourseForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
-            <div className="space-y-1.5"><Label>Target Audience</Label><Input value={courseForm.target_audience} onChange={e => setCourseForm(f => ({ ...f, target_audience: e.target.value }))} /></div>
-            <div className="flex items-center gap-3">
-              <Switch checked={courseForm.has_certificate} onCheckedChange={v => setCourseForm(f => ({ ...f, has_certificate: v }))} />
-              <Label>Certificate on Completion</Label>
-            </div>
-            {courseForm.has_certificate && (
-              <div className="space-y-1.5"><Label>Certificate Title</Label><Input value={courseForm.certificate_title} onChange={e => setCourseForm(f => ({ ...f, certificate_title: e.target.value }))} /></div>
-            )}
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={courseForm.status} onValueChange={v => setCourseForm(f => ({ ...f, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="published">Published</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <Button className="w-full" onClick={() => saveCourse.mutate()} disabled={!courseForm.title || saveCourse.isPending}>
-              {saveCourse.isPending ? "Saving..." : editCourseId ? "Update Course" : "Create Course"}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+          {/* ── Live Sessions Tab ── */}
+          <TabsContent value="live-sessions" className="mt-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Live Quiz Sessions</h3>
+                <Button onClick={() => handleLaunchQuiz()} className="bg-purple-600 hover:bg-purple-700">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Schedule New Session
+                </Button>
+              </div>
 
-      {/* Create Resource Modal */}
-      <CreateResourceModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onStartFromScratch={() => { setIsModalOpen(false); setShowQuizCreator(true); }}
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b">
+                        <tr>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">Session Name</th>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">Course</th>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">Date</th>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">Participants</th>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">Avg Score</th>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">Status</th>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quizSessions.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-8 text-slate-500">
+                              No live sessions yet. Schedule your first session to get started.
+                            </td>
+                          </tr>
+                        ) : (
+                          quizSessions.map((session) => (
+                            <tr key={session.id} className="border-b hover:bg-slate-50">
+                              <td className="p-4 font-medium">{session.title}</td>
+                              <td className="p-4 text-slate-600">-</td>
+                              <td className="p-4 text-slate-600">
+                                {format(new Date(session.created_at), "MMM d, yyyy")}
+                              </td>
+                              <td className="p-4 text-slate-600">{session.participant_count}</td>
+                              <td className="p-4 text-slate-600">{session.avg_score}%</td>
+                              <td className="p-4">
+                                <Badge 
+                                  className={session.status === 'active' ? 
+                                    'bg-emerald-100 text-emerald-700' : 
+                                    'bg-slate-100 text-slate-700'
+                                  }
+                                >
+                                  {session.status}
+                                </Badge>
+                              </td>
+                              <td className="p-4">
+                                <Button variant="ghost" size="sm">
+                                  View Results
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ── Analytics Tab ── */}
+          <TabsContent value="analytics" className="mt-6">
+            <div className="space-y-6">
+              {/* Metrics Row */}
+              <motion.div 
+                className="grid grid-cols-1 md:grid-cols-4 gap-4"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <motion.div variants={cardVariants}>
+                  <Card>
+                    <CardContent className="p-5">
+                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                        Completion Rate
+                      </div>
+                      <CountUp 
+                        to={analyticsStats.completionRate}
+                        className="text-2xl font-semibold text-slate-900"
+                        duration={1.8}
+                      />
+                      <span className="text-2xl font-semibold text-slate-900">%</span>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div variants={cardVariants}>
+                  <Card>
+                    <CardContent className="p-5">
+                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                        Avg Quiz Score
+                      </div>
+                      <CountUp 
+                        to={analyticsStats.avgQuizScore}
+                        className="text-2xl font-semibold text-slate-900"
+                        duration={1.8}
+                      />
+                      <span className="text-2xl font-semibold text-slate-900">%</span>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div variants={cardVariants}>
+                  <Card>
+                    <CardContent className="p-5">
+                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                        Active Learners
+                      </div>
+                      <CountUp 
+                        to={analyticsStats.activeLearners}
+                        className="text-2xl font-semibold text-slate-900"
+                        duration={1.8}
+                      />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                <motion.div variants={cardVariants}>
+                  <Card>
+                    <CardContent className="p-5">
+                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
+                        Certificates Issued
+                      </div>
+                      <CountUp 
+                        to={analyticsStats.certificatesIssued}
+                        className="text-2xl font-semibold text-slate-900"
+                        duration={1.8}
+                      />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </motion.div>
+
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5" />
+                        Enrollments Over Time
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={enrollmentChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis 
+                              dataKey="week" 
+                              fontSize={12}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <YAxis 
+                              fontSize={12}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <Tooltip 
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                fontSize: '12px'
+                              }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="enrollments" 
+                              stroke="#8b5cf6" 
+                              strokeWidth={2}
+                              dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
+                              activeDot={{ r: 6, stroke: '#8b5cf6', strokeWidth: 2 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <PieChartIcon className="h-5 w-5" />
+                      Completion by Age Group
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64 relative">
+                      {ageGroupData.length === 0 ? (
+                        <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                          No completion data available
+                        </div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={ageGroupData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={40}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {ageGroupData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                fontSize: '12px'
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Bottom Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Top Courses by Enrollment
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-48 relative">
+                      {topCoursesData.length === 0 ? (
+                        <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                          No courses available
+                        </div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={topCoursesData} layout="horizontal">
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis 
+                              type="number"
+                              fontSize={12}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <YAxis 
+                              type="category"
+                              dataKey="name"
+                              fontSize={12}
+                              tickLine={false}
+                              axisLine={false}
+                              width={120}
+                            />
+                            <Tooltip 
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                fontSize: '12px'
+                              }}
+                            />
+                            <Bar 
+                              dataKey="enrollments" 
+                              fill="#8b5cf6"
+                              radius={[0, 4, 4, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      At-Risk Learners
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <p className="text-sm text-slate-600">
+                        Members who haven't started any course
+                      </p>
+                      <div className="text-center py-8 text-slate-500">
+                        No at-risk learners found
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Launch Session Modal */}
+      <LaunchSessionModal
+        open={launchModalOpen}
+        onClose={() => setLaunchModalOpen(false)}
+        courseId={selectedCourse?.id}
+        courseName={selectedCourse?.title}
       />
-
-      {/* Full-page Quiz Creator */}
-      {showQuizCreator && (
-        <QuizCreator onBack={() => setShowQuizCreator(false)} />
-      )}
     </>
   );
 }

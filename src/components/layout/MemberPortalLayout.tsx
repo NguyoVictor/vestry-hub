@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { AgeAwareProvider } from "@/contexts/AgeAwareContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,8 @@ export function MemberPortalLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex">
+    <AgeAwareProvider>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-56 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 fixed inset-y-0 left-0 z-30">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800">
@@ -176,5 +178,6 @@ export function MemberPortalLayout() {
         </nav>
       </div>
     </div>
+    </AgeAwareProvider>
   );
 }

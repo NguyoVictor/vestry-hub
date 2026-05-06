@@ -170,3 +170,19 @@
   0%   { background-position: 0% center; }
   100% { background-position: 200% center; }
 }
+
+@keyframes gradient-x {
+  0% {
+    transform: translateX(-50%);
+  }
+  50% {
+    transform: translateX(-25%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-gradient-x {
+  animation: gradient-x 8s ease-in-out infinite;
+}

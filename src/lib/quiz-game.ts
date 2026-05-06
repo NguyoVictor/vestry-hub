@@ -61,8 +61,10 @@ export const GAME_THEMES = [
 
 export type ThemeId = typeof GAME_THEMES[number]["id"];
 
-export const ANSWER_COLORS = ["#7cb342", "#8e24aa", "#f4511e", "#00897b"] as const;
-export const ANSWER_LABELS = ["1", "2", "3", "4"] as const;
+// Exact Kahoot colors and shapes
+export const ANSWER_COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c"] as const;
+export const ANSWER_SHAPES = ["▲", "◆", "●", "■"] as const;
+export const ANSWER_LABELS = ["A", "B", "C", "D"] as const;
 
 export const AVATAR_EMOJIS = [
   "🦊","🐯","🦁","🐸","🐧","🦅","🐬","🦋","🐉","🦄",

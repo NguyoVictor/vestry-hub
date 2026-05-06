@@ -76,6 +76,12 @@ const SurveyTakePage = lazy(() => import("./pages/public/SurveyTake"));
 const PublicBookingPage = lazy(() => import("./pages/public/PublicBookingPage"));
 const SurveyResponsesPage = lazy(() => import("./pages/communications/SurveyResponses"));
 
+// Member Training pages
+const MemberTraining = lazy(() => import("./pages/member/MemberTraining"));
+const MemberCourseDetail = lazy(() => import("./pages/member/MemberCourseDetail"));
+const MemberLessonPlayer = lazy(() => import("./pages/member/MemberLessonPlayer"));
+const CertificateView = lazy(() => import("./pages/member/CertificateView"));
+
 // Media pages
 const AssetManagementPage = lazy(() => import("./pages/media/AssetManagement"));
 const SongLibraryPage = lazy(() => import("./pages/media/SongLibrary"));
@@ -100,7 +106,6 @@ const ResourcesStore = lazy(() => import("./pages/growth/ResourcesStore"));
 const PublicStore = lazy(() => import("./pages/store/PublicStore"));
 const Training = lazy(() => import("./pages/growth/Training"));
 const TrainingCourseBuilder = lazy(() => import("./pages/growth/TrainingCourseBuilder"));
-const TrainingCourseDetail = lazy(() => import("./pages/growth/TrainingCourseDetail"));
 
 // Settings pages
 const GeneralSettings = lazy(() => import("./pages/settings/GeneralSettings"));
@@ -353,11 +358,10 @@ const App = () => (
                 <Route path="/outreach/:activityId" element={<Suspense fallback={<Fallback />}><OutreachDetail /></Suspense>} />
                 <Route path="/resources-store" element={<Suspense fallback={<Fallback />}><ResourcesStore /></Suspense>} />
                 <Route path="/training" element={<Suspense fallback={<Fallback />}><Training /></Suspense>} />
-                <Route path="/training/host/:sessionId" element={<Suspense fallback={<Fallback />}><QuizHostView /></Suspense>} />
-                <Route path="/training/host/:sessionId/results" element={<Suspense fallback={<Fallback />}><QuizResultsView /></Suspense>} />
                 <Route path="/training/new" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
                 <Route path="/training/:courseId/edit" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
-                <Route path="/training/:courseId" element={<Suspense fallback={<Fallback />}><TrainingCourseDetail /></Suspense>} />
+                <Route path="/training/host/:sessionId" element={<Suspense fallback={<Fallback />}><QuizHostView /></Suspense>} />
+                <Route path="/training/host/:sessionId/results" element={<Suspense fallback={<Fallback />}><QuizResultsView /></Suspense>} />
                 {/* Analytics & Branches routes */}
                 <Route path="/reports" element={<Suspense fallback={<Fallback />}><Reports /></Suspense>} />
                 <Route path="/branches" element={<Suspense fallback={<Fallback />}><Branches /></Suspense>} />
@@ -487,6 +491,11 @@ const App = () => (
                 <Route path="/member/watch-live" element={<Suspense fallback={<Fallback />}><MemberWatchLivePage /></Suspense>} />
                 <Route path="/member/outreach" element={<Suspense fallback={<Fallback />}><MemberOutreachPage /></Suspense>} />
                 <Route path="/member/store" element={<Suspense fallback={<Fallback />}><MemberStore /></Suspense>} />
+                {/* Member Training routes */}
+                <Route path="/member/training" element={<Suspense fallback={<Fallback />}><MemberTraining /></Suspense>} />
+                <Route path="/member/training/course/:courseId" element={<Suspense fallback={<Fallback />}><MemberCourseDetail /></Suspense>} />
+                <Route path="/member/training/lesson/:lessonId" element={<Suspense fallback={<Fallback />}><MemberLessonPlayer /></Suspense>} />
+                <Route path="/member/training/certificate/:courseId" element={<Suspense fallback={<Fallback />}><CertificateView /></Suspense>} />
               </Route>
             </Route>
             {/* Public survey-taking — no auth required */}

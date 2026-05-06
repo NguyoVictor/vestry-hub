@@ -61,7 +61,7 @@ const ALL_MODULES = [
   { key: "my_groups", label: "My Groups", desc: "View your ministry groups and join meetings", icon: Users, color: "bg-violet-500", path: "/member/groups" },
   { key: "surveys", label: "Surveys", desc: "Participate in church surveys", icon: BarChart2, color: "bg-purple-400", path: "/member/surveys" },
   { key: "bible_explorer", label: "Bible Explorer", desc: "Access the built-in Bible reading tool", icon: BookOpen, color: "bg-emerald-600", path: "/member/bible" },
-  { key: "training_courses", label: "Training & Courses", desc: "Enroll in discipleship training programs", icon: Video, color: "bg-indigo-600", path: "#" },
+  { key: "training_courses", label: "Training & Courses", desc: "Enroll in discipleship training programs", icon: Video, color: "bg-indigo-600", path: "/member/training" },
   { key: "my_discipleship_journey", label: "My Discipleship Journey", desc: "Track your discipleship, maturity & milestones", icon: UserCheck, color: "bg-violet-600", path: "#" },
   { key: "facility_booking", label: "Facility Booking", desc: "Book church spaces for personal events", icon: Building2, color: "bg-gray-500", path: "/member/facility-booking" },
   { key: "resource_store", label: "Resource Store", desc: "Books, courses, and resources", icon: ShoppingBag, color: "bg-orange-600", path: "/member/store" },

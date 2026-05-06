@@ -4,8 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { TABLES } from "@/lib/schema";
-import { getTheme, ANSWER_COLORS, calcPoints } from "@/lib/quiz-game";
+import { getTheme, ANSWER_COLORS, ANSWER_SHAPES, calcPoints } from "@/lib/quiz-game";
 import { cn } from "@/lib/utils";
+import { differenceInYears } from "date-fns";
+import confetti from "canvas-confetti";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Question {
@@ -37,49 +39,104 @@ function TimerBar({ duration, onExpire }: { duration: number; onExpire: () => vo
   );
 }
 
-// ── Answer card ───────────────────────────────────────────────────────────────
-function AnswerCard({ index, text, selected, correct, revealed, locked, onClick }: {
-  index: number; text: string; selected: boolean; correct: boolean;
-  revealed: boolean; locked: boolean; onClick: () => void;
+// ── Age-aware answer card ─────────────────────────────────────────────────────
+function AnswerCard({ 
+  index, 
+  text, 
+  selected, 
+  correct, 
+  revealed, 
+  locked, 
+  onClick, 
+  ageGroup 
+}: {
+  index: number; 
+  text: string; 
+  selected: boolean; 
+  correct: boolean;
+  revealed: boolean; 
+  locked: boolean; 
+  onClick: () => void;
+  ageGroup: 'kids' | 'teens' | 'adults';
 }) {
   const bg = ANSWER_COLORS[index] ?? "#7cb342";
+  const shape = ANSWER_SHAPES[index] ?? "●";
   const isCorrect = revealed && correct;
   const isWrong = revealed && selected && !correct;
   const isDimmed = revealed && !correct && !selected;
 
+  // Age-specific styling
+  const getAgeStyles = () => {
+    switch (ageGroup) {
+      case 'kids':
+        return {
+          card: "rounded-3xl min-h-[120px] text-2xl font-bold shadow-xl border-4",
+          shape: "text-4xl",
+          hover: !locked && !revealed ? { scale: 1.08 } : {},
+          tap: !locked && !revealed ? { scale: 0.92 } : {}
+        };
+      case 'teens':
+        return {
+          card: "rounded-2xl min-h-[100px] text-lg font-semibold shadow-lg border-2",
+          shape: "text-2xl",
+          hover: !locked && !revealed ? { scale: 1.03 } : {},
+          tap: !locked && !revealed ? { scale: 0.97 } : {}
+        };
+      case 'adults':
+        return {
+          card: "rounded-xl min-h-[80px] text-base font-medium shadow-md border",
+          shape: "text-xl",
+          hover: !locked && !revealed ? { scale: 1.02 } : {},
+          tap: !locked && !revealed ? { scale: 0.98 } : {}
+        };
+    }
+  };
+
+  const styles = getAgeStyles();
+
   return (
     <motion.button
-      whileHover={!locked && !revealed ? { scale: 1.02 } : {}}
-      whileTap={!locked && !revealed ? { scale: 0.97 } : {}}
+      whileHover={styles.hover}
+      whileTap={styles.tap}
       onClick={!locked && !revealed ? onClick : undefined}
       className={cn(
-        "relative flex items-center justify-center rounded-2xl p-5 text-white font-semibold text-lg text-center min-h-[100px] transition-all duration-300 shadow-lg",
+        `relative flex items-center justify-center text-white font-semibold text-center transition-all duration-300`,
+        styles.card,
         locked && !revealed && "cursor-not-allowed",
         isDimmed && "opacity-40",
       )}
       style={{
         backgroundColor: isCorrect ? "#16a34a" : isWrong ? "#dc2626" : bg,
-        border: selected && !revealed ? "3px solid white" : "3px solid transparent",
+        borderColor: selected && !revealed ? "white" : "transparent",
         boxShadow: isCorrect ? "0 0 24px rgba(22,163,74,0.6)" : undefined,
       }}
     >
-      {/* Number badge */}
-      <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/20 text-xs font-bold">
-        {index + 1}
+      {/* Shape badge */}
+      <div className={cn(
+        "absolute top-3 left-3 flex items-center justify-center rounded-lg bg-black/20 text-white font-bold",
+        ageGroup === 'kids' ? "w-12 h-12" : ageGroup === 'teens' ? "w-10 h-10" : "w-8 h-8"
+      )}>
+        <span className={styles.shape}>{shape}</span>
       </div>
+
       {/* Correct/wrong icon */}
       {revealed && (isCorrect || isWrong) && (
-        <div className="absolute top-2 left-2 text-xl">
+        <div className="absolute top-3 right-3 text-2xl">
           {isCorrect ? "✅" : "❌"}
         </div>
       )}
-      <span className="leading-snug">{text}</span>
+
+      <span className="leading-snug px-16">{text}</span>
     </motion.button>
   );
 }
 
 // ── Main QuizPlayView ─────────────────────────────────────────────────────────
-export default function QuizPlayView() {
+interface QuizPlayViewProps {
+  mode?: 'live' | 'solo';
+}
+
+export default function QuizPlayView({ mode = 'live' }: QuizPlayViewProps) {
   const { sessionId, participantId } = useParams<{ sessionId: string; participantId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -105,10 +162,18 @@ export default function QuizPlayView() {
     enabled: !!sessionId,
   });
 
+  // Fetch participant with profile data for age detection
   const { data: participant } = useQuery({
     queryKey: ["play-participant", participantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.QUIZ_PARTICIPANTS).select("*").eq("id", participantId!).single();
+      const { data } = await supabase
+        .from(TABLES.QUIZ_PARTICIPANTS)
+        .select(`
+          *,
+          members!inner(date_of_birth, first_name, last_name)
+        `)
+        .eq("id", participantId!)
+        .single();
       return data as any;
     },
     staleTime: 30_000,
@@ -125,9 +190,10 @@ export default function QuizPlayView() {
     enabled: !!sessionId && showLeaderboard,
   });
 
-  // Listen for quiz events (next_question, quiz_end)
+  // Listen for quiz events (next_question, quiz_end) - only in live mode
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || mode === 'solo') return;
+    
     const channel = supabase.channel(`play-${sessionId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "quiz_events", filter: `session_id=eq.${sessionId}` }, (payload) => {
         const evt = payload.new as any;
@@ -154,7 +220,7 @@ export default function QuizPlayView() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [sessionId, participantId, navigate]);
+  }, [sessionId, participantId, navigate, mode]);
 
   const quiz = session?.quizzes;
   const questions: Question[] = Array.isArray(quiz?.questions) ? quiz.questions : [];
@@ -164,15 +230,36 @@ export default function QuizPlayView() {
   const timerMode = settings.questionTimer ?? "off";
   const timerDuration = timerMode === "off" ? 0 : 30;
 
+  // Determine age group
+  const memberAge = participant?.members?.date_of_birth 
+    ? differenceInYears(new Date(), new Date(participant.members.date_of_birth))
+    : null;
+  const ageGroup: 'kids' | 'teens' | 'adults' = 
+    memberAge === null ? 'adults' :
+    memberAge < 13 ? 'kids' : 
+    memberAge < 18 ? 'teens' : 'adults';
+
+  // Age-specific background
+  const getAgeBackground = () => {
+    switch (ageGroup) {
+      case 'kids':
+        return "linear-gradient(135deg, #7c3aed, #4f46e5)";
+      case 'teens':
+        return "#0f172a";
+      case 'adults':
+        return "#f8fafc";
+    }
+  };
+
   const handleTimerExpire = useCallback(() => {
-    if (!revealed && !locked) {
+    if (!revealed && !locked && mode === 'live') {
       setTimerExpired(true);
       if (timerMode === "lock") {
         setLocked(true);
         setRevealed(true);
       }
     }
-  }, [revealed, locked, timerMode]);
+  }, [revealed, locked, timerMode, mode]);
 
   const handleAnswer = async (optionIndex: number) => {
     if (locked || revealed || selectedAnswer !== null) return;
@@ -184,9 +271,19 @@ export default function QuizPlayView() {
     setPointsEarned(pts);
     setFeedback(isCorrect ? "correct" : "wrong");
 
+    // Kids get confetti on correct answers
+    if (isCorrect && ageGroup === 'kids') {
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { x: 0.5, y: 0.6 },
+        colors: ['#FFD700', '#7c3aed', '#10b981', '#f59e0b', '#ffffff']
+      });
+    }
+
     // Save answer
     await supabase.from(TABLES.QUIZ_ANSWERS).insert({
-      session_id: sessionId!,
+      session_id: mode === 'solo' ? null : sessionId!,
       participant_id: participantId!,
       question_index: currentQIdx,
       answer_given: question?.options?.[optionIndex] ?? String(optionIndex),
@@ -230,7 +327,41 @@ export default function QuizPlayView() {
   const myStreak = participant?.streak ?? 0;
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: theme.bg }}>
+    <div 
+      className="fixed inset-0 flex flex-col overflow-hidden" 
+      style={{ 
+        background: ageGroup === 'adults' ? getAgeBackground() : theme.bg,
+        backgroundImage: ageGroup === 'kids' ? getAgeBackground() : undefined
+      }}
+    >
+      {/* Floating decorations for kids */}
+      {ageGroup === 'kids' && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{
+                y: [0, 20, 0],
+                x: [0, 10, 0],
+                rotate: [0, 360]
+              }}
+              transition={{
+                duration: 8 + i * 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className={cn(
+                "absolute w-8 h-8 rounded-full opacity-20",
+                i % 2 === 0 ? "bg-yellow-400" : "bg-green-400"
+              )}
+              style={{
+                left: `${20 + i * 20}%`,
+                top: `${10 + i * 15}%`
+              }}
+            />
+          ))}
+        </div>
+      )}
       {/* Feedback overlay */}
       <AnimatePresence>
         {feedback && (
@@ -312,11 +443,11 @@ export default function QuizPlayView() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className="text-white/60 text-xs font-medium">{currentQIdx + 1} / {questions.length}</span>
-            {timerMode !== "off" && !revealed && (
+            {timerMode !== "off" && !revealed && mode === 'live' && (
               <span className="text-white/60 text-xs">⏱</span>
             )}
           </div>
-          {timerMode !== "off" && !revealed && (
+          {timerMode !== "off" && !revealed && mode === 'live' && (
             <TimerBar key={currentQIdx} duration={timerDuration} onExpire={handleTimerExpire} />
           )}
         </div>
@@ -335,7 +466,12 @@ export default function QuizPlayView() {
 
         {/* Answer cards */}
         {(question.type === "MCQ" || question.type === "Passage" || !question.type) && question.options && (
-          <div className="grid grid-cols-2 gap-3 flex-1">
+          <div className={cn(
+            "grid gap-3 flex-1",
+            ageGroup === 'kids' ? "grid-cols-2" : 
+            ageGroup === 'teens' ? "grid-cols-1 max-w-2xl mx-auto" : 
+            "grid-cols-1 max-w-xl mx-auto"
+          )}>
             {question.options.map((opt, i) => (
               <AnswerCard
                 key={i}
@@ -346,6 +482,7 @@ export default function QuizPlayView() {
                 revealed={revealed}
                 locked={locked || (timerExpired && timerMode === "lock")}
                 onClick={() => handleAnswer(i)}
+                ageGroup={ageGroup}
               />
             ))}
           </div>
