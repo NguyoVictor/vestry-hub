@@ -166,10 +166,7 @@ export const PremiumBroadcastsView = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.COMMUNICATIONS)
-        .select(`
-          *,
-          created_by_user:users!communications_created_by_fkey(first_name, last_name)
-        `)
+        .select("*")
         .eq("tenant_id", tenantId!)
         .order("created_at", { ascending: false });
       
@@ -197,23 +194,6 @@ export const PremiumBroadcastsView = () => {
     staleTime: 300_000,
   });
 
-  // Fetch admin broadcasts
-  const { data: adminBroadcasts = [], isLoading: adminBroadcastsLoading } = useQuery({
-    queryKey: ["admin-broadcasts", tenantId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from(TABLES.ADMIN_BROADCASTS)
-        .select("*")
-        .eq("tenant_id", tenantId!)
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId,
-    staleTime: 300_000,
-  });
-
   // Calculate stats - combine data from both communications and broadcasts tables
   const sentMessages = [
     ...communications.filter(c => c.status === "sent"),
@@ -227,7 +207,7 @@ export const PremiumBroadcastsView = () => {
     ...communications.filter(c => c.status === "scheduled"),
     ...broadcasts.filter(b => b.status === "scheduled")
   ];
-  const totalBroadcasts = adminBroadcasts.length + broadcasts.length;
+  const totalBroadcasts = broadcasts.length;
   const reachRate = sentMessages.length > 0 
     ? Math.round((sentMessages.reduce((sum, msg) => sum + (msg.delivered_count || msg.recipient_count || 1), 0) / 
         sentMessages.reduce((sum, msg) => sum + (msg.sent_count || msg.recipient_count || 1), 0)) * 100)
@@ -259,7 +239,7 @@ export const PremiumBroadcastsView = () => {
 
   const filteredData = getFilteredData();
   const draftCount = draftMessages.length;
-  const isLoading = communicationsLoading || broadcastsLoading || adminBroadcastsLoading;
+  const isLoading = communicationsLoading || broadcastsLoading;
 
   // Mutation for updating messages (Edit Draft)
   const updateMessageMutation = useMutation({
@@ -398,9 +378,24 @@ export const PremiumBroadcastsView = () => {
       subject: message.subject || "",
       body: message.body || "",
       recipientType: message.recipient_type || "",
-      recipientName: message.recipient_config?.name || "",
-      recipientId: message.recipient_config?.id || ""
     });
+
+    // Handle different recipient types
+    if (message.recipient_config) {
+      if (message.recipient_type === "visitor") {
+        queryParams.set("recipientName", message.recipient_config.name || "");
+        queryParams.set("recipientId", message.recipient_config.visitor_id || "");
+        if (message.recipient_config.email) {
+          queryParams.set("recipientEmail", message.recipient_config.email);
+        }
+      } else {
+        queryParams.set("recipientName", message.recipient_config.name || "");
+        queryParams.set("recipientId", message.recipient_config.id || "");
+        if (message.recipient_config.email) {
+          queryParams.set("recipientEmail", message.recipient_config.email);
+        }
+      }
+    }
     
     navigate(`/communications/compose?${queryParams.toString()}`);
     
@@ -575,15 +570,14 @@ export const PremiumBroadcastsView = () => {
             </div>
           </div>
 
-          <AnimatePresence mode="wait">
-            <TabsContent value="sent" className="mt-0">
-              <motion.div
-                key="sent"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
+          <TabsContent value="sent" className="mt-0">
+            <motion.div
+              key="sent"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
                 <Card>
                   <CardContent className="pt-6">
                     {isLoading ? (
@@ -637,11 +631,8 @@ export const PremiumBroadcastsView = () => {
                               <TableCell>
                                 <div>
                                   <p className="font-medium">
-                                    {/* Handle both communications (has created_by_user) and broadcasts (may not have user info) */}
-                                    {msg.created_by_user?.first_name && msg.created_by_user?.last_name 
-                                      ? `${msg.created_by_user.first_name} ${msg.created_by_user.last_name}`
-                                      : msg.recipient_config?.name || "System"
-                                    }
+                                    {/* Handle both communications and broadcasts */}
+                                    {msg.recipient_config?.name || "System"}
                                   </p>
                                   <Badge variant="outline" className="text-xs">
                                     {msg.recipient_type?.replace(/_/g, " ") || "Member"}
@@ -729,11 +720,8 @@ export const PremiumBroadcastsView = () => {
                               <TableCell>
                                 <div>
                                   <p className="font-medium">
-                                    {/* Handle both communications (has created_by_user) and broadcasts (may not have user info) */}
-                                    {msg.created_by_user?.first_name && msg.created_by_user?.last_name 
-                                      ? `${msg.created_by_user.first_name} ${msg.created_by_user.last_name}`
-                                      : msg.recipient_config?.name || "System"
-                                    }
+                                    {/* Handle both communications and broadcasts */}
+                                    {msg.recipient_config?.name || "System"}
                                   </p>
                                   <Badge variant="outline" className="text-xs">
                                     {msg.recipient_type?.replace(/_/g, " ") || "Member"}
@@ -809,7 +797,6 @@ export const PremiumBroadcastsView = () => {
                 </Card>
               </motion.div>
             </TabsContent>
-          </AnimatePresence>
         </Tabs>
       </motion.div>
 

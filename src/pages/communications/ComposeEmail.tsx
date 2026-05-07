@@ -186,6 +186,9 @@ export default function ComposeEmail() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterGender, setFilterGender] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [manualRecipients, setManualRecipients] = useState<Array<{id: string, email: string, name: string, type: 'manual'}>>([]);
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualName, setManualName] = useState("");
 
   // Compose state
   const [channel, setChannel] = useState<"email" | "sms">(searchParams.get("channel") as "email" | "sms" || "email");
@@ -201,27 +204,7 @@ export default function ComposeEmail() {
 
   // Draft data from URL parameters
   const draftId = searchParams.get("draftId");
-  const recipientName = searchParams.get("recipientName");
-  const recipientId = searchParams.get("recipientId");
   const recipientType = searchParams.get("recipientType");
-
-  // Initialize form with draft data
-  useEffect(() => {
-    if (draftId && recipientId && recipientType) {
-      // Pre-select the recipient if it's a specific person
-      if (recipientType === "visitor" || recipientType === "specific_member") {
-        setSelectedIds(new Set([recipientId]));
-      }
-      
-      // Show a toast to indicate the draft was loaded
-      toast.success(`Draft message loaded for ${recipientName || "recipient"}`);
-    }
-  }, [draftId, recipientId, recipientType, recipientName]);
-
-  // Modal state
-  const [aiDraftOpen, setAiDraftOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [sending, setSending] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -239,6 +222,67 @@ export default function ComposeEmail() {
     staleTime: 300_000,
   });
 
+  // Query visitors for visitor follow-ups
+  const { data: visitors = [], isLoading: visitorsLoading } = useQuery({
+    queryKey: ["visitors-compose", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from(TABLES.VISITORS)
+        .select("id, first_name, last_name, email, phone, status")
+        .eq("tenant_id", tenantId)
+        .order("first_name");
+      return data || [];
+    },
+    staleTime: 300_000,
+  });
+
+  // Initialize form with draft data
+  useEffect(() => {
+    if (draftId && recipientType && !visitorsLoading) {
+      if (recipientType === "visitor") {
+        // For visitors, we need to add them as manual recipients since they might not be in the visitors list
+        // or they might be there but we want to ensure we have the correct email
+        const visitorEmail = searchParams.get("recipientEmail");
+        const visitorName = searchParams.get("recipientName");
+        const visitorId = searchParams.get("recipientId");
+        
+        if (visitorEmail && visitorName) {
+          // Add visitor as manual recipient to ensure we have the correct email
+          const visitorRecipient = {
+            id: `visitor-manual-${visitorId || Date.now()}`,
+            email: visitorEmail,
+            name: visitorName,
+            type: 'manual' as const
+          };
+          setManualRecipients([visitorRecipient]);
+          setSelectedIds(new Set([visitorRecipient.id]));
+          
+          toast.success(`Draft message loaded for visitor: ${visitorName}`);
+        } else if (visitorId) {
+          // Try to find visitor in the visitors list
+          const visitorSelectionId = `visitor-${visitorId}`;
+          const visitor = visitors.find(v => v.id === visitorId);
+          if (visitor && visitor.email) {
+            setSelectedIds(new Set([visitorSelectionId]));
+            toast.success(`Draft message loaded for visitor: ${visitor.first_name} ${visitor.last_name || ""}`.trim());
+          }
+        }
+      } else if (recipientType === "specific_member") {
+        // For members, select from members list
+        const memberId = searchParams.get("recipientId");
+        if (memberId) {
+          setSelectedIds(new Set([memberId]));
+          const memberName = searchParams.get("recipientName");
+          toast.success(`Draft message loaded for member: ${memberName || "recipient"}`);
+        }
+      }
+    }
+  }, [draftId, recipientType, visitors, searchParams, visitorsLoading]);
+
+  // Modal state
+  const [aiDraftOpen, setAiDraftOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [sending, setSending] = useState(false);
   const { data: templates = [] } = useQuery<EmailTemplate[]>({
     queryKey: ["email-templates-compose", tenantId],
     queryFn: async () => {
@@ -264,11 +308,76 @@ export default function ComposeEmail() {
   });
 
   const selectedMembers = members.filter(m => selectedIds.has(m.id));
+  const selectedVisitors = visitors.filter(v => selectedIds.has(`visitor-${v.id}`));
+  const selectedManualRecipients = manualRecipients.filter(mr => selectedIds.has(mr.id));
+
+  // Combine all selected recipients for display and sending
+  const allSelectedRecipients = [
+    ...selectedMembers.map(m => ({
+      id: m.id,
+      name: `${m.first_name || ""} ${m.last_name || ""}`.trim() || "Member",
+      email: m.email,
+      type: 'member' as const,
+      status: m.status
+    })),
+    ...selectedVisitors.map(v => ({
+      id: `visitor-${v.id}`,
+      name: `${v.first_name || ""} ${v.last_name || ""}`.trim() || "Visitor",
+      email: v.email,
+      type: 'visitor' as const,
+      status: v.status
+    })),
+    ...selectedManualRecipients.map(mr => ({
+      id: mr.id,
+      name: mr.name,
+      email: mr.email,
+      type: 'manual' as const,
+      status: 'Active'
+    }))
+  ];
 
   const toggleMember = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // Add manual recipient function
+  const addManualRecipient = () => {
+    if (!manualEmail.trim()) {
+      toast.error("Please enter an email address");
+      return;
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(manualEmail.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const newRecipient = {
+      id: `manual-${Date.now()}`,
+      email: manualEmail.trim(),
+      name: manualName.trim() || manualEmail.trim(),
+      type: 'manual' as const
+    };
+
+    setManualRecipients(prev => [...prev, newRecipient]);
+    setSelectedIds(prev => new Set([...prev, newRecipient.id]));
+    setManualEmail("");
+    setManualName("");
+    toast.success(`Added ${newRecipient.name} as recipient`);
+  };
+
+  // Remove manual recipient function
+  const removeManualRecipient = (id: string) => {
+    setManualRecipients(prev => prev.filter(mr => mr.id !== id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
   };
@@ -305,13 +414,13 @@ export default function ComposeEmail() {
 
     setSending(true);
     try {
-      const recipients = selectedMembers
-        .filter(m => m.email)
-        .map(m => ({
-          email: m.email!,
-          first_name: m.first_name ?? "",
-          last_name: m.last_name ?? "",
-          name: `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim(),
+      const recipients = allSelectedRecipients
+        .filter(r => r.email)
+        .map(r => ({
+          email: r.email!,
+          first_name: r.name.split(' ')[0] || "",
+          last_name: r.name.split(' ').slice(1).join(' ') || "",
+          name: r.name,
         }));
 
       const scheduleAt = scheduleEnabled && scheduleDate && scheduleTime
@@ -476,49 +585,157 @@ export default function ComposeEmail() {
                 <button onClick={clearAll} className="text-xs text-slate-400 hover:text-slate-600">Clear all</button>
               )}
             </div>
+
+            {/* Manual recipient input */}
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+              <p className="text-xs font-medium text-slate-600 mb-2">Add Manual Recipient</p>
+              <div className="space-y-2">
+                <Input
+                  placeholder="Name (optional)"
+                  value={manualName}
+                  onChange={e => setManualName(e.target.value)}
+                  className="text-xs h-8"
+                />
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="email@example.com"
+                    type="email"
+                    value={manualEmail}
+                    onChange={e => setManualEmail(e.target.value)}
+                    className="text-xs h-8 flex-1"
+                    onKeyPress={e => e.key === 'Enter' && addManualRecipient()}
+                  />
+                  <Button
+                    onClick={addManualRecipient}
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    disabled={!manualEmail.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Member list */}
+          {/* Combined recipient list */}
           <div className="flex-1 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700 max-h-[500px]">
-            {membersLoading ? (
+            {membersLoading || visitorsLoading ? (
               <div className="p-4 space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : filtered.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 text-sm">No members found.</div>
-            ) : filtered.map(m => {
-              const isSelected = selectedIds.has(m.id);
-              const name = `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—";
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => toggleMember(m.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
-                    isSelected
-                      ? "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                  )}
-                >
-                  <div className={cn(
-                    "h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors",
-                    isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
-                  )}>
-                    {isSelected && <div className="h-2 w-2 bg-white rounded-full" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate uppercase">{name}</p>
-                    <p className="text-xs text-slate-400 truncate">{m.email ?? "No email"}</p>
-                  </div>
-                  <span className={cn(
-                    "shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border",
-                    m.status === "Active"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : "bg-slate-100 text-slate-500 border-slate-200"
-                  )}>{m.status ?? "—"}</span>
-                </button>
-              );
-            })}
+            ) : (
+              <>
+                {/* Manual recipients */}
+                {manualRecipients.map(mr => {
+                  const isSelected = selectedIds.has(mr.id);
+                  return (
+                    <div
+                      key={mr.id}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-3 transition-colors",
+                        isSelected
+                          ? "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      )}
+                    >
+                      <button
+                        onClick={() => toggleMember(mr.id)}
+                        className={cn(
+                          "h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors",
+                          isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
+                        )}
+                      >
+                        {isSelected && <div className="h-2 w-2 bg-white rounded-full" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate uppercase">{mr.name}</p>
+                        <p className="text-xs text-slate-400 truncate">{mr.email}</p>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                        Manual
+                      </span>
+                      <button
+                        onClick={() => removeManualRecipient(mr.id)}
+                        className="shrink-0 text-red-400 hover:text-red-600 p-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {/* Visitors */}
+                {visitors.filter(v => v.email).map(v => {
+                  const visitorId = `visitor-${v.id}`;
+                  const isSelected = selectedIds.has(visitorId);
+                  const name = `${v.first_name ?? ""} ${v.last_name ?? ""}`.trim() || "Visitor";
+                  return (
+                    <button
+                      key={visitorId}
+                      onClick={() => toggleMember(visitorId)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
+                        isSelected
+                          ? "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors",
+                        isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
+                      )}>
+                        {isSelected && <div className="h-2 w-2 bg-white rounded-full" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate uppercase">{name}</p>
+                        <p className="text-xs text-slate-400 truncate">{v.email}</p>
+                      </div>
+                      <span className="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border bg-purple-50 text-purple-700 border-purple-200">
+                        Visitor
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* Members */}
+                {filtered.length === 0 && visitors.length === 0 && manualRecipients.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-sm">No recipients found.</div>
+                ) : filtered.map(m => {
+                  const isSelected = selectedIds.has(m.id);
+                  const name = `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—";
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => toggleMember(m.id)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
+                        isSelected
+                          ? "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "h-5 w-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors",
+                        isSelected ? "border-orange-500 bg-orange-500" : "border-slate-300"
+                      )}>
+                        {isSelected && <div className="h-2 w-2 bg-white rounded-full" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate uppercase">{name}</p>
+                        <p className="text-xs text-slate-400 truncate">{m.email ?? "No email"}</p>
+                      </div>
+                      <span className={cn(
+                        "shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                        m.status === "Active"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-100 text-slate-500 border-slate-200"
+                      )}>Member</span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
 
