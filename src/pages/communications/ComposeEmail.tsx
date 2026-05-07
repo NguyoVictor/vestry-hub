@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -177,6 +177,7 @@ function PreviewRecipientsModal({ open, onClose, members }: { open: boolean; onC
 // ── Main ComposeEmail page ─────────────────────────────────────────────────────
 export default function ComposeEmail() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { tenantId, name: churchName } = useChurch();
   const queryClient = useQueryClient();
 
@@ -187,16 +188,35 @@ export default function ComposeEmail() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Compose state
-  const [channel, setChannel] = useState<"email" | "sms">("email");
+  const [channel, setChannel] = useState<"email" | "sms">(searchParams.get("channel") as "email" | "sms" || "email");
   const [templateId, setTemplateId] = useState("");
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(searchParams.get("subject") || "");
   const [previewText, setPreviewText] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(searchParams.get("body") || "");
   const [attachments, setAttachments] = useState<File[]>([]);
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
-  const [smsMessage, setSmsMessage] = useState("");
+  const [smsMessage, setSmsMessage] = useState(searchParams.get("body") || "");
+
+  // Draft data from URL parameters
+  const draftId = searchParams.get("draftId");
+  const recipientName = searchParams.get("recipientName");
+  const recipientId = searchParams.get("recipientId");
+  const recipientType = searchParams.get("recipientType");
+
+  // Initialize form with draft data
+  useEffect(() => {
+    if (draftId && recipientId && recipientType) {
+      // Pre-select the recipient if it's a specific person
+      if (recipientType === "visitor" || recipientType === "specific_member") {
+        setSelectedIds(new Set([recipientId]));
+      }
+      
+      // Show a toast to indicate the draft was loaded
+      toast.success(`Draft message loaded for ${recipientName || "recipient"}`);
+    }
+  }, [draftId, recipientId, recipientType, recipientName]);
 
   // Modal state
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
@@ -310,12 +330,44 @@ export default function ComposeEmail() {
       });
       if (error) throw error;
 
+      // If this was sent from a draft, update the draft status to "sent"
+      if (draftId) {
+        try {
+          // Try broadcasts table first (for visitor follow-ups)
+          const { error: broadcastError } = await supabase
+            .from(TABLES.BROADCASTS)
+            .update({
+              status: scheduleAt ? "scheduled" : "sent",
+              sent_at: scheduleAt || new Date().toISOString(),
+              channel: channel,
+              channels: [channel]
+            })
+            .eq("id", draftId);
+
+          // If not found in broadcasts, try communications table
+          if (broadcastError) {
+            await supabase
+              .from(TABLES.COMMUNICATIONS)
+              .update({
+                status: scheduleAt ? "scheduled" : "sent",
+                sent_at: scheduleAt || new Date().toISOString(),
+                channel: channel
+              })
+              .eq("id", draftId);
+          }
+        } catch (draftError) {
+          console.warn("Failed to update draft status:", draftError);
+          // Don't fail the whole operation if draft update fails
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ["communications", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["broadcasts", tenantId] });
 
       if (scheduleAt) {
-        toast.success(`✅ Email scheduled for ${format(new Date(scheduleAt), "dd MMM yyyy 'at' HH:mm")}`);
+        toast.success(`✅ ${channel === "email" ? "Email" : "SMS"} scheduled for ${format(new Date(scheduleAt), "dd MMM yyyy 'at' HH:mm")}`);
       } else {
-        toast.success(`✅ Email sent to ${recipients.length} recipient${recipients.length !== 1 ? "s" : ""}.`);
+        toast.success(`✅ ${channel === "email" ? "Email" : "SMS"} sent to ${recipients.length} recipient${recipients.length !== 1 ? "s" : ""}.`);
       }
       navigate("/communications");
     } catch (err: unknown) {

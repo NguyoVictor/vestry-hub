@@ -6,6 +6,7 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import { 
   Send, 
   FileText, 
@@ -142,6 +143,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 export const PremiumBroadcastsView = () => {
   const { tenantId, userId } = useChurch();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("sent");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChannel, setSelectedChannel] = useState("all");
@@ -149,7 +151,6 @@ export const PremiumBroadcastsView = () => {
   // Modal states
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [deletingMessage, setDeletingMessage] = useState<any>(null);
-  const [sendingMessage, setSendingMessage] = useState<any>(null);
   
   // Form state for editing
   const [editForm, setEditForm] = useState({
@@ -260,53 +261,7 @@ export const PremiumBroadcastsView = () => {
   const draftCount = draftMessages.length;
   const isLoading = communicationsLoading || broadcastsLoading || adminBroadcastsLoading;
 
-  // Mutation for sending messages
-  const sendMessageMutation = useMutation({
-    mutationFn: async ({ messageId, channel, messageData }: { messageId: string; channel: string; messageData: any }) => {
-      // Determine which table the message is in
-      const isFromBroadcasts = broadcasts.some(b => b.id === messageId);
-      const tableName = isFromBroadcasts ? TABLES.BROADCASTS : TABLES.COMMUNICATIONS;
-      
-      // Update the message status and channel
-      const { error } = await supabase
-        .from(tableName)
-        .update({
-          status: "sent",
-          channel: channel,
-          channels: [channel],
-          sent_at: new Date().toISOString(),
-          sent_by: userId
-        })
-        .eq("id", messageId);
-      
-      if (error) throw error;
-      
-      // If it's a visitor follow-up, also call the edge function to actually send
-      if (isFromBroadcasts && messageData.recipient_type === "visitor") {
-        const { error: sendError } = await supabase.functions.invoke("send-visitor-followup", {
-          body: {
-            message_id: messageId,
-            channel: channel,
-            tenant_id: tenantId
-          }
-        });
-        if (sendError) console.warn("Send function error:", sendError);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["communications", tenantId] });
-      queryClient.invalidateQueries({ queryKey: ["broadcasts", tenantId] });
-      toast.success("Message sent successfully!");
-      setSendingMessage(null);
-    },
-    onError: (error) => {
-      console.error("Send error:", error);
-      toast.error("Failed to send message");
-      setSendingMessage(null);
-    }
-  });
-
-  // Mutation for updating messages
+  // Mutation for updating messages (Edit Draft)
   const updateMessageMutation = useMutation({
     mutationFn: async ({ messageId, updates }: { messageId: string; updates: any }) => {
       // Determine which table the message is in
@@ -323,12 +278,12 @@ export const PremiumBroadcastsView = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["communications", tenantId] });
       queryClient.invalidateQueries({ queryKey: ["broadcasts", tenantId] });
-      toast.success("Message updated successfully!");
+      toast.success("Draft updated successfully!");
       setEditingMessage(null);
     },
     onError: (error) => {
       console.error("Update error:", error);
-      toast.error("Failed to update message");
+      toast.error("Failed to update draft");
     }
   });
 
@@ -436,22 +391,20 @@ export const PremiumBroadcastsView = () => {
 
   // Handler functions
   const handleSendMessage = (message: any, channel: string) => {
-    // Show confirmation before sending
-    const channelName = channel.charAt(0).toUpperCase() + channel.slice(1);
-    const recipientName = message.created_by_user?.first_name && message.created_by_user?.last_name 
-      ? `${message.created_by_user.first_name} ${message.created_by_user.last_name}`
-      : message.recipient_config?.name || "recipient";
-    
-    toast(`Sending message to ${recipientName} via ${channelName}...`, {
-      duration: 2000,
+    // Navigate to compose page with pre-filled draft data
+    const queryParams = new URLSearchParams({
+      channel: channel,
+      draftId: message.id,
+      subject: message.subject || "",
+      body: message.body || "",
+      recipientType: message.recipient_type || "",
+      recipientName: message.recipient_config?.name || "",
+      recipientId: message.recipient_config?.id || ""
     });
     
-    setSendingMessage({ message, channel });
-    sendMessageMutation.mutate({ 
-      messageId: message.id, 
-      channel, 
-      messageData: message 
-    });
+    navigate(`/communications/compose?${queryParams.toString()}`);
+    
+    toast.success(`Opening ${channel} composer with draft message...`);
   };
 
   const handleEditMessage = (message: any) => {
@@ -804,7 +757,7 @@ export const PremiumBroadcastsView = () => {
                                     <Button 
                                       variant="ghost" 
                                       size="sm"
-                                      disabled={sendMessageMutation.isPending || updateMessageMutation.isPending || deleteMessageMutation.isPending}
+                                      disabled={updateMessageMutation.isPending || deleteMessageMutation.isPending}
                                     >
                                       <MoreVertical className="h-4 w-4" />
                                     </Button>
@@ -816,24 +769,15 @@ export const PremiumBroadcastsView = () => {
                                     transition={{ duration: 0.1 }}
                                   >
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem 
-                                        onClick={() => handleSendMessage(msg, "email")}
-                                        disabled={sendMessageMutation.isPending}
-                                      >
+                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "email")}>
                                         <Mail className="mr-2 h-4 w-4" />
                                         Send via Email
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={() => handleSendMessage(msg, "sms")}
-                                        disabled={sendMessageMutation.isPending}
-                                      >
+                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "sms")}>
                                         <MessageSquare className="mr-2 h-4 w-4" />
                                         Send via SMS
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={() => handleSendMessage(msg, "whatsapp")}
-                                        disabled={sendMessageMutation.isPending}
-                                      >
+                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "whatsapp")}>
                                         <MessageCircle className="mr-2 h-4 w-4" />
                                         Send via WhatsApp
                                       </DropdownMenuItem>
