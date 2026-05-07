@@ -31,6 +31,7 @@ import { SmsTemplates } from "./SmsTemplates";
 import { SmsCredits } from "./SmsCredits";
 import { AdminBroadcast } from "./AdminBroadcast";
 import { WhatsAppCloud } from "./whatsapp/WhatsAppCloudMain";
+import { PremiumBroadcastsView } from "./components/PremiumBroadcastsView";
 import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
 
@@ -245,109 +246,9 @@ export default function Communications() {
         {/* ── Main content area ── */}
         <div className="flex-1 min-w-0">
 
-          {/* ── BROADCASTS (existing logic, untouched) ── */}
+          {/* ── BROADCASTS (Premium View) ── */}
           {activeSection === "broadcasts" && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Messages Sent</p><p className="text-3xl font-bold">{sentCount}</p></CardContent></Card>
-                <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Drafts</p><p className="text-3xl font-bold">{draftCount}</p></CardContent></Card>
-                <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Total Broadcasts</p><p className="text-3xl font-bold">{broadcasts?.length || 0}</p></CardContent></Card>
-              </div>
-
-              <Tabs defaultValue="sent">
-                <TabsList>
-                  <TabsTrigger value="sent">Sent Messages</TabsTrigger>
-                  <TabsTrigger value="drafts" className="relative">
-                    Drafts & Scheduled
-                    {draftCount > 0 && (
-                      <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-semibold min-w-[16px] h-4 px-1">
-                        {draftCount}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="sent">
-                  <Card>
-                    <CardContent className="pt-6">
-                      {isLoading ? (
-                        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-                      ) : !broadcasts?.filter(b => b.status === "sent").length ? (
-                        <div className="text-center py-12">
-                          <Send className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
-                          <p className="text-lg font-medium">No messages sent yet</p>
-                          <p className="text-muted-foreground text-sm">Compose your first broadcast message.</p>
-                          <Button className="mt-4" onClick={() => setShowCompose(true)}>Compose Message</Button>
-                        </div>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Subject</TableHead>
-                              <TableHead>Recipients</TableHead>
-                              <TableHead>Channel</TableHead>
-                              <TableHead>Sent At</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {broadcasts.filter(b => b.status === "sent").map((msg) => (
-                              <TableRow key={msg.id}>
-                                <TableCell className="font-medium">{msg.subject}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">{msg.recipient_type?.replace(/_/g, " ")}</TableCell>
-                                <TableCell><Badge variant="secondary">{(msg.channels as string[])?.[0] || "in_app"}</Badge></TableCell>
-                                <TableCell className="text-sm">{msg.sent_at ? format(new Date(msg.sent_at), "dd MMM yyyy · HH:mm") : "—"}</TableCell>
-                                <TableCell><Badge className={statusColors[msg.status || "sent"]}>{msg.status}</Badge></TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="drafts">
-                  <Card>
-                    <CardContent className="pt-6">
-                      {!broadcasts?.filter(b => b.status === "draft" || b.status === "scheduled").length ? (
-                        <p className="text-center text-muted-foreground py-8">No drafts or scheduled messages.</p>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Subject</TableHead>
-                              <TableHead>Recipient</TableHead>
-                              <TableHead>Channel</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Created</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {broadcasts.filter(b => b.status === "draft" || b.status === "scheduled").map((msg) => {
-                              const config = msg.recipient_config as any;
-                              const recipientLabel = config?.name
-                                ? `${config.name} (${msg.recipient_type === "visitor" ? "Visitor" : msg.recipient_type?.replace(/_/g, " ")})`
-                                : msg.recipient_type?.replace(/_/g, " ");
-                              const channel = (msg.channels as string[])?.[0] || "in_app";
-                              return (
-                                <TableRow key={msg.id}>
-                                  <TableCell className="font-medium">{msg.subject}</TableCell>
-                                  <TableCell className="text-sm text-muted-foreground">{recipientLabel}</TableCell>
-                                  <TableCell><Badge variant="secondary" className="capitalize">{channel}</Badge></TableCell>
-                                  <TableCell><Badge className={statusColors[msg.status || "draft"]}>{msg.status}</Badge></TableCell>
-                                  <TableCell className="text-sm">{msg.created_at ? format(new Date(msg.created_at), "dd MMM yyyy") : "—"}</TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </>
+            <PremiumBroadcastsView />
           )}
 
           {/* ── EMAIL ── */}
