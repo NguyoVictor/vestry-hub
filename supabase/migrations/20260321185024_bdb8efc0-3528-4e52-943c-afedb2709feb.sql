@@ -35,7 +35,6 @@ CREATE TABLE IF NOT EXISTS house_fellowships (
   updated_at timestamptz DEFAULT now()
 );
 ALTER TABLE house_fellowships ENABLE ROW LEVEL SECURITY;
-
 -- Create hf_tenant_rls policy if it doesn't exist
 DO $$
 BEGIN
@@ -58,7 +57,6 @@ CREATE TABLE IF NOT EXISTS fellowship_members (
   UNIQUE(fellowship_id, member_id)
 );
 ALTER TABLE fellowship_members ENABLE ROW LEVEL SECURITY;
-
 -- Create fm_tenant_rls policy if it doesn't exist
 DO $$
 BEGIN
@@ -80,7 +78,6 @@ CREATE TABLE IF NOT EXISTS family_members (
   UNIQUE(family_id, member_id)
 );
 ALTER TABLE family_members ENABLE ROW LEVEL SECURITY;
-
 -- Create fam_members_rls policy if it doesn't exist
 DO $$
 BEGIN
@@ -104,7 +101,6 @@ CREATE TABLE IF NOT EXISTS visitor_followup_notes (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE visitor_followup_notes ENABLE ROW LEVEL SECURITY;
-
 -- Create vfn_tenant_rls policy if it doesn't exist
 DO $$
 BEGIN
@@ -128,7 +124,6 @@ CREATE TABLE IF NOT EXISTS convert_checkins (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE convert_checkins ENABLE ROW LEVEL SECURITY;
-
 -- Create cc_tenant_rls policy if it doesn't exist
 DO $$
 BEGIN
@@ -153,7 +148,6 @@ CREATE TABLE IF NOT EXISTS convert_stage_history (
   advanced_at timestamptz DEFAULT now()
 );
 ALTER TABLE convert_stage_history ENABLE ROW LEVEL SECURITY;
-
 -- Create csh_tenant_rls policy if it doesn't exist
 DO $$
 BEGIN

@@ -131,15 +131,25 @@ export default function GroupTypes() {
   const [rows, setRows] = useState<GroupType[]>([]);
   const seedingRef = useRef(false);
 
-  const { data: types = [], isLoading } = useQuery<GroupType[]>({
+  const { data: types = [], isLoading, error } = useQuery<GroupType[]>({
     queryKey: ["group-types", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from(TABLES.GROUP_TYPES)
-        .select("*").eq(COLS.TENANT_ID, tenantId).order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as GroupType[];
+      try {
+        const { data, error } = await supabase.from(TABLES.GROUP_TYPES)
+          .select("*").eq(COLS.TENANT_ID, tenantId).order("sort_order", { ascending: true });
+        if (error) throw error;
+        return (data ?? []) as GroupType[];
+      } catch (err: any) {
+        // If table doesn't exist, return empty array and show helpful message
+        if (err.message?.includes('does not exist') || err.message?.includes('schema cache')) {
+          console.warn("Group types table doesn't exist:", err.message);
+          return [];
+        }
+        throw err;
+      }
     },
     staleTime: 300_000,
+    retry: false, // Don't retry if table doesn't exist
   });
 
   const cacheKey = types.map(t => `${t.id}:${t.is_active}:${t.sort_order}:${t.label}`).join('|');
@@ -204,7 +214,25 @@ export default function GroupTypes() {
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          {isLoading || seeding ? (
+          {error?.message?.includes('schema cache') || error?.message?.includes('does not exist') ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+              <UsersRound className="h-12 w-12 text-red-300" />
+              <div>
+                <p className="text-base font-semibold text-red-600 dark:text-red-400 font-jakarta">Database Table Missing</p>
+                <p className="text-sm text-red-500 dark:text-red-400 mt-1 font-jakarta">The 'group_types' table doesn't exist in your database.</p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 max-w-md">
+                <p className="text-sm text-red-700 dark:text-red-300 font-jakarta mb-3">
+                  <strong>To fix this:</strong>
+                </p>
+                <ol className="text-sm text-red-700 dark:text-red-300 font-jakarta space-y-1 text-left">
+                  <li>1. Go to Supabase Dashboard → SQL Editor</li>
+                  <li>2. Run the SQL script: <code className="bg-red-100 dark:bg-red-800 px-1 rounded">CREATE_GROUP_TYPES_TABLE.sql</code></li>
+                  <li>3. Refresh this page</li>
+                </ol>
+              </div>
+            </div>
+          ) : isLoading || seeding ? (
             <div className="p-5 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">

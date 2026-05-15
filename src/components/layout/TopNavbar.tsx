@@ -42,7 +42,7 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
     staleTime: 30000,
   });
 
-  // Notification list — newest first, unread only shown prominently
+  // Notification list — newest first, unread only for cleaner UX
   const { data: notifications = [] } = useQuery({
     queryKey: ["notifications", "list", church.tenantId, church.userId],
     queryFn: async () => {
@@ -51,6 +51,7 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
         .select("*")
         .eq("tenant_id", church.tenantId)
         .eq("user_id", church.userId)
+        .eq("is_read", false) // Only show unread notifications
         .order("created_at", { ascending: false })
         .limit(20);
       return data ?? [];
@@ -107,6 +108,25 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
 
   const handleNotificationClick = (n: any) => {
     if (!n.is_read) markRead.mutate(n.id);
+    
+    // Track view for broadcast notifications
+    if (n.type === "broadcast") {
+      // Update notification data to track view
+      supabase.from("notifications")
+        .update({ 
+          data: { 
+            ...n.data, 
+            viewed_at: new Date().toISOString() 
+          } 
+        } as any)
+        .eq("id", n.id)
+        .then(() => {
+          // Invalidate queries to refresh counts
+          queryClient.invalidateQueries({ queryKey: ["broadcast-reads"] });
+        });
+    }
+    
+    // Navigate based on notification type
     if (n.type === "task_deadline") navigate("/follow-up-tasks");
     else if (n.type === "meeting_reminder") navigate("/board-meetings");
     else if (n.type === "facility_response") navigate("/facility-booking?tab=responses");
@@ -159,30 +179,41 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
                   </Button>
                 )}
               </div>
-              <ScrollArea className="max-h-[400px]">
-                {notifications.length ? notifications.map((n: any) => (
-                  <div
-                    key={n.id}
-                    className={`cursor-pointer border-b border-border p-3 transition-colors hover:bg-muted/50 ${!n.is_read ? "bg-primary/5" : ""}`}
-                    onClick={() => handleNotificationClick(n)}
-                  >
-                    <div className="flex items-start gap-2">
-                      {!n.is_read && (
-                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                      )}
-                      <div className={!n.is_read ? "" : "pl-4"}>
-                        <p className="text-sm font-medium text-foreground leading-snug">{getNotificationLabel(n)}</p>
-                        {n.body && <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>}
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {n.created_at && formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                        </p>
+              <div className="max-h-[400px] overflow-y-auto">
+                {notifications.length ? (
+                  <>
+                    {notifications.map((n: any) => (
+                      <div
+                        key={n.id}
+                        className="cursor-pointer border-b border-border p-3 transition-colors hover:bg-muted/50 bg-primary/5"
+                        onClick={() => handleNotificationClick(n)}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                          <div>
+                            <p className="text-sm font-medium text-foreground leading-snug">{getNotificationLabel(n)}</p>
+                            {n.body && <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{n.body}</p>}
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {n.created_at && formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
+                    {notifications.length >= 20 && (
+                      <div className="p-3 text-center text-xs text-muted-foreground border-t">
+                        Showing latest 20 notifications
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-6 text-center">
+                    <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">All caught up!</p>
+                    <p className="text-xs text-muted-foreground mt-1">No new notifications</p>
                   </div>
-                )) : (
-                  <div className="p-6 text-center text-sm text-muted-foreground">No notifications</div>
                 )}
-              </ScrollArea>
+              </div>
             </PopoverContent>
           </Popover>
 

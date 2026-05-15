@@ -15,18 +15,15 @@ CREATE INDEX IF NOT EXISTS idx_course_enrollments_course ON course_enrollments(c
 CREATE INDEX IF NOT EXISTS idx_course_enrollments_user ON course_enrollments(user_id);
 CREATE INDEX IF NOT EXISTS idx_lesson_completions_enrollment ON lesson_completions(enrollment_id);
 CREATE INDEX IF NOT EXISTS idx_course_comments_course ON course_comments(course_id);
-
 -- Phase 9 new tables
 CREATE INDEX IF NOT EXISTS idx_saved_reports_tenant ON saved_reports(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_prayer_requests_tenant ON prayer_requests(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_prayer_requests_member ON prayer_requests(member_id);
-
 -- Core tables queried heavily
 CREATE INDEX IF NOT EXISTS idx_users_tenant_status ON users(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_tenant_created ON users(tenant_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_events_tenant_date ON events(tenant_id, event_date);
 CREATE INDEX IF NOT EXISTS idx_groups_tenant_active ON groups(tenant_id, is_active);
-
 -- Create activity_log index only if table exists
 DO $$
 BEGIN
@@ -34,7 +31,6 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_activity_log_tenant_time ON activity_log(tenant_id, created_at DESC);
   END IF;
 END $$;
-
 CREATE INDEX IF NOT EXISTS idx_announcements_tenant ON announcements(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_new_converts_tenant ON new_converts(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_giving_records_tenant ON giving_records(tenant_id, given_at DESC);

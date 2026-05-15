@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
     // Fetch church's AT credentials
     const { data: settings } = await supabase
       .from("sms_settings")
-      .select("at_username, at_api_key, at_sender_id, is_configured")
+      .select("at_username, at_api_key, sender_id, is_configured")
       .eq("tenant_id", tenant_id)
       .maybeSingle();
 
@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { at_username, at_api_key, at_sender_id } = settings;
+    const { at_username, at_api_key, sender_id } = settings;
 
     // ── TEST SMS ──────────────────────────────────────────────────────────────
     if (is_test) {
@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
 
       const testMessage = `This is a test SMS from ${church_name ?? "your church"} via Vestry Hub. Your SMS configuration is working correctly.`;
       const body = new URLSearchParams({ username: at_username, to: admin_phone, message: testMessage });
-      if (at_sender_id) body.set("from", at_sender_id);
+      if (sender_id) body.set("from", sender_id);
 
       const res = await fetch("https://api.africastalking.com/version1/messaging", {
         method: "POST",
@@ -153,7 +153,7 @@ Deno.serve(async (req: Request) => {
         .replace(/\{\{church_name\}\}/g, churchNameResolved);
 
       const body = new URLSearchParams({ username: at_username, to: recipient.phone, message: personalised });
-      if (at_sender_id) body.set("from", at_sender_id);
+      if (sender_id) body.set("from", sender_id);
 
       const res = await fetch("https://api.africastalking.com/version1/messaging", {
         method: "POST",

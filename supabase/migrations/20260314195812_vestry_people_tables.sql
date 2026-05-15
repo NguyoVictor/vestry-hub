@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS visitors (
   converted_to_member_id varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- New Converts
 CREATE TABLE IF NOT EXISTS new_converts (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -25,7 +24,6 @@ CREATE TABLE IF NOT EXISTS new_converts (
   notes text,
   created_at timestamptz DEFAULT now()
 );
-
 -- Follow-Up Tasks
 CREATE TABLE IF NOT EXISTS follow_up_tasks (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -41,4 +39,4 @@ CREATE TABLE IF NOT EXISTS follow_up_tasks (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
-);;
+);

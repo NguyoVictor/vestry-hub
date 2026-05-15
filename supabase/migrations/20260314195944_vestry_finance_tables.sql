@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS pledge_campaigns (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Pledges
 CREATE TABLE IF NOT EXISTS pledges (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -24,7 +23,6 @@ CREATE TABLE IF NOT EXISTS pledges (
   status pledge_status_enum DEFAULT 'pending',
   created_at timestamptz DEFAULT now()
 );
-
 -- Giving Records
 CREATE TABLE IF NOT EXISTS giving_records (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -44,7 +42,6 @@ CREATE TABLE IF NOT EXISTS giving_records (
   void_reason text,
   created_at timestamptz DEFAULT now()
 );
-
 -- Giving Audit Log
 CREATE TABLE IF NOT EXISTS giving_audit_log (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -55,7 +52,6 @@ CREATE TABLE IF NOT EXISTS giving_audit_log (
   new_data jsonb,
   created_at timestamptz DEFAULT now()
 );
-
 -- Expenses
 CREATE TABLE IF NOT EXISTS expenses (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -70,7 +66,6 @@ CREATE TABLE IF NOT EXISTS expenses (
   recorded_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Budgets
 CREATE TABLE IF NOT EXISTS budgets (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -81,7 +76,6 @@ CREATE TABLE IF NOT EXISTS budgets (
   end_date date,
   created_at timestamptz DEFAULT now()
 );
-
 -- Budget Categories
 CREATE TABLE IF NOT EXISTS budget_categories (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -90,7 +84,6 @@ CREATE TABLE IF NOT EXISTS budget_categories (
   allocated_amount numeric(12,2) NOT NULL,
   spent_amount numeric(12,2) DEFAULT 0
 );
-
 -- Payroll
 CREATE TABLE IF NOT EXISTS payroll_records (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -106,7 +99,6 @@ CREATE TABLE IF NOT EXISTS payroll_records (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Fund Accounting
 CREATE TABLE IF NOT EXISTS funds (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -117,7 +109,6 @@ CREATE TABLE IF NOT EXISTS funds (
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
-
 -- General Ledger
 CREATE TABLE IF NOT EXISTS ledger_entries (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -132,7 +123,6 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Accounts Payable
 CREATE TABLE IF NOT EXISTS accounts_payable (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -147,7 +137,6 @@ CREATE TABLE IF NOT EXISTS accounts_payable (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Payouts
 CREATE TABLE IF NOT EXISTS payouts (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -162,4 +151,4 @@ CREATE TABLE IF NOT EXISTS payouts (
   notes text,
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
-);;
+);

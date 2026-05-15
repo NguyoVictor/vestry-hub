@@ -1,23 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { PageTransition } from "@/components/ui/PageTransition";
-import { StatCard } from "@/components/ui/StatCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MemberAvatar } from "@/components/shared/MemberAvatar";
+import { TABLES } from "@/lib/schema";
+import { toast } from "sonner";
 import { formatCurrencyFull } from "@/lib/format";
 import { useActivityLog } from "@/hooks/useActivityLog";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import {
-  Users, TrendingUp, CalendarDays, UsersRound, UserPlus, CreditCard,
-  Megaphone, ArrowUpRight, ArrowDownRight, Minus, MapPin, Clock,
+  Users, TrendingUp, CalendarDays, Users2, UserPlus, CreditCard,
+  Megaphone, Calendar, CalendarPlus, BarChart2, MapPin, Clock,
   Activity, Sparkles, CheckCircle2, MessageSquare, Send,
 } from "lucide-react";
 import {
@@ -26,6 +20,76 @@ import {
 } from "recharts";
 import { format, formatDistanceToNow } from "date-fns";
 import type { LucideIcon } from "lucide-react";
+
+// ─── CountUp Number Component ─────────────────────────────────────────────────
+function CountUpNumber({ value, prefix = "", duration = 1.5, delay = 0.3 }: {
+  value: number;
+  prefix?: string;
+  duration?: number;
+  delay?: number;
+}) {
+  const motionValue = useMotionValue(0);
+  const rounded = useTransform(motionValue, (latest) => Math.round(latest));
+  const displayValue = useTransform(rounded, (latest) => 
+    prefix + latest.toLocaleString()
+  );
+
+  useEffect(() => {
+    const controls = animate(motionValue, value, {
+      duration,
+      delay,
+      ease: [0.22, 1, 0.36, 1],
+    });
+    return controls.stop;
+  }, [motionValue, value, duration, delay]);
+
+  return (
+    <motion.span className="text-3xl font-bold text-slate-900 tracking-tight">
+      {displayValue}
+    </motion.span>
+  );
+}
+
+// ─── Animation Variants ──────────────────────────────────────────────────────
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: {
+    opacity: 0,
+    y: 24,
+    scale: 0.97,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const activityVariants = {
+  hidden: { opacity: 0, x: -12 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: {
+      delay: 0.6 + i * 0.07,
+      duration: 0.4,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  }),
+};
 
 // ─── Activity icon + colour map ──────────────────────────────────────────────
 const ACTIVITY_META: Record<string, { icon: LucideIcon; color: string; bg: string }> = {
@@ -58,7 +122,29 @@ const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6", "#6
 
 const Dashboard = () => {
   const church = useChurch();
+  const queryClient = useQueryClient();
   const [chartMonths, setChartMonths] = useState(6);
+  
+  // Check if user has visited dashboard before (using localStorage)
+  const [isFirstVisit, setIsFirstVisit] = useState(() => {
+    const hasVisited = localStorage.getItem(`dashboard-visited-${church.tenantId}`);
+    return !hasVisited;
+  });
+
+  // Mark dashboard as visited after component mounts
+  useEffect(() => {
+    if (isFirstVisit) {
+      localStorage.setItem(`dashboard-visited-${church.tenantId}`, 'true');
+      // Set to false after a short delay to avoid immediate re-render
+      const timer = setTimeout(() => setIsFirstVisit(false), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isFirstVisit, church.tenantId]);
+
+  // Use full church name, not just first word
+  const welcomeMessage = isFirstVisit 
+    ? `Welcome, ${church.name} 👋` 
+    : `Welcome back, ${church.name} 👋`;
 
   // Single RPC call replaces 4 separate stat queries — per vestry-project.md performance rules
   const { data: dashStats, isLoading: statsLoading } = useQuery({
@@ -66,9 +152,62 @@ const Dashboard = () => {
     staleTime: 60_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_dashboard_stats", { p_tenant_id: church.tenantId });
-      if (error) throw error;
-      return data as { member_count: number; giving_month: number; events_week: number; group_count: number };
+      // Direct queries for debugging - replace RPC temporarily
+      const [membersResult, givingResult, eventsResult, groupsResult] = await Promise.all([
+        // Count active members (remove status filter to see all members)
+        supabase
+          .from(TABLES.MEMBERS)
+          .select("id, status", { count: "exact", head: true })
+          .eq("tenant_id", church.tenantId),
+        
+        // Sum giving for current month
+        supabase
+          .from(TABLES.GIVING_RECORDS)
+          .select("amount")
+          .eq("tenant_id", church.tenantId)
+          .gte("given_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
+        
+        // Count upcoming events (next 7 days)
+        supabase
+          .from(TABLES.EVENTS)
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", church.tenantId)
+          .gte("event_date", new Date().toISOString().split('T')[0])
+          .lte("event_date", new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+        
+        // Count active groups
+        supabase
+          .from(TABLES.GROUPS)
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", church.tenantId)
+          .eq("is_active", true)
+      ]);
+
+      const memberCount = membersResult.count ?? 0;
+      const givingTotal = givingResult.data?.reduce((sum, record) => sum + Number(record.amount || 0), 0) ?? 0;
+      const eventsCount = eventsResult.count ?? 0;
+      const groupCount = groupsResult.count ?? 0;
+
+      console.log("Dashboard Stats Debug:", {
+        memberCount,
+        givingTotal,
+        eventsCount,
+        groupCount,
+        membersError: membersResult.error,
+        givingError: givingResult.error,
+        eventsError: eventsResult.error,
+        groupsError: groupsResult.error,
+        tenantId: church.tenantId,
+        membersData: membersResult.data?.slice(0, 3), // Show first 3 members
+        givingData: givingResult.data?.slice(0, 3), // Show first 3 giving records
+      });
+
+      return {
+        member_count: memberCount,
+        giving_month: givingTotal,
+        events_week: eventsCount,
+        group_count: groupCount
+      };
     },
   });
 
@@ -81,13 +220,56 @@ const Dashboard = () => {
   const eventsCount = dashStats?.events_week ?? 0;
   const groupCount = dashStats?.group_count ?? 0;
 
+  // Show debug info in development
+  if (process.env.NODE_ENV === 'development' && dashStats) {
+    console.log("Dashboard Stats:", {
+      memberCount,
+      givingTotal,
+      eventsCount,
+      groupCount,
+      tenantId: church.tenantId,
+      churchName: church.name
+    });
+  }
+
+  // Create sample member if none exist (for testing)
+  const createSampleMember = async () => {
+    try {
+      const sampleMember = {
+        id: crypto.randomUUID(),
+        tenant_id: church.tenantId,
+        first_name: "John",
+        last_name: "Doe",
+        email: "john.doe@example.com",
+        phone: "+1234567890",
+        status: "active",
+        member_type: "member",
+        registration_source: "admin",
+        join_date: new Date().toISOString().split('T')[0],
+        membership_number: `MEM-${Date.now().toString(36).toUpperCase()}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from(TABLES.MEMBERS).insert(sampleMember);
+      if (error) throw error;
+      
+      // Refresh dashboard stats
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      toast.success("Sample member created successfully!");
+    } catch (error) {
+      console.error("Error creating sample member:", error);
+      toast.error("Failed to create sample member");
+    }
+  };
+
   const { data: givingTrend, isLoading: trendLoading } = useQuery({
     queryKey: ["dashboard", "giving-trend", chartMonths, church.tenantId],
     staleTime: 60_000,
     queryFn: async () => {
       const start = new Date();
       start.setMonth(start.getMonth() - chartMonths);
-      const { data } = await supabase.from("giving_records").select("amount, given_at")
+      const { data } = await supabase.from(TABLES.GIVING_RECORDS).select("amount, given_at")
         .eq("tenant_id", church.tenantId)
         .gte("given_at", start.toISOString().split("T")[0]).order("given_at", { ascending: true });
       const monthly: Record<string, number> = {};
@@ -106,9 +288,9 @@ const Dashboard = () => {
     queryKey: ["dashboard", "group-distribution", church.tenantId],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data: groups } = await supabase.from("groups").select("id, name").eq("tenant_id", church.tenantId).eq("is_active", true);
+      const { data: groups } = await supabase.from(TABLES.GROUPS).select("id, name").eq("tenant_id", church.tenantId).eq("is_active", true);
       if (!groups?.length) return [];
-      const { data: gm } = await supabase.from("group_members").select("group_id").eq("tenant_id", church.tenantId);
+      const { data: gm } = await supabase.from(TABLES.GROUP_MEMBERS).select("group_id").eq("tenant_id", church.tenantId);
       const counts: Record<string, number> = {};
       gm?.forEach(m => { counts[m.group_id] = (counts[m.group_id] || 0) + 1; });
       return groups.map(g => ({ name: g.name, value: counts[g.id] || 0 }))
@@ -121,7 +303,7 @@ const Dashboard = () => {
     staleTime: 60_000,
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
-      const { data } = await supabase.from("events").select("id, title, event_date, start_time, location")
+      const { data } = await supabase.from(TABLES.EVENTS).select("id, title, event_date, start_time, location")
         .eq("tenant_id", church.tenantId)
         .gte("event_date", today).order("event_date", { ascending: true }).limit(5);
       return data || [];
@@ -132,7 +314,7 @@ const Dashboard = () => {
     queryKey: ["dashboard", "recent-donations", church.tenantId],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data } = await supabase.from("giving_records")
+      const { data } = await supabase.from(TABLES.GIVING_RECORDS)
         .select("id, amount, giving_type, payment_method, given_at, currency")
         .eq("tenant_id", church.tenantId)
         .order("given_at", { ascending: false }).limit(8);
@@ -148,278 +330,593 @@ const Dashboard = () => {
   return (
     <>
       <Helmet><title>Dashboard — Vestry</title></Helmet>
-      <PageTransition>
-        <PageHeader title="Dashboard" subtitle={`Welcome back! Here's what's happening at ${church.name}`} />
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {statsLoading ? (
-            <>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <Skeleton className="h-10 w-10 rounded-xl" />
-                    <Skeleton className="h-4 w-16" />
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-7 w-20" />
-                    <Skeleton className="h-3 w-28" />
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : (
-            <>
-              <StatCard icon={Users}      label="Total Members"      value={memberCount}  color="orange"  />
-              <StatCard icon={TrendingUp} label="Giving This Month"  value={formatCurrencyFull(givingTotal, church.currency)} color="emerald" animate={false} />
-              <StatCard icon={CalendarDays} label="Upcoming Events"  value={eventsCount}  color="blue"    />
-              <StatCard icon={UsersRound} label="Active Groups"      value={groupCount}   color="purple"  />
-            </>
-          )}
+      
+      {/* Page Entrance Animation */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="space-y-8"
+      >
+        {/* Premium Header */}
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="text-xs font-semibold uppercase tracking-[0.12em] text-purple-600"
+            >
+              OVERVIEW
+            </motion.p>
+            <motion.h1
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="text-3xl font-semibold text-slate-900 tracking-tight"
+            >
+              {welcomeMessage}
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="text-sm text-slate-600"
+            >
+              Here's what's happening at {church.name} today
+            </motion.p>
+          </div>
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2"
+          >
+            <span className="text-sm font-medium text-slate-700">
+              {format(new Date(), "EEEE, d MMMM yyyy")}
+            </span>
+          </motion.div>
         </div>
 
-        {/* Charts Row */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">Giving Overview</CardTitle>
+        {/* Hero Stats Cards */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          {/* Total Members */}
+          <motion.div
+            variants={cardVariants}
+            whileHover={{ 
+              y: -4, 
+              boxShadow: "0 12px 40px rgba(124,58,237,0.12)" 
+            }}
+            className="relative bg-white border border-slate-100 rounded-2xl p-6 overflow-hidden"
+          >
+            <div className="absolute top-0 left-6 right-6 h-0.5 bg-gradient-to-r from-purple-500 to-purple-600 rounded-b-sm" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                <Users className="w-5 h-5 text-purple-600" />
+              </div>
+              <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
+                This month
+              </span>
+            </div>
+            <div className="space-y-1">
+              {statsLoading ? (
+                <div className="h-8 w-16 bg-slate-200 rounded animate-pulse" />
+              ) : (
+                <CountUpNumber value={memberCount} />
+              )}
+              <p className="text-sm font-medium text-slate-600">Total Members</p>
+            </div>
+          </motion.div>
+
+          {/* Giving This Month */}
+          <motion.div
+            variants={cardVariants}
+            whileHover={{ 
+              y: -4, 
+              boxShadow: "0 12px 40px rgba(249,115,22,0.12)" 
+            }}
+            className="relative bg-white border border-slate-100 rounded-2xl p-6 overflow-hidden"
+          >
+            <div className="absolute top-0 left-6 right-6 h-0.5 bg-gradient-to-r from-orange-500 to-orange-600 rounded-b-sm" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-orange-600" />
+              </div>
+              <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
+                <TrendingUp className="w-2.5 h-2.5 mr-1" />
+                This month
+              </span>
+            </div>
+            <div className="space-y-1">
+              {statsLoading ? (
+                <div className="h-8 w-20 bg-slate-200 rounded animate-pulse" />
+              ) : (
+                <CountUpNumber value={givingTotal} prefix="KSh " />
+              )}
+              <p className="text-sm font-medium text-slate-600">Giving This Month</p>
+            </div>
+          </motion.div>
+
+          {/* Upcoming Events */}
+          <motion.div
+            variants={cardVariants}
+            whileHover={{ 
+              y: -4, 
+              boxShadow: "0 12px 40px rgba(14,165,233,0.12)" 
+            }}
+            className="relative bg-white border border-slate-100 rounded-2xl p-6 overflow-hidden"
+          >
+            <div className="absolute top-0 left-6 right-6 h-0.5 bg-gradient-to-r from-sky-500 to-sky-600 rounded-b-sm" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-sky-600" />
+              </div>
+              <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
+                This month
+              </span>
+            </div>
+            <div className="space-y-1">
+              {statsLoading ? (
+                <div className="h-8 w-12 bg-slate-200 rounded animate-pulse" />
+              ) : (
+                <CountUpNumber value={eventsCount} />
+              )}
+              <p className="text-sm font-medium text-slate-600">Upcoming Events</p>
+            </div>
+          </motion.div>
+
+          {/* Active Groups */}
+          <motion.div
+            variants={cardVariants}
+            whileHover={{ 
+              y: -4, 
+              boxShadow: "0 12px 40px rgba(16,185,129,0.12)" 
+            }}
+            className="relative bg-white border border-slate-100 rounded-2xl p-6 overflow-hidden"
+          >
+            <div className="absolute top-0 left-6 right-6 h-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-b-sm" />
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                <Users2 className="w-5 h-5 text-emerald-600" />
+              </div>
+              <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
+                This month
+              </span>
+            </div>
+            <div className="space-y-1">
+              {statsLoading ? (
+                <div className="h-8 w-12 bg-slate-200 rounded animate-pulse" />
+              ) : (
+                <CountUpNumber value={groupCount} />
+              )}
+              <p className="text-sm font-medium text-slate-600">Active Groups</p>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Giving Overview Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="bg-white border border-slate-100 rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-slate-900">Giving Overview</h3>
             <div className="flex gap-1">
-              {[3, 6, 12].map(m => (
-                <Button key={m} variant={chartMonths === m ? "default" : "ghost"} size="sm"
-                  className="h-7 text-xs" onClick={() => setChartMonths(m)}>
-                  {m}mo
-                </Button>
+              {[3, 6, 12].map(months => (
+                <motion.button
+                  key={months}
+                  whileHover={{ 
+                    backgroundColor: chartMonths === months ? "#7C3AED" : "#7C3AED",
+                    color: "#ffffff"
+                  }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setChartMonths(months)}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    chartMonths === months
+                      ? "bg-purple-600 text-white"
+                      : "bg-transparent text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {months}mo
+                </motion.button>
               ))}
             </div>
-          </CardHeader>
-          <CardContent>
-            {trendLoading ? <Skeleton className="h-[280px] w-full" /> : givingTrend?.length ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={givingTrend}>
-                  <defs>
-                    <linearGradient id="givingGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                    tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                    formatter={(value: number) => [formatCurrencyFull(value, church.currency), "Total"]} />
-                  <Area type="monotone" dataKey="total" stroke="#f97316" strokeWidth={2} fill="url(#givingGrad)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-[280px] items-center justify-center text-muted-foreground">No giving data yet</div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+          
+          {trendLoading ? (
+            <div className="h-80 bg-slate-100 rounded-xl animate-pulse" />
+          ) : givingTrend?.length ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <AreaChart data={givingTrend}>
+                <defs>
+                  <linearGradient id="givingGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `KSh ${v.toLocaleString()}`}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    background: "#ffffff",
+                    border: "1px solid #E5E7EB",
+                    borderRadius: "10px",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                    fontSize: "13px"
+                  }}
+                  formatter={(value: number) => [`KSh ${value.toLocaleString()}`, "Total"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#7C3AED"
+                  strokeWidth={2}
+                  fill="url(#givingGradient)"
+                  dot={false}
+                  activeDot={{ r: 5, fill: "#7C3AED", strokeWidth: 0 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4"
+              >
+                <BarChart2 className="w-6 h-6 text-purple-600" />
+              </motion.div>
+              <p className="text-sm font-medium text-slate-700 mb-1">No giving data yet</p>
+              <p className="text-sm text-slate-500">Donations will appear here once recorded</p>
+            </div>
+          )}
+        </motion.div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Group Distribution</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {distLoading ? <Skeleton className="mx-auto h-[200px] w-[200px] rounded-full" /> :
-               groupDistribution?.length ? (
-                <div className="flex flex-col items-center">
-                  <div className="relative">
-                    <PieChart width={200} height={200}>
-                      <Pie data={groupDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={85} dataKey="value" paddingAngle={3}>
-                        {groupDistribution.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                      </Pie>
-                    </PieChart>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-foreground">{totalGroupMembers}</p>
-                        <p className="text-xs text-muted-foreground">members</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
-                    {groupDistribution.map((g, i) => (
-                      <div key={`${g.name}-${i}`} className="flex items-center gap-2 text-xs">
-                        <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                        <span className="truncate text-muted-foreground">{g.name}</span>
-                        <span className="font-medium">{g.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">No groups yet</div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: "Add Member", icon: UserPlus, href: "/members" },
-                  { label: "Record Giving", icon: CreditCard, href: "/give-online" },
-                  { label: "Create Event", icon: CalendarDays, href: "/events" },
-                  { label: "Announcement", icon: Megaphone, href: "/announcements" },
-                ].map(a => (
-                  <Button key={a.label} variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-                    <Link to={a.href}>
-                      <a.icon className="h-5 w-5 text-primary" />
-                      <span className="text-xs">{a.label}</span>
-                    </Link>
-                  </Button>
-                ))}
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: "Add Member", icon: UserPlus, color: "#7C3AED", bg: "rgba(124,58,237,0.06)", href: "/members" },
+            { label: "Record Giving", icon: CreditCard, color: "#F97316", bg: "rgba(249,115,22,0.06)", href: "/give-online" },
+            { label: "Create Event", icon: CalendarPlus, color: "#0EA5E9", bg: "rgba(14,165,233,0.06)", href: "/events" },
+            { label: "Announcement", icon: Megaphone, color: "#10B981", bg: "rgba(16,185,129,0.06)", href: "/announcements" },
+          ].map((action, index) => (
+            <motion.button
+              key={action.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 + index * 0.1, duration: 0.4 }}
+              whileHover={{ 
+                y: -3, 
+                boxShadow: `0 8px 25px ${action.color}33` 
+              }}
+              whileTap={{ scale: 0.97 }}
+              className="bg-white border border-slate-100 rounded-xl p-5 flex flex-col items-center gap-3 transition-all"
+              onClick={() => window.location.href = action.href}
+            >
+              <div 
+                className="w-11 h-11 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: action.bg }}
+              >
+                <action.icon className="w-5 h-5" style={{ color: action.color }} />
               </div>
-            </CardContent>
-          </Card>
+              <span className="text-sm font-medium text-slate-700">{action.label}</span>
+            </motion.button>
+          ))}
         </div>
-      </div>
 
         {/* Bottom Row */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">Upcoming Events</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs" asChild>
-              <Link to="/events">View All</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {upEventsLoading ? (
-              <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
-            ) : upcomingEvents?.length ? (
-              <div className="space-y-3">
-                {upcomingEvents.map(event => (
-                  <div key={event.id} className="flex items-start gap-3 rounded-lg border border-border p-3">
-                    <div className="h-full w-1 shrink-0 self-stretch rounded-full bg-primary" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-foreground">{event.title}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(event.event_date), "EEE, d MMM")}
-                          {event.start_time && ` · ${String(event.start_time).substring(0, 5)}`}
-                        </span>
-                        {event.location && (
-                          <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{event.location}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-8 text-center">
-                <CalendarDays className="mb-2 h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">No upcoming events</p>
-                <Button variant="secondary" size="sm" className="mt-3" asChild><Link to="/events">Create Event</Link></Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Recent Activity */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+            className="bg-white border border-slate-100 rounded-2xl p-6"
+          >
+            <h3 className="text-lg font-semibold text-slate-900 mb-6">Recent Activity</h3>
+            
             {activityLoading ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="h-8 w-8 rounded-full shrink-0" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-3.5 w-3/4" />
-                      <Skeleton className="h-3 w-1/3" />
+                    <div className="w-9 h-9 bg-slate-200 rounded-full animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-slate-200 rounded animate-pulse" />
+                      <div className="h-2 bg-slate-100 rounded animate-pulse w-1/3" />
                     </div>
                   </div>
                 ))}
               </div>
             ) : activityEntries.length === 0 ? (
-              <div className="flex flex-col items-center py-8 text-center">
-                <Activity className="mb-2 h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">No recent activity</p>
-                <p className="mt-1 text-xs text-muted-foreground">Actions across your church will appear here</p>
+              <div className="flex flex-col items-center justify-center py-12">
+                <motion.div
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mb-4"
+                >
+                  <Activity className="w-6 h-6 text-slate-400" />
+                </motion.div>
+                <p className="text-sm font-medium text-slate-700 mb-1">No recent activity</p>
+                <p className="text-sm text-slate-500">Actions across your church will appear here</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {activityEntries.map(entry => {
+              <div className="space-y-4">
+                {activityEntries.slice(0, 6).map((entry, index) => {
                   const meta = getActivityMeta(entry.action_type);
                   const Icon = meta.icon;
                   return (
-                    <div key={entry.id} className="flex items-start gap-3">
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.bg}`}>
-                        <Icon className={`h-4 w-4 ${meta.color}`} />
+                    <motion.div
+                      key={entry.id}
+                      custom={index}
+                      variants={activityVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="flex items-start gap-3"
+                    >
+                      <div className="w-9 h-9 bg-purple-50 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-semibold text-purple-600">
+                          {entry.actor_name?.charAt(0) || "A"}
+                        </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground leading-snug">{entry.description}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {entry.actor_name && <span className="font-medium">{entry.actor_name} · </span>}
+                        <p className="text-sm font-medium text-slate-900 leading-relaxed">
+                          {entry.description}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
                           {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
                         </p>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </motion.div>
 
-      {/* Recent Donations */}
-        <Card className="mt-6">
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">Recent Donations</CardTitle>
-            <Button variant="ghost" size="sm" className="text-xs" asChild><Link to="/giving-records">View All</Link></Button>
-          </CardHeader>
-          <CardContent>
-            {donationsLoading ? (
-              <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : recentDonations?.length ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead className="hidden sm:table-cell">Method</TableHead>
-                    <TableHead className="hidden md:table-cell">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentDonations.map(d => (
-                    <TableRow key={d.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize">{d.giving_type?.replace(/_/g, " ")}</Badge>
-                      </TableCell>
-                      <TableCell className="font-semibold text-emerald-600">
-                        {formatCurrencyFull(Number(d.amount), d.currency || church.currency)}
-                      </TableCell>
-                      <TableCell className="hidden capitalize sm:table-cell text-muted-foreground">
-                        {d.payment_method?.replace(/_/g, " ")}
-                      </TableCell>
-                      <TableCell className="hidden text-muted-foreground md:table-cell">
-                        {format(new Date(d.given_at), "d MMM yyyy")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+          {/* Upcoming Events */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+            className="bg-white border border-slate-100 rounded-2xl p-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-slate-900">Upcoming Events</h3>
+              <Link 
+                to="/events" 
+                className="text-sm font-medium text-purple-600 hover:text-purple-700"
+              >
+                View All
+              </Link>
+            </div>
+            
+            {upEventsLoading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />
+                ))}
+              </div>
+            ) : upcomingEvents?.length ? (
+              <div className="space-y-4">
+                {upcomingEvents.slice(0, 4).map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.8 + index * 0.1 }}
+                    className="flex items-start gap-4 p-4 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="w-1 h-12 bg-sky-500 rounded-full" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-900 truncate">{event.title}</p>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {format(new Date(event.event_date), "MMM d")}
+                          {event.start_time && ` • ${String(event.start_time).substring(0, 5)}`}
+                        </span>
+                        {event.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {event.location}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             ) : (
-              <div className="flex flex-col items-center py-8 text-center">
-                <CreditCard className="mb-2 h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">No donations recorded yet</p>
-                <Button variant="secondary" size="sm" className="mt-3" asChild><Link to="/give-online">Record Giving</Link></Button>
+              <div className="flex flex-col items-center justify-center py-12">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.7 }}
+                >
+                  <motion.div
+                    animate={{ y: [0, -6, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center mb-4"
+                  >
+                    <Calendar className="w-6 h-6 text-sky-600" />
+                  </motion.div>
+                </motion.div>
+                <p className="text-sm font-medium text-slate-700 mb-3">No upcoming events</p>
+                <motion.button
+                  whileHover={{ scale: 1.02, backgroundColor: "#7C3AED", color: "#ffffff" }}
+                  whileTap={{ scale: 0.97 }}
+                  className="border border-slate-200 rounded-lg px-5 py-2 text-sm font-medium text-slate-700 transition-all"
+                  onClick={() => window.location.href = "/events"}
+                >
+                  Create Event
+                </motion.button>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </PageTransition>
+          </motion.div>
+        </div>
+
+        {/* Recent Donations */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.5 }}
+          className="bg-white border border-slate-100 rounded-2xl p-6"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-slate-900">Recent Donations</h3>
+            <Link 
+              to="/giving-records" 
+              className="text-sm font-medium text-purple-600 hover:text-purple-700"
+            >
+              View All
+            </Link>
+          </div>
+          
+          {donationsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : recentDonations?.length ? (
+            <div className="space-y-3">
+              {recentDonations.slice(0, 6).map((donation, index) => (
+                <motion.div
+                  key={donation.id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.9 + index * 0.05 }}
+                  className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                      <span className="text-xs font-semibold text-orange-600">D</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">Anonymous Donor</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-full capitalize">
+                          {donation.giving_type?.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {format(new Date(donation.given_at), "MMM d")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-purple-600">
+                    KSh {Number(donation.amount).toLocaleString()}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center mb-4"
+              >
+                <CreditCard className="w-6 h-6 text-orange-600" />
+              </motion.div>
+              <p className="text-sm font-medium text-slate-700 mb-1">No donations recorded yet</p>
+              <p className="text-sm text-slate-500">Donations will appear here once recorded</p>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Group Distribution */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9, duration: 0.5 }}
+          className="bg-white border border-slate-100 rounded-2xl p-6"
+        >
+          <h3 className="text-lg font-semibold text-slate-900 mb-6">Group Distribution</h3>
+          
+          {distLoading ? (
+            <div className="flex justify-center">
+              <div className="w-48 h-48 bg-slate-100 rounded-full animate-pulse" />
+            </div>
+          ) : groupDistribution?.length ? (
+            <div className="flex flex-col items-center">
+              <ResponsiveContainer width={300} height={300}>
+                <PieChart>
+                  <Pie
+                    data={groupDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={120}
+                    dataKey="value"
+                    paddingAngle={2}
+                  >
+                    {groupDistribution.map((_, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={['#7C3AED', '#F97316', '#0EA5E9', '#10B981', '#F59E0B'][index % 5]} 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{
+                      background: "#ffffff",
+                      border: "1px solid #E5E7EB",
+                      borderRadius: "10px",
+                      padding: "8px 12px"
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-2 gap-4 mt-4 w-full max-w-sm">
+                {groupDistribution.map((group, index) => (
+                  <div key={group.name} className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full"
+                      style={{ 
+                        backgroundColor: ['#7C3AED', '#F97316', '#0EA5E9', '#10B981', '#F59E0B'][index % 5] 
+                      }}
+                    />
+                    <span className="text-sm text-slate-600 truncate">{group.name}</span>
+                    <span className="text-sm font-medium text-slate-900">{group.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mb-4"
+              >
+                <Users2 className="w-6 h-6 text-emerald-600" />
+              </motion.div>
+              <p className="text-sm font-medium text-slate-700 mb-1">No groups yet</p>
+              <p className="text-sm text-slate-500">Group distribution will appear here</p>
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
     </>
   );
 };

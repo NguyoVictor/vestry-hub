@@ -26,6 +26,7 @@ interface Member {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  phone: string | null;
   status: string | null;
   gender: string | null;
   date_of_birth: string | null;
@@ -186,8 +187,9 @@ export default function ComposeEmail() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterGender, setFilterGender] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [manualRecipients, setManualRecipients] = useState<Array<{id: string, email: string, name: string, type: 'manual'}>>([]);
+  const [manualRecipients, setManualRecipients] = useState<Array<{id: string, email: string, phone?: string, name: string, type: 'manual'}>>([]);
   const [manualEmail, setManualEmail] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
   const [manualName, setManualName] = useState("");
 
   // Compose state
@@ -214,7 +216,7 @@ export default function ComposeEmail() {
     queryFn: async () => {
       const { data } = await supabase
         .from(TABLES.MEMBERS)
-        .select("id, first_name, last_name, email, status, gender, date_of_birth, join_date")
+        .select("id, first_name, last_name, email, phone, status, gender, date_of_birth, join_date")
         .eq("tenant_id", tenantId)
         .order("first_name");
       return (data ?? []) as Member[];
@@ -317,6 +319,7 @@ export default function ComposeEmail() {
       id: m.id,
       name: `${m.first_name || ""} ${m.last_name || ""}`.trim() || "Member",
       email: m.email,
+      phone: m.phone,
       type: 'member' as const,
       status: m.status
     })),
@@ -324,6 +327,7 @@ export default function ComposeEmail() {
       id: `visitor-${v.id}`,
       name: `${v.first_name || ""} ${v.last_name || ""}`.trim() || "Visitor",
       email: v.email,
+      phone: v.phone,
       type: 'visitor' as const,
       status: v.status
     })),
@@ -331,6 +335,7 @@ export default function ComposeEmail() {
       id: mr.id,
       name: mr.name,
       email: mr.email,
+      phone: mr.phone,
       type: 'manual' as const,
       status: 'Active'
     }))
@@ -346,28 +351,32 @@ export default function ComposeEmail() {
 
   // Add manual recipient function
   const addManualRecipient = () => {
-    if (!manualEmail.trim()) {
-      toast.error("Please enter an email address");
+    if (!manualEmail.trim() && !manualPhone.trim()) {
+      toast.error("Please enter an email address or phone number");
       return;
     }
     
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(manualEmail.trim())) {
-      toast.error("Please enter a valid email address");
-      return;
+    // Basic email validation if email is provided
+    if (manualEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(manualEmail.trim())) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
     }
 
     const newRecipient = {
       id: `manual-${Date.now()}`,
-      email: manualEmail.trim(),
-      name: manualName.trim() || manualEmail.trim(),
+      email: manualEmail.trim() || null,
+      phone: manualPhone.trim() || null,
+      name: manualName.trim() || manualEmail.trim() || manualPhone.trim(),
       type: 'manual' as const
     };
 
     setManualRecipients(prev => [...prev, newRecipient]);
     setSelectedIds(prev => new Set([...prev, newRecipient.id]));
     setManualEmail("");
+    setManualPhone("");
     setManualName("");
     toast.success(`Added ${newRecipient.name} as recipient`);
   };
@@ -414,30 +423,65 @@ export default function ComposeEmail() {
 
     setSending(true);
     try {
-      const recipients = allSelectedRecipients
-        .filter(r => r.email)
-        .map(r => ({
-          email: r.email!,
-          first_name: r.name.split(' ')[0] || "",
-          last_name: r.name.split(' ').slice(1).join(' ') || "",
-          name: r.name,
-        }));
-
       const scheduleAt = scheduleEnabled && scheduleDate && scheduleTime
         ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
         : undefined;
 
-      const { error } = await supabase.functions.invoke("send-communication", {
-        body: {
-          tenant_id: tenantId,
-          channel,
-          subject: channel === "email" ? subject : undefined,
-          body: channel === "email" ? message : smsMessage,
-          recipients,
-          schedule_at: scheduleAt,
-        },
-      });
-      if (error) throw error;
+      if (channel === "sms") {
+        // SMS: Use africastalking-sms function with phone numbers
+        const smsRecipients = allSelectedRecipients
+          .filter(r => r.phone) // Filter by phone, not email
+          .map(r => ({
+            phone: r.phone!,
+            first_name: r.name.split(' ')[0] || "",
+            last_name: r.name.split(' ').slice(1).join(' ') || "",
+            name: r.name,
+          }));
+
+        if (smsRecipients.length === 0) {
+          toast.error("No recipients have phone numbers. Please add phone numbers to send SMS.");
+          setSending(false);
+          return;
+        }
+
+        const { error } = await supabase.functions.invoke("africastalking-sms", {
+          body: {
+            tenant_id: tenantId,
+            recipients: smsRecipients,
+            message: smsMessage,
+            is_test: false,
+          },
+        });
+        if (error) throw error;
+      } else {
+        // EMAIL: Use send-communication function with emails
+        const emailRecipients = allSelectedRecipients
+          .filter(r => r.email)
+          .map(r => ({
+            email: r.email!,
+            first_name: r.name.split(' ')[0] || "",
+            last_name: r.name.split(' ').slice(1).join(' ') || "",
+            name: r.name,
+          }));
+
+        if (emailRecipients.length === 0) {
+          toast.error("No recipients have email addresses. Please add email addresses to send emails.");
+          setSending(false);
+          return;
+        }
+
+        const { error } = await supabase.functions.invoke("send-communication", {
+          body: {
+            tenant_id: tenantId,
+            channel,
+            subject,
+            body: message,
+            recipients: emailRecipients,
+            schedule_at: scheduleAt,
+          },
+        });
+        if (error) throw error;
+      }
 
       // If this was sent from a draft, update the draft status to "sent"
       if (draftId) {
@@ -472,11 +516,16 @@ export default function ComposeEmail() {
 
       queryClient.invalidateQueries({ queryKey: ["communications", tenantId] });
       queryClient.invalidateQueries({ queryKey: ["broadcasts", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["sms-history", tenantId] });
+
+      const recipientCount = channel === "sms" 
+        ? allSelectedRecipients.filter(r => r.phone).length
+        : allSelectedRecipients.filter(r => r.email).length;
 
       if (scheduleAt) {
         toast.success(`✅ ${channel === "email" ? "Email" : "SMS"} scheduled for ${format(new Date(scheduleAt), "dd MMM yyyy 'at' HH:mm")}`);
       } else {
-        toast.success(`✅ ${channel === "email" ? "Email" : "SMS"} sent to ${recipients.length} recipient${recipients.length !== 1 ? "s" : ""}.`);
+        toast.success(`✅ ${channel === "email" ? "Email" : "SMS"} sent to ${recipientCount} recipient${recipientCount !== 1 ? "s" : ""}.`);
       }
       navigate("/communications");
     } catch (err: unknown) {
@@ -596,12 +645,19 @@ export default function ComposeEmail() {
                   onChange={e => setManualName(e.target.value)}
                   className="text-xs h-8"
                 />
+                <Input
+                  placeholder="email@example.com"
+                  type="email"
+                  value={manualEmail}
+                  onChange={e => setManualEmail(e.target.value)}
+                  className="text-xs h-8"
+                />
                 <div className="flex gap-2">
                   <Input
-                    placeholder="email@example.com"
-                    type="email"
-                    value={manualEmail}
-                    onChange={e => setManualEmail(e.target.value)}
+                    placeholder="+254712345678 (optional)"
+                    type="tel"
+                    value={manualPhone}
+                    onChange={e => setManualPhone(e.target.value)}
                     className="text-xs h-8 flex-1"
                     onKeyPress={e => e.key === 'Enter' && addManualRecipient()}
                   />
@@ -609,7 +665,7 @@ export default function ComposeEmail() {
                     onClick={addManualRecipient}
                     size="sm"
                     className="h-8 px-3 text-xs"
-                    disabled={!manualEmail.trim()}
+                    disabled={!manualEmail.trim() && !manualPhone.trim()}
                   >
                     Add
                   </Button>

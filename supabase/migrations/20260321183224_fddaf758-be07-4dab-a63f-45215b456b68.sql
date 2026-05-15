@@ -34,7 +34,6 @@ CREATE TABLE IF NOT EXISTS public.tenant_seo_settings (
   updated_at timestamptz DEFAULT now()
 );
 ALTER TABLE public.tenant_seo_settings ENABLE ROW LEVEL SECURITY;
-
 -- Create seo_tenant_rls policy if it doesn't exist
 DO $$
 BEGIN
@@ -47,7 +46,6 @@ BEGIN
     FOR ALL USING ((tenant_id)::text = (get_my_tenant_id())::text);
   END IF;
 END $$;
-
 -- Create seo_public_read policy if it doesn't exist
 DO $$
 BEGIN
@@ -82,7 +80,6 @@ CREATE TABLE IF NOT EXISTS public.notification_preferences (
   UNIQUE(user_id, tenant_id)
 );
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
-
 -- Create notif_prefs_own policy if it doesn't exist
 DO $$
 BEGIN
@@ -106,7 +103,6 @@ CREATE TABLE IF NOT EXISTS public.login_events (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE public.login_events ENABLE ROW LEVEL SECURITY;
-
 -- Create login_events_own policy if it doesn't exist
 DO $$
 BEGIN

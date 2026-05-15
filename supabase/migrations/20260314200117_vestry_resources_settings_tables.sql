@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS discipleship_pathways (
   stages jsonb NOT NULL DEFAULT '[]',
   created_at timestamptz DEFAULT now()
 );
-
 -- Sermons
 CREATE TABLE IF NOT EXISTS sermons (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -22,7 +21,6 @@ CREATE TABLE IF NOT EXISTS sermons (
   is_published boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
-
 -- Song Library
 CREATE TABLE IF NOT EXISTS songs (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -36,7 +34,6 @@ CREATE TABLE IF NOT EXISTS songs (
   tags text[],
   created_at timestamptz DEFAULT now()
 );
-
 -- Church Assets
 CREATE TABLE IF NOT EXISTS church_assets (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -52,7 +49,6 @@ CREATE TABLE IF NOT EXISTS church_assets (
   notes text,
   created_at timestamptz DEFAULT now()
 );
-
 -- Resources Store
 CREATE TABLE IF NOT EXISTS resources (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -65,7 +61,6 @@ CREATE TABLE IF NOT EXISTS resources (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Training Courses
 CREATE TABLE IF NOT EXISTS training_courses (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -76,7 +71,6 @@ CREATE TABLE IF NOT EXISTS training_courses (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Training Enrollments
 CREATE TABLE IF NOT EXISTS training_enrollments (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -86,7 +80,6 @@ CREATE TABLE IF NOT EXISTS training_enrollments (
   completed_at timestamptz,
   enrolled_at timestamptz DEFAULT now()
 );
-
 -- Onboarding Progress
 CREATE TABLE IF NOT EXISTS onboarding_progress (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -96,7 +89,6 @@ CREATE TABLE IF NOT EXISTS onboarding_progress (
   completed_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
-
 -- Role Permissions
 CREATE TABLE IF NOT EXISTS role_permissions (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -108,7 +100,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   can_delete boolean DEFAULT false,
   UNIQUE (tenant_id, role_name, module)
 );
-
 -- Integration Settings
 CREATE TABLE IF NOT EXISTS integration_settings (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -121,7 +112,6 @@ CREATE TABLE IF NOT EXISTS integration_settings (
   created_at timestamptz DEFAULT now(),
   UNIQUE (tenant_id, provider)
 );
-
 -- Email Quota Tracking
 CREATE TABLE IF NOT EXISTS email_quotas (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -130,4 +120,4 @@ CREATE TABLE IF NOT EXISTS email_quotas (
   monthly_sent int DEFAULT 0,
   quota_reset_at timestamptz DEFAULT date_trunc('month', now()) + interval '1 month',
   updated_at timestamptz DEFAULT now()
-);;
+);

@@ -20,4 +20,4 @@ CREATE INDEX IF NOT EXISTS idx_training_enrollments_course ON training_enrollmen
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_member ON group_members(member_id);
 CREATE INDEX IF NOT EXISTS idx_event_rsvps_event ON event_rsvps(event_id);
-CREATE INDEX IF NOT EXISTS idx_event_rsvps_member ON event_rsvps(member_id);;
+CREATE INDEX IF NOT EXISTS idx_event_rsvps_member ON event_rsvps(member_id);

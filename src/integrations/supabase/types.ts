@@ -155,84 +155,6 @@ export type Database = {
           },
         ]
       }
-      admin_broadcasts: {
-        Row: {
-          channels: string[] | null
-          created_at: string | null
-          created_by: string | null
-          email_failed_count: number | null
-          email_sent_count: number | null
-          id: string
-          message: string
-          priority: string | null
-          push_failed_count: number | null
-          push_sent_count: number | null
-          recipient_ids: string[] | null
-          recipient_type: string | null
-          scheduled_at: string | null
-          sent_at: string | null
-          status: string | null
-          subject: string
-          tenant_id: string
-          total_recipients: number | null
-        }
-        Insert: {
-          channels?: string[] | null
-          created_at?: string | null
-          created_by?: string | null
-          email_failed_count?: number | null
-          email_sent_count?: number | null
-          id?: string
-          message: string
-          priority?: string | null
-          push_failed_count?: number | null
-          push_sent_count?: number | null
-          recipient_ids?: string[] | null
-          recipient_type?: string | null
-          scheduled_at?: string | null
-          sent_at?: string | null
-          status?: string | null
-          subject: string
-          tenant_id: string
-          total_recipients?: number | null
-        }
-        Update: {
-          channels?: string[] | null
-          created_at?: string | null
-          created_by?: string | null
-          email_failed_count?: number | null
-          email_sent_count?: number | null
-          id?: string
-          message?: string
-          priority?: string | null
-          push_failed_count?: number | null
-          push_sent_count?: number | null
-          recipient_ids?: string[] | null
-          recipient_type?: string | null
-          scheduled_at?: string | null
-          sent_at?: string | null
-          status?: string | null
-          subject?: string
-          tenant_id?: string
-          total_recipients?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "admin_broadcasts_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "admin_broadcasts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ai_tool_usage: {
         Row: {
           created_at: string | null
@@ -271,338 +193,58 @@ export type Database = {
           },
         ]
       }
-      announcement_attachments: {
-        Row: {
-          announcement_id: string
-          created_at: string
-          display_order: number
-          filename: string | null
-          id: string
-          mime_type: string | null
-          og_description: string | null
-          og_image_url: string | null
-          og_title: string | null
-          size_bytes: number | null
-          tenant_id: string
-          type: string
-          url: string
-        }
-        Insert: {
-          announcement_id: string
-          created_at?: string
-          display_order?: number
-          filename?: string | null
-          id?: string
-          mime_type?: string | null
-          og_description?: string | null
-          og_image_url?: string | null
-          og_title?: string | null
-          size_bytes?: number | null
-          tenant_id: string
-          type: string
-          url: string
-        }
-        Update: {
-          announcement_id?: string
-          created_at?: string
-          display_order?: number
-          filename?: string | null
-          id?: string
-          mime_type?: string | null
-          og_description?: string | null
-          og_image_url?: string | null
-          og_title?: string | null
-          size_bytes?: number | null
-          tenant_id?: string
-          type?: string
-          url?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "announcement_attachments_announcement_id_fkey"
-            columns: ["announcement_id"]
-            isOneToOne: false
-            referencedRelation: "announcements"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      announcement_comments: {
-        Row: {
-          announcement_id: string
-          body: string
-          created_at: string
-          id: string
-          is_deleted: boolean
-          member_id: string
-          parent_id: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          announcement_id: string
-          body: string
-          created_at?: string
-          id?: string
-          is_deleted?: boolean
-          member_id: string
-          parent_id?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          announcement_id?: string
-          body?: string
-          created_at?: string
-          id?: string
-          is_deleted?: boolean
-          member_id?: string
-          parent_id?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "announcement_comments_announcement_id_fkey"
-            columns: ["announcement_id"]
-            isOneToOne: false
-            referencedRelation: "announcements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "announcement_comments_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "announcement_comments_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "announcement_comments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      announcement_reactions: {
-        Row: {
-          announcement_id: string
-          created_at: string
-          emoji: string
-          id: string
-          member_id: string
-          tenant_id: string
-        }
-        Insert: {
-          announcement_id: string
-          created_at?: string
-          emoji: string
-          id?: string
-          member_id: string
-          tenant_id: string
-        }
-        Update: {
-          announcement_id?: string
-          created_at?: string
-          emoji?: string
-          id?: string
-          member_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "announcement_reactions_announcement_id_fkey"
-            columns: ["announcement_id"]
-            isOneToOne: false
-            referencedRelation: "announcements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "announcement_reactions_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      announcement_read_receipts: {
-        Row: {
-          announcement_id: string
-          id: string
-          member_id: string
-          read_at: string
-          tenant_id: string
-        }
-        Insert: {
-          announcement_id: string
-          id?: string
-          member_id: string
-          read_at?: string
-          tenant_id: string
-        }
-        Update: {
-          announcement_id?: string
-          id?: string
-          member_id?: string
-          read_at?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "announcement_read_receipts_announcement_id_fkey"
-            columns: ["announcement_id"]
-            isOneToOne: false
-            referencedRelation: "announcements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "announcement_read_receipts_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      announcement_types: {
-        Row: {
-          color: string
-          created_at: string
-          description: string | null
-          icon: string
-          id: string
-          is_active: boolean
-          is_default: boolean
-          label: string
-          order: number
-          tenant_id: string
-          updated_at: string
-          usage_count: number
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          icon?: string
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          label: string
-          order?: number
-          tenant_id: string
-          updated_at?: string
-          usage_count?: number
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          icon?: string
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          label?: string
-          order?: number
-          tenant_id?: string
-          updated_at?: string
-          usage_count?: number
-        }
-        Relationships: []
-      }
       announcements: {
         Row: {
-          audience: string
           body: string
-          category: string | null
-          category_id: string | null
-          comments_enabled: boolean
           created_at: string | null
           created_by: string | null
           expires_at: string | null
-          group_id: string | null
           id: string
           is_pinned: boolean | null
           publish_at: string | null
-          reactions_enabled: boolean
-          rich_body: string | null
-          scheduled_at: string | null
-          status: string | null
           target_audience:
             | Database["public"]["Enums"]["announcement_audience_enum"]
             | null
           target_id: string | null
           tenant_id: string
           title: string
-          updated_at: string | null
-          view_count: number | null
         }
         Insert: {
-          audience?: string
           body: string
-          category?: string | null
-          category_id?: string | null
-          comments_enabled?: boolean
           created_at?: string | null
           created_by?: string | null
           expires_at?: string | null
-          group_id?: string | null
           id?: string
           is_pinned?: boolean | null
           publish_at?: string | null
-          reactions_enabled?: boolean
-          rich_body?: string | null
-          scheduled_at?: string | null
-          status?: string | null
           target_audience?:
             | Database["public"]["Enums"]["announcement_audience_enum"]
             | null
           target_id?: string | null
           tenant_id: string
           title: string
-          updated_at?: string | null
-          view_count?: number | null
         }
         Update: {
-          audience?: string
           body?: string
-          category?: string | null
-          category_id?: string | null
-          comments_enabled?: boolean
           created_at?: string | null
           created_by?: string | null
           expires_at?: string | null
-          group_id?: string | null
           id?: string
           is_pinned?: boolean | null
           publish_at?: string | null
-          reactions_enabled?: boolean
-          rich_body?: string | null
-          scheduled_at?: string | null
-          status?: string | null
           target_audience?:
             | Database["public"]["Enums"]["announcement_audience_enum"]
             | null
           target_id?: string | null
           tenant_id?: string
           title?: string
-          updated_at?: string | null
-          view_count?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "announcements_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "announcement_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "announcements_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -614,131 +256,9 @@ export type Database = {
           },
         ]
       }
-      appointment_types: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          is_default: boolean
-          label: string
-          sort_order: number
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          label: string
-          sort_order?: number
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          label?: string
-          sort_order?: number
-          tenant_id?: string
-        }
-        Relationships: []
-      }
-      appointments: {
-        Row: {
-          admin_notes: string | null
-          appointment_type_id: string | null
-          assigned_staff_id: string | null
-          created_at: string
-          decline_reason: string | null
-          id: string
-          jitsi_room_name: string | null
-          location: string | null
-          member_id: string
-          mode: string
-          notes: string | null
-          physical_notes: string | null
-          preferred_date: string
-          preferred_time: string
-          rescheduled_date: string | null
-          rescheduled_time: string | null
-          status: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          admin_notes?: string | null
-          appointment_type_id?: string | null
-          assigned_staff_id?: string | null
-          created_at?: string
-          decline_reason?: string | null
-          id?: string
-          jitsi_room_name?: string | null
-          location?: string | null
-          member_id: string
-          mode?: string
-          notes?: string | null
-          physical_notes?: string | null
-          preferred_date: string
-          preferred_time: string
-          rescheduled_date?: string | null
-          rescheduled_time?: string | null
-          status?: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          admin_notes?: string | null
-          appointment_type_id?: string | null
-          assigned_staff_id?: string | null
-          created_at?: string
-          decline_reason?: string | null
-          id?: string
-          jitsi_room_name?: string | null
-          location?: string | null
-          member_id?: string
-          mode?: string
-          notes?: string | null
-          physical_notes?: string | null
-          preferred_date?: string
-          preferred_time?: string
-          rescheduled_date?: string | null
-          rescheduled_time?: string | null
-          status?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appointments_appointment_type_id_fkey"
-            columns: ["appointment_type_id"]
-            isOneToOne: false
-            referencedRelation: "appointment_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_assigned_staff_id_fkey"
-            columns: ["assigned_staff_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       asset_maintenance: {
         Row: {
           asset_id: string
-          completed_date: string | null
           cost: number | null
           created_at: string | null
           created_by: string | null
@@ -746,17 +266,10 @@ export type Database = {
           description: string
           id: string
           maintenance_date: string | null
-          maintenance_type: string | null
-          notes: string | null
           performed_by: string | null
-          scheduled_date: string | null
-          status: string | null
-          tenant_id: string | null
-          updated_at: string | null
         }
         Insert: {
           asset_id: string
-          completed_date?: string | null
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -764,17 +277,10 @@ export type Database = {
           description: string
           id?: string
           maintenance_date?: string | null
-          maintenance_type?: string | null
-          notes?: string | null
           performed_by?: string | null
-          scheduled_date?: string | null
-          status?: string | null
-          tenant_id?: string | null
-          updated_at?: string | null
         }
         Update: {
           asset_id?: string
-          completed_date?: string | null
           cost?: number | null
           created_at?: string | null
           created_by?: string | null
@@ -782,13 +288,7 @@ export type Database = {
           description?: string
           id?: string
           maintenance_date?: string | null
-          maintenance_type?: string | null
-          notes?: string | null
           performed_by?: string | null
-          scheduled_date?: string | null
-          status?: string | null
-          tenant_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -796,60 +296,6 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "church_assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      asset_release_requests: {
-        Row: {
-          asset_id: string
-          created_at: string | null
-          date_needed: string | null
-          id: string
-          notes: string | null
-          purpose: string | null
-          requested_by: string
-          return_date: string | null
-          status: string | null
-          tenant_id: string
-        }
-        Insert: {
-          asset_id: string
-          created_at?: string | null
-          date_needed?: string | null
-          id?: string
-          notes?: string | null
-          purpose?: string | null
-          requested_by: string
-          return_date?: string | null
-          status?: string | null
-          tenant_id: string
-        }
-        Update: {
-          asset_id?: string
-          created_at?: string | null
-          date_needed?: string | null
-          id?: string
-          notes?: string | null
-          purpose?: string | null
-          requested_by?: string
-          return_date?: string | null
-          status?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "asset_release_requests_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "church_assets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "asset_release_requests_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -886,6 +332,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["attendance_status_enum"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "attendance_records_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "attendance_records_session_id_fkey"
             columns: ["session_id"]
@@ -1140,42 +593,33 @@ export type Database = {
       }
       branches: {
         Row: {
-          branch_password_hash: string | null
-          branch_username: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
-          last_login_at: string | null
           location: string | null
           name: string
           pastor_id: string | null
           tenant_id: string
         }
         Insert: {
-          branch_password_hash?: string | null
-          branch_username?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          last_login_at?: string | null
           location?: string | null
           name: string
           pastor_id?: string | null
           tenant_id: string
         }
         Update: {
-          branch_password_hash?: string | null
-          branch_username?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          last_login_at?: string | null
           location?: string | null
           name?: string
           pastor_id?: string | null
@@ -1183,51 +627,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "branches_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "branches_pastor_id_fkey"
+            columns: ["pastor_id"]
             isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      broadcast_templates: {
-        Row: {
-          channels: string[] | null
-          created_at: string | null
-          id: string
-          is_system: boolean | null
-          message: string
-          name: string
-          priority: string | null
-          subject: string
-          tenant_id: string
-        }
-        Insert: {
-          channels?: string[] | null
-          created_at?: string | null
-          id?: string
-          is_system?: boolean | null
-          message: string
-          name: string
-          priority?: string | null
-          subject: string
-          tenant_id: string
-        }
-        Update: {
-          channels?: string[] | null
-          created_at?: string | null
-          id?: string
-          is_system?: boolean | null
-          message?: string
-          name?: string
-          priority?: string | null
-          subject?: string
-          tenant_id?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "broadcast_templates_tenant_id_fkey"
+            foreignKeyName: "branches_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1370,77 +777,6 @@ export type Database = {
           },
         ]
       }
-      canva_oauth_state: {
-        Row: {
-          code_verifier: string
-          created_at: string | null
-          expires_at: string | null
-          id: string
-          state: string
-          tenant_id: string
-          user_id: string
-        }
-        Insert: {
-          code_verifier: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          state: string
-          tenant_id: string
-          user_id: string
-        }
-        Update: {
-          code_verifier?: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          state?: string
-          tenant_id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      canva_tokens: {
-        Row: {
-          access_token: string
-          created_at: string | null
-          expires_at: string
-          id: string
-          refresh_token: string | null
-          tenant_id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token: string
-          created_at?: string | null
-          expires_at: string
-          id?: string
-          refresh_token?: string | null
-          tenant_id: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token?: string
-          created_at?: string | null
-          expires_at?: string
-          id?: string
-          refresh_token?: string | null
-          tenant_id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "canva_tokens_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       chart_of_accounts: {
         Row: {
           account_code: string | null
@@ -1471,355 +807,18 @@ export type Database = {
         }
         Relationships: []
       }
-      children: {
-        Row: {
-          active: boolean
-          class_id: string | null
-          created_at: string
-          date_of_birth: string
-          family_id: string | null
-          first_name: string
-          gender: string | null
-          guardian_primary_id: string | null
-          guardian_secondary_id: string | null
-          id: string
-          last_name: string
-          photo_url: string | null
-          special_needs_notes: string | null
-          tenant_id: string
-        }
-        Insert: {
-          active?: boolean
-          class_id?: string | null
-          created_at?: string
-          date_of_birth: string
-          family_id?: string | null
-          first_name: string
-          gender?: string | null
-          guardian_primary_id?: string | null
-          guardian_secondary_id?: string | null
-          id?: string
-          last_name: string
-          photo_url?: string | null
-          special_needs_notes?: string | null
-          tenant_id: string
-        }
-        Update: {
-          active?: boolean
-          class_id?: string | null
-          created_at?: string
-          date_of_birth?: string
-          family_id?: string | null
-          first_name?: string
-          gender?: string | null
-          guardian_primary_id?: string | null
-          guardian_secondary_id?: string | null
-          id?: string
-          last_name?: string
-          photo_url?: string | null
-          special_needs_notes?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "children_class_id_fkey"
-            columns: ["class_id"]
-            isOneToOne: false
-            referencedRelation: "children_classes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_family_id_fkey"
-            columns: ["family_id"]
-            isOneToOne: false
-            referencedRelation: "families"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_guardian_primary_id_fkey"
-            columns: ["guardian_primary_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_guardian_secondary_id_fkey"
-            columns: ["guardian_secondary_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      children_checkins: {
-        Row: {
-          check_in_method: string
-          checked_in_at: string
-          checked_in_by: string | null
-          checked_out_at: string | null
-          checked_out_by: string | null
-          child_id: string
-          created_at: string
-          id: string
-          notes: string | null
-          qr_code_data: string | null
-          service_id: string | null
-          tenant_id: string
-        }
-        Insert: {
-          check_in_method?: string
-          checked_in_at?: string
-          checked_in_by?: string | null
-          checked_out_at?: string | null
-          checked_out_by?: string | null
-          child_id: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          qr_code_data?: string | null
-          service_id?: string | null
-          tenant_id: string
-        }
-        Update: {
-          check_in_method?: string
-          checked_in_at?: string
-          checked_in_by?: string | null
-          checked_out_at?: string | null
-          checked_out_by?: string | null
-          child_id?: string
-          created_at?: string
-          id?: string
-          notes?: string | null
-          qr_code_data?: string | null
-          service_id?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "children_checkins_checked_in_by_fkey"
-            columns: ["checked_in_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_checkins_checked_out_by_fkey"
-            columns: ["checked_out_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_checkins_child_id_fkey"
-            columns: ["child_id"]
-            isOneToOne: false
-            referencedRelation: "children"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_checkins_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_checkins_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      children_classes: {
-        Row: {
-          active: boolean
-          capacity: number | null
-          created_at: string
-          id: string
-          max_age: number
-          min_age: number
-          name: string
-          teacher_id: string | null
-          tenant_id: string
-        }
-        Insert: {
-          active?: boolean
-          capacity?: number | null
-          created_at?: string
-          id?: string
-          max_age?: number
-          min_age?: number
-          name: string
-          teacher_id?: string | null
-          tenant_id: string
-        }
-        Update: {
-          active?: boolean
-          capacity?: number | null
-          created_at?: string
-          id?: string
-          max_age?: number
-          min_age?: number
-          name?: string
-          teacher_id?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "children_classes_teacher_id_fkey"
-            columns: ["teacher_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_classes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      children_ministry_settings: {
-        Row: {
-          auto_assign_class_by_age: boolean
-          auto_send_qr_on_confirm: boolean
-          created_at: string
-          email_qr_to_parents: boolean
-          id: string
-          kiosk_auto_return_seconds: number
-          kiosk_idle_timeout_minutes: number
-          kiosk_pin: string
-          notify_checkin: boolean
-          notify_checkout: boolean
-          qr_reminder_days_before: number
-          send_qr_reminder: boolean
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          auto_assign_class_by_age?: boolean
-          auto_send_qr_on_confirm?: boolean
-          created_at?: string
-          email_qr_to_parents?: boolean
-          id?: string
-          kiosk_auto_return_seconds?: number
-          kiosk_idle_timeout_minutes?: number
-          kiosk_pin?: string
-          notify_checkin?: boolean
-          notify_checkout?: boolean
-          qr_reminder_days_before?: number
-          send_qr_reminder?: boolean
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          auto_assign_class_by_age?: boolean
-          auto_send_qr_on_confirm?: boolean
-          created_at?: string
-          email_qr_to_parents?: boolean
-          id?: string
-          kiosk_auto_return_seconds?: number
-          kiosk_idle_timeout_minutes?: number
-          kiosk_pin?: string
-          notify_checkin?: boolean
-          notify_checkout?: boolean
-          qr_reminder_days_before?: number
-          send_qr_reminder?: boolean
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "children_ministry_settings_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: true
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      children_qr_codes: {
-        Row: {
-          child_id: string
-          created_at: string
-          expires_at: string
-          id: string
-          qr_data: string
-          sent_at: string | null
-          service_id: string | null
-          tenant_id: string
-        }
-        Insert: {
-          child_id: string
-          created_at?: string
-          expires_at: string
-          id?: string
-          qr_data: string
-          sent_at?: string | null
-          service_id?: string | null
-          tenant_id: string
-        }
-        Update: {
-          child_id?: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          qr_data?: string
-          sent_at?: string | null
-          service_id?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "children_qr_codes_child_id_fkey"
-            columns: ["child_id"]
-            isOneToOne: false
-            referencedRelation: "children"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_qr_codes_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "children_qr_codes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       church_assets: {
         Row: {
           assigned_to: string | null
           category: string | null
           condition: string | null
           created_at: string | null
-          depreciation_rate: number | null
-          description: string | null
           id: string
-          image_path: string | null
           location: string | null
           name: string
           notes: string | null
           purchase_date: string | null
           purchase_value: number | null
-          quantity: number
           serial_number: string | null
           tenant_id: string
         }
@@ -1828,16 +827,12 @@ export type Database = {
           category?: string | null
           condition?: string | null
           created_at?: string | null
-          depreciation_rate?: number | null
-          description?: string | null
           id?: string
-          image_path?: string | null
           location?: string | null
           name: string
           notes?: string | null
           purchase_date?: string | null
           purchase_value?: number | null
-          quantity?: number
           serial_number?: string | null
           tenant_id: string
         }
@@ -1846,16 +841,12 @@ export type Database = {
           category?: string | null
           condition?: string | null
           created_at?: string | null
-          depreciation_rate?: number | null
-          description?: string | null
           id?: string
-          image_path?: string | null
           location?: string | null
           name?: string
           notes?: string | null
           purchase_date?: string | null
           purchase_value?: number | null
-          quantity?: number
           serial_number?: string | null
           tenant_id?: string
         }
@@ -1872,177 +863,6 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      church_media_items: {
-        Row: {
-          album_id: string | null
-          category: string
-          category_id: string | null
-          created_at: string | null
-          description: string | null
-          download_enabled: boolean
-          duration: number | null
-          file_name: string | null
-          file_size: number | null
-          file_url: string
-          id: string
-          is_featured: boolean
-          media_type: string
-          mime_type: string | null
-          storage_path: string | null
-          tenant_id: string
-          thumbnail_url: string | null
-          title: string | null
-          updated_at: string | null
-          uploaded_by: string | null
-          view_count: number
-          visibility: string
-        }
-        Insert: {
-          album_id?: string | null
-          category?: string
-          category_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          download_enabled?: boolean
-          duration?: number | null
-          file_name?: string | null
-          file_size?: number | null
-          file_url: string
-          id?: string
-          is_featured?: boolean
-          media_type: string
-          mime_type?: string | null
-          storage_path?: string | null
-          tenant_id: string
-          thumbnail_url?: string | null
-          title?: string | null
-          updated_at?: string | null
-          uploaded_by?: string | null
-          view_count?: number
-          visibility?: string
-        }
-        Update: {
-          album_id?: string | null
-          category?: string
-          category_id?: string | null
-          created_at?: string | null
-          description?: string | null
-          download_enabled?: boolean
-          duration?: number | null
-          file_name?: string | null
-          file_size?: number | null
-          file_url?: string
-          id?: string
-          is_featured?: boolean
-          media_type?: string
-          mime_type?: string | null
-          storage_path?: string | null
-          tenant_id?: string
-          thumbnail_url?: string | null
-          title?: string | null
-          updated_at?: string | null
-          uploaded_by?: string | null
-          view_count?: number
-          visibility?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "church_media_items_album_id_fkey"
-            columns: ["album_id"]
-            isOneToOne: false
-            referencedRelation: "media_albums"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "church_media_items_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "media_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "church_media_items_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "church_media_items_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      church_storage: {
-        Row: {
-          created_at: string | null
-          id: string
-          plan_activated_at: string | null
-          plan_expires_at: string | null
-          storage_full_notified_at: string | null
-          storage_plan_id: string
-          storage_used_bytes: number
-          storage_warning_sent_at: string | null
-          tenant_id: string
-          updated_at: string | null
-          upgrade_requested_at: string | null
-          upgrade_requested_plan_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          plan_activated_at?: string | null
-          plan_expires_at?: string | null
-          storage_full_notified_at?: string | null
-          storage_plan_id: string
-          storage_used_bytes?: number
-          storage_warning_sent_at?: string | null
-          tenant_id: string
-          updated_at?: string | null
-          upgrade_requested_at?: string | null
-          upgrade_requested_plan_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          plan_activated_at?: string | null
-          plan_expires_at?: string | null
-          storage_full_notified_at?: string | null
-          storage_plan_id?: string
-          storage_used_bytes?: number
-          storage_warning_sent_at?: string | null
-          tenant_id?: string
-          updated_at?: string | null
-          upgrade_requested_at?: string | null
-          upgrade_requested_plan_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "church_storage_storage_plan_id_fkey"
-            columns: ["storage_plan_id"]
-            isOneToOne: false
-            referencedRelation: "storage_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "church_storage_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: true
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "church_storage_upgrade_requested_plan_id_fkey"
-            columns: ["upgrade_requested_plan_id"]
-            isOneToOne: false
-            referencedRelation: "storage_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -2206,13 +1026,10 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          description: string | null
           id: string
-          is_forum: boolean | null
           last_message_at: string | null
           last_message_preview: string | null
           name: string | null
-          status: string | null
           tenant_id: string
           type: string | null
           updated_at: string | null
@@ -2220,13 +1037,10 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          description?: string | null
           id?: string
-          is_forum?: boolean | null
           last_message_at?: string | null
           last_message_preview?: string | null
           name?: string | null
-          status?: string | null
           tenant_id: string
           type?: string | null
           updated_at?: string | null
@@ -2234,13 +1048,10 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
-          description?: string | null
           id?: string
-          is_forum?: boolean | null
           last_message_at?: string | null
           last_message_preview?: string | null
           name?: string | null
-          status?: string | null
           tenant_id?: string
           type?: string | null
           updated_at?: string | null
@@ -2262,10 +1073,7 @@ export type Database = {
           convert_id: string
           created_at: string | null
           id: string
-          next_checkin_date: string | null
           notes: string | null
-          tenant_id: string | null
-          updated_at: string | null
         }
         Insert: {
           checkin_date?: string | null
@@ -2273,10 +1081,7 @@ export type Database = {
           convert_id: string
           created_at?: string | null
           id?: string
-          next_checkin_date?: string | null
           notes?: string | null
-          tenant_id?: string | null
-          updated_at?: string | null
         }
         Update: {
           checkin_date?: string | null
@@ -2284,10 +1089,7 @@ export type Database = {
           convert_id?: string
           created_at?: string | null
           id?: string
-          next_checkin_date?: string | null
           notes?: string | null
-          tenant_id?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2307,10 +1109,7 @@ export type Database = {
           from_stage: number | null
           id: string
           notes: string | null
-          stage: number | null
-          tenant_id: string | null
           to_stage: number
-          updated_at: string | null
         }
         Insert: {
           advanced_at?: string | null
@@ -2319,10 +1118,7 @@ export type Database = {
           from_stage?: number | null
           id?: string
           notes?: string | null
-          stage?: number | null
-          tenant_id?: string | null
           to_stage: number
-          updated_at?: string | null
         }
         Update: {
           advanced_at?: string | null
@@ -2331,10 +1127,7 @@ export type Database = {
           from_stage?: number | null
           id?: string
           notes?: string | null
-          stage?: number | null
-          tenant_id?: string | null
           to_stage?: number
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2437,51 +1230,6 @@ export type Database = {
           },
         ]
       }
-      device_tokens: {
-        Row: {
-          created_at: string | null
-          device_type: string | null
-          id: string
-          tenant_id: string
-          token: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          device_type?: string | null
-          id?: string
-          tenant_id: string
-          token: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          device_type?: string | null
-          id?: string
-          tenant_id?: string
-          token?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "device_tokens_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "device_tokens_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       discipleship_pathways: {
         Row: {
           created_at: string | null
@@ -2519,94 +1267,63 @@ export type Database = {
           assignment_count: number | null
           author: string | null
           category: string | null
-          category_id: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           duration_label: string | null
-          duration_minutes: number | null
           external_url: string | null
           file_url: string | null
           id: string
           is_downloadable: boolean | null
-          is_published: boolean | null
-          is_required: boolean | null
-          lesson_content: string | null
           recommended_stages: number[] | null
-          resource_type: string | null
-          sequence_order: number | null
           tags: string[] | null
           tenant_id: string
           thumbnail_url: string | null
           title: string
           type: string
           updated_at: string | null
-          video_url: string | null
         }
         Insert: {
           assignment_count?: number | null
           author?: string | null
           category?: string | null
-          category_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           duration_label?: string | null
-          duration_minutes?: number | null
           external_url?: string | null
           file_url?: string | null
           id?: string
           is_downloadable?: boolean | null
-          is_published?: boolean | null
-          is_required?: boolean | null
-          lesson_content?: string | null
           recommended_stages?: number[] | null
-          resource_type?: string | null
-          sequence_order?: number | null
           tags?: string[] | null
           tenant_id: string
           thumbnail_url?: string | null
           title: string
-          type?: string
+          type: string
           updated_at?: string | null
-          video_url?: string | null
         }
         Update: {
           assignment_count?: number | null
           author?: string | null
           category?: string | null
-          category_id?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           duration_label?: string | null
-          duration_minutes?: number | null
           external_url?: string | null
           file_url?: string | null
           id?: string
           is_downloadable?: boolean | null
-          is_published?: boolean | null
-          is_required?: boolean | null
-          lesson_content?: string | null
           recommended_stages?: number[] | null
-          resource_type?: string | null
-          sequence_order?: number | null
           tags?: string[] | null
           tenant_id?: string
           thumbnail_url?: string | null
           title?: string
           type?: string
           updated_at?: string | null
-          video_url?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "discipleship_resources_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "resource_categories"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "discipleship_resources_created_by_fkey"
             columns: ["created_by"]
@@ -2623,146 +1340,58 @@ export type Database = {
           },
         ]
       }
-      email_automations: {
-        Row: {
-          audience: string | null
-          automation_key: string
-          config: Json | null
-          created_at: string | null
-          description: string | null
-          frequency: string | null
-          id: string
-          is_active: boolean | null
-          is_system: boolean | null
-          name: string | null
-          template_id: string | null
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          audience?: string | null
-          automation_key: string
-          config?: Json | null
-          created_at?: string | null
-          description?: string | null
-          frequency?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_system?: boolean | null
-          name?: string | null
-          template_id?: string | null
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          audience?: string | null
-          automation_key?: string
-          config?: Json | null
-          created_at?: string | null
-          description?: string | null
-          frequency?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_system?: boolean | null
-          name?: string | null
-          template_id?: string | null
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "email_automations_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "email_templates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "email_automations_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       email_branding: {
         Row: {
-          button_color: string
-          created_at: string
+          button_color: string | null
+          created_at: string | null
           email_signature: string | null
           footer_text: string | null
           id: string
           logo_url: string | null
-          primary_color: string
+          primary_color: string | null
           sender_name: string | null
           sender_photo_url: string | null
           tenant_id: string
-          text_color: string
-          updated_at: string
+          text_color: string | null
+          updated_at: string | null
         }
         Insert: {
-          button_color?: string
-          created_at?: string
+          button_color?: string | null
+          created_at?: string | null
           email_signature?: string | null
           footer_text?: string | null
           id?: string
           logo_url?: string | null
-          primary_color?: string
+          primary_color?: string | null
           sender_name?: string | null
           sender_photo_url?: string | null
           tenant_id: string
-          text_color?: string
-          updated_at?: string
+          text_color?: string | null
+          updated_at?: string | null
         }
         Update: {
-          button_color?: string
-          created_at?: string
+          button_color?: string | null
+          created_at?: string | null
           email_signature?: string | null
           footer_text?: string | null
           id?: string
           logo_url?: string | null
-          primary_color?: string
+          primary_color?: string | null
           sender_name?: string | null
           sender_photo_url?: string | null
           tenant_id?: string
-          text_color?: string
-          updated_at?: string
+          text_color?: string | null
+          updated_at?: string | null
         }
-        Relationships: []
-      }
-      email_categories: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          is_system: boolean
-          name: string
-          sort_order: number
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          name: string
-          sort_order?: number
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          name?: string
-          sort_order?: number
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_branding_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_quotas: {
         Row: {
@@ -2799,56 +1428,6 @@ export type Database = {
           },
         ]
       }
-      email_templates: {
-        Row: {
-          body: string
-          category_id: string | null
-          created_at: string
-          created_by: string | null
-          id: string
-          is_active: boolean
-          is_system: boolean
-          name: string
-          subject: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          body: string
-          category_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          name: string
-          subject: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          body?: string
-          category_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          name?: string
-          subject?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "email_templates_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "email_categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       event_registrations: {
         Row: {
           event_id: string
@@ -2874,6 +1453,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -3025,6 +1611,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -3036,84 +1629,42 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
-          approval_status: string | null
-          approved_at: string | null
-          approved_by: string | null
-          budget_category_id: string | null
           category: string | null
           created_at: string | null
           currency: string | null
           description: string
           expense_date: string
           id: string
-          is_recurring: boolean | null
-          notes: string | null
           payment_method: string | null
-          payment_reference: string | null
           receipt_url: string | null
           recorded_by: string | null
-          recurrence_frequency: string | null
-          rejection_reason: string | null
           tenant_id: string
-          title: string | null
-          updated_at: string | null
-          vendor: string | null
-          vendor_email: string | null
-          vendor_phone: string | null
         }
         Insert: {
           amount: number
-          approval_status?: string | null
-          approved_at?: string | null
-          approved_by?: string | null
-          budget_category_id?: string | null
           category?: string | null
           created_at?: string | null
           currency?: string | null
           description: string
           expense_date?: string
           id?: string
-          is_recurring?: boolean | null
-          notes?: string | null
           payment_method?: string | null
-          payment_reference?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
-          recurrence_frequency?: string | null
-          rejection_reason?: string | null
           tenant_id: string
-          title?: string | null
-          updated_at?: string | null
-          vendor?: string | null
-          vendor_email?: string | null
-          vendor_phone?: string | null
         }
         Update: {
           amount?: number
-          approval_status?: string | null
-          approved_at?: string | null
-          approved_by?: string | null
-          budget_category_id?: string | null
           category?: string | null
           created_at?: string | null
           currency?: string | null
           description?: string
           expense_date?: string
           id?: string
-          is_recurring?: boolean | null
-          notes?: string | null
           payment_method?: string | null
-          payment_reference?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
-          recurrence_frequency?: string | null
-          rejection_reason?: string | null
           tenant_id?: string
-          title?: string | null
-          updated_at?: string | null
-          vendor?: string | null
-          vendor_email?: string | null
-          vendor_phone?: string | null
         }
         Relationships: [
           {
@@ -3135,12 +1686,6 @@ export type Database = {
       facilities: {
         Row: {
           amenities: string[] | null
-          booker_contact_person: string | null
-          booker_email: string | null
-          booker_name: string | null
-          booker_org_name: string | null
-          booker_phone: string | null
-          booker_type: string | null
           capacity: number | null
           created_at: string | null
           description: string | null
@@ -3148,21 +1693,12 @@ export type Database = {
           is_active: boolean | null
           name: string
           photo_url: string | null
-          quotation: number | null
           tenant_id: string
-          thumbnail_path: string | null
           type: string | null
           updated_at: string | null
-          video_path: string | null
         }
         Insert: {
           amenities?: string[] | null
-          booker_contact_person?: string | null
-          booker_email?: string | null
-          booker_name?: string | null
-          booker_org_name?: string | null
-          booker_phone?: string | null
-          booker_type?: string | null
           capacity?: number | null
           created_at?: string | null
           description?: string | null
@@ -3170,21 +1706,12 @@ export type Database = {
           is_active?: boolean | null
           name: string
           photo_url?: string | null
-          quotation?: number | null
           tenant_id: string
-          thumbnail_path?: string | null
           type?: string | null
           updated_at?: string | null
-          video_path?: string | null
         }
         Update: {
           amenities?: string[] | null
-          booker_contact_person?: string | null
-          booker_email?: string | null
-          booker_name?: string | null
-          booker_org_name?: string | null
-          booker_phone?: string | null
-          booker_type?: string | null
           capacity?: number | null
           created_at?: string | null
           description?: string | null
@@ -3192,12 +1719,9 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           photo_url?: string | null
-          quotation?: number | null
           tenant_id?: string
-          thumbnail_path?: string | null
           type?: string | null
           updated_at?: string | null
-          video_path?: string | null
         }
         Relationships: [
           {
@@ -3209,88 +1733,17 @@ export type Database = {
           },
         ]
       }
-      facility_booking_responses: {
-        Row: {
-          body: string | null
-          booking_id: string | null
-          channel: string | null
-          created_at: string
-          deleted_by_admin: boolean
-          facility_name: string | null
-          from_address: string | null
-          id: string
-          is_read: boolean
-          member_id: string | null
-          message: string | null
-          status: string | null
-          tenant_id: string
-        }
-        Insert: {
-          body?: string | null
-          booking_id?: string | null
-          channel?: string | null
-          created_at?: string
-          deleted_by_admin?: boolean
-          facility_name?: string | null
-          from_address?: string | null
-          id?: string
-          is_read?: boolean
-          member_id?: string | null
-          message?: string | null
-          status?: string | null
-          tenant_id: string
-        }
-        Update: {
-          body?: string | null
-          booking_id?: string | null
-          channel?: string | null
-          created_at?: string
-          deleted_by_admin?: boolean
-          facility_name?: string | null
-          from_address?: string | null
-          id?: string
-          is_read?: boolean
-          member_id?: string | null
-          message?: string | null
-          status?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "facility_booking_responses_booking_id_fkey"
-            columns: ["booking_id"]
-            isOneToOne: false
-            referencedRelation: "facility_bookings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       facility_bookings: {
         Row: {
-          admin_deleted_at: string | null
           approved_at: string | null
           approved_by: string | null
           booked_by: string | null
-          booker_contact_person: string | null
-          booker_email: string | null
-          booker_name: string | null
-          booker_org_name: string | null
-          booker_phone: string | null
-          booker_type: string | null
           booking_date: string
-          booking_number: string | null
           booking_reference: string | null
-          cancelled_at: string | null
-          confirmed_at: string | null
-          confirmed_by: string | null
           created_at: string | null
           end_time: string | null
           equipment_needed: string[] | null
           expected_attendees: number | null
-          external_email: string | null
-          external_name: string | null
-          external_org: string | null
-          external_phone: string | null
           facility_id: string | null
           facility_name: string
           id: string
@@ -3299,36 +1752,20 @@ export type Database = {
           rejection_reason: string | null
           setup_notes: string | null
           setup_required: boolean | null
-          source: string
           start_time: string | null
           status: Database["public"]["Enums"]["task_status_enum"] | null
           tenant_id: string
         }
         Insert: {
-          admin_deleted_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           booked_by?: string | null
-          booker_contact_person?: string | null
-          booker_email?: string | null
-          booker_name?: string | null
-          booker_org_name?: string | null
-          booker_phone?: string | null
-          booker_type?: string | null
           booking_date: string
-          booking_number?: string | null
           booking_reference?: string | null
-          cancelled_at?: string | null
-          confirmed_at?: string | null
-          confirmed_by?: string | null
           created_at?: string | null
           end_time?: string | null
           equipment_needed?: string[] | null
           expected_attendees?: number | null
-          external_email?: string | null
-          external_name?: string | null
-          external_org?: string | null
-          external_phone?: string | null
           facility_id?: string | null
           facility_name: string
           id?: string
@@ -3337,36 +1774,20 @@ export type Database = {
           rejection_reason?: string | null
           setup_notes?: string | null
           setup_required?: boolean | null
-          source?: string
           start_time?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
           tenant_id: string
         }
         Update: {
-          admin_deleted_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           booked_by?: string | null
-          booker_contact_person?: string | null
-          booker_email?: string | null
-          booker_name?: string | null
-          booker_org_name?: string | null
-          booker_phone?: string | null
-          booker_type?: string | null
           booking_date?: string
-          booking_number?: string | null
           booking_reference?: string | null
-          cancelled_at?: string | null
-          confirmed_at?: string | null
-          confirmed_by?: string | null
           created_at?: string | null
           end_time?: string | null
           equipment_needed?: string[] | null
           expected_attendees?: number | null
-          external_email?: string | null
-          external_name?: string | null
-          external_org?: string | null
-          external_phone?: string | null
           facility_id?: string | null
           facility_name?: string
           id?: string
@@ -3375,12 +1796,18 @@ export type Database = {
           rejection_reason?: string | null
           setup_notes?: string | null
           setup_required?: boolean | null
-          source?: string
           start_time?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "facility_bookings_booked_by_fkey"
+            columns: ["booked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "facility_bookings_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -3390,174 +1817,51 @@ export type Database = {
           },
         ]
       }
-      facility_images: {
-        Row: {
-          created_at: string
-          facility_id: string
-          id: string
-          image_path: string
-          sort_order: number
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          facility_id: string
-          id?: string
-          image_path: string
-          sort_order?: number
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          facility_id?: string
-          id?: string
-          image_path?: string
-          sort_order?: number
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "facility_images_facility_id_fkey"
-            columns: ["facility_id"]
-            isOneToOne: false
-            referencedRelation: "facilities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      facility_responses: {
-        Row: {
-          created_at: string
-          facility_id: string | null
-          id: string
-          message: string
-          raw_payload: Json | null
-          respondent_email: string | null
-          respondent_name: string
-          respondent_org: string | null
-          respondent_phone: string | null
-          source: string
-          status: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          facility_id?: string | null
-          id?: string
-          message: string
-          raw_payload?: Json | null
-          respondent_email?: string | null
-          respondent_name: string
-          respondent_org?: string | null
-          respondent_phone?: string | null
-          source?: string
-          status?: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          facility_id?: string | null
-          id?: string
-          message?: string
-          raw_payload?: Json | null
-          respondent_email?: string | null
-          respondent_name?: string
-          respondent_org?: string | null
-          respondent_phone?: string | null
-          source?: string
-          status?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "facility_responses_facility_id_fkey"
-            columns: ["facility_id"]
-            isOneToOne: false
-            referencedRelation: "facilities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      facility_types: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          is_default: boolean
-          label: string
-          sort_order: number
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          label: string
-          sort_order?: number
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_default?: boolean
-          label?: string
-          sort_order?: number
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       families: {
         Row: {
-          city: string | null
+          address: string | null
           country: string | null
-          created_at: string
-          head_of_household_id: string | null
+          created_at: string | null
+          email: string | null
+          family_name: string
+          head_of_family_id: string | null
           id: string
-          name: string
-          postal_code: string | null
-          state: string | null
-          street: string | null
+          phone: string | null
           tenant_id: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          city?: string | null
+          address?: string | null
           country?: string | null
-          created_at: string
-          head_of_household_id?: string | null
-          id: string
-          name: string
-          postal_code?: string | null
-          state?: string | null
-          street?: string | null
+          created_at?: string | null
+          email?: string | null
+          family_name: string
+          head_of_family_id?: string | null
+          id?: string
+          phone?: string | null
           tenant_id: string
-          updated_at: string
+          updated_at?: string | null
         }
         Update: {
-          city?: string | null
+          address?: string | null
           country?: string | null
-          created_at?: string
-          head_of_household_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          family_name?: string
+          head_of_family_id?: string | null
           id?: string
-          name?: string
-          postal_code?: string | null
-          state?: string | null
-          street?: string | null
+          phone?: string | null
           tenant_id?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "families_head_of_family_id_fkey"
+            columns: ["head_of_family_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "families_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -3569,52 +1873,22 @@ export type Database = {
       }
       family_members: {
         Row: {
-          birth_day: number | null
-          birth_month: number | null
-          birth_year: number | null
-          classification: string | null
           family_id: string
-          first_name: string | null
-          gender: string | null
           id: string
-          last_name: string | null
-          member_id: string | null
-          middle_name: string | null
+          member_id: string
           relationship: string
-          role: string | null
-          suffix: string | null
         }
         Insert: {
-          birth_day?: number | null
-          birth_month?: number | null
-          birth_year?: number | null
-          classification?: string | null
           family_id: string
-          first_name?: string | null
-          gender?: string | null
           id?: string
-          last_name?: string | null
-          member_id?: string | null
-          middle_name?: string | null
+          member_id: string
           relationship?: string
-          role?: string | null
-          suffix?: string | null
         }
         Update: {
-          birth_day?: number | null
-          birth_month?: number | null
-          birth_year?: number | null
-          classification?: string | null
           family_id?: string
-          first_name?: string | null
-          gender?: string | null
           id?: string
-          last_name?: string | null
-          member_id?: string | null
-          middle_name?: string | null
+          member_id?: string
           relationship?: string
-          role?: string | null
-          suffix?: string | null
         }
         Relationships: [
           {
@@ -3626,88 +1900,12 @@ export type Database = {
           },
         ]
       }
-      feature_permissions: {
-        Row: {
-          access_level: string
-          created_at: string
-          feature: string
-          id: string
-          role: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          access_level?: string
-          created_at?: string
-          feature: string
-          id?: string
-          role: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          access_level?: string
-          created_at?: string
-          feature?: string
-          id?: string
-          role?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      fellowship_attendance: {
-        Row: {
-          created_at: string | null
-          fellowship_id: string
-          id: string
-          member_id: string
-          session_date: string
-          status: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          fellowship_id: string
-          id?: string
-          member_id: string
-          session_date: string
-          status?: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string | null
-          fellowship_id?: string
-          id?: string
-          member_id?: string
-          session_date?: string
-          status?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fellowship_attendance_fellowship_id_fkey"
-            columns: ["fellowship_id"]
-            isOneToOne: false
-            referencedRelation: "house_fellowships"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fellowship_attendance_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       fellowship_members: {
         Row: {
           fellowship_id: string
           id: string
           joined_at: string | null
           member_id: string
-          role: string | null
           tenant_id: string
         }
         Insert: {
@@ -3715,7 +1913,6 @@ export type Database = {
           id?: string
           joined_at?: string | null
           member_id: string
-          role?: string | null
           tenant_id: string
         }
         Update: {
@@ -3723,7 +1920,6 @@ export type Database = {
           id?: string
           joined_at?: string | null
           member_id?: string
-          role?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -3732,51 +1928,6 @@ export type Database = {
             columns: ["fellowship_id"]
             isOneToOne: false
             referencedRelation: "house_fellowships"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      fellowship_rsvp: {
-        Row: {
-          created_at: string | null
-          fellowship_id: string
-          id: string
-          member_id: string
-          session_date: string
-          status: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          fellowship_id: string
-          id?: string
-          member_id: string
-          session_date: string
-          status?: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string | null
-          fellowship_id?: string
-          id?: string
-          member_id?: string
-          session_date?: string
-          status?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fellowship_rsvp_fellowship_id_fkey"
-            columns: ["fellowship_id"]
-            isOneToOne: false
-            referencedRelation: "house_fellowships"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fellowship_rsvp_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
             referencedColumns: ["id"]
           },
         ]
@@ -3790,7 +1941,6 @@ export type Database = {
           due_date: string | null
           id: string
           priority: Database["public"]["Enums"]["task_priority_enum"] | null
-          related_convert_id: string | null
           related_member_id: string | null
           related_visitor_id: string | null
           status: Database["public"]["Enums"]["task_status_enum"] | null
@@ -3806,7 +1956,6 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["task_priority_enum"] | null
-          related_convert_id?: string | null
           related_member_id?: string | null
           related_visitor_id?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
@@ -3822,7 +1971,6 @@ export type Database = {
           due_date?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["task_priority_enum"] | null
-          related_convert_id?: string | null
           related_member_id?: string | null
           related_visitor_id?: string | null
           status?: Database["public"]["Enums"]["task_status_enum"] | null
@@ -3832,10 +1980,24 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "follow_up_tasks_related_convert_id_fkey"
-            columns: ["related_convert_id"]
+            foreignKeyName: "follow_up_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
             isOneToOne: false
-            referencedRelation: "new_converts"
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_tasks_related_member_id_fkey"
+            columns: ["related_member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -3990,67 +2152,21 @@ export type Database = {
           },
         ]
       }
-      giving_categories: {
-        Row: {
-          code: string
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          is_system: boolean
-          name: string
-          sort_order: number
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          name: string
-          sort_order?: number
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_system?: boolean
-          name?: string
-          sort_order?: number
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       giving_records: {
         Row: {
           amount: number
-          campaign_id: string | null
-          category: string | null
           created_at: string | null
           currency: string | null
-          donor_name: string | null
-          fund_id: string | null
           given_at: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id: string
-          is_anonymous: boolean | null
           member_id: string | null
-          notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id: string | null
           pledge_id: string | null
-          receipt_number: string | null
           receipt_url: string | null
           recorded_by: string | null
           tenant_id: string
@@ -4059,25 +2175,18 @@ export type Database = {
         }
         Insert: {
           amount: number
-          campaign_id?: string | null
-          category?: string | null
           created_at?: string | null
           currency?: string | null
-          donor_name?: string | null
-          fund_id?: string | null
           given_at?: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
-          is_anonymous?: boolean | null
           member_id?: string | null
-          notes?: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id?: string | null
           pledge_id?: string | null
-          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id: string
@@ -4086,25 +2195,18 @@ export type Database = {
         }
         Update: {
           amount?: number
-          campaign_id?: string | null
-          category?: string | null
           created_at?: string | null
           currency?: string | null
-          donor_name?: string | null
-          fund_id?: string | null
           given_at?: string
           giving_type?: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
-          is_anonymous?: boolean | null
           member_id?: string | null
-          notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id?: string | null
           pledge_id?: string | null
-          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id?: string
@@ -4147,22 +2249,16 @@ export type Database = {
           group_id: string
           joined_at: string | null
           member_id: string
-          role: string | null
-          tenant_id: string | null
         }
         Insert: {
           group_id: string
           joined_at?: string | null
           member_id: string
-          role?: string | null
-          tenant_id?: string | null
         }
         Update: {
           group_id?: string
           joined_at?: string | null
           member_id?: string
-          role?: string | null
-          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -4172,48 +2268,11 @@ export type Database = {
             referencedRelation: "groups"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      group_types: {
-        Row: {
-          color: string
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          label: string
-          sort_order: number
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          label: string
-          sort_order?: number
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          label?: string
-          sort_order?: number
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "group_types_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "group_members_member_id_fkey"
+            columns: ["member_id"]
             isOneToOne: false
-            referencedRelation: "tenants"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -4221,80 +2280,60 @@ export type Database = {
       groups: {
         Row: {
           color: string | null
-          cover_color: string | null
           created_at: string | null
           description: string | null
-          group_type: string | null
           id: string
           is_active: boolean | null
-          jitsi_room_name: string | null
           last_meeting_date: string | null
           leader_id: string | null
-          location: string | null
-          max_members: number | null
-          meeting_date: string | null
           meeting_day: string | null
           meeting_location: string | null
           meeting_schedule: string | null
           meeting_time: string | null
-          meeting_type: string | null
           name: string
-          tags: string[] | null
           tenant_id: string
           type: Database["public"]["Enums"]["group_type_enum"] | null
-          visibility: string | null
         }
         Insert: {
           color?: string | null
-          cover_color?: string | null
           created_at?: string | null
           description?: string | null
-          group_type?: string | null
           id?: string
           is_active?: boolean | null
-          jitsi_room_name?: string | null
           last_meeting_date?: string | null
           leader_id?: string | null
-          location?: string | null
-          max_members?: number | null
-          meeting_date?: string | null
           meeting_day?: string | null
           meeting_location?: string | null
           meeting_schedule?: string | null
           meeting_time?: string | null
-          meeting_type?: string | null
           name: string
-          tags?: string[] | null
           tenant_id: string
           type?: Database["public"]["Enums"]["group_type_enum"] | null
-          visibility?: string | null
         }
         Update: {
           color?: string | null
-          cover_color?: string | null
           created_at?: string | null
           description?: string | null
-          group_type?: string | null
           id?: string
           is_active?: boolean | null
-          jitsi_room_name?: string | null
           last_meeting_date?: string | null
           leader_id?: string | null
-          location?: string | null
-          max_members?: number | null
-          meeting_date?: string | null
           meeting_day?: string | null
           meeting_location?: string | null
           meeting_schedule?: string | null
           meeting_time?: string | null
-          meeting_type?: string | null
           name?: string
-          tags?: string[] | null
           tenant_id?: string
           type?: Database["public"]["Enums"]["group_type_enum"] | null
-          visibility?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "groups_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "groups_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -4306,7 +2345,6 @@ export type Database = {
       }
       house_fellowships: {
         Row: {
-          cover_color: string | null
           created_at: string | null
           host_address: string | null
           host_name: string | null
@@ -4323,7 +2361,6 @@ export type Database = {
           zone: string | null
         }
         Insert: {
-          cover_color?: string | null
           created_at?: string | null
           host_address?: string | null
           host_name?: string | null
@@ -4340,7 +2377,6 @@ export type Database = {
           zone?: string | null
         }
         Update: {
-          cover_color?: string | null
           created_at?: string | null
           host_address?: string | null
           host_name?: string | null
@@ -4357,44 +2393,6 @@ export type Database = {
           zone?: string | null
         }
         Relationships: []
-      }
-      incident_status_logs: {
-        Row: {
-          changed_at: string
-          id: string
-          incident_id: string
-          new_status: string
-          note: string | null
-          old_status: string | null
-          tenant_id: string
-        }
-        Insert: {
-          changed_at?: string
-          id?: string
-          incident_id: string
-          new_status: string
-          note?: string | null
-          old_status?: string | null
-          tenant_id: string
-        }
-        Update: {
-          changed_at?: string
-          id?: string
-          incident_id?: string
-          new_status?: string
-          note?: string | null
-          old_status?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "incident_status_logs_incident_id_fkey"
-            columns: ["incident_id"]
-            isOneToOne: false
-            referencedRelation: "incidents"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       incident_updates: {
         Row: {
@@ -4433,58 +2431,40 @@ export type Database = {
       }
       incidents: {
         Row: {
-          attachment_paths: string[] | null
           created_at: string | null
           description: string | null
           id: string
           incident_date: string
-          incident_number: string | null
-          incident_time: string | null
           incident_type: string
-          location: string | null
           persons_involved: string | null
           reported_by: string | null
           resolution_notes: string | null
-          severity: string | null
           status: Database["public"]["Enums"]["incident_status_enum"] | null
           tenant_id: string
-          witnesses: string | null
         }
         Insert: {
-          attachment_paths?: string[] | null
           created_at?: string | null
           description?: string | null
           id?: string
           incident_date?: string
-          incident_number?: string | null
-          incident_time?: string | null
           incident_type: string
-          location?: string | null
           persons_involved?: string | null
           reported_by?: string | null
           resolution_notes?: string | null
-          severity?: string | null
           status?: Database["public"]["Enums"]["incident_status_enum"] | null
           tenant_id: string
-          witnesses?: string | null
         }
         Update: {
-          attachment_paths?: string[] | null
           created_at?: string | null
           description?: string | null
           id?: string
           incident_date?: string
-          incident_number?: string | null
-          incident_time?: string | null
           incident_type?: string
-          location?: string | null
           persons_involved?: string | null
           reported_by?: string | null
           resolution_notes?: string | null
-          severity?: string | null
           status?: Database["public"]["Enums"]["incident_status_enum"] | null
           tenant_id?: string
-          witnesses?: string | null
         }
         Relationships: [
           {
@@ -4628,45 +2608,6 @@ export type Database = {
         }
         Relationships: []
       }
-      join_requests: {
-        Row: {
-          created_at: string | null
-          group_id: string
-          id: string
-          member_id: string
-          status: string
-        }
-        Insert: {
-          created_at?: string | null
-          group_id: string
-          id?: string
-          member_id: string
-          status?: string
-        }
-        Update: {
-          created_at?: string | null
-          group_id?: string
-          id?: string
-          member_id?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "join_requests_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "join_requests_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       journal_entries: {
         Row: {
           created_at: string | null
@@ -4809,51 +2750,6 @@ export type Database = {
           },
         ]
       }
-      legal_signatures: {
-        Row: {
-          agreement_key: string
-          agreement_name: string
-          created_at: string
-          id: string
-          ip_address: string | null
-          signature_data: string
-          signature_type: string
-          signed_at: string
-          signer_email: string
-          signer_name: string
-          signer_title: string
-          tenant_id: string
-        }
-        Insert: {
-          agreement_key: string
-          agreement_name: string
-          created_at?: string
-          id?: string
-          ip_address?: string | null
-          signature_data: string
-          signature_type?: string
-          signed_at?: string
-          signer_email: string
-          signer_name: string
-          signer_title: string
-          tenant_id: string
-        }
-        Update: {
-          agreement_key?: string
-          agreement_name?: string
-          created_at?: string
-          id?: string
-          ip_address?: string | null
-          signature_data?: string
-          signature_type?: string
-          signed_at?: string
-          signer_email?: string
-          signer_name?: string
-          signer_title?: string
-          tenant_id?: string
-        }
-        Relationships: []
-      }
       lesson_completions: {
         Row: {
           completed_at: string | null
@@ -4895,6 +2791,197 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      live_chat_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_admin: boolean | null
+          is_pinned: boolean | null
+          member_avatar: string | null
+          member_id: string | null
+          member_name: string
+          message: string
+          reaction: string | null
+          stream_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_admin?: boolean | null
+          is_pinned?: boolean | null
+          member_avatar?: string | null
+          member_id?: string | null
+          member_name: string
+          message: string
+          reaction?: string | null
+          stream_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_admin?: boolean | null
+          is_pinned?: boolean | null
+          member_avatar?: string | null
+          member_id?: string | null
+          member_name?: string
+          message?: string
+          reaction?: string | null
+          stream_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_chat_messages_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_chat_messages_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "livestream_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_chat_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      livestream_reminders: {
+        Row: {
+          created_at: string | null
+          id: string
+          member_id: string
+          notified_at: string | null
+          schedule_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          member_id: string
+          notified_at?: string | null
+          schedule_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          member_id?: string
+          notified_at?: string | null
+          schedule_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "livestream_reminders_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "livestream_reminders_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "livestream_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "livestream_reminders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      livestream_schedules: {
+        Row: {
+          chat_enabled: boolean | null
+          created_at: string | null
+          description: string | null
+          ended_at: string | null
+          id: string
+          is_live: boolean | null
+          is_recurring: boolean | null
+          jitsi_room: string | null
+          pastor_name: string | null
+          recording_duration: number | null
+          recording_url: string | null
+          recurrence_day: number | null
+          recurrence_pattern: string | null
+          scripture: string | null
+          series_name: string | null
+          start_time: string
+          stream_provider: string | null
+          stream_url: string | null
+          tenant_id: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          viewer_count: number | null
+        }
+        Insert: {
+          chat_enabled?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          ended_at?: string | null
+          id?: string
+          is_live?: boolean | null
+          is_recurring?: boolean | null
+          jitsi_room?: string | null
+          pastor_name?: string | null
+          recording_duration?: number | null
+          recording_url?: string | null
+          recurrence_day?: number | null
+          recurrence_pattern?: string | null
+          scripture?: string | null
+          series_name?: string | null
+          start_time: string
+          stream_provider?: string | null
+          stream_url?: string | null
+          tenant_id: string
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          viewer_count?: number | null
+        }
+        Update: {
+          chat_enabled?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          ended_at?: string | null
+          id?: string
+          is_live?: boolean | null
+          is_recurring?: boolean | null
+          jitsi_room?: string | null
+          pastor_name?: string | null
+          recording_duration?: number | null
+          recording_url?: string | null
+          recurrence_day?: number | null
+          recurrence_pattern?: string | null
+          scripture?: string | null
+          series_name?: string | null
+          start_time?: string
+          stream_provider?: string | null
+          stream_url?: string | null
+          tenant_id?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          viewer_count?: number | null
+        }
+        Relationships: []
       }
       livestreams: {
         Row: {
@@ -5110,50 +3197,6 @@ export type Database = {
           },
         ]
       }
-      media_categories: {
-        Row: {
-          color: string
-          created_at: string | null
-          description: string | null
-          id: string
-          name: string
-          sort_order: number | null
-          status: string
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          color?: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          name: string
-          sort_order?: number | null
-          status?: string
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          color?: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          name?: string
-          sort_order?: number | null
-          status?: string
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "media_categories_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       media_folders: {
         Row: {
           created_at: string | null
@@ -5262,8 +3305,6 @@ export type Database = {
           id: string
           meeting_id: string
           status: string | null
-          task_description: string | null
-          tenant_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -5274,8 +3315,6 @@ export type Database = {
           id?: string
           meeting_id: string
           status?: string | null
-          task_description?: string | null
-          tenant_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -5286,8 +3325,6 @@ export type Database = {
           id?: string
           meeting_id?: string
           status?: string | null
-          task_description?: string | null
-          tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -5296,139 +3333,22 @@ export type Database = {
         Row: {
           attendance_status: string | null
           id: string
-          is_present: boolean | null
           meeting_id: string
           member_id: string
-          tenant_id: string | null
         }
         Insert: {
           attendance_status?: string | null
           id?: string
-          is_present?: boolean | null
           meeting_id: string
           member_id: string
-          tenant_id?: string | null
         }
         Update: {
           attendance_status?: string | null
           id?: string
-          is_present?: boolean | null
           meeting_id?: string
           member_id?: string
-          tenant_id?: string | null
         }
         Relationships: []
-      }
-      meeting_decisions: {
-        Row: {
-          created_at: string | null
-          decision_text: string
-          id: string
-          meeting_id: string
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          decision_text?: string
-          id?: string
-          meeting_id: string
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          decision_text?: string
-          id?: string
-          meeting_id?: string
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meeting_decisions_meeting_id_fkey"
-            columns: ["meeting_id"]
-            isOneToOne: false
-            referencedRelation: "board_meetings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      meeting_minutes: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          meeting_id: string
-          minutes_text: string | null
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          meeting_id: string
-          minutes_text?: string | null
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          meeting_id?: string
-          minutes_text?: string | null
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meeting_minutes_meeting_id_fkey"
-            columns: ["meeting_id"]
-            isOneToOne: false
-            referencedRelation: "board_meetings"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      member_permission_overrides: {
-        Row: {
-          access_level: string
-          created_at: string
-          feature: string
-          id: string
-          member_id: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          access_level?: string
-          created_at?: string
-          feature: string
-          id?: string
-          member_id: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          access_level?: string
-          created_at?: string
-          feature?: string
-          id?: string
-          member_id?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "member_permission_overrides_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       member_request_notes: {
         Row: {
@@ -5508,6 +3428,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "member_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_requests_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "member_requests_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -5516,174 +3450,117 @@ export type Database = {
           },
         ]
       }
-      member_sessions: {
-        Row: {
-          created_at: string | null
-          expires_at: string
-          id: string
-          member_id: string
-          session_token: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          expires_at: string
-          id?: string
-          member_id: string
-          session_token: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string | null
-          expires_at?: string
-          id?: string
-          member_id?: string
-          session_token?: string
-          tenant_id?: string
-        }
-        Relationships: []
-      }
       members: {
         Row: {
+          address: string | null
           avatar_url: string | null
           baptism_date: string | null
           baptized: boolean | null
           city: string | null
-          communication_prefs: Json | null
           country: string | null
-          created_at: string
-          custom_fields: Json | null
+          created_at: string | null
           date_of_birth: string | null
           department: string | null
           discipleship_stage: string | null
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
-          emergency_contact_relationship: string | null
           family_id: string | null
-          first_name: string | null
+          first_name: string
           gender: string | null
           id: string
           id_number: string | null
-          is_counselor: boolean | null
           join_date: string | null
-          last_name: string | null
-          marital_status:
-            | Database["public"]["Enums"]["marital_status_enum"]
-            | null
+          last_name: string
+          marital_status: string | null
           member_type: string | null
-          membership_number: string
+          membership_number: string | null
           membership_status: string | null
           nationality: string | null
           notes: string | null
           occupation: string | null
-          pastoral_notes: string | null
           phone: string | null
-          portal_last_seen: string | null
-          postal_code: string | null
           registration_source: string | null
-          salvation_date: string | null
           secondary_phone: string | null
           skills: string[] | null
-          state: string | null
           status: string | null
-          street: string | null
           tenant_id: string
-          updated_at: string
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
           baptism_date?: string | null
           baptized?: boolean | null
           city?: string | null
-          communication_prefs?: Json | null
           country?: string | null
-          created_at: string
-          custom_fields?: Json | null
+          created_at?: string | null
           date_of_birth?: string | null
           department?: string | null
           discipleship_stage?: string | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
-          emergency_contact_relationship?: string | null
           family_id?: string | null
-          first_name?: string | null
-          gender?: string | null
-          id: string
-          id_number?: string | null
-          is_counselor?: boolean | null
-          join_date?: string | null
-          last_name?: string | null
-          marital_status?:
-            | Database["public"]["Enums"]["marital_status_enum"]
-            | null
-          member_type?: string | null
-          membership_number: string
-          membership_status?: string | null
-          nationality?: string | null
-          notes?: string | null
-          occupation?: string | null
-          pastoral_notes?: string | null
-          phone?: string | null
-          portal_last_seen?: string | null
-          postal_code?: string | null
-          registration_source?: string | null
-          salvation_date?: string | null
-          secondary_phone?: string | null
-          skills?: string[] | null
-          state?: string | null
-          status?: string | null
-          street?: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Update: {
-          avatar_url?: string | null
-          baptism_date?: string | null
-          baptized?: boolean | null
-          city?: string | null
-          communication_prefs?: Json | null
-          country?: string | null
-          created_at?: string
-          custom_fields?: Json | null
-          date_of_birth?: string | null
-          department?: string | null
-          discipleship_stage?: string | null
-          email?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relationship?: string | null
-          family_id?: string | null
-          first_name?: string | null
+          first_name: string
           gender?: string | null
           id?: string
           id_number?: string | null
-          is_counselor?: boolean | null
           join_date?: string | null
-          last_name?: string | null
-          marital_status?:
-            | Database["public"]["Enums"]["marital_status_enum"]
-            | null
+          last_name: string
+          marital_status?: string | null
           member_type?: string | null
-          membership_number?: string
+          membership_number?: string | null
           membership_status?: string | null
           nationality?: string | null
           notes?: string | null
           occupation?: string | null
-          pastoral_notes?: string | null
           phone?: string | null
-          portal_last_seen?: string | null
-          postal_code?: string | null
           registration_source?: string | null
-          salvation_date?: string | null
           secondary_phone?: string | null
           skills?: string[] | null
-          state?: string | null
           status?: string | null
-          street?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          avatar_url?: string | null
+          baptism_date?: string | null
+          baptized?: boolean | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          department?: string | null
+          discipleship_stage?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          family_id?: string | null
+          first_name?: string
+          gender?: string | null
+          id?: string
+          id_number?: string | null
+          join_date?: string | null
+          last_name?: string
+          marital_status?: string | null
+          member_type?: string | null
+          membership_number?: string | null
+          membership_status?: string | null
+          nationality?: string | null
+          notes?: string | null
+          occupation?: string | null
+          phone?: string | null
+          registration_source?: string | null
+          secondary_phone?: string | null
+          skills?: string[] | null
+          status?: string | null
           tenant_id?: string
-          updated_at?: string
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -5700,67 +3577,66 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       messages: {
         Row: {
-          attachment_name: string | null
-          attachment_type: string | null
-          attachment_url: string | null
           body: string
-          conversation_id: string | null
           created_at: string | null
           group_id: string | null
           id: string
           is_read: boolean | null
-          read_at: string | null
           recipient_id: string | null
           sender_id: string
           tenant_id: string
         }
         Insert: {
-          attachment_name?: string | null
-          attachment_type?: string | null
-          attachment_url?: string | null
           body: string
-          conversation_id?: string | null
           created_at?: string | null
           group_id?: string | null
           id?: string
           is_read?: boolean | null
-          read_at?: string | null
           recipient_id?: string | null
           sender_id: string
           tenant_id: string
         }
         Update: {
-          attachment_name?: string | null
-          attachment_type?: string | null
-          attachment_url?: string | null
           body?: string
-          conversation_id?: string | null
           created_at?: string | null
           group_id?: string | null
           id?: string
           is_read?: boolean | null
-          read_at?: string | null
           recipient_id?: string | null
           sender_id?: string
           tenant_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "messages_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -5776,73 +3652,63 @@ export type Database = {
         Row: {
           baptism_date: string | null
           baptism_status: string | null
-          conversion_date: string | null
           counsellor_id: string | null
-          counsellor_name: string | null
           created_at: string | null
           discipleship_stage: string | null
-          email: string | null
-          first_name: string | null
           graduated_at: string | null
-          graduation_date: string | null
           id: string
-          last_name: string | null
           member_id: string | null
           mentor_id: string | null
           notes: string | null
-          phone: string | null
           salvation_date: string | null
           tenant_id: string
-          updated_at: string | null
           visitor_id: string | null
         }
         Insert: {
           baptism_date?: string | null
           baptism_status?: string | null
-          conversion_date?: string | null
           counsellor_id?: string | null
-          counsellor_name?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
-          email?: string | null
-          first_name?: string | null
           graduated_at?: string | null
-          graduation_date?: string | null
           id?: string
-          last_name?: string | null
           member_id?: string | null
           mentor_id?: string | null
           notes?: string | null
-          phone?: string | null
           salvation_date?: string | null
           tenant_id: string
-          updated_at?: string | null
           visitor_id?: string | null
         }
         Update: {
           baptism_date?: string | null
           baptism_status?: string | null
-          conversion_date?: string | null
           counsellor_id?: string | null
-          counsellor_name?: string | null
           created_at?: string | null
           discipleship_stage?: string | null
-          email?: string | null
-          first_name?: string | null
           graduated_at?: string | null
-          graduation_date?: string | null
           id?: string
-          last_name?: string | null
           member_id?: string | null
           mentor_id?: string | null
           notes?: string | null
-          phone?: string | null
           salvation_date?: string | null
           tenant_id?: string
-          updated_at?: string | null
           visitor_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "new_converts_counsellor_id_fkey"
+            columns: ["counsellor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "new_converts_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "new_converts_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -5861,15 +3727,20 @@ export type Database = {
       }
       notification_preferences: {
         Row: {
+          email_giving_receipts: boolean | null
           email_member_request: boolean | null
           email_new_donation: boolean | null
           email_new_event: boolean | null
           email_new_member: boolean | null
           email_new_visitor: boolean | null
           email_weekly_digest: boolean | null
+          email_weekly_digest_member: boolean | null
           email_weekly_summary: boolean | null
           id: string
+          inapp_announcements: boolean | null
+          inapp_event_reminders: boolean | null
           inapp_member_request: boolean | null
+          inapp_messages: boolean | null
           inapp_new_donation: boolean | null
           inapp_new_event: boolean | null
           inapp_new_member: boolean | null
@@ -5880,15 +3751,20 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          email_giving_receipts?: boolean | null
           email_member_request?: boolean | null
           email_new_donation?: boolean | null
           email_new_event?: boolean | null
           email_new_member?: boolean | null
           email_new_visitor?: boolean | null
           email_weekly_digest?: boolean | null
+          email_weekly_digest_member?: boolean | null
           email_weekly_summary?: boolean | null
           id?: string
+          inapp_announcements?: boolean | null
+          inapp_event_reminders?: boolean | null
           inapp_member_request?: boolean | null
+          inapp_messages?: boolean | null
           inapp_new_donation?: boolean | null
           inapp_new_event?: boolean | null
           inapp_new_member?: boolean | null
@@ -5899,15 +3775,20 @@ export type Database = {
           user_id: string
         }
         Update: {
+          email_giving_receipts?: boolean | null
           email_member_request?: boolean | null
           email_new_donation?: boolean | null
           email_new_event?: boolean | null
           email_new_member?: boolean | null
           email_new_visitor?: boolean | null
           email_weekly_digest?: boolean | null
+          email_weekly_digest_member?: boolean | null
           email_weekly_summary?: boolean | null
           id?: string
+          inapp_announcements?: boolean | null
+          inapp_event_reminders?: boolean | null
           inapp_member_request?: boolean | null
+          inapp_messages?: boolean | null
           inapp_new_donation?: boolean | null
           inapp_new_event?: boolean | null
           inapp_new_member?: boolean | null
@@ -5933,8 +3814,6 @@ export type Database = {
           created_at: string | null
           id: string
           is_read: boolean | null
-          link: string | null
-          task_id: string | null
           tenant_id: string
           title: string
           type: string | null
@@ -5945,8 +3824,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_read?: boolean | null
-          link?: string | null
-          task_id?: string | null
           tenant_id: string
           title: string
           type?: string | null
@@ -5957,8 +3834,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_read?: boolean | null
-          link?: string | null
-          task_id?: string | null
           tenant_id?: string
           title?: string
           type?: string | null
@@ -5966,17 +3841,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "notifications_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "follow_up_tasks"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "notifications_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -6432,20 +4307,11 @@ export type Database = {
       payroll_staff: {
         Row: {
           account_number: string | null
-          annual_leave_days: number | null
           bank_name: string | null
-          contract_renewal_date: string | null
           created_at: string | null
-          custom_position: string | null
           deductions: Json | null
-          department: string | null
-          emergency_contact_name: string | null
-          emergency_contact_phone: string | null
-          emergency_relationship: string | null
           employment_type: string | null
-          end_date: string | null
           gross_salary: number
-          health_insurance: boolean | null
           id: string
           job_title: string | null
           member_id: string | null
@@ -6453,37 +4319,19 @@ export type Database = {
           net_salary: number
           notes: string | null
           pay_frequency: string | null
-          payment_day: number | null
           payment_method: string | null
-          pension_contribution: boolean | null
-          probation_end_date: string | null
-          routing_number: string | null
-          sick_leave_days: number | null
-          staff_id_number: string | null
           start_date: string | null
           status: string | null
-          supervisor_id: string | null
-          tax_id: string | null
           tenant_id: string
           updated_at: string | null
-          work_days: string[] | null
         }
         Insert: {
           account_number?: string | null
-          annual_leave_days?: number | null
           bank_name?: string | null
-          contract_renewal_date?: string | null
           created_at?: string | null
-          custom_position?: string | null
           deductions?: Json | null
-          department?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_relationship?: string | null
           employment_type?: string | null
-          end_date?: string | null
           gross_salary: number
-          health_insurance?: boolean | null
           id?: string
           job_title?: string | null
           member_id?: string | null
@@ -6491,37 +4339,19 @@ export type Database = {
           net_salary: number
           notes?: string | null
           pay_frequency?: string | null
-          payment_day?: number | null
           payment_method?: string | null
-          pension_contribution?: boolean | null
-          probation_end_date?: string | null
-          routing_number?: string | null
-          sick_leave_days?: number | null
-          staff_id_number?: string | null
           start_date?: string | null
           status?: string | null
-          supervisor_id?: string | null
-          tax_id?: string | null
           tenant_id: string
           updated_at?: string | null
-          work_days?: string[] | null
         }
         Update: {
           account_number?: string | null
-          annual_leave_days?: number | null
           bank_name?: string | null
-          contract_renewal_date?: string | null
           created_at?: string | null
-          custom_position?: string | null
           deductions?: Json | null
-          department?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_relationship?: string | null
           employment_type?: string | null
-          end_date?: string | null
           gross_salary?: number
-          health_insurance?: boolean | null
           id?: string
           job_title?: string | null
           member_id?: string | null
@@ -6529,89 +4359,50 @@ export type Database = {
           net_salary?: number
           notes?: string | null
           pay_frequency?: string | null
-          payment_day?: number | null
           payment_method?: string | null
-          pension_contribution?: boolean | null
-          probation_end_date?: string | null
-          routing_number?: string | null
-          sick_leave_days?: number | null
-          staff_id_number?: string | null
           start_date?: string | null
           status?: string | null
-          supervisor_id?: string | null
-          tax_id?: string | null
           tenant_id?: string
           updated_at?: string | null
-          work_days?: string[] | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "payroll_staff_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payroll_staff_supervisor_id_fkey"
-            columns: ["supervisor_id"]
-            isOneToOne: false
-            referencedRelation: "payroll_staff"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       pledge_campaigns: {
         Row: {
-          allow_anonymous: boolean | null
-          category: string | null
           created_at: string | null
           created_by: string | null
           currency: string | null
           description: string | null
           end_date: string | null
           id: string
-          image_url: string | null
           name: string
           start_date: string | null
-          status: string | null
           target_amount: number | null
           tenant_id: string
-          updated_at: string | null
         }
         Insert: {
-          allow_anonymous?: boolean | null
-          category?: string | null
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
-          image_url?: string | null
           name: string
           start_date?: string | null
-          status?: string | null
           target_amount?: number | null
           tenant_id: string
-          updated_at?: string | null
         }
         Update: {
-          allow_anonymous?: boolean | null
-          category?: string | null
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
-          image_url?: string | null
           name?: string
           start_date?: string | null
-          status?: string | null
           target_amount?: number | null
           tenant_id?: string
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -6635,55 +4426,40 @@ export type Database = {
           campaign_id: string
           committed_amount: number
           created_at: string | null
-          donor_name: string | null
           fulfilled_amount: number | null
           id: string
-          is_anonymous: boolean | null
           member_id: string
-          notes: string | null
           payment_schedule:
             | Database["public"]["Enums"]["payment_schedule_enum"]
             | null
-          pledge_date: string | null
           status: Database["public"]["Enums"]["pledge_status_enum"] | null
           tenant_id: string
-          updated_at: string | null
         }
         Insert: {
           campaign_id: string
           committed_amount: number
           created_at?: string | null
-          donor_name?: string | null
           fulfilled_amount?: number | null
           id?: string
-          is_anonymous?: boolean | null
           member_id: string
-          notes?: string | null
           payment_schedule?:
             | Database["public"]["Enums"]["payment_schedule_enum"]
             | null
-          pledge_date?: string | null
           status?: Database["public"]["Enums"]["pledge_status_enum"] | null
           tenant_id: string
-          updated_at?: string | null
         }
         Update: {
           campaign_id?: string
           committed_amount?: number
           created_at?: string | null
-          donor_name?: string | null
           fulfilled_amount?: number | null
           id?: string
-          is_anonymous?: boolean | null
           member_id?: string
-          notes?: string | null
           payment_schedule?:
             | Database["public"]["Enums"]["payment_schedule_enum"]
             | null
-          pledge_date?: string | null
           status?: Database["public"]["Enums"]["pledge_status_enum"] | null
           tenant_id?: string
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -6763,328 +4539,6 @@ export type Database = {
           },
         ]
       }
-      quiz_answers: {
-        Row: {
-          answer_given: string | null
-          answered_at: string | null
-          id: string
-          is_correct: boolean | null
-          participant_id: string
-          points_earned: number | null
-          question_index: number
-          session_id: string
-          time_taken_ms: number | null
-        }
-        Insert: {
-          answer_given?: string | null
-          answered_at?: string | null
-          id?: string
-          is_correct?: boolean | null
-          participant_id: string
-          points_earned?: number | null
-          question_index: number
-          session_id: string
-          time_taken_ms?: number | null
-        }
-        Update: {
-          answer_given?: string | null
-          answered_at?: string | null
-          id?: string
-          is_correct?: boolean | null
-          participant_id?: string
-          points_earned?: number | null
-          question_index?: number
-          session_id?: string
-          time_taken_ms?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_answers_participant_id_fkey"
-            columns: ["participant_id"]
-            isOneToOne: false
-            referencedRelation: "quiz_participants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quiz_answers_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "quiz_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quiz_events: {
-        Row: {
-          created_at: string | null
-          event_type: string
-          id: string
-          payload: Json | null
-          session_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          event_type: string
-          id?: string
-          payload?: Json | null
-          session_id: string
-        }
-        Update: {
-          created_at?: string | null
-          event_type?: string
-          id?: string
-          payload?: Json | null
-          session_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_events_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "quiz_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quiz_participants: {
-        Row: {
-          avatar_emoji: string | null
-          coins: number | null
-          display_name: string
-          id: string
-          is_host: boolean | null
-          joined_at: string | null
-          rank: number | null
-          score: number | null
-          session_id: string
-          streak: number | null
-          tenant_id: string
-          user_id: string | null
-        }
-        Insert: {
-          avatar_emoji?: string | null
-          coins?: number | null
-          display_name: string
-          id?: string
-          is_host?: boolean | null
-          joined_at?: string | null
-          rank?: number | null
-          score?: number | null
-          session_id: string
-          streak?: number | null
-          tenant_id: string
-          user_id?: string | null
-        }
-        Update: {
-          avatar_emoji?: string | null
-          coins?: number | null
-          display_name?: string
-          id?: string
-          is_host?: boolean | null
-          joined_at?: string | null
-          rank?: number | null
-          score?: number | null
-          session_id?: string
-          streak?: number | null
-          tenant_id?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_participants_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "quiz_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quiz_participants_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quiz_participants_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quiz_sessions: {
-        Row: {
-          confetti_enabled: boolean | null
-          created_at: string | null
-          current_question_index: number | null
-          ended_at: string | null
-          host_user_id: string | null
-          id: string
-          join_code: string
-          join_url: string | null
-          music_enabled: boolean | null
-          quiz_id: string
-          settings: Json | null
-          started_at: string | null
-          status: string | null
-          tenant_id: string
-          theme: string | null
-        }
-        Insert: {
-          confetti_enabled?: boolean | null
-          created_at?: string | null
-          current_question_index?: number | null
-          ended_at?: string | null
-          host_user_id?: string | null
-          id?: string
-          join_code: string
-          join_url?: string | null
-          music_enabled?: boolean | null
-          quiz_id: string
-          settings?: Json | null
-          started_at?: string | null
-          status?: string | null
-          tenant_id: string
-          theme?: string | null
-        }
-        Update: {
-          confetti_enabled?: boolean | null
-          created_at?: string | null
-          current_question_index?: number | null
-          ended_at?: string | null
-          host_user_id?: string | null
-          id?: string
-          join_code?: string
-          join_url?: string | null
-          music_enabled?: boolean | null
-          quiz_id?: string
-          settings?: Json | null
-          started_at?: string | null
-          status?: string | null
-          tenant_id?: string
-          theme?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quiz_sessions_host_user_id_fkey"
-            columns: ["host_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quiz_sessions_quiz_id_fkey"
-            columns: ["quiz_id"]
-            isOneToOne: false
-            referencedRelation: "quizzes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quiz_sessions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quizzes: {
-        Row: {
-          allow_doc_reading: boolean | null
-          created_at: string | null
-          dok_levels: string[] | null
-          grade_level: string | null
-          id: string
-          language: string | null
-          num_questions: number | null
-          question_types: string[] | null
-          questions: Json | null
-          source_file_name: string | null
-          status: string | null
-          tenant_id: string
-          title: string
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          allow_doc_reading?: boolean | null
-          created_at?: string | null
-          dok_levels?: string[] | null
-          grade_level?: string | null
-          id?: string
-          language?: string | null
-          num_questions?: number | null
-          question_types?: string[] | null
-          questions?: Json | null
-          source_file_name?: string | null
-          status?: string | null
-          tenant_id: string
-          title?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          allow_doc_reading?: boolean | null
-          created_at?: string | null
-          dok_levels?: string[] | null
-          grade_level?: string | null
-          id?: string
-          language?: string | null
-          num_questions?: number | null
-          question_types?: string[] | null
-          questions?: Json | null
-          source_file_name?: string | null
-          status?: string | null
-          tenant_id?: string
-          title?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quizzes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quizzes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      reading_progress: {
-        Row: {
-          book_id: string
-          chapter: number
-          id: string
-          member_id: string
-          read_at: string | null
-          tenant_id: string
-        }
-        Insert: {
-          book_id: string
-          chapter: number
-          id?: string
-          member_id: string
-          read_at?: string | null
-          tenant_id: string
-        }
-        Update: {
-          book_id?: string
-          chapter?: number
-          id?: string
-          member_id?: string
-          read_at?: string | null
-          tenant_id?: string
-        }
-        Relationships: []
-      }
       resource_assignments: {
         Row: {
           assigned_at: string | null
@@ -7140,35 +4594,6 @@ export type Database = {
           },
           {
             foreignKeyName: "resource_assignments_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      resource_categories: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "resource_categories_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -7432,210 +4857,6 @@ export type Database = {
           },
         ]
       }
-      sermon_archives: {
-        Row: {
-          category: string
-          created_at: string | null
-          description: string | null
-          extracted_text: string | null
-          file_name: string | null
-          file_size: number | null
-          file_url: string | null
-          id: string
-          preacher: string | null
-          scripture_references: string | null
-          sermon_date: string | null
-          status: string | null
-          storage_path: string | null
-          tags: string | null
-          tenant_id: string
-          title: string
-          updated_at: string | null
-          uploaded_by: string | null
-        }
-        Insert: {
-          category?: string
-          created_at?: string | null
-          description?: string | null
-          extracted_text?: string | null
-          file_name?: string | null
-          file_size?: number | null
-          file_url?: string | null
-          id?: string
-          preacher?: string | null
-          scripture_references?: string | null
-          sermon_date?: string | null
-          status?: string | null
-          storage_path?: string | null
-          tags?: string | null
-          tenant_id: string
-          title: string
-          updated_at?: string | null
-          uploaded_by?: string | null
-        }
-        Update: {
-          category?: string
-          created_at?: string | null
-          description?: string | null
-          extracted_text?: string | null
-          file_name?: string | null
-          file_size?: number | null
-          file_url?: string | null
-          id?: string
-          preacher?: string | null
-          scripture_references?: string | null
-          sermon_date?: string | null
-          status?: string | null
-          storage_path?: string | null
-          tags?: string | null
-          tenant_id?: string
-          title?: string
-          updated_at?: string | null
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sermon_archives_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sermon_archives_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sermon_bookmarks: {
-        Row: {
-          created_at: string | null
-          id: string
-          member_id: string
-          sermon_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          member_id: string
-          sermon_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          member_id?: string
-          sermon_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sermon_bookmarks_sermon_id_fkey"
-            columns: ["sermon_id"]
-            isOneToOne: false
-            referencedRelation: "sermons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sermon_bookmarks_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sermon_notes: {
-        Row: {
-          created_at: string | null
-          id: string
-          member_id: string
-          notes_content: string | null
-          sermon_id: string
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          member_id: string
-          notes_content?: string | null
-          sermon_id: string
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          member_id?: string
-          notes_content?: string | null
-          sermon_id?: string
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sermon_notes_sermon_id_fkey"
-            columns: ["sermon_id"]
-            isOneToOne: false
-            referencedRelation: "sermons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sermon_notes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sermon_reactions: {
-        Row: {
-          created_at: string | null
-          id: string
-          member_id: string
-          reaction_type: string
-          sermon_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          member_id: string
-          reaction_type: string
-          sermon_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          member_id?: string
-          reaction_type?: string
-          sermon_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sermon_reactions_sermon_id_fkey"
-            columns: ["sermon_id"]
-            isOneToOne: false
-            referencedRelation: "sermons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sermon_reactions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       sermon_series: {
         Row: {
           cover_image_url: string | null
@@ -7683,159 +4904,48 @@ export type Database = {
           },
         ]
       }
-      sermon_views: {
-        Row: {
-          id: string
-          member_id: string | null
-          sermon_id: string
-          tenant_id: string
-          viewed_at: string | null
-        }
-        Insert: {
-          id?: string
-          member_id?: string | null
-          sermon_id: string
-          tenant_id: string
-          viewed_at?: string | null
-        }
-        Update: {
-          id?: string
-          member_id?: string | null
-          sermon_id?: string
-          tenant_id?: string
-          viewed_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sermon_views_sermon_id_fkey"
-            columns: ["sermon_id"]
-            isOneToOne: false
-            referencedRelation: "sermons"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sermon_views_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       sermons: {
         Row: {
-          additional_instructions: string | null
-          ai_generated: boolean | null
-          audience: string | null
-          audio_file_path: string | null
           audio_url: string | null
-          author: string | null
-          benediction: string | null
-          closing_prayer: string | null
           created_at: string | null
-          created_by: string | null
-          description: string | null
-          doc_file_path: string | null
-          draft_notes: string | null
-          duration: string | null
           id: string
-          introduction: string | null
-          is_featured: boolean | null
           is_published: boolean | null
-          manuscript: string | null
           notes: string | null
           preacher_id: string | null
           scripture_reference: string | null
           series: string | null
           sermon_date: string | null
-          sermon_type: string | null
-          speaker: string | null
-          status: string | null
-          style: string | null
-          tags: string[] | null
           tenant_id: string
-          thumbnail_path: string | null
-          thumbnail_url: string | null
           title: string
-          updated_at: string | null
           video_url: string | null
-          view_count: number | null
         }
         Insert: {
-          additional_instructions?: string | null
-          ai_generated?: boolean | null
-          audience?: string | null
-          audio_file_path?: string | null
           audio_url?: string | null
-          author?: string | null
-          benediction?: string | null
-          closing_prayer?: string | null
           created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          doc_file_path?: string | null
-          draft_notes?: string | null
-          duration?: string | null
           id?: string
-          introduction?: string | null
-          is_featured?: boolean | null
           is_published?: boolean | null
-          manuscript?: string | null
           notes?: string | null
           preacher_id?: string | null
           scripture_reference?: string | null
           series?: string | null
           sermon_date?: string | null
-          sermon_type?: string | null
-          speaker?: string | null
-          status?: string | null
-          style?: string | null
-          tags?: string[] | null
           tenant_id: string
-          thumbnail_path?: string | null
-          thumbnail_url?: string | null
           title: string
-          updated_at?: string | null
           video_url?: string | null
-          view_count?: number | null
         }
         Update: {
-          additional_instructions?: string | null
-          ai_generated?: boolean | null
-          audience?: string | null
-          audio_file_path?: string | null
           audio_url?: string | null
-          author?: string | null
-          benediction?: string | null
-          closing_prayer?: string | null
           created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          doc_file_path?: string | null
-          draft_notes?: string | null
-          duration?: string | null
           id?: string
-          introduction?: string | null
-          is_featured?: boolean | null
           is_published?: boolean | null
-          manuscript?: string | null
           notes?: string | null
           preacher_id?: string | null
           scripture_reference?: string | null
           series?: string | null
           sermon_date?: string | null
-          sermon_type?: string | null
-          speaker?: string | null
-          status?: string | null
-          style?: string | null
-          tags?: string[] | null
           tenant_id?: string
-          thumbnail_path?: string | null
-          thumbnail_url?: string | null
           title?: string
-          updated_at?: string | null
           video_url?: string | null
-          view_count?: number | null
         }
         Relationships: [
           {
@@ -7854,174 +4964,57 @@ export type Database = {
           },
         ]
       }
-      service_attendance: {
-        Row: {
-          created_at: string
-          id: string
-          member_id: string
-          service_id: string
-          status: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          member_id: string
-          service_id: string
-          status?: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          member_id?: string
-          service_id?: string
-          status?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "service_attendance_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_attendance_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      service_request_types: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          internal_name: string
-          is_active: boolean
-          is_default: boolean
-          label: string
-          sort_order: number
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          internal_name: string
-          is_active?: boolean
-          is_default?: boolean
-          label: string
-          sort_order?: number
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          internal_name?: string
-          is_active?: boolean
-          is_default?: boolean
-          label?: string
-          sort_order?: number
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       services: {
         Row: {
-          actual_attendance: number | null
-          allow_attendance: boolean
           branch_id: string | null
-          color: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           end_time: string | null
-          expected_attendance: number | null
           id: string
           is_recurring: boolean | null
           location: string | null
-          name: string | null
-          notes: string | null
-          order_of_service: Json | null
           parent_service_id: string | null
-          preacher: string | null
           recurrence_rule: string | null
           service_date: string
-          service_leader_id: string | null
           service_type: Database["public"]["Enums"]["service_type_enum"] | null
           start_time: string | null
-          status: string | null
           tenant_id: string
           title: string
-          updated_at: string | null
-          worship_leader_id: string | null
         }
         Insert: {
-          actual_attendance?: number | null
-          allow_attendance?: boolean
           branch_id?: string | null
-          color?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           end_time?: string | null
-          expected_attendance?: number | null
           id?: string
           is_recurring?: boolean | null
           location?: string | null
-          name?: string | null
-          notes?: string | null
-          order_of_service?: Json | null
           parent_service_id?: string | null
-          preacher?: string | null
           recurrence_rule?: string | null
           service_date: string
-          service_leader_id?: string | null
           service_type?: Database["public"]["Enums"]["service_type_enum"] | null
           start_time?: string | null
-          status?: string | null
           tenant_id: string
           title: string
-          updated_at?: string | null
-          worship_leader_id?: string | null
         }
         Update: {
-          actual_attendance?: number | null
-          allow_attendance?: boolean
           branch_id?: string | null
-          color?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           end_time?: string | null
-          expected_attendance?: number | null
           id?: string
           is_recurring?: boolean | null
           location?: string | null
-          name?: string | null
-          notes?: string | null
-          order_of_service?: Json | null
           parent_service_id?: string | null
-          preacher?: string | null
           recurrence_rule?: string | null
           service_date?: string
-          service_leader_id?: string | null
           service_type?: Database["public"]["Enums"]["service_type_enum"] | null
           start_time?: string | null
-          status?: string | null
           tenant_id?: string
           title?: string
-          updated_at?: string | null
-          worship_leader_id?: string | null
         }
         Relationships: [
           {
@@ -8029,6 +5022,13 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -8132,6 +5132,7 @@ export type Database = {
       }
       sms_history: {
         Row: {
+          at_message_id: string | null
           cost: number | null
           created_at: string | null
           currency: string | null
@@ -8141,12 +5142,14 @@ export type Database = {
           is_test: boolean | null
           message: string
           recipient_count: number | null
-          scheduled_at: string | null
+          recipients: Json | null
           sent_at: string | null
           status: string | null
           tenant_id: string
+          updated_at: string | null
         }
         Insert: {
+          at_message_id?: string | null
           cost?: number | null
           created_at?: string | null
           currency?: string | null
@@ -8156,12 +5159,14 @@ export type Database = {
           is_test?: boolean | null
           message: string
           recipient_count?: number | null
-          scheduled_at?: string | null
+          recipients?: Json | null
           sent_at?: string | null
           status?: string | null
           tenant_id: string
+          updated_at?: string | null
         }
         Update: {
+          at_message_id?: string | null
           cost?: number | null
           created_at?: string | null
           currency?: string | null
@@ -8171,10 +5176,11 @@ export type Database = {
           is_test?: boolean | null
           message?: string
           recipient_count?: number | null
-          scheduled_at?: string | null
+          recipients?: Json | null
           sent_at?: string | null
           status?: string | null
           tenant_id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -8186,91 +5192,37 @@ export type Database = {
           },
         ]
       }
-      sms_recipients: {
-        Row: {
-          at_message_id: string | null
-          created_at: string | null
-          delivered_at: string | null
-          failure_reason: string | null
-          id: string
-          network_code: string | null
-          phone_number: string
-          retry_count: number | null
-          sms_history_id: string
-          status: string | null
-          tenant_id: string
-        }
-        Insert: {
-          at_message_id?: string | null
-          created_at?: string | null
-          delivered_at?: string | null
-          failure_reason?: string | null
-          id?: string
-          network_code?: string | null
-          phone_number: string
-          retry_count?: number | null
-          sms_history_id: string
-          status?: string | null
-          tenant_id: string
-        }
-        Update: {
-          at_message_id?: string | null
-          created_at?: string | null
-          delivered_at?: string | null
-          failure_reason?: string | null
-          id?: string
-          network_code?: string | null
-          phone_number?: string
-          retry_count?: number | null
-          sms_history_id?: string
-          status?: string | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sms_recipients_sms_history_id_fkey"
-            columns: ["sms_history_id"]
-            isOneToOne: false
-            referencedRelation: "sms_history"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sms_recipients_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       sms_settings: {
         Row: {
           at_api_key: string | null
-          at_sender_id: string | null
           at_username: string | null
           created_at: string | null
           id: string
+          is_active: boolean | null
           is_configured: boolean | null
+          sender_id: string | null
           tenant_id: string
           updated_at: string | null
         }
         Insert: {
           at_api_key?: string | null
-          at_sender_id?: string | null
           at_username?: string | null
           created_at?: string | null
           id?: string
+          is_active?: boolean | null
           is_configured?: boolean | null
+          sender_id?: string | null
           tenant_id: string
           updated_at?: string | null
         }
         Update: {
           at_api_key?: string | null
-          at_sender_id?: string | null
           at_username?: string | null
           created_at?: string | null
           id?: string
+          is_active?: boolean | null
           is_configured?: boolean | null
+          sender_id?: string | null
           tenant_id?: string
           updated_at?: string | null
         }
@@ -8286,41 +5238,50 @@ export type Database = {
       }
       sms_templates: {
         Row: {
-          body: string
-          category_id: string | null
+          category: string | null
           created_at: string | null
+          created_by: string | null
           id: string
           is_active: boolean | null
-          is_system: boolean | null
+          message: string
           name: string
           tenant_id: string
+          updated_at: string | null
+          usage_count: number | null
+          variables: Json | null
         }
         Insert: {
-          body: string
-          category_id?: string | null
+          category?: string | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
           is_active?: boolean | null
-          is_system?: boolean | null
+          message: string
           name: string
           tenant_id: string
+          updated_at?: string | null
+          usage_count?: number | null
+          variables?: Json | null
         }
         Update: {
-          body?: string
-          category_id?: string | null
+          category?: string | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
           is_active?: boolean | null
-          is_system?: boolean | null
+          message?: string
           name?: string
           tenant_id?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          variables?: Json | null
         }
         Relationships: [
           {
-            foreignKeyName: "sms_templates_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "sms_templates_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "email_categories"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -8335,7 +5296,6 @@ export type Database = {
       songs: {
         Row: {
           artist: string | null
-          chord_sheet_path: string | null
           chords: string | null
           created_at: string | null
           id: string
@@ -8345,12 +5305,9 @@ export type Database = {
           tempo: number | null
           tenant_id: string
           title: string
-          updated_at: string | null
-          video_url: string | null
         }
         Insert: {
           artist?: string | null
-          chord_sheet_path?: string | null
           chords?: string | null
           created_at?: string | null
           id?: string
@@ -8360,12 +5317,9 @@ export type Database = {
           tempo?: number | null
           tenant_id: string
           title: string
-          updated_at?: string | null
-          video_url?: string | null
         }
         Update: {
           artist?: string | null
-          chord_sheet_path?: string | null
           chords?: string | null
           created_at?: string | null
           id?: string
@@ -8375,561 +5329,10 @@ export type Database = {
           tempo?: number | null
           tenant_id?: string
           title?: string
-          updated_at?: string | null
-          video_url?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "songs_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_absences: {
-        Row: {
-          absence_date: string
-          created_at: string | null
-          id: string
-          notes: string | null
-          reason: string | null
-          staff_id: string
-          status: string
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          absence_date: string
-          created_at?: string | null
-          id?: string
-          notes?: string | null
-          reason?: string | null
-          staff_id: string
-          status?: string
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          absence_date?: string
-          created_at?: string | null
-          id?: string
-          notes?: string | null
-          reason?: string | null
-          staff_id?: string
-          status?: string
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_absences_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "payroll_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_absences_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_leave_balances: {
-        Row: {
-          annual_leave_total: number | null
-          annual_leave_used: number | null
-          compassionate_leave_total: number | null
-          compassionate_leave_used: number | null
-          created_at: string | null
-          id: string
-          maternity_leave_total: number | null
-          maternity_leave_used: number | null
-          paternity_leave_total: number | null
-          paternity_leave_used: number | null
-          sick_leave_total: number | null
-          sick_leave_used: number | null
-          staff_id: string
-          tenant_id: string
-          unpaid_leave_used: number | null
-          updated_at: string | null
-          year: number
-        }
-        Insert: {
-          annual_leave_total?: number | null
-          annual_leave_used?: number | null
-          compassionate_leave_total?: number | null
-          compassionate_leave_used?: number | null
-          created_at?: string | null
-          id?: string
-          maternity_leave_total?: number | null
-          maternity_leave_used?: number | null
-          paternity_leave_total?: number | null
-          paternity_leave_used?: number | null
-          sick_leave_total?: number | null
-          sick_leave_used?: number | null
-          staff_id: string
-          tenant_id: string
-          unpaid_leave_used?: number | null
-          updated_at?: string | null
-          year?: number
-        }
-        Update: {
-          annual_leave_total?: number | null
-          annual_leave_used?: number | null
-          compassionate_leave_total?: number | null
-          compassionate_leave_used?: number | null
-          created_at?: string | null
-          id?: string
-          maternity_leave_total?: number | null
-          maternity_leave_used?: number | null
-          paternity_leave_total?: number | null
-          paternity_leave_used?: number | null
-          sick_leave_total?: number | null
-          sick_leave_used?: number | null
-          staff_id?: string
-          tenant_id?: string
-          unpaid_leave_used?: number | null
-          updated_at?: string | null
-          year?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_leave_balances_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "payroll_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_leave_balances_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_leave_requests: {
-        Row: {
-          approved_at: string | null
-          approved_by: string | null
-          cover_notes: string | null
-          cover_staff_id: string | null
-          created_at: string | null
-          duration_days: number | null
-          end_date: string
-          id: string
-          leave_type: string
-          reason: string | null
-          staff_id: string
-          start_date: string
-          status: string
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
-          cover_notes?: string | null
-          cover_staff_id?: string | null
-          created_at?: string | null
-          duration_days?: number | null
-          end_date: string
-          id?: string
-          leave_type: string
-          reason?: string | null
-          staff_id: string
-          start_date: string
-          status?: string
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          approved_at?: string | null
-          approved_by?: string | null
-          cover_notes?: string | null
-          cover_staff_id?: string | null
-          created_at?: string | null
-          duration_days?: number | null
-          end_date?: string
-          id?: string
-          leave_type?: string
-          reason?: string | null
-          staff_id?: string
-          start_date?: string
-          status?: string
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_leave_requests_cover_staff_id_fkey"
-            columns: ["cover_staff_id"]
-            isOneToOne: false
-            referencedRelation: "payroll_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_leave_requests_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "payroll_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_leave_requests_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_payroll: {
-        Row: {
-          allowances: number
-          basic_salary: number
-          created_at: string | null
-          deductions: number
-          id: string
-          month: number
-          net_salary: number | null
-          notes: string | null
-          payment_date: string | null
-          payment_method: string | null
-          reference: string | null
-          staff_id: string
-          status: string
-          tenant_id: string
-          updated_at: string | null
-          year: number
-        }
-        Insert: {
-          allowances?: number
-          basic_salary?: number
-          created_at?: string | null
-          deductions?: number
-          id?: string
-          month: number
-          net_salary?: number | null
-          notes?: string | null
-          payment_date?: string | null
-          payment_method?: string | null
-          reference?: string | null
-          staff_id: string
-          status?: string
-          tenant_id: string
-          updated_at?: string | null
-          year: number
-        }
-        Update: {
-          allowances?: number
-          basic_salary?: number
-          created_at?: string | null
-          deductions?: number
-          id?: string
-          month?: number
-          net_salary?: number | null
-          notes?: string | null
-          payment_date?: string | null
-          payment_method?: string | null
-          reference?: string | null
-          staff_id?: string
-          status?: string
-          tenant_id?: string
-          updated_at?: string | null
-          year?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_payroll_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "payroll_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_payroll_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_positions: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          name: string
-          org_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          org_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          org_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      staff_tasks: {
-        Row: {
-          assigned_to: string
-          created_at: string
-          description: string | null
-          due_date: string | null
-          id: string
-          org_id: string
-          priority: string
-          status: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          assigned_to: string
-          created_at?: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          org_id: string
-          priority?: string
-          status?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          assigned_to?: string
-          created_at?: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          org_id?: string
-          priority?: string
-          status?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "payroll_staff"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      storage_plans: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          features: Json | null
-          id: string
-          name: string
-          price_usd: number
-          sort_order: number | null
-          storage_limit: number
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          features?: Json | null
-          id?: string
-          name: string
-          price_usd: number
-          sort_order?: number | null
-          storage_limit: number
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          features?: Json | null
-          id?: string
-          name?: string
-          price_usd?: number
-          sort_order?: number | null
-          storage_limit?: number
-        }
-        Relationships: []
-      }
-      store_bundles: {
-        Row: {
-          bundle_price: number
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          id: string
-          is_active: boolean | null
-          is_featured: boolean | null
-          member_discount: number | null
-          name: string
-          original_price: number | null
-          product_ids: string[] | null
-          sales_count: number | null
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          bundle_price?: number
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_featured?: boolean | null
-          member_discount?: number | null
-          name: string
-          original_price?: number | null
-          product_ids?: string[] | null
-          sales_count?: number | null
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          bundle_price?: number
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_featured?: boolean | null
-          member_discount?: number | null
-          name?: string
-          original_price?: number | null
-          product_ids?: string[] | null
-          sales_count?: number | null
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "store_bundles_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      store_categories: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          slug: string
-          sort_order: number | null
-          tenant_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          slug: string
-          sort_order?: number | null
-          tenant_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          slug?: string
-          sort_order?: number | null
-          tenant_id?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "store_categories_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      store_coupons: {
-        Row: {
-          code: string
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          discount_type: string
-          discount_value: number
-          end_date: string | null
-          id: string
-          is_active: boolean | null
-          max_uses: number | null
-          min_order_amount: number | null
-          start_date: string | null
-          tenant_id: string
-          updated_at: string | null
-          uses_count: number | null
-        }
-        Insert: {
-          code: string
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          discount_type?: string
-          discount_value?: number
-          end_date?: string | null
-          id?: string
-          is_active?: boolean | null
-          max_uses?: number | null
-          min_order_amount?: number | null
-          start_date?: string | null
-          tenant_id: string
-          updated_at?: string | null
-          uses_count?: number | null
-        }
-        Update: {
-          code?: string
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          discount_type?: string
-          discount_value?: number
-          end_date?: string | null
-          id?: string
-          is_active?: boolean | null
-          max_uses?: number | null
-          min_order_amount?: number | null
-          start_date?: string | null
-          tenant_id?: string
-          updated_at?: string | null
-          uses_count?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "store_coupons_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -9113,18 +5516,14 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
-          duration: string | null
           duration_seconds: number | null
           file_size: number | null
           file_url: string
           id: string
           linked_sermon_id: string | null
           media_type: string
-          media_url: string | null
-          published_at: string | null
           recording_date: string | null
           scripture_reference: string | null
-          series: string | null
           series_id: string | null
           speaker: string | null
           speaker_member_id: string | null
@@ -9139,18 +5538,14 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          duration?: string | null
           duration_seconds?: number | null
           file_size?: number | null
           file_url: string
           id?: string
           linked_sermon_id?: string | null
           media_type: string
-          media_url?: string | null
-          published_at?: string | null
           recording_date?: string | null
           scripture_reference?: string | null
-          series?: string | null
           series_id?: string | null
           speaker?: string | null
           speaker_member_id?: string | null
@@ -9165,18 +5560,14 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          duration?: string | null
           duration_seconds?: number | null
           file_size?: number | null
           file_url?: string
           id?: string
           linked_sermon_id?: string | null
           media_type?: string
-          media_url?: string | null
-          published_at?: string | null
           recording_date?: string | null
           scripture_reference?: string | null
-          series?: string | null
           series_id?: string | null
           speaker?: string | null
           speaker_member_id?: string | null
@@ -9206,10 +5597,6 @@ export type Database = {
       }
       survey_answers: {
         Row: {
-          answer_boolean: boolean | null
-          answer_options: Json | null
-          answer_rating: number | null
-          answer_text: string | null
           answer_value: Json | null
           created_at: string | null
           file_url: string | null
@@ -9220,10 +5607,6 @@ export type Database = {
           response_id: string
         }
         Insert: {
-          answer_boolean?: boolean | null
-          answer_options?: Json | null
-          answer_rating?: number | null
-          answer_text?: string | null
           answer_value?: Json | null
           created_at?: string | null
           file_url?: string | null
@@ -9234,10 +5617,6 @@ export type Database = {
           response_id: string
         }
         Update: {
-          answer_boolean?: boolean | null
-          answer_options?: Json | null
-          answer_rating?: number | null
-          answer_text?: string | null
           answer_value?: Json | null
           created_at?: string | null
           file_url?: string | null
@@ -9259,50 +5638,32 @@ export type Database = {
       }
       survey_responses: {
         Row: {
-          completed_at: string | null
           id: string
-          is_complete: boolean | null
           member_id: string | null
-          member_name: string | null
           responses: Json
-          started_at: string | null
           submitted_at: string | null
           survey_id: string
-          tenant_id: string | null
-          time_taken_seconds: number | null
         }
         Insert: {
-          completed_at?: string | null
           id?: string
-          is_complete?: boolean | null
           member_id?: string | null
-          member_name?: string | null
           responses?: Json
-          started_at?: string | null
           submitted_at?: string | null
           survey_id: string
-          tenant_id?: string | null
-          time_taken_seconds?: number | null
         }
         Update: {
-          completed_at?: string | null
           id?: string
-          is_complete?: boolean | null
           member_id?: string | null
-          member_name?: string | null
           responses?: Json
-          started_at?: string | null
           submitted_at?: string | null
           survey_id?: string
-          tenant_id?: string | null
-          time_taken_seconds?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "survey_responses_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
-            referencedRelation: "members"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -9312,60 +5673,38 @@ export type Database = {
             referencedRelation: "surveys"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "survey_responses_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
         ]
       }
       surveys: {
         Row: {
-          closing_date: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
           id: string
-          is_anonymous: boolean | null
           is_published: boolean | null
           questions: Json
-          target_audience: string | null
-          target_group_id: string | null
           tenant_id: string
           title: string
-          view_count: number | null
         }
         Insert: {
-          closing_date?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           id?: string
-          is_anonymous?: boolean | null
           is_published?: boolean | null
           questions?: Json
-          target_audience?: string | null
-          target_group_id?: string | null
           tenant_id: string
           title: string
-          view_count?: number | null
         }
         Update: {
-          closing_date?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           id?: string
-          is_anonymous?: boolean | null
           is_published?: boolean | null
           questions?: Json
-          target_audience?: string | null
-          target_group_id?: string | null
           tenant_id?: string
           title?: string
-          view_count?: number | null
         }
         Relationships: [
           {
@@ -9383,153 +5722,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      tax_deductible_types: {
-        Row: {
-          created_at: string
-          id: string
-          is_deductible: boolean
-          is_system: boolean
-          notes: string | null
-          sort_order: number
-          tenant_id: string
-          type_name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_deductible?: boolean
-          is_system?: boolean
-          notes?: string | null
-          sort_order?: number
-          tenant_id: string
-          type_name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_deductible?: boolean
-          is_system?: boolean
-          notes?: string | null
-          sort_order?: number
-          tenant_id?: string
-          type_name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      tax_settings: {
-        Row: {
-          created_at: string
-          fiscal_year_start_day: number
-          fiscal_year_start_month: number
-          id: string
-          is_configured: boolean
-          legal_org_name: string | null
-          receipt_footer: string | null
-          registration_number: string | null
-          registration_type: string | null
-          registration_type_other: string | null
-          signature_name: string | null
-          signature_title: string | null
-          statement_header: string | null
-          tax_address: string | null
-          tax_city: string | null
-          tax_country: string | null
-          tax_postal_code: string | null
-          tax_state: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          fiscal_year_start_day?: number
-          fiscal_year_start_month?: number
-          id?: string
-          is_configured?: boolean
-          legal_org_name?: string | null
-          receipt_footer?: string | null
-          registration_number?: string | null
-          registration_type?: string | null
-          registration_type_other?: string | null
-          signature_name?: string | null
-          signature_title?: string | null
-          statement_header?: string | null
-          tax_address?: string | null
-          tax_city?: string | null
-          tax_country?: string | null
-          tax_postal_code?: string | null
-          tax_state?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          fiscal_year_start_day?: number
-          fiscal_year_start_month?: number
-          id?: string
-          is_configured?: boolean
-          legal_org_name?: string | null
-          receipt_footer?: string | null
-          registration_number?: string | null
-          registration_type?: string | null
-          registration_type_other?: string | null
-          signature_name?: string | null
-          signature_title?: string | null
-          statement_header?: string | null
-          tax_address?: string | null
-          tax_city?: string | null
-          tax_country?: string | null
-          tax_postal_code?: string | null
-          tax_state?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      tax_statements: {
-        Row: {
-          deductible_total: number
-          generated_at: string
-          id: string
-          member_id: string
-          non_deductible_total: number
-          sent_at: string | null
-          statement_data: Json | null
-          status: string
-          tenant_id: string
-          total_giving: number
-          year: number
-        }
-        Insert: {
-          deductible_total?: number
-          generated_at?: string
-          id?: string
-          member_id: string
-          non_deductible_total?: number
-          sent_at?: string | null
-          statement_data?: Json | null
-          status?: string
-          tenant_id: string
-          total_giving?: number
-          year: number
-        }
-        Update: {
-          deductible_total?: number
-          generated_at?: string
-          id?: string
-          member_id?: string
-          non_deductible_total?: number
-          sent_at?: string | null
-          statement_data?: Json | null
-          status?: string
-          tenant_id?: string
-          total_giving?: number
-          year?: number
-        }
-        Relationships: []
       }
       tenant_seo_settings: {
         Row: {
@@ -9602,414 +5794,150 @@ export type Database = {
       tenants: {
         Row: {
           about: string | null
-          absence_alert_recipients: string
-          absence_alerts_enabled: boolean
-          absence_threshold: number
-          accent_color: string | null
           address: string | null
-          afternoon_service_time: string
-          allow_self_checkout: boolean
-          app_slug: string | null
-          at_api_key: string | null
-          at_low_balance_alert: boolean
-          at_low_balance_threshold: number
-          at_sender_id: string | null
-          at_sms_enabled: boolean
-          at_username: string | null
-          auto_generate_member_ids: boolean
           average_attendance: number | null
-          checkin_minutes_after: number
-          checkin_minutes_before: number
-          checkin_window_enabled: boolean
           church_code: string | null
           city: string | null
           contact_email: string | null
-          core_values: string[] | null
           country: string | null
-          created_at: string
+          created_at: string | null
           currency: string | null
-          custom_domain: string | null
-          default_attendance_status: string
-          default_language: string | null
           denomination: string | null
-          early_riser_time: string
-          enable_checkin: boolean
           enabled_modules: Json | null
           facebook_url: string | null
-          fiscal_year_start_month: number
           founded_year: number | null
           id: string
           instagram_url: string | null
           invite_code: string | null
           invite_code_uses: number
-          location_radius_meters: number
-          location_verification_enabled: boolean
           logo: string | null
-          member_id_prefix: string
-          mission_statement: string | null
-          morning_service_time: string
           name: string
-          notif_anniversary: boolean
-          notif_appt_confirmation: boolean
-          notif_appt_reminder: boolean
-          notif_appt_status_change: boolean
-          notif_asset_approval: boolean
-          notif_asset_return: boolean
-          notif_birthday: boolean
-          notif_donation_confirmation: boolean
-          notif_event_cancellation: boolean
-          notif_event_reminder_1d: boolean
-          notif_event_reminder_3d: boolean
-          notif_event_reminder_7d: boolean
-          notif_followup_assignment: boolean
-          notif_group_announcement: boolean
-          notif_group_meeting_reminder: boolean
-          notif_milestone: boolean
-          notif_pledge_reminder: boolean
-          notif_recurring_donation: boolean
-          notif_service_reminder: boolean
-          notif_service_request: boolean
-          notif_task_assigned: boolean
-          notif_task_due_soon: boolean
-          notif_task_overdue: boolean
-          notif_volunteer_assignment: boolean
-          notif_welcome: boolean
           onboarding_completed: boolean | null
           onboarding_step: number | null
           phone: string | null
-          post_code: string | null
-          primary_color: string | null
-          push_notifications_enabled: boolean
-          qr_checkin_enabled: boolean
-          registration_enabled: boolean
-          require_post_code: boolean | null
-          senior_pastor: string | null
           service_days: string[] | null
           service_time: string | null
           slug: string
-          subscription_plan:
-            | Database["public"]["Enums"]["subscription_plan_enum"]
-            | null
-          subscription_status: Database["public"]["Enums"]["subscription_status_enum"]
-          subscription_tier: Database["public"]["Enums"]["subscription_tier_enum"]
+          store_settings: Json | null
+          subscription_plan: string | null
+          subscription_status: string | null
+          subscription_tier: string | null
           tagline: string | null
           tenant_metadata: Json | null
-          timezone: string | null
           twitter_url: string | null
-          updated_at: string
-          vision_statement: string | null
+          updated_at: string | null
           website_url: string | null
-          whatsapp_access_token: string | null
-          whatsapp_business_account_id: string | null
-          whatsapp_category: string | null
-          whatsapp_connected: boolean | null
-          whatsapp_description: string | null
-          whatsapp_display_name: string | null
           whatsapp_number: string | null
-          whatsapp_phone_number: string | null
-          whatsapp_phone_number_id: string | null
-          whatsapp_profile_picture: string | null
-          whatsapp_provider: string | null
-          whatsapp_website: string | null
           youtube_url: string | null
         }
         Insert: {
           about?: string | null
-          absence_alert_recipients?: string
-          absence_alerts_enabled?: boolean
-          absence_threshold?: number
-          accent_color?: string | null
           address?: string | null
-          afternoon_service_time?: string
-          allow_self_checkout?: boolean
-          app_slug?: string | null
-          at_api_key?: string | null
-          at_low_balance_alert?: boolean
-          at_low_balance_threshold?: number
-          at_sender_id?: string | null
-          at_sms_enabled?: boolean
-          at_username?: string | null
-          auto_generate_member_ids?: boolean
           average_attendance?: number | null
-          checkin_minutes_after?: number
-          checkin_minutes_before?: number
-          checkin_window_enabled?: boolean
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
-          core_values?: string[] | null
           country?: string | null
-          created_at: string
+          created_at?: string | null
           currency?: string | null
-          custom_domain?: string | null
-          default_attendance_status?: string
-          default_language?: string | null
           denomination?: string | null
-          early_riser_time?: string
-          enable_checkin?: boolean
           enabled_modules?: Json | null
           facebook_url?: string | null
-          fiscal_year_start_month?: number
-          founded_year?: number | null
-          id: string
-          instagram_url?: string | null
-          invite_code?: string | null
-          invite_code_uses?: number
-          location_radius_meters?: number
-          location_verification_enabled?: boolean
-          logo?: string | null
-          member_id_prefix?: string
-          mission_statement?: string | null
-          morning_service_time?: string
-          name: string
-          notif_anniversary?: boolean
-          notif_appt_confirmation?: boolean
-          notif_appt_reminder?: boolean
-          notif_appt_status_change?: boolean
-          notif_asset_approval?: boolean
-          notif_asset_return?: boolean
-          notif_birthday?: boolean
-          notif_donation_confirmation?: boolean
-          notif_event_cancellation?: boolean
-          notif_event_reminder_1d?: boolean
-          notif_event_reminder_3d?: boolean
-          notif_event_reminder_7d?: boolean
-          notif_followup_assignment?: boolean
-          notif_group_announcement?: boolean
-          notif_group_meeting_reminder?: boolean
-          notif_milestone?: boolean
-          notif_pledge_reminder?: boolean
-          notif_recurring_donation?: boolean
-          notif_service_reminder?: boolean
-          notif_service_request?: boolean
-          notif_task_assigned?: boolean
-          notif_task_due_soon?: boolean
-          notif_task_overdue?: boolean
-          notif_volunteer_assignment?: boolean
-          notif_welcome?: boolean
-          onboarding_completed?: boolean | null
-          onboarding_step?: number | null
-          phone?: string | null
-          post_code?: string | null
-          primary_color?: string | null
-          push_notifications_enabled?: boolean
-          qr_checkin_enabled?: boolean
-          registration_enabled?: boolean
-          require_post_code?: boolean | null
-          senior_pastor?: string | null
-          service_days?: string[] | null
-          service_time?: string | null
-          slug: string
-          subscription_plan?:
-            | Database["public"]["Enums"]["subscription_plan_enum"]
-            | null
-          subscription_status: Database["public"]["Enums"]["subscription_status_enum"]
-          subscription_tier: Database["public"]["Enums"]["subscription_tier_enum"]
-          tagline?: string | null
-          tenant_metadata?: Json | null
-          timezone?: string | null
-          twitter_url?: string | null
-          updated_at: string
-          vision_statement?: string | null
-          website_url?: string | null
-          whatsapp_access_token?: string | null
-          whatsapp_business_account_id?: string | null
-          whatsapp_category?: string | null
-          whatsapp_connected?: boolean | null
-          whatsapp_description?: string | null
-          whatsapp_display_name?: string | null
-          whatsapp_number?: string | null
-          whatsapp_phone_number?: string | null
-          whatsapp_phone_number_id?: string | null
-          whatsapp_profile_picture?: string | null
-          whatsapp_provider?: string | null
-          whatsapp_website?: string | null
-          youtube_url?: string | null
-        }
-        Update: {
-          about?: string | null
-          absence_alert_recipients?: string
-          absence_alerts_enabled?: boolean
-          absence_threshold?: number
-          accent_color?: string | null
-          address?: string | null
-          afternoon_service_time?: string
-          allow_self_checkout?: boolean
-          app_slug?: string | null
-          at_api_key?: string | null
-          at_low_balance_alert?: boolean
-          at_low_balance_threshold?: number
-          at_sender_id?: string | null
-          at_sms_enabled?: boolean
-          at_username?: string | null
-          auto_generate_member_ids?: boolean
-          average_attendance?: number | null
-          checkin_minutes_after?: number
-          checkin_minutes_before?: number
-          checkin_window_enabled?: boolean
-          church_code?: string | null
-          city?: string | null
-          contact_email?: string | null
-          core_values?: string[] | null
-          country?: string | null
-          created_at?: string
-          currency?: string | null
-          custom_domain?: string | null
-          default_attendance_status?: string
-          default_language?: string | null
-          denomination?: string | null
-          early_riser_time?: string
-          enable_checkin?: boolean
-          enabled_modules?: Json | null
-          facebook_url?: string | null
-          fiscal_year_start_month?: number
           founded_year?: number | null
           id?: string
           instagram_url?: string | null
           invite_code?: string | null
           invite_code_uses?: number
-          location_radius_meters?: number
-          location_verification_enabled?: boolean
           logo?: string | null
-          member_id_prefix?: string
-          mission_statement?: string | null
-          morning_service_time?: string
-          name?: string
-          notif_anniversary?: boolean
-          notif_appt_confirmation?: boolean
-          notif_appt_reminder?: boolean
-          notif_appt_status_change?: boolean
-          notif_asset_approval?: boolean
-          notif_asset_return?: boolean
-          notif_birthday?: boolean
-          notif_donation_confirmation?: boolean
-          notif_event_cancellation?: boolean
-          notif_event_reminder_1d?: boolean
-          notif_event_reminder_3d?: boolean
-          notif_event_reminder_7d?: boolean
-          notif_followup_assignment?: boolean
-          notif_group_announcement?: boolean
-          notif_group_meeting_reminder?: boolean
-          notif_milestone?: boolean
-          notif_pledge_reminder?: boolean
-          notif_recurring_donation?: boolean
-          notif_service_reminder?: boolean
-          notif_service_request?: boolean
-          notif_task_assigned?: boolean
-          notif_task_due_soon?: boolean
-          notif_task_overdue?: boolean
-          notif_volunteer_assignment?: boolean
-          notif_welcome?: boolean
+          name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
           phone?: string | null
-          post_code?: string | null
-          primary_color?: string | null
-          push_notifications_enabled?: boolean
-          qr_checkin_enabled?: boolean
-          registration_enabled?: boolean
-          require_post_code?: boolean | null
-          senior_pastor?: string | null
+          service_days?: string[] | null
+          service_time?: string | null
+          slug: string
+          store_settings?: Json | null
+          subscription_plan?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
+          tagline?: string | null
+          tenant_metadata?: Json | null
+          twitter_url?: string | null
+          updated_at?: string | null
+          website_url?: string | null
+          whatsapp_number?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          about?: string | null
+          address?: string | null
+          average_attendance?: number | null
+          church_code?: string | null
+          city?: string | null
+          contact_email?: string | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string | null
+          denomination?: string | null
+          enabled_modules?: Json | null
+          facebook_url?: string | null
+          founded_year?: number | null
+          id?: string
+          instagram_url?: string | null
+          invite_code?: string | null
+          invite_code_uses?: number
+          logo?: string | null
+          name?: string
+          onboarding_completed?: boolean | null
+          onboarding_step?: number | null
+          phone?: string | null
           service_days?: string[] | null
           service_time?: string | null
           slug?: string
-          subscription_plan?:
-            | Database["public"]["Enums"]["subscription_plan_enum"]
-            | null
-          subscription_status?: Database["public"]["Enums"]["subscription_status_enum"]
-          subscription_tier?: Database["public"]["Enums"]["subscription_tier_enum"]
+          store_settings?: Json | null
+          subscription_plan?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
           tagline?: string | null
           tenant_metadata?: Json | null
-          timezone?: string | null
           twitter_url?: string | null
-          updated_at?: string
-          vision_statement?: string | null
+          updated_at?: string | null
           website_url?: string | null
-          whatsapp_access_token?: string | null
-          whatsapp_business_account_id?: string | null
-          whatsapp_category?: string | null
-          whatsapp_connected?: boolean | null
-          whatsapp_description?: string | null
-          whatsapp_display_name?: string | null
           whatsapp_number?: string | null
-          whatsapp_phone_number?: string | null
-          whatsapp_phone_number_id?: string | null
-          whatsapp_profile_picture?: string | null
-          whatsapp_provider?: string | null
-          whatsapp_website?: string | null
           youtube_url?: string | null
         }
         Relationships: []
       }
       testimonies: {
         Row: {
-          allow_featuring: boolean
           approved_by: string | null
-          author_name: string | null
           body: string
-          category: string | null
-          category_id: string | null
           created_at: string | null
-          date_of_testimony: string | null
           id: string
-          is_anonymous: boolean | null
           is_approved: boolean | null
-          is_featured: boolean
           member_id: string
-          status: string | null
-          submitted_by_admin_id: string | null
-          submitted_by_member_id: string | null
           tenant_id: string
-          testimony_date: string | null
           title: string
-          updated_at: string | null
-          view_count: number
         }
         Insert: {
-          allow_featuring?: boolean
           approved_by?: string | null
-          author_name?: string | null
           body: string
-          category?: string | null
-          category_id?: string | null
           created_at?: string | null
-          date_of_testimony?: string | null
           id?: string
-          is_anonymous?: boolean | null
           is_approved?: boolean | null
-          is_featured?: boolean
           member_id: string
-          status?: string | null
-          submitted_by_admin_id?: string | null
-          submitted_by_member_id?: string | null
           tenant_id: string
-          testimony_date?: string | null
           title: string
-          updated_at?: string | null
-          view_count?: number
         }
         Update: {
-          allow_featuring?: boolean
           approved_by?: string | null
-          author_name?: string | null
           body?: string
-          category?: string | null
-          category_id?: string | null
           created_at?: string | null
-          date_of_testimony?: string | null
           id?: string
-          is_anonymous?: boolean | null
           is_approved?: boolean | null
-          is_featured?: boolean
           member_id?: string
-          status?: string | null
-          submitted_by_admin_id?: string | null
-          submitted_by_member_id?: string | null
           tenant_id?: string
-          testimony_date?: string | null
           title?: string
-          updated_at?: string | null
-          view_count?: number
         }
         Relationships: [
           {
@@ -10020,24 +5948,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "testimonies_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "testimony_categories"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "testimonies_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "testimonies_submitted_by_member_id_fkey"
-            columns: ["submitted_by_member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
             referencedColumns: ["id"]
           },
           {
@@ -10049,144 +5963,33 @@ export type Database = {
           },
         ]
       }
-      testimony_categories: {
-        Row: {
-          color: string
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          label: string
-          sort_order: number
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          label: string
-          sort_order?: number
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          label?: string
-          sort_order?: number
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      testimony_reactions: {
-        Row: {
-          created_at: string
-          id: string
-          member_id: string
-          reaction_type: string
-          tenant_id: string
-          testimony_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          member_id: string
-          reaction_type: string
-          tenant_id: string
-          testimony_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          member_id?: string
-          reaction_type?: string
-          tenant_id?: string
-          testimony_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "testimony_reactions_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "testimony_reactions_testimony_id_fkey"
-            columns: ["testimony_id"]
-            isOneToOne: false
-            referencedRelation: "testimonies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       training_courses: {
         Row: {
-          category: string | null
-          certificate_title: string | null
-          cover_image_url: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
-          difficulty: string | null
-          enrollment_count: number | null
-          has_certificate: boolean | null
           id: string
-          instructor_member_id: string | null
           modules: Json | null
-          status: string | null
-          target_audience: string | null
           tenant_id: string
           title: string
-          total_duration_minutes: number | null
-          updated_at: string | null
         }
         Insert: {
-          category?: string | null
-          certificate_title?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          difficulty?: string | null
-          enrollment_count?: number | null
-          has_certificate?: boolean | null
           id?: string
-          instructor_member_id?: string | null
           modules?: Json | null
-          status?: string | null
-          target_audience?: string | null
           tenant_id: string
           title: string
-          total_duration_minutes?: number | null
-          updated_at?: string | null
         }
         Update: {
-          category?: string | null
-          certificate_title?: string | null
-          cover_image_url?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          difficulty?: string | null
-          enrollment_count?: number | null
-          has_certificate?: boolean | null
           id?: string
-          instructor_member_id?: string | null
           modules?: Json | null
-          status?: string | null
-          target_audience?: string | null
           tenant_id?: string
           title?: string
-          total_duration_minutes?: number | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -10247,146 +6050,60 @@ export type Database = {
           },
         ]
       }
-      user_fine_permissions: {
-        Row: {
-          created_at: string
-          id: string
-          level: string
-          permission_key: string
-          tenant_id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          level?: string
-          permission_key: string
-          tenant_id: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          level?: string
-          permission_key?: string
-          tenant_id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_role_overrides: {
-        Row: {
-          created_at: string
-          id: string
-          member_id: string
-          role: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          member_id: string
-          role: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          member_id?: string
-          role?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_role_overrides_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       users: {
         Row: {
-          avatar: string | null
           avatar_url: string | null
-          created_at: string
-          date_of_birth: string | null
+          created_at: string | null
           email: string
           email_verified: boolean | null
-          first_name: string
+          first_name: string | null
           gender: string | null
           id: string
-          is_super_admin: boolean
-          join_date: string
-          last_login_at: string | null
-          last_name: string
+          join_date: string | null
+          last_name: string | null
           mfa_enabled: boolean | null
-          mfa_secret: string | null
-          password_hash: string | null
           phone: string | null
           phone_verified: boolean | null
-          role: Database["public"]["Enums"]["user_role_enum"]
-          status: Database["public"]["Enums"]["user_status_enum"]
+          role: string | null
+          status: string | null
           tenant_id: string
-          updated_at: string
-          user_metadata: Json | null
+          updated_at: string | null
         }
         Insert: {
-          avatar?: string | null
           avatar_url?: string | null
-          created_at?: string
-          date_of_birth?: string | null
+          created_at?: string | null
           email: string
           email_verified?: boolean | null
-          first_name: string
+          first_name?: string | null
           gender?: string | null
           id: string
-          is_super_admin?: boolean
-          join_date: string
-          last_login_at?: string | null
-          last_name: string
+          join_date?: string | null
+          last_name?: string | null
           mfa_enabled?: boolean | null
-          mfa_secret?: string | null
-          password_hash?: string | null
           phone?: string | null
           phone_verified?: boolean | null
-          role: Database["public"]["Enums"]["user_role_enum"]
-          status: Database["public"]["Enums"]["user_status_enum"]
+          role?: string | null
+          status?: string | null
           tenant_id: string
-          updated_at?: string
-          user_metadata?: Json | null
+          updated_at?: string | null
         }
         Update: {
-          avatar?: string | null
           avatar_url?: string | null
-          created_at?: string
-          date_of_birth?: string | null
+          created_at?: string | null
           email?: string
           email_verified?: boolean | null
-          first_name?: string
+          first_name?: string | null
           gender?: string | null
           id?: string
-          is_super_admin?: boolean
-          join_date?: string
-          last_login_at?: string | null
-          last_name?: string
+          join_date?: string | null
+          last_name?: string | null
           mfa_enabled?: boolean | null
-          mfa_secret?: string | null
-          password_hash?: string | null
           phone?: string | null
           phone_verified?: boolean | null
-          role?: Database["public"]["Enums"]["user_role_enum"]
-          status?: Database["public"]["Enums"]["user_status_enum"]
+          role?: string | null
+          status?: string | null
           tenant_id?: string
-          updated_at?: string
-          user_metadata?: Json | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -10397,141 +6114,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      verse_bookmarks: {
-        Row: {
-          book_id: string
-          chapter: number
-          created_at: string | null
-          id: string
-          member_id: string
-          tenant_id: string
-          translation: string
-          verse_number: number
-          verse_text: string
-        }
-        Insert: {
-          book_id: string
-          chapter: number
-          created_at?: string | null
-          id?: string
-          member_id: string
-          tenant_id: string
-          translation: string
-          verse_number: number
-          verse_text: string
-        }
-        Update: {
-          book_id?: string
-          chapter?: number
-          created_at?: string | null
-          id?: string
-          member_id?: string
-          tenant_id?: string
-          translation?: string
-          verse_number?: number
-          verse_text?: string
-        }
-        Relationships: []
-      }
-      verse_highlights: {
-        Row: {
-          book_id: string
-          chapter: number
-          color: string
-          created_at: string | null
-          id: string
-          member_id: string
-          tenant_id: string
-          verse_number: number
-        }
-        Insert: {
-          book_id: string
-          chapter: number
-          color: string
-          created_at?: string | null
-          id?: string
-          member_id: string
-          tenant_id: string
-          verse_number: number
-        }
-        Update: {
-          book_id?: string
-          chapter?: number
-          color?: string
-          created_at?: string | null
-          id?: string
-          member_id?: string
-          tenant_id?: string
-          verse_number?: number
-        }
-        Relationships: []
-      }
-      verse_notes: {
-        Row: {
-          book_id: string
-          chapter: number
-          content: string
-          id: string
-          member_id: string
-          tenant_id: string
-          updated_at: string | null
-          verse_number: number
-        }
-        Insert: {
-          book_id: string
-          chapter: number
-          content: string
-          id?: string
-          member_id: string
-          tenant_id: string
-          updated_at?: string | null
-          verse_number: number
-        }
-        Update: {
-          book_id?: string
-          chapter?: number
-          content?: string
-          id?: string
-          member_id?: string
-          tenant_id?: string
-          updated_at?: string | null
-          verse_number?: number
-        }
-        Relationships: []
-      }
-      verse_reactions: {
-        Row: {
-          book_id: string
-          chapter: number
-          created_at: string | null
-          id: string
-          member_id: string
-          reaction: string
-          tenant_id: string
-          verse_number: number
-        }
-        Insert: {
-          book_id: string
-          chapter: number
-          created_at?: string | null
-          id?: string
-          member_id: string
-          reaction: string
-          tenant_id: string
-          verse_number: number
-        }
-        Update: {
-          book_id?: string
-          chapter?: number
-          created_at?: string | null
-          id?: string
-          member_id?: string
-          reaction?: string
-          tenant_id?: string
-          verse_number?: number
-        }
-        Relationships: []
       }
       visitor_followup_notes: {
         Row: {
@@ -10631,6 +6213,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "visitors_converted_to_member_id_fkey"
+            columns: ["converted_to_member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "visitors_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -10679,6 +6268,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "volunteer_assignments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "volunteer_assignments_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -10694,118 +6290,41 @@ export type Database = {
           },
         ]
       }
-      volunteer_hours: {
-        Row: {
-          activity_description: string | null
-          assignment_id: string | null
-          created_at: string | null
-          hours: number
-          id: string
-          logged_by: string | null
-          logged_date: string
-          role_id: string | null
-          tenant_id: string
-          volunteer_member_id: string
-        }
-        Insert: {
-          activity_description?: string | null
-          assignment_id?: string | null
-          created_at?: string | null
-          hours?: number
-          id?: string
-          logged_by?: string | null
-          logged_date?: string
-          role_id?: string | null
-          tenant_id: string
-          volunteer_member_id: string
-        }
-        Update: {
-          activity_description?: string | null
-          assignment_id?: string | null
-          created_at?: string | null
-          hours?: number
-          id?: string
-          logged_by?: string | null
-          logged_date?: string
-          role_id?: string | null
-          tenant_id?: string
-          volunteer_member_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "volunteer_hours_assignment_id_fkey"
-            columns: ["assignment_id"]
-            isOneToOne: false
-            referencedRelation: "volunteers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "volunteer_hours_logged_by_fkey"
-            columns: ["logged_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "volunteer_hours_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "volunteer_roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "volunteer_hours_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       volunteer_roles: {
         Row: {
           created_at: string | null
           department: string | null
-          department_color: string | null
           description: string | null
           id: string
           max_volunteers: number | null
           min_volunteers: number | null
           name: string
           required_skills: string[] | null
-          requirements: string | null
           tenant_id: string
-          time_commitment: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           department?: string | null
-          department_color?: string | null
           description?: string | null
           id?: string
           max_volunteers?: number | null
           min_volunteers?: number | null
           name: string
           required_skills?: string[] | null
-          requirements?: string | null
           tenant_id: string
-          time_commitment?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           department?: string | null
-          department_color?: string | null
           description?: string | null
           id?: string
           max_volunteers?: number | null
           min_volunteers?: number | null
           name?: string
           required_skills?: string[] | null
-          requirements?: string | null
           tenant_id?: string
-          time_commitment?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -10824,13 +6343,11 @@ export type Database = {
           created_at: string | null
           hours_served: number | null
           id: string
-          joined_at: string | null
           member_id: string
           notes: string | null
           reference_id: string | null
           reference_type: string | null
           role_id: string | null
-          start_date: string | null
           status: string | null
           tenant_id: string
           updated_at: string | null
@@ -10840,13 +6357,11 @@ export type Database = {
           created_at?: string | null
           hours_served?: number | null
           id?: string
-          joined_at?: string | null
           member_id: string
           notes?: string | null
           reference_id?: string | null
           reference_type?: string | null
           role_id?: string | null
-          start_date?: string | null
           status?: string | null
           tenant_id: string
           updated_at?: string | null
@@ -10856,13 +6371,11 @@ export type Database = {
           created_at?: string | null
           hours_served?: number | null
           id?: string
-          joined_at?: string | null
           member_id?: string
           notes?: string | null
           reference_id?: string | null
           reference_type?: string | null
           role_id?: string | null
-          start_date?: string | null
           status?: string | null
           tenant_id?: string
           updated_at?: string | null
@@ -10884,319 +6397,13 @@ export type Database = {
           },
         ]
       }
-      website_consultation_requests: {
-        Row: {
-          church_name: string | null
-          contact_name: string
-          created_at: string
-          email: string
-          id: string
-          message: string | null
-          phone: string | null
-          tenant_id: string | null
-        }
-        Insert: {
-          church_name?: string | null
-          contact_name: string
-          created_at?: string
-          email: string
-          id?: string
-          message?: string | null
-          phone?: string | null
-          tenant_id?: string | null
-        }
-        Update: {
-          church_name?: string | null
-          contact_name?: string
-          created_at?: string
-          email?: string
-          id?: string
-          message?: string | null
-          phone?: string | null
-          tenant_id?: string | null
-        }
-        Relationships: []
-      }
-      website_reviews: {
-        Row: {
-          church_name: string
-          created_at: string
-          id: string
-          rating: number
-          review_text: string
-          reviewer_name: string
-          tenant_id: string
-        }
-        Insert: {
-          church_name: string
-          created_at?: string
-          id?: string
-          rating: number
-          review_text: string
-          reviewer_name: string
-          tenant_id: string
-        }
-        Update: {
-          church_name?: string
-          created_at?: string
-          id?: string
-          rating?: number
-          review_text?: string
-          reviewer_name?: string
-          tenant_id?: string
-        }
-        Relationships: []
-      }
-      whatsapp_automations: {
-        Row: {
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          template_name: string | null
-          tenant_id: string
-          trigger_name: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          template_name?: string | null
-          tenant_id: string
-          trigger_name: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          template_name?: string | null
-          tenant_id?: string
-          trigger_name?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_automations_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      whatsapp_credit_transactions: {
-        Row: {
-          balance_after: number
-          created_at: string | null
-          credits_change: number
-          description: string
-          id: string
-          tenant_id: string
-        }
-        Insert: {
-          balance_after: number
-          created_at?: string | null
-          credits_change: number
-          description: string
-          id?: string
-          tenant_id: string
-        }
-        Update: {
-          balance_after?: number
-          created_at?: string | null
-          credits_change?: number
-          description?: string
-          id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_credit_transactions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      whatsapp_credits: {
-        Row: {
-          created_at: string | null
-          free_trial_credits: number | null
-          id: string
-          tenant_id: string
-          total_credits: number | null
-          updated_at: string | null
-          used_credits: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          free_trial_credits?: number | null
-          id?: string
-          tenant_id: string
-          total_credits?: number | null
-          updated_at?: string | null
-          used_credits?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          free_trial_credits?: number | null
-          id?: string
-          tenant_id?: string
-          total_credits?: number | null
-          updated_at?: string | null
-          used_credits?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_credits_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: true
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      whatsapp_messages: {
-        Row: {
-          created_at: string | null
-          delivered_at: string | null
-          error_message: string | null
-          id: string
-          message_id: string | null
-          read_at: string | null
-          recipient_member_id: string | null
-          recipient_phone: string
-          sent_at: string | null
-          status: string | null
-          template_name: string
-          template_variables: Json | null
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          delivered_at?: string | null
-          error_message?: string | null
-          id?: string
-          message_id?: string | null
-          read_at?: string | null
-          recipient_member_id?: string | null
-          recipient_phone: string
-          sent_at?: string | null
-          status?: string | null
-          template_name: string
-          template_variables?: Json | null
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string | null
-          delivered_at?: string | null
-          error_message?: string | null
-          id?: string
-          message_id?: string | null
-          read_at?: string | null
-          recipient_member_id?: string | null
-          recipient_phone?: string
-          sent_at?: string | null
-          status?: string | null
-          template_name?: string
-          template_variables?: Json | null
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_messages_recipient_member_id_fkey"
-            columns: ["recipient_member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "whatsapp_messages_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      whatsapp_templates: {
-        Row: {
-          body: string
-          category: string | null
-          created_at: string | null
-          description: string | null
-          id: string
-          is_approved: boolean | null
-          is_system: boolean | null
-          name: string
-          tenant_id: string
-          variables: Json | null
-        }
-        Insert: {
-          body: string
-          category?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_approved?: boolean | null
-          is_system?: boolean | null
-          name: string
-          tenant_id: string
-          variables?: Json | null
-        }
-        Update: {
-          body?: string
-          category?: string | null
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_approved?: boolean | null
-          is_system?: boolean | null
-          name?: string
-          tenant_id?: string
-          variables?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_templates_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      generate_church_code: { Args: { church_name: string }; Returns: string }
-      get_dashboard_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_my_tenant_id: { Args: never; Returns: string }
-      get_storage_stats: {
-        Args: { p_tenant_id: string }
-        Returns: {
-          is_near_limit: boolean
-          is_over_limit: boolean
-          limit_bytes: number
-          percentage: number
-          plan_name: string
-          plan_price: number
-          upgrade_pending: boolean
-          used_bytes: number
-        }[]
-      }
-      increment_announcement_type_usage: {
-        Args: { p_type_id: string }
-        Returns: undefined
-      }
-      increment_unread_count: {
-        Args: { p_conversation_id: string; p_user_id: string }
-        Returns: undefined
-      }
+      get_my_tenant_id_safe: { Args: never; Returns: string }
       seed_chart_of_accounts: {
         Args: { p_tenant_id: string }
         Returns: undefined
@@ -11222,13 +6429,6 @@ export type Database = {
         | "youth"
         | "house_fellowship"
         | "other"
-        | "department"
-        | "children"
-        | "women"
-        | "men"
-        | "prayer"
-        | "outreach"
-        | "bible_study"
       incident_status_enum: "open" | "investigating" | "resolved"
       integration_provider_enum:
         | "pesapal"
@@ -11243,11 +6443,19 @@ export type Database = {
       service_type_enum: "sunday" | "midweek" | "special"
       subscription_plan_enum: "free" | "foundation" | "growth" | "enterprise"
       subscription_status_enum: "active" | "trial" | "suspended" | "cancelled"
-      subscription_tier_enum: "free" | "basic" | "pro" | "enterprise"
       task_priority_enum: "low" | "medium" | "high"
       task_status_enum: "open" | "in_progress" | "completed" | "cancelled"
       test_status_enum: "untested" | "success" | "failed"
-      user_role_enum: "super_admin" | "staff_leader" | "member" | "guest"
+      user_role_enum:
+        | "church_admin"
+        | "general_overseer"
+        | "senior_pastor"
+        | "pastor"
+        | "assistant_pastor"
+        | "accountant"
+        | "leader"
+        | "studio_operator"
+        | "member"
       user_status_enum: "active" | "inactive" | "suspended"
     }
     CompositeTypes: {
@@ -11399,13 +6607,6 @@ export const Constants = {
         "youth",
         "house_fellowship",
         "other",
-        "department",
-        "children",
-        "women",
-        "men",
-        "prayer",
-        "outreach",
-        "bible_study",
       ],
       incident_status_enum: ["open", "investigating", "resolved"],
       integration_provider_enum: [
@@ -11422,11 +6623,20 @@ export const Constants = {
       service_type_enum: ["sunday", "midweek", "special"],
       subscription_plan_enum: ["free", "foundation", "growth", "enterprise"],
       subscription_status_enum: ["active", "trial", "suspended", "cancelled"],
-      subscription_tier_enum: ["free", "basic", "pro", "enterprise"],
       task_priority_enum: ["low", "medium", "high"],
       task_status_enum: ["open", "in_progress", "completed", "cancelled"],
       test_status_enum: ["untested", "success", "failed"],
-      user_role_enum: ["super_admin", "staff_leader", "member", "guest"],
+      user_role_enum: [
+        "church_admin",
+        "general_overseer",
+        "senior_pastor",
+        "pastor",
+        "assistant_pastor",
+        "accountant",
+        "leader",
+        "studio_operator",
+        "member",
+      ],
       user_status_enum: ["active", "inactive", "suspended"],
     },
   },

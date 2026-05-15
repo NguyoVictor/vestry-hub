@@ -259,7 +259,7 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
     queryKey: ["sms-settings-form", tenantId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("*").eq("tenant_id", tenantId).maybeSingle();
-      return data as { at_username: string | null; at_api_key: string | null; at_sender_id: string | null; is_configured: boolean } | null;
+      return data as { at_username: string | null; at_api_key: string | null; sender_id: string | null; is_configured: boolean } | null;
     },
     staleTime: 60_000,
   });
@@ -268,7 +268,7 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
     if (!existing) return;
     setUsername(existing.at_username ?? "");
     setApiKey(existing.at_api_key ?? "");
-    setSenderId(existing.at_sender_id ?? "");
+    setSenderId(existing.sender_id ?? "");
   }, [existing]);
 
   const handleSave = async () => {
@@ -279,7 +279,7 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
         tenant_id: tenantId,
         at_username: username.trim(),
         at_api_key: apiKey.trim(),
-        at_sender_id: senderId.trim() || null,
+        sender_id: senderId.trim() || null,
         is_configured: true,
         updated_at: new Date().toISOString(),
       };

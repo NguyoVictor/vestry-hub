@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS announcements (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Communications (bulk email/SMS campaigns)
 CREATE TABLE IF NOT EXISTS communications (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS communications (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Direct Messages
 CREATE TABLE IF NOT EXISTS messages (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -43,7 +41,6 @@ CREATE TABLE IF NOT EXISTS messages (
   is_read boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
-
 -- Notifications
 CREATE TABLE IF NOT EXISTS notifications (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -55,7 +52,6 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
-
 -- Testimonies
 CREATE TABLE IF NOT EXISTS testimonies (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -67,7 +63,6 @@ CREATE TABLE IF NOT EXISTS testimonies (
   approved_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Surveys
 CREATE TABLE IF NOT EXISTS surveys (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -79,7 +74,6 @@ CREATE TABLE IF NOT EXISTS surveys (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Survey Responses
 CREATE TABLE IF NOT EXISTS survey_responses (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -88,7 +82,6 @@ CREATE TABLE IF NOT EXISTS survey_responses (
   responses jsonb NOT NULL DEFAULT '{}',
   submitted_at timestamptz DEFAULT now()
 );
-
 -- Outreach Activities
 CREATE TABLE IF NOT EXISTS outreach_activities (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -101,4 +94,4 @@ CREATE TABLE IF NOT EXISTS outreach_activities (
   outcomes text,
   led_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
-);;
+);

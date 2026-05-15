@@ -25,13 +25,11 @@ ADD COLUMN IF NOT EXISTS last_played_at timestamptz,
 ADD COLUMN IF NOT EXISTS custom_fields jsonb DEFAULT '{}',
 ADD COLUMN IF NOT EXISTS is_trending boolean DEFAULT false,
 ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
-
 -- Add check constraints for data validation
 ALTER TABLE songs 
 ADD CONSTRAINT songs_bpm_range CHECK (bpm IS NULL OR (bpm >= 40 AND bpm <= 300)),
 ADD CONSTRAINT songs_duration_positive CHECK (duration_seconds IS NULL OR duration_seconds > 0),
 ADD CONSTRAINT songs_usage_count_positive CHECK (usage_count >= 0);
-
 -- =====================================================
 -- Phase 2: Create new tables for enhanced functionality
 -- =====================================================
@@ -50,7 +48,6 @@ CREATE TABLE IF NOT EXISTS user_song_preferences (
   updated_at timestamptz DEFAULT now(),
   UNIQUE(user_id, tenant_id)
 );
-
 -- Usage analytics for tracking song performance and trends
 CREATE TABLE IF NOT EXISTS song_usage_analytics (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -64,7 +61,6 @@ CREATE TABLE IF NOT EXISTS song_usage_analytics (
   user_id varchar REFERENCES users(id) ON DELETE SET NULL,
   created_at timestamptz DEFAULT now()
 );
-
 -- Real-time collaboration tracking for setlist editing
 CREATE TABLE IF NOT EXISTS setlist_collaborations (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -76,7 +72,6 @@ CREATE TABLE IF NOT EXISTS setlist_collaborations (
   created_at timestamptz DEFAULT now(),
   UNIQUE(setlist_id, user_id)
 );
-
 -- Change history for undo/redo functionality in collaborative editing
 CREATE TABLE IF NOT EXISTS setlist_change_history (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -87,7 +82,6 @@ CREATE TABLE IF NOT EXISTS setlist_change_history (
   previous_state jsonb, -- state before change for undo
   created_at timestamptz DEFAULT now()
 );
-
 -- =====================================================
 -- Phase 3: Performance indexes for search optimization
 -- =====================================================
@@ -100,12 +94,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_last_played ON songs(last_play
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_is_trending ON songs(is_trending) WHERE is_trending = true;
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tags_gin ON songs USING GIN(tags) WHERE tags IS NOT NULL;
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_cover_colors_gin ON songs USING GIN(cover_art_colors) WHERE cover_art_colors IS NOT NULL;
-
 -- Composite indexes for common query patterns
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tenant_usage ON songs(tenant_id, usage_count DESC);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tenant_trending ON songs(tenant_id, is_trending) WHERE is_trending = true;
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tenant_bpm ON songs(tenant_id, bpm) WHERE bpm IS NOT NULL;
-
 -- Full-text search index for song content
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_search ON songs USING GIN(
   to_tsvector('english', 
@@ -115,20 +107,16 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_search ON songs USING GIN(
     COALESCE(array_to_string(tags, ' '), '')
   )
 );
-
 -- Indexes for usage analytics
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_song_usage_tenant_song ON song_usage_analytics(tenant_id, song_id);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_song_usage_date ON song_usage_analytics(used_at DESC);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_song_usage_service_type ON song_usage_analytics(tenant_id, service_type) WHERE service_type IS NOT NULL;
-
 -- Indexes for collaboration
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_collaborations_setlist ON setlist_collaborations(setlist_id) WHERE is_active = true;
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_collaborations_user ON setlist_collaborations(user_id) WHERE is_active = true;
-
 -- Indexes for change history
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_change_history_setlist ON setlist_change_history(setlist_id, created_at DESC);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_change_history_user ON setlist_change_history(user_id, created_at DESC);
-
 -- =====================================================
 -- Phase 4: Row Level Security (RLS) Policies
 -- =====================================================
@@ -138,18 +126,15 @@ ALTER TABLE user_song_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE song_usage_analytics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE setlist_collaborations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE setlist_change_history ENABLE ROW LEVEL SECURITY;
-
 -- User preferences policies - users can only access their own preferences
 CREATE POLICY user_song_preferences_isolation ON user_song_preferences
   FOR ALL USING (
     tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text) AND 
     user_id = auth.uid()::text
   );
-
 -- Usage analytics policies - tenant isolation
 CREATE POLICY song_usage_analytics_tenant_isolation ON song_usage_analytics
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
-
 -- Collaboration policies - access through setlist ownership
 CREATE POLICY setlist_collaborations_tenant_isolation ON setlist_collaborations
   FOR ALL USING (
@@ -158,7 +143,6 @@ CREATE POLICY setlist_collaborations_tenant_isolation ON setlist_collaborations
       WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text)
     )
   );
-
 -- Change history policies - access through setlist ownership
 CREATE POLICY setlist_change_history_tenant_isolation ON setlist_change_history
   FOR ALL USING (
@@ -167,7 +151,6 @@ CREATE POLICY setlist_change_history_tenant_isolation ON setlist_change_history
       WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text)
     )
   );
-
 -- =====================================================
 -- Phase 5: Storage buckets for cover art
 -- =====================================================
@@ -182,7 +165,6 @@ VALUES (
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 )
 ON CONFLICT (id) DO NOTHING;
-
 -- Storage policies for cover art - tenant isolation
 DO $$ 
 BEGIN
@@ -246,7 +228,6 @@ BEGIN
       );
   END IF;
 END $$;
-
 -- =====================================================
 -- Phase 6: Utility functions for analytics and trends
 -- =====================================================
@@ -277,14 +258,12 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Trigger to automatically update song stats when usage is recorded
 DROP TRIGGER IF EXISTS trigger_update_song_usage_stats ON song_usage_analytics;
 CREATE TRIGGER trigger_update_song_usage_stats
   AFTER INSERT ON song_usage_analytics
   FOR EACH ROW
   EXECUTE FUNCTION update_song_usage_stats();
-
 -- Function to clean up old collaboration sessions
 CREATE OR REPLACE FUNCTION cleanup_inactive_collaborations()
 RETURNS void AS $$
@@ -296,7 +275,6 @@ BEGIN
   AND last_seen_at < now() - interval '5 minutes';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Function to get trending songs for a tenant
 CREATE OR REPLACE FUNCTION get_trending_songs(p_tenant_id varchar, p_limit integer DEFAULT 10)
 RETURNS TABLE(
@@ -323,7 +301,6 @@ BEGIN
   LIMIT p_limit;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- =====================================================
 -- Phase 7: Update existing schema constants
 -- =====================================================
@@ -339,12 +316,10 @@ COMMENT ON COLUMN songs.usage_count IS 'Total number of times song has been used
 COMMENT ON COLUMN songs.last_played_at IS 'Timestamp of most recent usage';
 COMMENT ON COLUMN songs.custom_fields IS 'Church-specific metadata fields';
 COMMENT ON COLUMN songs.is_trending IS 'Whether song is currently trending based on recent usage';
-
 COMMENT ON TABLE user_song_preferences IS 'User preferences for song library UI and personalization';
 COMMENT ON TABLE song_usage_analytics IS 'Detailed analytics for song usage patterns and trends';
 COMMENT ON TABLE setlist_collaborations IS 'Real-time collaboration tracking for setlist editing';
 COMMENT ON TABLE setlist_change_history IS 'Change history for undo/redo functionality in collaborative editing';
-
 -- =====================================================
 -- Migration Complete
 -- =====================================================

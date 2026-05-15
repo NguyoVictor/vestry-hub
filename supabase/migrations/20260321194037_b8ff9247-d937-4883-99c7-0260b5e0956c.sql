@@ -1,4 +1,3 @@
-
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'testimonies' AND policyname = 'testimonies_tenant_rls') THEN
     EXECUTE 'CREATE POLICY "testimonies_tenant_rls" ON testimonies FOR ALL USING (tenant_id::text = get_my_tenant_id()::text)';
@@ -17,4 +16,4 @@ DO $$ BEGIN
       survey_id::text IN (SELECT surveys.id FROM surveys WHERE surveys.tenant_id::text = get_my_tenant_id()::text)
     )';
   END IF;
-END $$
+END $$;

@@ -8,6 +8,84 @@ const corsHeaders = {
 
 const FCM_PROJECT_ID = "vestry-hub";
 
+// Helper function to get OAuth2 access token from service account
+async function getAccessToken(serviceAccountJson: string): Promise<string> {
+  const serviceAccount = JSON.parse(serviceAccountJson);
+  
+  // Create JWT for Google OAuth2
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600, // 1 hour
+  };
+
+  // Encode header and payload
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/[=]/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const encodedPayload = btoa(JSON.stringify(payload)).replace(/[=]/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  
+  // Create signature using Web Crypto API
+  const signatureInput = `${encodedHeader}.${encodedPayload}`;
+  
+  // Import private key
+  const privateKeyPem = serviceAccount.private_key.replace(/\\n/g, "\n");
+  const privateKeyDer = pemToDer(privateKeyPem);
+  
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    privateKeyDer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5", 
+    privateKey, 
+    new TextEncoder().encode(signatureInput)
+  );
+  
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/[=]/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  
+  const jwt = `${signatureInput}.${encodedSignature}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenResponse.ok) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+  }
+
+  return tokenData.access_token;
+}
+
+// Helper function to convert PEM to DER format
+function pemToDer(pem: string): ArrayBuffer {
+  const pemHeader = "-----BEGIN PRIVATE KEY-----";
+  const pemFooter = "-----END PRIVATE KEY-----";
+  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
+  
+  // Decode base64
+  const binaryString = atob(pemContents);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -20,9 +98,9 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const FCM_SERVER_KEY = Deno.env.get("FCM_SERVER_KEY");
-    if (!FCM_SERVER_KEY) {
-      return new Response(JSON.stringify({ error: "FCM_SERVER_KEY not configured" }), {
+    const FCM_SERVICE_ACCOUNT = Deno.env.get("FCM_SERVICE_ACCOUNT");
+    if (!FCM_SERVICE_ACCOUNT) {
+      return new Response(JSON.stringify({ error: "FCM_SERVICE_ACCOUNT not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -32,6 +110,9 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
+
+    // Get OAuth2 access token
+    const accessToken = await getAccessToken(FCM_SERVICE_ACCOUNT);
 
     // Fetch FCM tokens for the recipients
     let query = supabase.from("device_tokens").select("token, user_id").eq("tenant_id", tenant_id);
@@ -85,7 +166,7 @@ Deno.serve(async (req: Request) => {
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${FCM_SERVER_KEY}`,
+            "Authorization": `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(message),

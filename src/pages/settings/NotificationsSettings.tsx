@@ -169,7 +169,7 @@ export default function NotificationsSettings() {
       const cols = [
         "push_notifications_enabled",
         ...ALL_NOTIF_KEYS,
-        "at_sms_enabled","at_username","at_sender_id",
+        "at_sms_enabled","at_username","sender_id",
         "at_low_balance_alert","at_low_balance_threshold",
       ].join(",");
       const { data, error } = await supabase
@@ -192,7 +192,7 @@ export default function NotificationsSettings() {
     setNotifs({ ...DEFAULT_NOTIFS, ...n });
     setAtEnabled(!!tenant.at_sms_enabled);
     setAtUsername((tenant.at_username as string) ?? "");
-    setAtSenderId((tenant.at_sender_id as string) ?? "");
+    setAtSenderId((tenant.sender_id as string) ?? "");
     setAtLowBalanceAlert(!!tenant.at_low_balance_alert);
     setAtThreshold(String(tenant.at_low_balance_threshold ?? 500));
     // Note: at_api_key is NOT fetched — never re-expose after save
@@ -231,7 +231,7 @@ export default function NotificationsSettings() {
         ...notifs,
         at_sms_enabled: atEnabled,
         at_username: atUsername || null,
-        at_sender_id: atSenderId || null,
+        sender_id: atSenderId || null,
         at_low_balance_alert: atLowBalanceAlert,
         at_low_balance_threshold: parseInt(atThreshold) || 500,
         updated_at: new Date().toISOString(),

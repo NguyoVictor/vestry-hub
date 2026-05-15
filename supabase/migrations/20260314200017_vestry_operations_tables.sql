@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS services (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Events
 CREATE TABLE IF NOT EXISTS events (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -34,7 +33,6 @@ CREATE TABLE IF NOT EXISTS events (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Event Registrations
 CREATE TABLE IF NOT EXISTS event_registrations (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -42,7 +40,6 @@ CREATE TABLE IF NOT EXISTS event_registrations (
   member_id varchar NOT NULL REFERENCES users(id),
   registered_at timestamptz DEFAULT now()
 );
-
 -- Attendance Sessions
 CREATE TABLE IF NOT EXISTS attendance_sessions (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -54,7 +51,6 @@ CREATE TABLE IF NOT EXISTS attendance_sessions (
   is_open boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
-
 -- Attendance Records
 CREATE TABLE IF NOT EXISTS attendance_records (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -64,7 +60,6 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   check_in_method checkin_method_enum DEFAULT 'manual',
   checked_in_at timestamptz DEFAULT now()
 );
-
 -- Volunteer Assignments
 CREATE TABLE IF NOT EXISTS volunteer_assignments (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -76,7 +71,6 @@ CREATE TABLE IF NOT EXISTS volunteer_assignments (
   notified_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
-
 -- Member Requests
 CREATE TABLE IF NOT EXISTS member_requests (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -89,7 +83,6 @@ CREATE TABLE IF NOT EXISTS member_requests (
   resolved_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
-
 -- Board Meetings
 CREATE TABLE IF NOT EXISTS board_meetings (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -104,7 +97,6 @@ CREATE TABLE IF NOT EXISTS board_meetings (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Facility Bookings
 CREATE TABLE IF NOT EXISTS facility_bookings (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -118,7 +110,6 @@ CREATE TABLE IF NOT EXISTS facility_bookings (
   status task_status_enum DEFAULT 'open',
   created_at timestamptz DEFAULT now()
 );
-
 -- Incidents
 CREATE TABLE IF NOT EXISTS incidents (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -131,4 +122,4 @@ CREATE TABLE IF NOT EXISTS incidents (
   resolution_notes text,
   reported_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
-);;
+);

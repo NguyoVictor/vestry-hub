@@ -38,6 +38,32 @@ interface BroadcastTemplate {
 interface Branch { id: string; name: string; member_count?: number; }
 interface Officer { id: string; first_name: string | null; last_name: string | null; email: string | null; role: string; }
 
+// ── Template variable replacement ─────────────────────────────────────────────
+const replaceTemplateVariables = (text: string, churchData: any): string => {
+  if (!text || !churchData) return text;
+  
+  const variables = {
+    '{{church_name}}': churchData.name || 'Church',
+    '{{church_tagline}}': churchData.tagline || '',
+    '{{church_email}}': churchData.contact_email || '',
+    '{{church_phone}}': churchData.phone || '',
+    '{{church_address}}': churchData.address || '',
+    '{{church_city}}': churchData.city || '',
+    '{{church_country}}': churchData.country || '',
+    '{{church_website}}': churchData.website_url || '',
+    '{{church_denomination}}': churchData.denomination || '',
+    '{{service_time}}': churchData.service_time || '',
+    '{{founded_year}}': churchData.founded_year ? String(churchData.founded_year) : '',
+  };
+  
+  let result = text;
+  Object.entries(variables).forEach(([placeholder, value]) => {
+    result = result.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+  });
+  
+  return result;
+};
+
 // ── Priority config ───────────────────────────────────────────────────────────
 const PRIORITY = {
   low:    { label: "Low",    dot: "bg-slate-400",  pill: "bg-slate-100 text-slate-600 border-slate-200",   border: "" },
@@ -94,6 +120,17 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
   const [savingDraft, setSavingDraft] = useState(false);
   const [noEmailWarning, setNoEmailWarning] = useState(false);
   const [noEmailCount, setNoEmailCount] = useState(0);
+
+  // Fetch church data for template variables
+  const { data: churchData } = useQuery({
+    queryKey: ["church-data", tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.TENANTS).select("*").eq("id", tenantId).single();
+      return data;
+    },
+    staleTime: 300_000,
+    enabled: open,
+  });
 
   // Reset when prefill changes
   useEffect(() => {
@@ -164,6 +201,10 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
     if (!subject.trim()) { toast.error("Subject is required."); return; }
     if (!message.trim()) { toast.error("Message is required."); return; }
 
+    // Replace template variables with actual church data
+    const processedSubject = replaceTemplateVariables(subject.trim(), churchData);
+    const processedMessage = replaceTemplateVariables(message.trim(), churchData);
+
     // Check for email recipients without email addresses
     if (channels.includes("email") && !noEmailWarning) {
       const { count } = await supabase.from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).is("email", null);
@@ -177,28 +218,62 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
     setSending(true);
     try {
       const payload = buildPayload(scheduleAt ? "scheduled" : "sent");
+      // Store processed content (with variables replaced) in the database
+      payload.subject = processedSubject;
+      payload.message = processedMessage;
+      
       const { data: row, error } = await supabase.from(TABLES.ADMIN_BROADCASTS).insert(payload as any).select("id").single();
       if (error) throw error;
 
-      // Send in-app notifications
-      if (channels.includes("in_app")) {
-        let memberIds: string[] = [];
-        if (recipientType === "all") {
-          const { data } = await supabase.from(TABLES.MEMBERS).select("id").eq("tenant_id", tenantId);
-          memberIds = (data ?? []).map((m: any) => m.id);
-        } else if (recipientType === "officers") {
-          memberIds = selectedOfficers;
-        }
-        if (memberIds.length > 0) {
-          const notifs = memberIds.map(uid => ({
-            tenant_id: tenantId, user_id: uid, type: "broadcast",
-            title: subject.trim(), body: message.trim().slice(0, 200),
-            is_read: false,
-          }));
-          // Insert in batches of 100
+      // Get member IDs for notifications (member portal uses member IDs for authentication)
+      // The notifications.user_id field stores member IDs for member portal compatibility
+      let memberIds: string[] = [];
+      if (recipientType === "all") {
+        const { data } = await supabase.from(TABLES.MEMBERS).select("id").eq("tenant_id", tenantId);
+        memberIds = (data ?? []).map((m: any) => m.id).filter(Boolean);
+      } else if (recipientType === "officers") {
+        // For officers, we need to get their member IDs
+        const { data } = await supabase.from(TABLES.MEMBERS).select("id").eq("tenant_id", tenantId).in("user_id", selectedOfficers);
+        memberIds = (data ?? []).map((m: any) => m.id).filter(Boolean);
+      } else if (recipientType === "branches") {
+        // Get member IDs for members in selected branches
+        const { data } = await supabase.from(TABLES.MEMBERS).select("id").eq("tenant_id", tenantId).in("branch_id", selectedBranches);
+        memberIds = (data ?? []).map((m: any) => m.id).filter(Boolean);
+      }
+
+      // Get user IDs for push notifications (Edge Function expects user IDs)
+      let userIds: string[] = [];
+      if (recipientType === "all") {
+        const { data } = await supabase.from(TABLES.MEMBERS).select("user_id").eq("tenant_id", tenantId).not("user_id", "is", null);
+        userIds = (data ?? []).map((m: any) => m.user_id).filter(Boolean);
+      } else if (recipientType === "officers") {
+        userIds = selectedOfficers;
+      } else if (recipientType === "branches") {
+        // Get user IDs for members in selected branches
+        const { data } = await supabase.from(TABLES.MEMBERS).select("user_id").eq("tenant_id", tenantId).in("branch_id", selectedBranches).not("user_id", "is", null);
+        userIds = (data ?? []).map((m: any) => m.user_id).filter(Boolean);
+      }
+
+      // Send in-app notifications (use member IDs for member portal compatibility)
+      if (channels.includes("in_app") && memberIds.length > 0) {
+        const notifs = memberIds.map(memberId => ({
+          tenant_id: tenantId, user_id: memberId, type: "broadcast", // user_id field stores member ID for member portal
+          title: processedSubject, body: processedMessage.slice(0, 200),
+          is_read: false,
+        }));
+        // Insert in batches of 100 with error handling
+        try {
           for (let i = 0; i < notifs.length; i += 100) {
-            await supabase.from(TABLES.NOTIFICATIONS).insert(notifs.slice(i, i + 100) as any);
+            const { error: notifError } = await supabase.from(TABLES.NOTIFICATIONS).insert(notifs.slice(i, i + 100) as any);
+            if (notifError) {
+              console.error("Notification insertion error:", notifError);
+              throw notifError;
+            }
           }
+          console.log(`✅ Created ${notifs.length} in-app notifications successfully`);
+        } catch (notifError) {
+          console.error("Failed to create in-app notifications:", notifError);
+          toast.error("Failed to create in-app notifications");
         }
       }
 
@@ -207,16 +282,44 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
         const { data: emailMembers } = await supabase.from(TABLES.MEMBERS).select("email, first_name, last_name").eq("tenant_id", tenantId).not("email", "is", null);
         if ((emailMembers ?? []).length > 0) {
           await supabase.functions.invoke("send-communication", {
-            body: { tenant_id: tenantId, channel: "email", subject: subject.trim(), body: message.trim(), recipients: emailMembers },
+            body: { tenant_id: tenantId, channel: "email", subject: processedSubject, body: processedMessage, recipients: emailMembers },
           });
         }
       }
 
-      // Send push
-      if (channels.includes("push") && !scheduleAt) {
-        await supabase.functions.invoke("send-push-notification", {
-          body: { tenant_id: tenantId, title: subject.trim(), body: message.trim(), priority, data: { broadcast_id: row?.id, type: "broadcast" } },
-        });
+      // Send push notifications and capture results
+      let pushSentCount = 0;
+      let pushFailedCount = 0;
+      if (channels.includes("push") && !scheduleAt && userIds.length > 0) {
+        try {
+          const { data: pushResult } = await supabase.functions.invoke("send-push-notification", {
+            body: { 
+              tenant_id: tenantId, 
+              recipient_user_ids: userIds,
+              title: processedSubject, 
+              body: processedMessage, 
+              priority, 
+              data: { broadcast_id: row?.id, type: "broadcast" } 
+            },
+          });
+          if (pushResult) {
+            pushSentCount = pushResult.sent || 0;
+            pushFailedCount = pushResult.failed || 0;
+          }
+        } catch (pushError) {
+          console.error("Push notification error:", pushError);
+          pushFailedCount = userIds.length; // Mark all as failed if error
+        }
+
+        // Update broadcast record with push stats
+        if (row?.id) {
+          await supabase.from(TABLES.ADMIN_BROADCASTS)
+            .update({ 
+              push_sent_count: pushSentCount, 
+              push_failed_count: pushFailedCount 
+            } as any)
+            .eq("id", row.id);
+        }
       }
 
       qc.invalidateQueries({ queryKey: ["admin-broadcasts", tenantId] });
@@ -285,6 +388,47 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Message <span className="text-red-500">*</span></Label>
               <Textarea placeholder="Enter your message..." value={message} onChange={e => setMessage(e.target.value)} rows={5} />
+              {/* Template Variables Preview */}
+              {(subject.includes('{{') || message.includes('{{')) && churchData && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs font-medium text-blue-700 mb-2">📝 Preview (with variables replaced):</p>
+                  {subject.includes('{{') && (
+                    <div className="mb-2">
+                      <p className="text-xs text-blue-600 font-medium">Subject:</p>
+                      <p className="text-xs text-blue-800">{replaceTemplateVariables(subject, churchData)}</p>
+                    </div>
+                  )}
+                  {message.includes('{{') && (
+                    <div>
+                      <p className="text-xs text-blue-600 font-medium">Message:</p>
+                      <p className="text-xs text-blue-800 whitespace-pre-wrap">{replaceTemplateVariables(message, churchData)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Available Template Variables */}
+              <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <p className="text-xs font-medium text-slate-700 mb-2">💡 Available template variables:</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <code className="bg-slate-200 px-1 rounded text-slate-800">{'{{church_name}}'}</code>
+                    <span className="text-slate-600 ml-1">{churchData?.name || 'Church name'}</span>
+                  </div>
+                  <div>
+                    <code className="bg-slate-200 px-1 rounded text-slate-800">{'{{church_city}}'}</code>
+                    <span className="text-slate-600 ml-1">{churchData?.city || 'City'}</span>
+                  </div>
+                  <div>
+                    <code className="bg-slate-200 px-1 rounded text-slate-800">{'{{church_phone}}'}</code>
+                    <span className="text-slate-600 ml-1">{churchData?.phone || 'Phone'}</span>
+                  </div>
+                  <div>
+                    <code className="bg-slate-200 px-1 rounded text-slate-800">{'{{church_email}}'}</code>
+                    <span className="text-slate-600 ml-1">{churchData?.contact_email || 'Email'}</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Channels + Schedule */}
@@ -614,18 +758,59 @@ export function AdminBroadcast() {
     setNewBroadcastOpen(true);
   };
 
-  // Analytics
+  // Analytics with proper calculations
   const since = subDays(new Date(), timeFilter);
   const filtered = broadcasts.filter(b => new Date(b.created_at) >= since);
   const totalSent = filtered.filter(b => b.status === "sent").length;
-  const totalRecipients = filtered.reduce((s, b) => s + b.total_recipients, 0);
-  const totalRead = 0; // TODO: fetch from notification reads
+  
+  // Get unique recipients count (total people in system, not cumulative sends)
+  const { data: uniqueRecipients } = useQuery({
+    queryKey: ["unique-recipients", tenantId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from(TABLES.MEMBERS)
+        .select("*", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .not("user_id", "is", null);
+      return count ?? 0;
+    },
+    staleTime: 300000,
+    enabled: activeTab === "analytics",
+  });
+
+  const totalRecipients = uniqueRecipients ?? 0; // Total unique people, not cumulative
+  
+  // Get actual read count from notifications (always call, but conditionally enable)
+  const { data: readNotifications } = useQuery({
+    queryKey: ["broadcast-read-count", tenantId, timeFilter],
+    queryFn: async () => {
+      const broadcastIds = filtered.map(b => b.id);
+      if (broadcastIds.length === 0) return [];
+      
+      const { data } = await supabase
+        .from(TABLES.NOTIFICATIONS)
+        .select("user_id")
+        .eq("tenant_id", tenantId)
+        .eq("type", "broadcast")
+        .eq("is_read", true)
+        .gte("created_at", since.toISOString());
+      
+      // Count unique users who read (not total reads)
+      const uniqueReaders = new Set((data ?? []).map(n => n.user_id));
+      return Array.from(uniqueReaders);
+    },
+    staleTime: 30000,
+    enabled: filtered.length > 0 && activeTab === "analytics",
+  });
+
+  const totalRead = readNotifications?.length ?? 0; // Unique people who read
   const readRate = totalRecipients > 0 ? ((totalRead / totalRecipients) * 100).toFixed(1) : "0.0";
 
-  const emailSent = filtered.reduce((s, b) => s + b.email_sent_count, 0);
-  const emailFailed = filtered.reduce((s, b) => s + b.email_failed_count, 0);
-  const pushSent = filtered.reduce((s, b) => s + b.push_sent_count, 0);
-  const pushFailed = filtered.reduce((s, b) => s + b.push_failed_count, 0);
+  // Message counts (not recipient counts)
+  const totalMessagesSent = filtered.reduce((s, b) => s + (b.status === "sent" ? 1 : 0), 0);
+  const emailMessagesSent = filtered.reduce((s, b) => s + (b.channels?.includes("email") && b.status === "sent" ? 1 : 0), 0);
+  const pushMessagesSent = filtered.reduce((s, b) => s + (b.channels?.includes("push") && b.status === "sent" ? 1 : 0), 0);
+  const inAppMessagesSent = filtered.reduce((s, b) => s + (b.channels?.includes("in_app") && b.status === "sent" ? 1 : 0), 0);
 
   const recent5 = broadcasts.filter(b => b.status === "sent").slice(0, 5);
 
@@ -730,9 +915,9 @@ export function AdminBroadcast() {
             </div>
             <div className="grid grid-cols-4 gap-4">
               {[
-                { icon: Send, color: "bg-blue-50 text-blue-500", value: totalSent, label: "Total Sent" },
-                { icon: Users, color: "bg-violet-50 text-violet-500", value: totalRecipients, label: "Recipients" },
-                { icon: Eye, color: "bg-emerald-50 text-emerald-500", value: totalRead, label: "Read" },
+                { icon: Send, color: "bg-blue-50 text-blue-500", value: totalMessagesSent, label: "Messages Sent" },
+                { icon: Users, color: "bg-violet-50 text-violet-500", value: totalRecipients, label: "Total Recipients" },
+                { icon: Eye, color: "bg-emerald-50 text-emerald-500", value: totalRead, label: "People Read" },
                 { icon: TrendingUp, color: "bg-orange-50 text-orange-500", value: `${readRate}%`, label: "Read Rate" },
               ].map(({ icon: Icon, color, value, label }) => (
                 <div key={label} className="rounded-xl border border-slate-100 p-4 text-center">
@@ -747,27 +932,53 @@ export function AdminBroadcast() {
           <div className="grid grid-cols-3 gap-4">
             {/* In-App */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-orange-500" />📱 In-App Notifications</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-1.5">
+                <MessageSquare className="h-4 w-4 text-orange-500" />
+                📱 In-App Messages
+              </p>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm"><span className="text-slate-500">✅ Delivered</span><span className="font-semibold text-emerald-600">{totalRecipients}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-slate-500">❌ Failed</span><span className="font-semibold text-red-500">0</span></div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">✅ Sent</span>
+                  <span className="font-semibold text-emerald-600">{inAppMessagesSent}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">❌ Failed</span>
+                  <span className="font-semibold text-red-500">0</span>
+                </div>
               </div>
             </div>
             {/* Email */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-1.5"><Mail className="h-4 w-4 text-blue-500" />📧 Email Delivery</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-1.5">
+                <Mail className="h-4 w-4 text-blue-500" />
+                📧 Email Messages
+              </p>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm"><span className="text-slate-500">✅ Sent</span><span className="font-semibold text-emerald-600">{emailSent}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-slate-500">❌ Failed</span><span className="font-semibold text-red-500">{emailFailed}</span></div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">✅ Sent</span>
+                  <span className="font-semibold text-emerald-600">{emailMessagesSent}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">❌ Failed</span>
+                  <span className="font-semibold text-red-500">0</span>
+                </div>
               </div>
             </div>
             {/* Push */}
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-1.5"><Bell className="h-4 w-4 text-orange-500" />🔔 Push Notifications</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-1.5">
+                <Bell className="h-4 w-4 text-orange-500" />
+                🔔 Push Messages
+              </p>
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm"><span className="text-slate-500">✅ Sent</span><span className="font-semibold text-emerald-600">{pushSent}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-slate-500">✅ Delivered</span><span className="font-semibold text-emerald-600">{pushSent}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-slate-500">❌ Failed</span><span className="font-semibold text-red-500">{pushFailed}</span></div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">✅ Sent</span>
+                  <span className="font-semibold text-emerald-600">{pushMessagesSent}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">❌ Failed</span>
+                  <span className="font-semibold text-red-500">0</span>
+                </div>
               </div>
             </div>
           </div>

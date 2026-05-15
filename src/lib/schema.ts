@@ -50,6 +50,7 @@ export const TABLES = {
   SMS_SETTINGS: "sms_settings",
   SMS_HISTORY: "sms_history",
   SMS_TEMPLATES: "sms_templates",
+  SMS_TEMPLATES: "sms_templates",
   SMS_RECIPIENTS: "sms_recipients",
   BROADCAST_TEMPLATES: "broadcast_templates",
   ADMIN_BROADCASTS: "admin_broadcasts",

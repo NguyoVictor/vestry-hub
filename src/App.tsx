@@ -503,6 +503,8 @@ const App = () => (
             {/* Public facility booking — no auth required */}
             <Route path="/book/:tenantId" element={<Suspense fallback={<Fallback />}><PublicBookingPage /></Suspense>} />
             <Route path="/book/:tenantId/:facilityId" element={<Suspense fallback={<Fallback />}><PublicBookingPage /></Suspense>} />
+            {/* Catch-all route for 404 page */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

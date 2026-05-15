@@ -25,22 +25,17 @@ CREATE TABLE IF NOT EXISTS activity_log (
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Tenant members can view activity log"
   ON activity_log FOR SELECT
   USING (tenant_id IN (
     SELECT tenant_id FROM users WHERE id = auth.uid()::text
   ));
-
 CREATE POLICY "Authenticated users can insert activity log entries"
   ON activity_log FOR INSERT
   WITH CHECK (tenant_id IN (
     SELECT tenant_id FROM users WHERE id = auth.uid()::text
   ));
-
 CREATE INDEX IF NOT EXISTS idx_activity_log_tenant_time
   ON activity_log(tenant_id, created_at DESC);
-
-ALTER PUBLICATION supabase_realtime ADD TABLE activity_log;;
+ALTER PUBLICATION supabase_realtime ADD TABLE activity_log;

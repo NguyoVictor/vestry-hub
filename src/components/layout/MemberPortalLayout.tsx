@@ -4,6 +4,7 @@ import { useMemberPortal } from "@/contexts/MemberPortalContext";
 import { AgeAwareProvider } from "@/contexts/AgeAwareContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { useFcmToken } from "@/hooks/useFcmToken";
 import { cn } from "@/lib/utils";
 import {
   Home, Heart, CalendarDays, MessageCircle, User, BookOpen,
@@ -47,6 +48,9 @@ export function MemberPortalLayout() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  // Register FCM token for push notifications
+  useFcmToken(member.memberId, member.tenantId);
+
   const signOut = async () => {
     localStorage.removeItem("member_session");
     navigate("/member/login");
@@ -73,6 +77,15 @@ export function MemberPortalLayout() {
   // ── Notification click handler ──
   const handleNotificationClick = (notif: MemberNotification) => {
     markOneRead(notif.id);
+    
+    // Handle different notification types
+    if (notif.type === "broadcast") {
+      // For broadcast notifications, just mark as read and stay on current page
+      // The notification content is already visible in the dropdown
+      return;
+    }
+    
+    // For other notification types (announcements, etc.)
     const announcementId = notif.metadata?.announcementId;
     const dest = announcementId
       ? `/member/announcements?highlight=${announcementId}`

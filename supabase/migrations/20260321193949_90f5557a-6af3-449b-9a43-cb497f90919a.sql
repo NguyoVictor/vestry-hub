@@ -1,4 +1,3 @@
-
 CREATE TABLE security_alerts (
   id varchar DEFAULT gen_random_uuid()::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -18,7 +17,6 @@ CREATE TABLE security_alerts (
   updated_at timestamptz DEFAULT now()
 );
 CREATE POLICY "security_alerts_tenant_rls" ON security_alerts FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
-
 CREATE TABLE incident_updates (
   id varchar DEFAULT gen_random_uuid()::text PRIMARY KEY,
   incident_id varchar NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
@@ -30,7 +28,6 @@ CREATE TABLE incident_updates (
 CREATE POLICY "incident_updates_tenant_rls" ON incident_updates FOR ALL USING (
   incident_id::text IN (SELECT incidents.id FROM incidents WHERE incidents.tenant_id::text = get_my_tenant_id()::text)
 );
-
 CREATE TABLE conversations (
   id varchar DEFAULT gen_random_uuid()::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -43,7 +40,6 @@ CREATE TABLE conversations (
   updated_at timestamptz DEFAULT now()
 );
 CREATE POLICY "conversations_tenant_rls" ON conversations FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
-
 CREATE TABLE conversation_participants (
   id varchar DEFAULT gen_random_uuid()::text PRIMARY KEY,
   conversation_id varchar NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -56,7 +52,6 @@ CREATE TABLE conversation_participants (
 CREATE POLICY "conv_participants_rls" ON conversation_participants FOR ALL USING (
   conversation_id::text IN (SELECT conversations.id FROM conversations WHERE conversations.tenant_id::text = get_my_tenant_id()::text)
 );
-
 CREATE TABLE survey_answers (
   id varchar DEFAULT gen_random_uuid()::text PRIMARY KEY,
   response_id varchar NOT NULL REFERENCES survey_responses(id) ON DELETE CASCADE,
@@ -74,7 +69,6 @@ CREATE POLICY "survey_answers_rls" ON survey_answers FOR ALL USING (
     WHERE surveys.tenant_id::text = get_my_tenant_id()::text
   )
 );
-
 CREATE TABLE broadcasts (
   id varchar DEFAULT gen_random_uuid()::text PRIMARY KEY,
   tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -93,4 +87,4 @@ CREATE TABLE broadcasts (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
-CREATE POLICY "broadcasts_tenant_rls" ON broadcasts FOR ALL USING (tenant_id::text = get_my_tenant_id()::text)
+CREATE POLICY "broadcasts_tenant_rls" ON broadcasts FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);

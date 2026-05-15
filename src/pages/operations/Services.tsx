@@ -320,24 +320,49 @@ export default function ServicesPage() {
   // ── Mutations ─────────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from(TABLES.SERVICES).insert({
-        tenant_id: tenantId!,
-        name: formData.name,
-        title: formData.name,  // title is NOT NULL in DB
-        service_type: formData.service_type,
-        description: formData.description || null,
-        service_date: formData.service_date,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
-        location: formData.location || null,
-        expected_attendance: formData.expected_attendance || null,
-        preacher: formData.preacher || null,
-        is_recurring: formData.is_recurring,
-        recurrence_rule: formData.is_recurring ? formData.recurrence_rule : null,
-        status: formData.status,
-        allow_attendance: formData.allow_attendance,
-      } as any);
-      if (error) throw error;
+      try {
+        const { error } = await supabase.from(TABLES.SERVICES).insert({
+          tenant_id: tenantId!,
+          name: formData.name,
+          title: formData.name,  // title is NOT NULL in DB
+          service_type: formData.service_type,
+          description: formData.description || null,
+          service_date: formData.service_date,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          location: formData.location || null,
+          expected_attendance: formData.expected_attendance || null,
+          preacher: formData.preacher || null,
+          is_recurring: formData.is_recurring,
+          recurrence_rule: formData.is_recurring ? formData.recurrence_rule : null,
+          status: formData.status,
+          allow_attendance: formData.allow_attendance,
+        } as any);
+        if (error) throw error;
+      } catch (error: any) {
+        // If allow_attendance column doesn't exist, try without it
+        if (error.message?.includes('allow_attendance')) {
+          const { error: retryError } = await supabase.from(TABLES.SERVICES).insert({
+            tenant_id: tenantId!,
+            name: formData.name,
+            title: formData.name,
+            service_type: formData.service_type,
+            description: formData.description || null,
+            service_date: formData.service_date,
+            start_time: formData.start_time,
+            end_time: formData.end_time,
+            location: formData.location || null,
+            expected_attendance: formData.expected_attendance || null,
+            preacher: formData.preacher || null,
+            is_recurring: formData.is_recurring,
+            recurrence_rule: formData.is_recurring ? formData.recurrence_rule : null,
+            status: formData.status,
+          } as any);
+          if (retryError) throw retryError;
+        } else {
+          throw error;
+        }
+      }
     },
     onSuccess: () => {
       invalidate();
@@ -346,28 +371,58 @@ export default function ServicesPage() {
       setSheetOpen(false);
       setFormData({ ...emptyForm });
     },
-    onError: (e: any) => toast.error(e.message || "Failed to schedule service"),
+    onError: (e: any) => {
+      if (e.message?.includes('allow_attendance') && e.message?.includes('schema cache')) {
+        toast.error("Database column missing. Please run the ADD_MISSING_SERVICES_COLUMNS.sql script in Supabase Dashboard.");
+      } else {
+        toast.error(e.message || "Failed to schedule service");
+      }
+    },
   });
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from(TABLES.SERVICES).update({
-        name: editForm.name,
-        title: editForm.name,  // title is NOT NULL in DB
-        service_type: editForm.service_type,
-        description: editForm.description || null,
-        service_date: editForm.service_date,
-        start_time: editForm.start_time,
-        end_time: editForm.end_time,
-        location: editForm.location || null,
-        expected_attendance: editForm.expected_attendance || null,
-        preacher: editForm.preacher || null,
-        is_recurring: editForm.is_recurring,
-        recurrence_rule: editForm.is_recurring ? (editForm as any).recurrence_rule : null,
-        status: editForm.status,
-        allow_attendance: (editForm as any).allow_attendance ?? true,
-      } as any).eq("id", editingService!.id);
-      if (error) throw error;
+      try {
+        const { error } = await supabase.from(TABLES.SERVICES).update({
+          name: editForm.name,
+          title: editForm.name,  // title is NOT NULL in DB
+          service_type: editForm.service_type,
+          description: editForm.description || null,
+          service_date: editForm.service_date,
+          start_time: editForm.start_time,
+          end_time: editForm.end_time,
+          location: editForm.location || null,
+          expected_attendance: editForm.expected_attendance || null,
+          preacher: editForm.preacher || null,
+          is_recurring: editForm.is_recurring,
+          recurrence_rule: editForm.is_recurring ? (editForm as any).recurrence_rule : null,
+          status: editForm.status,
+          allow_attendance: (editForm as any).allow_attendance ?? true,
+        } as any).eq("id", editingService!.id);
+        if (error) throw error;
+      } catch (error: any) {
+        // If allow_attendance column doesn't exist, try without it
+        if (error.message?.includes('allow_attendance')) {
+          const { error: retryError } = await supabase.from(TABLES.SERVICES).update({
+            name: editForm.name,
+            title: editForm.name,
+            service_type: editForm.service_type,
+            description: editForm.description || null,
+            service_date: editForm.service_date,
+            start_time: editForm.start_time,
+            end_time: editForm.end_time,
+            location: editForm.location || null,
+            expected_attendance: editForm.expected_attendance || null,
+            preacher: editForm.preacher || null,
+            is_recurring: editForm.is_recurring,
+            recurrence_rule: editForm.is_recurring ? (editForm as any).recurrence_rule : null,
+            status: editForm.status,
+          } as any).eq("id", editingService!.id);
+          if (retryError) throw retryError;
+        } else {
+          throw error;
+        }
+      }
     },
     onSuccess: () => {
       invalidate();
@@ -375,7 +430,13 @@ export default function ServicesPage() {
       setEditSheetOpen(false);
       setEditingService(null);
     },
-    onError: (e: any) => toast.error(e.message || "Failed to update service"),
+    onError: (e: any) => {
+      if (e.message?.includes('allow_attendance') && e.message?.includes('schema cache')) {
+        toast.error("Database column missing. Please run the ADD_MISSING_SERVICES_COLUMNS.sql script in Supabase Dashboard.");
+      } else {
+        toast.error(e.message || "Failed to update service");
+      }
+    },
   });
 
   const deleteMutation = useMutation({

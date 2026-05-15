@@ -82,7 +82,7 @@ export function SmsTab() {
       return { total: totalRes.count ?? 0, delivered: deliveredRes.count ?? 0, withPhone: phonesRes.count ?? 0, scheduled: scheduledRes.count ?? 0 };
     },
     staleTime: 300_000,
-    enabled: isConfigured,
+    enabled: !!tenantId,
   });
 
   // History
@@ -93,7 +93,7 @@ export function SmsTab() {
       return (data ?? []) as SmsRecord[];
     },
     staleTime: 300_000,
-    enabled: isConfigured,
+    enabled: !!tenantId,
   });
 
   const handleSendTest = async () => {
@@ -126,7 +126,7 @@ export function SmsTab() {
           <div className="flex-1 text-sm text-amber-800">
             <span className="font-medium">SMS not configured.</span> Add your Africa's Talking credentials in{" "}
             <button onClick={() => navigate("/settings/communications-settings")} className="text-orange-600 font-medium hover:underline">
-              Settings → Communications → SMS →
+              Settings → Communications → SMS
             </button>
           </div>
         </div>

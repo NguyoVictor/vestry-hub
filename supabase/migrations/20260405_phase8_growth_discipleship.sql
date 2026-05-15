@@ -22,7 +22,6 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN NULL; -- Ignore errors if policies don't exist
 END $$;
-
 -- DISCIPLESHIP RESOURCES TABLE
 CREATE TABLE IF NOT EXISTS discipleship_resources (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -45,7 +44,6 @@ CREATE TABLE IF NOT EXISTS discipleship_resources (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE discipleship_resources ENABLE ROW LEVEL SECURITY;
-
 -- Create policy if it doesn't exist
 DO $$
 BEGIN
@@ -59,7 +57,6 @@ BEGIN
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_discipleship_resources_tenant ON discipleship_resources(tenant_id);
-
 -- RESOURCE ASSIGNMENTS TABLE
 CREATE TABLE IF NOT EXISTS resource_assignments (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -73,7 +70,6 @@ CREATE TABLE IF NOT EXISTS resource_assignments (
   UNIQUE(resource_id, convert_id)
 );
 ALTER TABLE resource_assignments ENABLE ROW LEVEL SECURITY;
-
 -- Create policy if it doesn't exist
 DO $$
 BEGIN
@@ -87,7 +83,6 @@ BEGIN
   END IF;
 END $$;
 CREATE INDEX IF NOT EXISTS idx_resource_assignments_tenant ON resource_assignments(tenant_id);
-
 -- RESOURCE COLLECTIONS TABLE
 CREATE TABLE IF NOT EXISTS resource_collections (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -104,7 +99,6 @@ ALTER TABLE resource_collections ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage collections" ON resource_collections FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_resource_collections_tenant ON resource_collections(tenant_id);
-
 -- COLLECTION RESOURCES TABLE
 CREATE TABLE IF NOT EXISTS collection_resources (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -116,7 +110,6 @@ CREATE TABLE IF NOT EXISTS collection_resources (
 ALTER TABLE collection_resources ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage collection resources" ON collection_resources FOR ALL
   USING (collection_id IN (SELECT id FROM resource_collections WHERE tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text)));
-
 -- STORE PRODUCTS TABLE
 CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1000;
 CREATE TABLE IF NOT EXISTS store_products (
@@ -147,7 +140,6 @@ CREATE POLICY "Staff can manage products" ON store_products FOR ALL
 CREATE POLICY "Members can view active products" ON store_products FOR SELECT
   USING (status = 'active' AND tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_store_products_tenant ON store_products(tenant_id);
-
 -- STORE ORDERS TABLE
 CREATE TABLE IF NOT EXISTS store_orders (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -176,7 +168,6 @@ ALTER TABLE store_orders ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage orders" ON store_orders FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_store_orders_tenant ON store_orders(tenant_id);
-
 CREATE OR REPLACE FUNCTION generate_order_number() RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.order_number = '' OR NEW.order_number IS NULL THEN
@@ -187,7 +178,6 @@ END;
 $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS set_order_number ON store_orders;
 CREATE TRIGGER set_order_number BEFORE INSERT ON store_orders FOR EACH ROW EXECUTE FUNCTION generate_order_number();
-
 -- ORDER ITEMS TABLE
 CREATE TABLE IF NOT EXISTS order_items (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -205,7 +195,6 @@ ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage order items" ON order_items FOR ALL
   USING (order_id IN (SELECT id FROM store_orders WHERE tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text)));
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
-
 -- COURSE ENROLLMENTS TABLE
 CREATE TABLE IF NOT EXISTS course_enrollments (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -224,7 +213,6 @@ CREATE POLICY "Admins can view all enrollments" ON course_enrollments FOR SELECT
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_course_enrollments_course ON course_enrollments(course_id);
 CREATE INDEX IF NOT EXISTS idx_course_enrollments_user ON course_enrollments(user_id);
-
 -- LESSON COMPLETIONS TABLE
 CREATE TABLE IF NOT EXISTS lesson_completions (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -239,7 +227,6 @@ ALTER TABLE lesson_completions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their own lesson completions" ON lesson_completions FOR ALL
   USING (enrollment_id IN (SELECT id FROM course_enrollments WHERE user_id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_lesson_completions_enrollment ON lesson_completions(enrollment_id);
-
 -- COURSE COMMENTS TABLE
 CREATE TABLE IF NOT EXISTS course_comments (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,

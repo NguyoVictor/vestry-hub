@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS branches (
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
-
 -- Groups
 CREATE TABLE IF NOT EXISTS groups (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -24,11 +23,10 @@ CREATE TABLE IF NOT EXISTS groups (
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
-
 -- Group Members
 CREATE TABLE IF NOT EXISTS group_members (
   group_id varchar NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   member_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   joined_at timestamptz DEFAULT now(),
   PRIMARY KEY (group_id, member_id)
-);;
+);

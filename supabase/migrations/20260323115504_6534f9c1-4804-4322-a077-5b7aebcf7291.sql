@@ -12,7 +12,6 @@ BEGIN
     EXECUTE 'REVOKE UPDATE (tenant_id) ON public.users FROM authenticated';
   END IF;
 END $$;
-
 -- Fix 2: Prevent exposure of password_hash and mfa_secret via SELECT (only if columns exist)
 DO $$
 BEGIN
@@ -23,7 +22,6 @@ BEGIN
     EXECUTE 'REVOKE SELECT (mfa_secret) ON public.users FROM authenticated';
   END IF;
 END $$;
-
 -- Fix 3: Prevent exposure of stream_key via SELECT on livestreams (only if table and column exist)
 DO $$
 BEGIN
