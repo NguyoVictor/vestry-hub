@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8080/dashboard",
+  "loginUser": "victornguyo32@gmail.com",
+  "loginPassword": "vikinguyo_AB12!",
+  "executionArgs": {
+    "projectName": "vestry-hub",
+    "projectPath": "C:/Users/ADMIN/vestry-hub",
+    "testIds": [],
+    "additionalInstruction": "Focus on critical production readiness issues: multi-tenant isolation, authentication flows, database errors, performance issues, and security vulnerabilities. Test admin dashboard, member portal, and key user flows.",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-A3ORTEa--3rC-JeJhw2uTpXnGmW0eqzA9nZxqD5CMrLq-EaWQayq3RraNqrjrKRjGx9zmW_jGDhKMq86uyop0ULcivMwEAarvqMUKgdrpVzwcQCySvq5BdIQVgU4xUAhQJs"
+    }
+  }
+}

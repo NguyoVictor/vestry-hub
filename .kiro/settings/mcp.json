@@ -18,6 +18,14 @@
         "C:/Users/ADMIN/vestry-hub"
       ]
     },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "disabled": false,
+      "autoApprove": []
+    },
     "TestSprite": {
       "command": "npx",
       "args": [

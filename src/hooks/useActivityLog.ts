@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { TABLES, COLS } from "@/lib/schema";
+import { useChurch } from "@/contexts/ChurchContext";
 
 export interface ActivityEntry {
   id: string;
@@ -17,41 +19,71 @@ export interface ActivityEntry {
   created_at: string;
 }
 
-export function useActivityLog(churchId: string, limit = 10) {
+export function useActivityLog(limit = 10) {
+  const { church } = useChurch();
   const queryClient = useQueryClient();
 
+  if (!church?.id) {
+    throw new Error("Church context is required for useActivityLog");
+  }
+
   const query = useQuery({
-    queryKey: ["activity-log", churchId, limit],
+    queryKey: ["activity-log", church.id, limit],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("activity_log")
-        .select("*")
-        .eq("tenant_id", churchId)  // DB uses tenant_id
+      // SECURITY FIX: Always use church context, never accept churchId parameter
+      // This prevents multi-tenant data leakage
+      const { data, error } = await supabase
+        .from(TABLES.ACTIVITY_LOG)
+        .select(`
+          id,
+          action_type,
+          description,
+          actor_name,
+          actor_avatar_url,
+          entity_type,
+          entity_name,
+          created_at,
+          metadata
+        `)
+        .eq(COLS.TENANT_ID, church.id)
         .order("created_at", { ascending: false })
-        .limit(limit);
+        .limit(Math.min(limit, 100)); // Cap at 100 to prevent memory issues
+      
       if (error) throw error;
       return (data || []) as ActivityEntry[];
     },
-    enabled: !!churchId,
+    enabled: !!church?.id,
     staleTime: 30_000, // 30s — activity feed should be fairly fresh
+    gcTime: 300_000, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   // Realtime subscription — invalidate on new INSERT
   useEffect(() => {
-    if (!churchId) return;
+    if (!church?.id) return;
+    
     const channel = supabase
-      .channel(`activity-log:${churchId}`)
+      .channel(`activity-log:${church.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "activity_log", filter: `tenant_id=eq.${churchId}` },
+        { 
+          event: "INSERT", 
+          schema: "public", 
+          table: TABLES.ACTIVITY_LOG, 
+          filter: `tenant_id=eq.${church.id}` 
+        },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["activity-log", churchId] });
+          queryClient.invalidateQueries({ 
+            queryKey: ["activity-log", church.id] 
+          });
         }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [churchId, queryClient]);
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
+  }, [church?.id, queryClient]);
 
   return query;
 }

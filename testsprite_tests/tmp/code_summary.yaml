@@ -1,0 +1,359 @@
+version: "2"
+type: frontend
+tech_stack:
+  - TypeScript
+  - React
+  - Vite
+  - Supabase
+  - TailwindCSS
+  - shadcn/ui
+  - React Router
+  - TanStack Query
+  - Framer Motion
+routes:
+  - path: /
+    file: src/pages/Index.tsx
+    auth_required: false
+    description: Landing page
+  - path: /auth/signin
+    file: src/pages/auth/SignIn.tsx
+    auth_required: false
+    description: Admin sign in page
+  - path: /auth/signup
+    file: src/pages/auth/SignUp.tsx
+    auth_required: false
+    description: Admin sign up page
+  - path: /onboarding
+    file: src/pages/Onboarding.tsx
+    auth_required: true
+    description: Church onboarding setup
+  - path: /dashboard
+    file: src/pages/Dashboard.tsx
+    auth_required: true
+    description: Main admin dashboard
+  - path: /members
+    file: src/pages/people/Members.tsx
+    auth_required: true
+    description: Church members management
+  - path: /members/:memberId
+    file: src/pages/people/MemberProfile.tsx
+    auth_required: true
+    description: Individual member profile
+  - path: /groups
+    file: src/pages/people/Groups.tsx
+    auth_required: true
+    description: Church groups management
+  - path: /events
+    file: src/pages/operations/Events.tsx
+    auth_required: true
+    description: Church events management
+  - path: /giving-records
+    file: src/pages/finance/GivingRecords.tsx
+    auth_required: true
+    description: Donation records management
+  - path: /give-online
+    file: src/pages/finance/GiveOnline.tsx
+    auth_required: true
+    description: Online giving interface
+  - path: /announcements
+    file: src/pages/communications/Announcements.tsx
+    auth_required: true
+    description: Church announcements
+  - path: /sermons
+    file: src/pages/media/SermonsRevamped.tsx
+    auth_required: true
+    description: Sermon management
+  - path: /livestreaming
+    file: src/pages/Livestreaming.tsx
+    auth_required: true
+    description: Live streaming management
+  - path: /settings
+    file: src/pages/settings/GeneralSettings.tsx
+    auth_required: true
+    description: Church settings
+  - path: /member/login
+    file: src/pages/member/MemberLogin.tsx
+    auth_required: false
+    description: Member portal login
+  - path: /member
+    file: src/pages/member/MemberHome.tsx
+    auth_required: true
+    description: Member portal home
+  - path: /member/give
+    file: src/pages/member/MemberGive.tsx
+    auth_required: true
+    description: Member giving interface
+  - path: /member/events
+    file: src/pages/member/MemberEvents.tsx
+    auth_required: true
+    description: Member events view
+  - path: /member/sermons
+    file: src/pages/member/MemberSermonsRevamped.tsx
+    auth_required: true
+    description: Member sermons view
+features:
+  - name: Admin Authentication
+    description: Church admin login and signup with Supabase auth
+    files:
+      - src/pages/auth/SignIn.tsx
+      - src/pages/auth/SignUp.tsx
+      - src/components/layout/AuthGuard.tsx
+    entry_route: /auth/signin
+    user_interactions:
+      - Fill email input field
+      - Fill password input field
+      - Click Sign In button
+      - Navigate to signup if no account
+      - See error messages on invalid credentials
+    api_calls:
+      - method: POST
+        endpoint: Supabase Auth API
+    auth_required: false
+  - name: Church Onboarding
+    description: Initial church setup and configuration
+    files:
+      - src/pages/Onboarding.tsx
+    entry_route: /onboarding
+    user_interactions:
+      - Enter church name
+      - Select country and currency
+      - Upload church logo
+      - Complete setup wizard
+    api_calls:
+      - method: INSERT
+        endpoint: Supabase tenants table
+    auth_required: true
+  - name: Dashboard Overview
+    description: Main admin dashboard with church statistics
+    files:
+      - src/pages/Dashboard.tsx
+      - src/hooks/useActivityLog.ts
+    entry_route: /dashboard
+    user_interactions:
+      - View member count statistics
+      - View giving statistics
+      - View upcoming events
+      - View recent activity feed
+      - Navigate to quick actions
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase members, giving_records, events tables
+    auth_required: true
+  - name: Member Management
+    description: Add, edit, and manage church members
+    files:
+      - src/pages/people/Members.tsx
+      - src/pages/people/MemberProfile.tsx
+    entry_route: /members
+    user_interactions:
+      - View members list
+      - Search and filter members
+      - Add new member
+      - Edit member details
+      - View member profile
+      - Delete member
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase members table
+      - method: INSERT
+        endpoint: Supabase members table
+      - method: UPDATE
+        endpoint: Supabase members table
+    auth_required: true
+  - name: Group Management
+    description: Create and manage church groups
+    files:
+      - src/pages/people/Groups.tsx
+      - src/pages/people/GroupDetail.tsx
+    entry_route: /groups
+    user_interactions:
+      - View groups list
+      - Create new group
+      - Edit group details
+      - Add members to group
+      - Remove members from group
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase groups, group_members tables
+      - method: INSERT
+        endpoint: Supabase groups table
+      - method: UPDATE
+        endpoint: Supabase groups table
+    auth_required: true
+  - name: Event Management
+    description: Create and manage church events
+    files:
+      - src/pages/operations/Events.tsx
+    entry_route: /events
+    user_interactions:
+      - View events calendar
+      - Create new event
+      - Edit event details
+      - Set event capacity and registration
+      - View event RSVPs
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase events table
+      - method: INSERT
+        endpoint: Supabase events table
+      - method: UPDATE
+        endpoint: Supabase events table
+    auth_required: true
+  - name: Giving Management
+    description: Track and manage church donations
+    files:
+      - src/pages/finance/GivingRecords.tsx
+      - src/pages/finance/GiveOnline.tsx
+    entry_route: /giving-records
+    user_interactions:
+      - View giving records
+      - Record manual donation
+      - Export giving reports
+      - Filter by date range and type
+      - Process online giving
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase giving_records table
+      - method: INSERT
+        endpoint: Supabase giving_records table
+    auth_required: true
+  - name: Announcements
+    description: Create and manage church announcements
+    files:
+      - src/pages/communications/Announcements.tsx
+    entry_route: /announcements
+    user_interactions:
+      - View announcements list
+      - Create new announcement
+      - Edit announcement
+      - Publish/unpublish announcement
+      - Set announcement visibility
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase announcements table
+      - method: INSERT
+        endpoint: Supabase announcements table
+      - method: UPDATE
+        endpoint: Supabase announcements table
+    auth_required: true
+  - name: Sermon Management
+    description: Upload and manage church sermons
+    files:
+      - src/pages/media/SermonsRevamped.tsx
+    entry_route: /sermons
+    user_interactions:
+      - View sermons list
+      - Upload new sermon
+      - Edit sermon details
+      - Add sermon notes and transcripts
+      - Organize sermons by series
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase sermons table
+      - method: INSERT
+        endpoint: Supabase sermons table
+      - method: UPDATE
+        endpoint: Supabase sermons table
+    auth_required: true
+  - name: Live Streaming
+    description: Manage church live streaming
+    files:
+      - src/pages/Livestreaming.tsx
+    entry_route: /livestreaming
+    user_interactions:
+      - Configure streaming platforms
+      - Schedule live streams
+      - Start/stop live stream
+      - View streaming analytics
+      - Manage prayer requests during stream
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase livestreams table
+      - method: INSERT
+        endpoint: Supabase livestreams table
+      - method: UPDATE
+        endpoint: Supabase livestreams table
+    auth_required: true
+  - name: Member Portal Authentication
+    description: Member login to church portal
+    files:
+      - src/pages/member/MemberLogin.tsx
+      - src/components/layout/MemberAuthGuard.tsx
+    entry_route: /member/login
+    user_interactions:
+      - Enter member credentials
+      - Click login button
+      - Navigate to member portal
+      - Reset password if needed
+    api_calls:
+      - method: POST
+        endpoint: Supabase Auth API
+    auth_required: false
+  - name: Member Portal Home
+    description: Member dashboard and home page
+    files:
+      - src/pages/member/MemberHome.tsx
+    entry_route: /member
+    user_interactions:
+      - View personal dashboard
+      - See upcoming events
+      - View recent announcements
+      - Access quick actions
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase events, announcements tables
+    auth_required: true
+  - name: Member Giving
+    description: Members can give online through portal
+    files:
+      - src/pages/member/MemberGive.tsx
+    entry_route: /member/give
+    user_interactions:
+      - Select giving amount
+      - Choose giving type
+      - Enter payment details
+      - Submit donation
+      - View giving history
+    api_calls:
+      - method: INSERT
+        endpoint: Supabase giving_records table
+      - method: POST
+        endpoint: Payment gateway API
+    auth_required: true
+  - name: Church Settings
+    description: Configure church settings and preferences
+    files:
+      - src/pages/settings/GeneralSettings.tsx
+      - src/pages/settings/CommunicationsSettings.tsx
+    entry_route: /settings
+    user_interactions:
+      - Update church information
+      - Configure communication settings
+      - Manage user roles and permissions
+      - Set up integrations
+      - Configure giving settings
+    api_calls:
+      - method: SELECT
+        endpoint: Supabase tenants table
+      - method: UPDATE
+        endpoint: Supabase tenants table
+    auth_required: true
+known_limitations:
+  - issue: Missing database tables referenced in code
+    location: src/pages/settings/GroupTypes.tsx
+    impact: Group types functionality will fail with 500 errors
+  - issue: Incomplete RLS policies on notifications table
+    location: Database schema
+    impact: Member portal notifications may not work properly
+  - issue: Missing tenant_id filtering in some queries
+    location: src/hooks/useActivityLog.ts
+    impact: Critical security vulnerability - data leakage between churches
+  - issue: No pagination on members query
+    location: src/pages/people/Members.tsx
+    impact: Performance issues with large member lists
+  - issue: Realtime subscriptions without cleanup
+    location: src/hooks/useNotificationBell.ts
+    impact: Memory leaks and connection issues
+  - issue: Missing admin role verification
+    location: src/pages/communications/AdminBroadcast.tsx
+    impact: Members could access admin-only features

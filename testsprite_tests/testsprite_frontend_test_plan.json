@@ -1,0 +1,1791 @@
+[
+  {
+    "id": "TC001",
+    "title": "Admin signs in and reaches the dashboard",
+    "description": "This verifies that an admin can sign in successfully and land on the authenticated dashboard.",
+    "category": "Admin Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the admin dashboard is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Admin signs in and reaches onboarding for a new church",
+    "description": "Verifies a church admin can sign in, pass the auth guard, and reach onboarding to start setting up a new church.",
+    "category": "Member Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the onboarding continuation control"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the onboarding setup screen is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Member submits online giving successfully",
+    "description": "This test verifies that a member can complete an online donation and see a confirmation after submission.",
+    "category": "Member Giving",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member login credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the giving page"
+      },
+      {
+        "type": "action",
+        "description": "Select a giving amount"
+      },
+      {
+        "type": "action",
+        "description": "Choose a giving type"
+      },
+      {
+        "type": "action",
+        "description": "Enter payment details"
+      },
+      {
+        "type": "action",
+        "description": "Submit the donation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a donation confirmation is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Authenticated admin completes onboarding",
+    "description": "This verifies that a signed-in admin can complete church onboarding and reach the completed setup state.",
+    "category": "Church Onboarding",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /onboarding"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the church name field with a new church name"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid country"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid currency"
+      },
+      {
+        "type": "action",
+        "description": "Complete the setup wizard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify onboarding completion is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Admin completes onboarding and reaches the dashboard",
+    "description": "Verifies a church admin can finish onboarding and arrive at the dashboard with tenant-scoped overview data visible.",
+    "category": "Member Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Complete the onboarding setup using valid details"
+      },
+      {
+        "type": "action",
+        "description": "Continue to the main dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the dashboard is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify tenant-scoped dashboard stats are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Submit an online donation and see confirmation",
+    "description": "This verifies that a user can complete an online giving submission and receive a confirmation in the donation flow.",
+    "category": "Giving Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open online giving"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid giving amount"
+      },
+      {
+        "type": "action",
+        "description": "Select a giving type"
+      },
+      {
+        "type": "action",
+        "description": "Enter valid payment details"
+      },
+      {
+        "type": "action",
+        "description": "Submit the donation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a donation confirmation is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Member signs in and reaches the portal home",
+    "description": "A member can sign in with valid credentials and land on the member portal home with personalized content visible.",
+    "category": "Member Portal Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the member portal home is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify member updates are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Member sends a donation from the member portal",
+    "description": "This test verifies that a member can open the member giving screen, submit a donation, and see confirmation from within the portal.",
+    "category": "Member Giving",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member login credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the member giving page"
+      },
+      {
+        "type": "action",
+        "description": "Select a giving amount"
+      },
+      {
+        "type": "action",
+        "description": "Choose a giving type"
+      },
+      {
+        "type": "action",
+        "description": "Enter payment details"
+      },
+      {
+        "type": "action",
+        "description": "Submit the donation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a donation confirmation is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Admin creates a new member and sees it in the list",
+    "description": "Verifies an admin can add a new member with valid details and confirm the new record appears in the members list.",
+    "category": "Member Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /members"
+      },
+      {
+        "type": "action",
+        "description": "Start creating a new member"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the required member details with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Save the new member"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new member appears in the members list"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Dashboard shows church overview after sign in",
+    "description": "This verifies that an authenticated admin can view the dashboard overview with church activity summaries.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify member statistics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify giving statistics are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Admin updates a member profile and sees the saved profile",
+    "description": "Verifies an admin can open an existing member profile, edit the member details, and return to the updated profile view.",
+    "category": "Member Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /members"
+      },
+      {
+        "type": "action",
+        "description": "Open a member profile"
+      },
+      {
+        "type": "action",
+        "description": "Edit the member details with valid changes"
+      },
+      {
+        "type": "action",
+        "description": "Save the member changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated member profile is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Admin deletes a member after confirming the action",
+    "description": "Verifies an admin can remove a member from the profile view and confirm the member no longer appears in the list.",
+    "category": "Member Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /members"
+      },
+      {
+        "type": "action",
+        "description": "Open a member profile"
+      },
+      {
+        "type": "action",
+        "description": "Delete the member"
+      },
+      {
+        "type": "action",
+        "description": "Confirm the deletion"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the member is removed from the members list"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Admin creates a new event with registration settings",
+    "description": "Verifies an admin can create an event with capacity and registration options and see it appear on the events calendar.",
+    "category": "Event Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /events"
+      },
+      {
+        "type": "action",
+        "description": "Start creating a new event"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the required event details with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Set a valid event capacity and registration settings"
+      },
+      {
+        "type": "action",
+        "description": "Save the new event"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new event is displayed on the events calendar"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC014",
+    "title": "Create and publish an announcement",
+    "description": "This verifies that an admin can create a new announcement, save it, and make it visible as published.",
+    "category": "Announcements",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open announcements"
+      },
+      {
+        "type": "action",
+        "description": "Create a new announcement"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the announcement details with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Save the announcement"
+      },
+      {
+        "type": "action",
+        "description": "Open the saved announcement"
+      },
+      {
+        "type": "action",
+        "description": "Publish the announcement"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the announcement is marked as published"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC015",
+    "title": "Member views upcoming events and announcements on home",
+    "description": "A signed-in member can review upcoming events and recent announcements from the member home.",
+    "category": "Member Portal Home",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify upcoming events are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify recent announcements are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC016",
+    "title": "Admin searches and filters the member list",
+    "description": "Verifies an admin can open the members list, narrow results with search and filters, and see the matching members displayed.",
+    "category": "Member Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /members"
+      },
+      {
+        "type": "action",
+        "description": "Search for a member by name or email"
+      },
+      {
+        "type": "action",
+        "description": "Apply a member filter"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered member results are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC017",
+    "title": "Admin can open the sign-up flow from sign in",
+    "description": "This verifies that an unauthenticated visitor can move from sign in to account creation and reach the setup confirmation screen.",
+    "category": "Admin Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open the sign-up page"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with a new admin email address"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with a new secure password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-up form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an account setup confirmation is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC018",
+    "title": "Create a giving record and see it listed",
+    "description": "This verifies that an admin can record a manual donation and confirm it appears in the giving records list.",
+    "category": "Giving Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to view giving records"
+      },
+      {
+        "type": "action",
+        "description": "Record a manual donation"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the donation details with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Save the donation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new donation appears in the giving records list"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC019",
+    "title": "Member reviews giving history",
+    "description": "This test verifies that a logged-in member can open giving history and review past donations.",
+    "category": "Member Giving",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member login credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the giving history view"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify past donations are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC020",
+    "title": "Admin updates an event and sees the changes reflected",
+    "description": "Verifies an admin can open an existing event, edit the event details, and see the updated information afterward.",
+    "category": "Event Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /events"
+      },
+      {
+        "type": "action",
+        "description": "Open an event"
+      },
+      {
+        "type": "action",
+        "description": "Edit the event details with valid changes"
+      },
+      {
+        "type": "action",
+        "description": "Save the event changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated event information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC021",
+    "title": "Upload a sermon and organize it into a series",
+    "description": "This verifies that an admin can add a sermon with supporting details and place it into a series so it appears organized correctly.",
+    "category": "Sermon Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open sermons"
+      },
+      {
+        "type": "action",
+        "description": "Upload a new sermon"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the sermon details with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Add sermon notes and a transcript"
+      },
+      {
+        "type": "action",
+        "description": "Select a sermon series"
+      },
+      {
+        "type": "action",
+        "description": "Save the sermon"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sermon appears in the sermons list with its series"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC022",
+    "title": "Dashboard shows activity and upcoming items",
+    "description": "This verifies that the dashboard presents recent activity and upcoming church items for an authenticated admin.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify upcoming events are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify recent activity is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC023",
+    "title": "Admin creates and saves a new group",
+    "description": "Verifies an admin can open groups, create a new group with valid details, and see it listed afterward.",
+    "category": "Group Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /groups"
+      },
+      {
+        "type": "action",
+        "description": "Start creating a new group"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the required group details with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Save the new group"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new group appears in the groups list"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC024",
+    "title": "Member opens giving from the portal home",
+    "description": "A signed-in member can reach the giving flow from the portal home and see the giving interface.",
+    "category": "Member Portal Home",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the giving quick action"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the member giving interface is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC025",
+    "title": "Admin updates giving configuration",
+    "description": "This test verifies that an admin can configure giving settings and see the saved giving configuration.",
+    "category": "Church Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the settings page"
+      },
+      {
+        "type": "action",
+        "description": "Configure giving settings"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updated giving configuration is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC026",
+    "title": "Admin adds members to a group",
+    "description": "Verifies an admin can open a group, add members to it, save changes, and see the updated membership reflected.",
+    "category": "Group Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /groups"
+      },
+      {
+        "type": "action",
+        "description": "Open a group"
+      },
+      {
+        "type": "action",
+        "description": "Add one or more members to the group"
+      },
+      {
+        "type": "action",
+        "description": "Save the group changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated group membership is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC027",
+    "title": "Update an existing announcement",
+    "description": "This verifies that an admin can edit an announcement and see the updated information saved in the list or detail view.",
+    "category": "Announcements",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open announcements"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing announcement"
+      },
+      {
+        "type": "action",
+        "description": "Edit the announcement details"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated announcement information is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC028",
+    "title": "Admin updates church information",
+    "description": "This test verifies that an admin can change church details in settings and see the updated information saved.",
+    "category": "Church Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the settings page"
+      },
+      {
+        "type": "action",
+        "description": "Update church information"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updated church details are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC029",
+    "title": "Admin reviews event RSVPs",
+    "description": "Verifies an admin can open an event and review attendee responses from the RSVP view.",
+    "category": "Event Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /events"
+      },
+      {
+        "type": "action",
+        "description": "Open an event"
+      },
+      {
+        "type": "action",
+        "description": "Review the RSVP information"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify attendee responses are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC030",
+    "title": "Filter giving records by date range and type",
+    "description": "This verifies that an admin can narrow giving records using date and giving-type filters and see the list update accordingly.",
+    "category": "Giving Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to view giving records"
+      },
+      {
+        "type": "action",
+        "description": "Filter the records by a valid date range"
+      },
+      {
+        "type": "action",
+        "description": "Filter the records by giving type"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the giving records list reflects the selected filters"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC031",
+    "title": "Member opens events from the portal home",
+    "description": "A signed-in member can navigate from the portal home to the member events view and see available events.",
+    "category": "Member Portal Home",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the events quick action"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the member events view is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC032",
+    "title": "Admin sees a login error for invalid credentials",
+    "description": "This verifies that invalid admin credentials are rejected and a login error is shown.",
+    "category": "Admin Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with an invalid email address"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with an invalid password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a login error message is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC033",
+    "title": "Admin removes members from a group",
+    "description": "Verifies an admin can open a group, remove members, save changes, and see the updated membership reflected.",
+    "category": "Group Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /groups"
+      },
+      {
+        "type": "action",
+        "description": "Open a group"
+      },
+      {
+        "type": "action",
+        "description": "Remove one or more members from the group"
+      },
+      {
+        "type": "action",
+        "description": "Save the group changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated group membership is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC034",
+    "title": "Edit a sermon's details",
+    "description": "This verifies that an admin can update an existing sermon and see the revised information persist.",
+    "category": "Sermon Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open sermons"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing sermon"
+      },
+      {
+        "type": "action",
+        "description": "Edit the sermon details"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated sermon information is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC035",
+    "title": "Member opens sermons from the portal home",
+    "description": "A signed-in member can navigate from the portal home to the member sermons view and see sermon content.",
+    "category": "Member Portal Home",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the sermons quick action"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the member sermons view is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC036",
+    "title": "Admin updates communication preferences",
+    "description": "This test verifies that an admin can configure communication settings and see the saved preferences reflected in settings.",
+    "category": "Church Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the settings page"
+      },
+      {
+        "type": "action",
+        "description": "Configure communication settings"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updated communication preferences are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC037",
+    "title": "Admin can reach quick actions from the dashboard",
+    "description": "This verifies that an authenticated admin can open quick actions from the dashboard for common workflows.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign-in form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Open the quick actions area"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify quick actions are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC038",
+    "title": "Admin updates roles and permissions",
+    "description": "This test verifies that an admin can manage access settings for user roles and see the saved access configuration.",
+    "category": "Church Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the settings page"
+      },
+      {
+        "type": "action",
+        "description": "Manage user roles and permissions"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updated access settings are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC039",
+    "title": "Export a filtered giving report",
+    "description": "This verifies that an admin can export a giving report after applying filters and the export action completes from the UI.",
+    "category": "Giving Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to view giving records"
+      },
+      {
+        "type": "action",
+        "description": "Apply valid giving record filters"
+      },
+      {
+        "type": "action",
+        "description": "Export the giving report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the export confirmation is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC040",
+    "title": "Unpublish an announcement",
+    "description": "This verifies that an admin can change a published announcement back to unpublished and see the visibility state update.",
+    "category": "Announcements",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open announcements"
+      },
+      {
+        "type": "action",
+        "description": "Open a published announcement"
+      },
+      {
+        "type": "action",
+        "description": "Unpublish the announcement"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the announcement is marked as unpublished"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC041",
+    "title": "Admin configures integrations",
+    "description": "This test verifies that an admin can set up integrations in settings and see the saved integration configuration.",
+    "category": "Church Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin credentials"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to the settings page"
+      },
+      {
+        "type": "action",
+        "description": "Set up integrations"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updated integration settings are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC042",
+    "title": "Member sees an error for invalid credentials",
+    "description": "A member entering invalid credentials is shown a login error and remains unable to access the portal home.",
+    "category": "Member Portal Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member email field with invalid@example.com"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member password field with invalid-password"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a login error message is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the member portal home is not displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC043",
+    "title": "Member can open password reset from login",
+    "description": "A member who needs access recovery can open the password reset path from the login page and see the reset view.",
+    "category": "Member Portal Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Open the password reset flow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a password reset view is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the member login form is no longer the active view"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC044",
+    "title": "View a sermon grouped under its series",
+    "description": "This verifies that an admin can assign a sermon to a series and confirm it is grouped correctly in the sermons view.",
+    "category": "Sermon Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /auth/signin"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open sermons"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing sermon"
+      },
+      {
+        "type": "action",
+        "description": "Change the sermon series"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sermon is shown under the selected series"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC045",
+    "title": "Member portal home shows empty state when no updates exist",
+    "description": "A signed-in member sees an empty state instead of blank content when there are no upcoming events or announcements to show.",
+    "category": "Member Portal Home",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /member/login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the member password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an empty state message is visible"
+      }
+    ],
+    "priority": "Low"
+  }
+]
