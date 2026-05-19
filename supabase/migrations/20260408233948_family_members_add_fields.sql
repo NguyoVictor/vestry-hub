@@ -8,4 +8,4 @@ ALTER TABLE family_members
   ADD COLUMN IF NOT EXISTS birth_month INTEGER,
   ADD COLUMN IF NOT EXISTS birth_day INTEGER,
   ADD COLUMN IF NOT EXISTS birth_year INTEGER,
-  ADD COLUMN IF NOT EXISTS classification VARCHAR DEFAULT 'member';;
+  ADD COLUMN IF NOT EXISTS classification VARCHAR DEFAULT 'member';

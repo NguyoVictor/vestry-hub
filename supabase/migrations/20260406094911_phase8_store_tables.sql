@@ -27,7 +27,6 @@ CREATE POLICY "Staff can manage products" ON store_products FOR ALL
 CREATE POLICY "Members can view active products" ON store_products FOR SELECT
   USING (status = 'active' AND tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_store_products_tenant ON store_products(tenant_id);
-
 -- Store Orders
 CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1000;
 CREATE TABLE IF NOT EXISTS store_orders (
@@ -57,7 +56,6 @@ ALTER TABLE store_orders ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage orders" ON store_orders FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_store_orders_tenant ON store_orders(tenant_id);
-
 CREATE OR REPLACE FUNCTION generate_order_number() RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.order_number = '' OR NEW.order_number IS NULL THEN
@@ -68,7 +66,6 @@ END;
 $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS set_order_number ON store_orders;
 CREATE TRIGGER set_order_number BEFORE INSERT ON store_orders FOR EACH ROW EXECUTE FUNCTION generate_order_number();
-
 -- Order Items
 CREATE TABLE IF NOT EXISTS order_items (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -85,4 +82,4 @@ CREATE TABLE IF NOT EXISTS order_items (
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage order items" ON order_items FOR ALL
   USING (order_id IN (SELECT id FROM store_orders WHERE tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text)));
-CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);;
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);

@@ -10,7 +10,6 @@ ALTER TABLE tenants
   ADD COLUMN IF NOT EXISTS payhero_channel_type varchar(20), -- 'bank', 'paybill', 'till'
   ADD COLUMN IF NOT EXISTS payhero_channel_number varchar(50),
   ADD COLUMN IF NOT EXISTS payhero_connected boolean DEFAULT false;
-
 -- Add M-Pesa payment columns to giving_records
 ALTER TABLE giving_records 
   ADD COLUMN IF NOT EXISTS payment_status varchar(20) DEFAULT 'pending', -- 'pending','confirmed','failed'
@@ -19,7 +18,6 @@ ALTER TABLE giving_records
   ADD COLUMN IF NOT EXISTS mpesa_receipt varchar(50),
   ADD COLUMN IF NOT EXISTS phone_number varchar(20),
   ADD COLUMN IF NOT EXISTS external_reference varchar(50);
-
 -- Create pledge campaigns table if not exists
 CREATE TABLE IF NOT EXISTS pledge_campaigns (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -34,7 +32,6 @@ CREATE TABLE IF NOT EXISTS pledge_campaigns (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
-
 -- Create pledge commitments table (member's pledge to a campaign)
 CREATE TABLE IF NOT EXISTS pledge_commitments (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -49,7 +46,6 @@ CREATE TABLE IF NOT EXISTS pledge_commitments (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
-
 -- Create pledge payments table (actual payment against a commitment)
 CREATE TABLE IF NOT EXISTS pledge_payments (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -60,7 +56,6 @@ CREATE TABLE IF NOT EXISTS pledge_payments (
   paid_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
-
 -- Add indexes for performance (only if tables/columns exist)
 CREATE INDEX IF NOT EXISTS idx_pledge_campaigns_tenant_id ON pledge_campaigns(tenant_id);
 -- CREATE INDEX IF NOT EXISTS idx_pledge_campaigns_status ON pledge_campaigns(tenant_id, status);
@@ -71,28 +66,23 @@ CREATE INDEX IF NOT EXISTS idx_pledge_payments_commitment_id ON pledge_payments(
 CREATE INDEX IF NOT EXISTS idx_giving_records_checkout_request_id ON giving_records(checkout_request_id);
 CREATE INDEX IF NOT EXISTS idx_giving_records_external_reference ON giving_records(external_reference);
 CREATE INDEX IF NOT EXISTS idx_giving_records_payment_status ON giving_records(tenant_id, payment_status);
-
 -- Enable RLS on new tables
 ALTER TABLE pledge_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pledge_commitments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pledge_payments ENABLE ROW LEVEL SECURITY;
-
 -- Create RLS policies for tenant isolation
 CREATE POLICY "tenant_isolation" ON pledge_campaigns
   FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
-
 CREATE POLICY "tenant_isolation" ON pledge_commitments
   FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
-
 CREATE POLICY "tenant_isolation" ON pledge_payments
   FOR ALL
   USING (commitment_id IN (
     SELECT id FROM pledge_commitments 
     WHERE tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text)
   ));
-
 -- Success message
 DO $$
 BEGIN

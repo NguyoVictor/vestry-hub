@@ -10,4 +10,4 @@ ALTER TABLE member_requests DROP CONSTRAINT IF EXISTS member_requests_assigned_t
 ALTER TABLE new_converts DROP CONSTRAINT IF EXISTS new_converts_member_id_fkey;
 ALTER TABLE new_converts DROP CONSTRAINT IF EXISTS new_converts_counsellor_id_fkey;
 ALTER TABLE services DROP CONSTRAINT IF EXISTS services_created_by_fkey;
-ALTER TABLE visitors DROP CONSTRAINT IF EXISTS visitors_converted_to_member_id_fkey;;
+ALTER TABLE visitors DROP CONSTRAINT IF EXISTS visitors_converted_to_member_id_fkey;

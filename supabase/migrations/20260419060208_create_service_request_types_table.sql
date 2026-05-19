@@ -11,11 +11,8 @@ CREATE TABLE IF NOT EXISTS service_request_types (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, internal_name)
 );
-
 CREATE INDEX IF NOT EXISTS idx_srt_tenant ON service_request_types(tenant_id);
-
 ALTER TABLE service_request_types ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "srt_tenant" ON service_request_types
   FOR ALL TO authenticated
   USING (
@@ -24,12 +21,10 @@ CREATE POLICY "srt_tenant" ON service_request_types
   WITH CHECK (
     tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text
   );
-
 CREATE OR REPLACE FUNCTION update_srt_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
-
 CREATE TRIGGER srt_updated_at
   BEFORE UPDATE ON service_request_types
-  FOR EACH ROW EXECUTE FUNCTION update_srt_updated_at();;
+  FOR EACH ROW EXECUTE FUNCTION update_srt_updated_at();

@@ -11,7 +11,6 @@ BEGIN
     AND user_id = p_user_id;
 END;
 $$;
-
 -- Grant execute to both authenticated and anon
 GRANT EXECUTE ON FUNCTION increment_unread_count(text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION increment_unread_count(text, text) TO anon;;
+GRANT EXECUTE ON FUNCTION increment_unread_count(text, text) TO anon;

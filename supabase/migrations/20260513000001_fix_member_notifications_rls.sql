@@ -6,7 +6,8 @@
 -- but they must provide the correct tenant_id in their queries
 CREATE POLICY "notifications_anon_read" ON notifications
   FOR SELECT TO anon 
-  USING (true); -- Allow anon to read, but they must filter by tenant_id in queries
+  USING (true);
+-- Allow anon to read, but they must filter by tenant_id in queries
 
 -- Allow anon users to update their own notifications (mark as read)
 CREATE POLICY "notifications_anon_update" ON notifications

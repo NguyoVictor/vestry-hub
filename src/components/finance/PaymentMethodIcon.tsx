@@ -1,11 +1,10 @@
-import { Banknote, Building2, CreditCard, FileText, Circle } from "lucide-react";
+import { Banknote, Building2, FileText, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const METHOD_CONFIG: Record<string, { icon: typeof Banknote; label: string; color: string }> = {
   cash: { icon: Banknote, label: "Cash", color: "text-emerald-600" },
   mpesa: { icon: Circle, label: "M-Pesa", color: "text-emerald-600" },
   bank_transfer: { icon: Building2, label: "Bank Transfer", color: "text-blue-600" },
-  card: { icon: CreditCard, label: "Card", color: "text-primary" },
   cheque: { icon: FileText, label: "Cheque", color: "text-muted-foreground" },
 };
 

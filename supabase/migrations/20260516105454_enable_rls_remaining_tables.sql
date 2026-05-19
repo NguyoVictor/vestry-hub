@@ -25,7 +25,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on payroll_payments
 DO $$
 BEGIN
@@ -41,7 +40,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on payroll_staff
 DO $$
 BEGIN
@@ -57,7 +55,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── FINANCE TABLES ─────────────────────────────────────────────────────────
 
 -- Enable RLS on fund_transactions
@@ -75,7 +72,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on invoices
 DO $$
 BEGIN
@@ -91,7 +87,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on journal_entries
 DO $$
 BEGIN
@@ -107,7 +102,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on journal_lines
 DO $$
 BEGIN
@@ -128,7 +122,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on chart_of_accounts
 DO $$
 BEGIN
@@ -144,7 +137,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── SECURITY TABLES ───────────────────────────────────────────────────────
 
 -- Enable RLS on security_alerts
@@ -162,7 +154,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on incident_updates
 DO $$
 BEGIN
@@ -183,7 +174,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── COMMUNICATION TABLES ──────────────────────────────────────────────────
 
 -- Enable RLS on conversations
@@ -201,7 +191,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on conversation_participants
 DO $$
 BEGIN
@@ -222,7 +211,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on survey_answers
 DO $$
 BEGIN
@@ -248,7 +236,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on broadcasts
 DO $$
 BEGIN
@@ -264,7 +251,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── MEDIA TABLES ──────────────────────────────────────────────────────────
 
 -- Enable RLS on media_folders
@@ -282,7 +268,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on media_assets
 DO $$
 BEGIN
@@ -298,7 +283,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on ai_tool_usage
 DO $$
 BEGIN
@@ -314,7 +298,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── CONTENT TABLES ────────────────────────────────────────────────────────
 
 -- Enable RLS on sermon_series
@@ -332,7 +315,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on studio_media
 DO $$
 BEGIN
@@ -348,7 +330,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── BIBLE EXPLORER TABLES ─────────────────────────────────────────────────
 
 -- Enable RLS on bible_notes
@@ -371,7 +352,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on bible_highlights
 DO $$
 BEGIN
@@ -392,7 +372,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on bible_favorites
 DO $$
 BEGIN
@@ -413,7 +392,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── MUSIC TABLES ──────────────────────────────────────────────────────────
 
 -- Enable RLS on set_lists
@@ -431,7 +409,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on set_list_songs
 DO $$
 BEGIN
@@ -452,7 +429,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on media_albums
 DO $$
 BEGIN
@@ -468,7 +444,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- Enable RLS on media_photos
 DO $$
 BEGIN
@@ -489,7 +464,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── ASSET MANAGEMENT TABLES ───────────────────────────────────────────────
 
 -- Enable RLS on asset_maintenance
@@ -512,7 +486,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── LIVESTREAM TABLES ─────────────────────────────────────────────────────
 
 -- Enable RLS on livestreams
@@ -530,7 +503,6 @@ BEGIN
     END IF;
   END IF;
 END $$;
-
 -- ─── SUCCESS CONFIRMATION ──────────────────────────────────────────────────
 
 -- Log completion

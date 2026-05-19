@@ -19,7 +19,6 @@ CREATE INDEX IF NOT EXISTS idx_slr_tenant ON staff_leave_requests(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_slr_staff  ON staff_leave_requests(staff_id);
 ALTER TABLE staff_leave_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY slr_tenant ON staff_leave_requests USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE TABLE IF NOT EXISTS staff_leave_balances (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   staff_id TEXT NOT NULL REFERENCES payroll_staff(id) ON DELETE CASCADE,
@@ -43,7 +42,6 @@ CREATE TABLE IF NOT EXISTS staff_leave_balances (
 CREATE INDEX IF NOT EXISTS idx_slb_tenant ON staff_leave_balances(tenant_id);
 ALTER TABLE staff_leave_balances ENABLE ROW LEVEL SECURITY;
 CREATE POLICY slb_tenant ON staff_leave_balances USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
-
 CREATE TABLE IF NOT EXISTS staff_absences (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   staff_id TEXT NOT NULL REFERENCES payroll_staff(id) ON DELETE CASCADE,
@@ -57,4 +55,4 @@ CREATE TABLE IF NOT EXISTS staff_absences (
 );
 CREATE INDEX IF NOT EXISTS idx_sa_tenant ON staff_absences(tenant_id);
 ALTER TABLE staff_absences ENABLE ROW LEVEL SECURITY;
-CREATE POLICY sa_tenant ON staff_absences USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));;
+CREATE POLICY sa_tenant ON staff_absences USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));

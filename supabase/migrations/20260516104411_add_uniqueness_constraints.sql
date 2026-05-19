@@ -9,7 +9,6 @@ BEGIN
       UNIQUE (tenant_id, name);
   END IF;
 END $$;
-
 -- Prevent duplicate events per tenant
 DO $$
 BEGIN
@@ -21,7 +20,6 @@ BEGIN
       UNIQUE (tenant_id, title, event_date);
   END IF;
 END $$;
-
 -- Prevent duplicate group memberships
 DO $$
 BEGIN
@@ -33,7 +31,6 @@ BEGIN
       UNIQUE (group_id, member_id);
   END IF;
 END $$;
-
 -- Prevent duplicate family memberships
 DO $$
 BEGIN
@@ -45,7 +42,6 @@ BEGIN
       UNIQUE (family_id, member_id);
   END IF;
 END $$;
-
 -- Prevent duplicate RSVP entries
 DO $$
 BEGIN
@@ -57,7 +53,6 @@ BEGIN
       UNIQUE (event_id, member_id);
   END IF;
 END $$;
-
 -- Prevent duplicate families per tenant
 DO $$
 BEGIN
@@ -69,7 +64,6 @@ BEGIN
       UNIQUE (tenant_id, family_name);
   END IF;
 END $$;
-
 -- Prevent duplicate member emails per tenant
 DO $$
 BEGIN

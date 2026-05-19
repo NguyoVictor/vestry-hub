@@ -23,7 +23,7 @@ import { format, startOfMonth, startOfYear } from "date-fns";
 import { formatCurrencyFull } from "@/lib/format";
 
 const CATEGORIES = ["salaries", "utilities", "rent", "equipment", "maintenance", "events", "outreach", "supplies", "transport", "other"];
-const METHODS = ["cash", "mpesa", "bank_transfer", "card", "cheque"];
+const METHODS = ["cash", "mpesa", "bank_transfer", "cheque"];
 
 const ChurchExpenses = () => {
   const { tenantId, currency, userId, userRole } = useChurch();

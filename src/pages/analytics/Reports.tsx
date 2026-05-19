@@ -426,7 +426,7 @@ function AttendanceTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
 // TAB 3 — FINANCE
 // ═══════════════════════════════════════════════════════════════════════════
 const GIVING_CATEGORIES = ["Tithe","Offering","Building Fund","Welfare","Missions","Special","Other"];
-const PAYMENT_METHODS = ["Cash","M-Pesa","Bank Transfer","Card","Cheque","Other"];
+const PAYMENT_METHODS = ["Cash","M-Pesa","Bank Transfer","Cheque","Other"];
 const EXPENSE_CATEGORIES = ["Salaries","Utilities","Maintenance","Events","Outreach","Admin","Other"];
 
 function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId: string; fromStr: string; toStr: string; currency: string; userRole: string }) {

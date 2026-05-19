@@ -22,5 +22,4 @@ ALTER TABLE outreach_activities
   ADD COLUMN IF NOT EXISTS photo_urls JSONB DEFAULT '[]',
   ADD COLUMN IF NOT EXISTS created_by VARCHAR,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-
-CREATE INDEX IF NOT EXISTS idx_outreach_activities_tenant_id ON outreach_activities(tenant_id);;
+CREATE INDEX IF NOT EXISTS idx_outreach_activities_tenant_id ON outreach_activities(tenant_id);

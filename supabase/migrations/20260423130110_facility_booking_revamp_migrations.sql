@@ -16,7 +16,6 @@ DROP POLICY IF EXISTS "facility_types_tenant_rls" ON facility_types;
 CREATE POLICY "facility_types_tenant_rls" ON facility_types FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
 DROP POLICY IF EXISTS "facility_types_public_read" ON facility_types;
 CREATE POLICY "facility_types_public_read" ON facility_types FOR SELECT TO anon USING (true);
-
 -- 2. facility_images table
 CREATE TABLE IF NOT EXISTS facility_images (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -33,7 +32,6 @@ DROP POLICY IF EXISTS "facility_images_tenant_rls" ON facility_images;
 CREATE POLICY "facility_images_tenant_rls" ON facility_images FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
 DROP POLICY IF EXISTS "facility_images_public_read" ON facility_images;
 CREATE POLICY "facility_images_public_read" ON facility_images FOR SELECT TO anon USING (true);
-
 -- 3. facility_responses table
 CREATE TABLE IF NOT EXISTS facility_responses (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -57,7 +55,6 @@ DROP POLICY IF EXISTS "facility_responses_tenant_rls" ON facility_responses;
 CREATE POLICY "facility_responses_tenant_rls" ON facility_responses FOR ALL USING (tenant_id::text = get_my_tenant_id()::text);
 DROP POLICY IF EXISTS "facility_responses_public_insert" ON facility_responses;
 CREATE POLICY "facility_responses_public_insert" ON facility_responses FOR INSERT TO anon WITH CHECK (true);
-
 -- 4. Add columns to facility_bookings
 ALTER TABLE facility_bookings ADD COLUMN IF NOT EXISTS booking_number VARCHAR;
 ALTER TABLE facility_bookings ADD COLUMN IF NOT EXISTS source VARCHAR NOT NULL DEFAULT 'admin';
@@ -68,7 +65,6 @@ ALTER TABLE facility_bookings ADD COLUMN IF NOT EXISTS external_org VARCHAR;
 ALTER TABLE facility_bookings ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
 ALTER TABLE facility_bookings ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ;
 ALTER TABLE facility_bookings ADD COLUMN IF NOT EXISTS confirmed_by VARCHAR;
-
 -- 5. Booking number sequence and trigger
 CREATE SEQUENCE IF NOT EXISTS facility_booking_number_seq START 1;
 CREATE OR REPLACE FUNCTION set_facility_booking_number()
@@ -84,24 +80,19 @@ DROP TRIGGER IF EXISTS trg_facility_booking_number ON facility_bookings;
 CREATE TRIGGER trg_facility_booking_number
   BEFORE INSERT ON facility_bookings
   FOR EACH ROW EXECUTE FUNCTION set_facility_booking_number();
-
 -- 6. Public insert policy for facility_bookings (external bookers)
 DROP POLICY IF EXISTS "facility_bookings_public_insert" ON facility_bookings;
 CREATE POLICY "facility_bookings_public_insert" ON facility_bookings FOR INSERT TO anon WITH CHECK (source = 'external');
-
 -- 7. Public read for facilities (public booking page)
 DROP POLICY IF EXISTS "facilities_public_read" ON facilities;
 CREATE POLICY "facilities_public_read" ON facilities FOR SELECT TO anon USING (true);
-
 -- 8. Storage buckets
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES ('facility-images', 'facility-images', true, 5242880)
 ON CONFLICT (id) DO NOTHING;
-
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES ('facility-videos', 'facility-videos', false, 52428800)
 ON CONFLICT (id) DO NOTHING;
-
 -- Storage policies
 DROP POLICY IF EXISTS "facility_images_upload" ON storage.objects;
 CREATE POLICY "facility_images_upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'facility-images');
@@ -110,4 +101,4 @@ CREATE POLICY "facility_images_public_read" ON storage.objects FOR SELECT USING 
 DROP POLICY IF EXISTS "facility_videos_upload" ON storage.objects;
 CREATE POLICY "facility_videos_upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'facility-videos');
 DROP POLICY IF EXISTS "facility_videos_read" ON storage.objects;
-CREATE POLICY "facility_videos_read" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'facility-videos');;
+CREATE POLICY "facility_videos_read" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'facility-videos');

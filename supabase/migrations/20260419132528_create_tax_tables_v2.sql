@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS tax_settings (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE tax_settings ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='tax_settings' AND policyname='ts_tenant') THEN
@@ -30,7 +29,6 @@ DO $$ BEGIN
       WITH CHECK (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text);
   END IF;
 END $$;
-
 -- Deductible giving types
 CREATE TABLE IF NOT EXISTS tax_deductible_types (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -44,7 +42,6 @@ CREATE TABLE IF NOT EXISTS tax_deductible_types (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, type_name)
 );
-
 CREATE INDEX IF NOT EXISTS idx_tdt_tenant ON tax_deductible_types(tenant_id);
 ALTER TABLE tax_deductible_types ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
@@ -54,7 +51,6 @@ DO $$ BEGIN
       WITH CHECK (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text);
   END IF;
 END $$;
-
 -- Generated tax statements
 CREATE TABLE IF NOT EXISTS tax_statements (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -70,7 +66,6 @@ CREATE TABLE IF NOT EXISTS tax_statements (
   statement_data JSONB,
   UNIQUE (tenant_id, member_id, year)
 );
-
 CREATE INDEX IF NOT EXISTS idx_tax_statements_tenant ON tax_statements(tenant_id);
 ALTER TABLE tax_statements ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
@@ -79,4 +74,4 @@ DO $$ BEGIN
       USING (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text)
       WITH CHECK (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text);
   END IF;
-END $$;;
+END $$;

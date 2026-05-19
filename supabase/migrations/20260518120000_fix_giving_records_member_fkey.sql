@@ -2,11 +2,9 @@
 
 -- First, drop the existing foreign key constraint
 ALTER TABLE giving_records DROP CONSTRAINT IF EXISTS giving_records_member_id_fkey;
-
 -- Add the correct foreign key constraint to reference members table
 ALTER TABLE giving_records ADD CONSTRAINT giving_records_member_id_fkey 
   FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL;
-
 -- Also ensure recorded_by references users table (this should be correct)
 -- But let's make sure it exists
 DO $$

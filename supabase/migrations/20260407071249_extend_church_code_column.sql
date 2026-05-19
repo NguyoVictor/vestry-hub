@@ -1,1 +1,1 @@
-ALTER TABLE tenants ALTER COLUMN church_code TYPE VARCHAR(12);;
+ALTER TABLE tenants ALTER COLUMN church_code TYPE VARCHAR(12);

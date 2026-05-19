@@ -113,7 +113,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- =====================================================
 -- Function: Update Trending Songs Status
 -- =====================================================
@@ -211,7 +210,6 @@ BEGIN
   );
 END;
 $$;
-
 -- =====================================================
 -- Function: Get Smart Song Recommendations
 -- =====================================================
@@ -352,7 +350,6 @@ BEGIN
   LIMIT p_limit;
 END;
 $$;
-
 -- =====================================================
 -- Function: Get Usage Analytics Summary
 -- =====================================================
@@ -409,7 +406,6 @@ BEGIN
   CROSS JOIN growth_stats gs;
 END;
 $$;
-
 -- Grant execute permissions on functions
 GRANT EXECUTE ON FUNCTION get_usage_reports(VARCHAR, VARCHAR, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_trending_songs(VARCHAR) TO authenticated;

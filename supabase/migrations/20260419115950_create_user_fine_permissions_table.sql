@@ -8,12 +8,9 @@ CREATE TABLE IF NOT EXISTS user_fine_permissions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, permission_key)
 );
-
 CREATE INDEX IF NOT EXISTS idx_ufp_tenant ON user_fine_permissions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_ufp_user ON user_fine_permissions(user_id);
-
 ALTER TABLE user_fine_permissions ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "ufp_tenant" ON user_fine_permissions
   FOR ALL TO authenticated
   USING (
@@ -21,4 +18,4 @@ CREATE POLICY "ufp_tenant" ON user_fine_permissions
   )
   WITH CHECK (
     tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text
-  );;
+  );

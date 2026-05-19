@@ -13,6 +13,5 @@ ALTER TABLE expenses
   ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT false,
   ADD COLUMN IF NOT EXISTS recurrence_frequency VARCHAR,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-
 CREATE INDEX IF NOT EXISTS idx_expenses_tenant_id ON expenses(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_expenses_approval_status ON expenses(approval_status);;
+CREATE INDEX IF NOT EXISTS idx_expenses_approval_status ON expenses(approval_status);

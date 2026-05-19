@@ -14,10 +14,7 @@ CREATE TABLE IF NOT EXISTS store_bundles (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_store_bundles_tenant_id ON store_bundles(tenant_id);
-
 ALTER TABLE store_bundles ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "tenant_isolation_store_bundles" ON store_bundles
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));;
+  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));

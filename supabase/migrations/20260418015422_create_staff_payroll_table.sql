@@ -16,12 +16,9 @@ CREATE TABLE IF NOT EXISTS staff_payroll (
   created_at      timestamptz DEFAULT now(),
   updated_at      timestamptz DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_staff_payroll_tenant_id ON staff_payroll(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_staff_payroll_staff_id  ON staff_payroll(staff_id);
 CREATE INDEX IF NOT EXISTS idx_staff_payroll_period    ON staff_payroll(tenant_id, year, month);
-
 ALTER TABLE staff_payroll ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "tenant_isolation" ON staff_payroll
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));;
+  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));

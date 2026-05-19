@@ -224,4 +224,4 @@ $$;
 -- ─── 8. Add is_super_admin to users ──────────────────────────────────────────
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN NOT NULL DEFAULT false;
 -- NOTE: Run this after deployment to grant super-admin access:
--- UPDATE users SET is_super_admin = true WHERE email = 'your-email@example.com';;
+-- UPDATE users SET is_super_admin = true WHERE email = 'your-email@example.com';;;

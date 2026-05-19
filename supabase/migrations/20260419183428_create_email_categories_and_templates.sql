@@ -19,7 +19,6 @@ DO $$ BEGIN
       WITH CHECK (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text);
   END IF;
 END $$;
-
 -- Email templates table
 CREATE TABLE IF NOT EXISTS email_templates (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -43,4 +42,4 @@ DO $$ BEGIN
       USING (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text)
       WITH CHECK (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text);
   END IF;
-END $$;;
+END $$;

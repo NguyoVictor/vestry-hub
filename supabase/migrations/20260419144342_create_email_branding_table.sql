@@ -12,11 +12,8 @@ CREATE TABLE IF NOT EXISTS email_branding (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_email_branding_tenant ON email_branding(tenant_id);
-
 ALTER TABLE email_branding ENABLE ROW LEVEL SECURITY;
-
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='email_branding' AND policyname='eb_tenant') THEN
     CREATE POLICY "eb_tenant" ON email_branding FOR ALL TO authenticated
@@ -24,16 +21,14 @@ DO $$ BEGIN
       WITH CHECK (tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text);
   END IF;
 END $$;
-
 CREATE OR REPLACE FUNCTION update_email_branding_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
-
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'email_branding_updated_at') THEN
     CREATE TRIGGER email_branding_updated_at
       BEFORE UPDATE ON email_branding
       FOR EACH ROW EXECUTE FUNCTION update_email_branding_updated_at();
   END IF;
-END $$;;
+END $$;

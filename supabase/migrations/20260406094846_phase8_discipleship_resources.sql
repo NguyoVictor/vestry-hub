@@ -23,7 +23,6 @@ ALTER TABLE discipleship_resources ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage discipleship resources" ON discipleship_resources FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_discipleship_resources_tenant ON discipleship_resources(tenant_id);
-
 -- Resource Assignments
 CREATE TABLE IF NOT EXISTS resource_assignments (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -40,7 +39,6 @@ ALTER TABLE resource_assignments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage resource assignments" ON resource_assignments FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_resource_assignments_tenant ON resource_assignments(tenant_id);
-
 -- Resource Collections
 CREATE TABLE IF NOT EXISTS resource_collections (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -57,7 +55,6 @@ ALTER TABLE resource_collections ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage collections" ON resource_collections FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_resource_collections_tenant ON resource_collections(tenant_id);
-
 -- Collection Resources
 CREATE TABLE IF NOT EXISTS collection_resources (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -68,4 +65,4 @@ CREATE TABLE IF NOT EXISTS collection_resources (
 );
 ALTER TABLE collection_resources ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Staff can manage collection resources" ON collection_resources FOR ALL
-  USING (collection_id IN (SELECT id FROM resource_collections WHERE tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text)));;
+  USING (collection_id IN (SELECT id FROM resource_collections WHERE tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text)));

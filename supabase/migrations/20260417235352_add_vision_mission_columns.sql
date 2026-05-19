@@ -1,3 +1,3 @@
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS vision_statement TEXT;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS mission_statement TEXT;
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS core_values TEXT[] DEFAULT '{}';;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS core_values TEXT[] DEFAULT '{}';

@@ -7,4 +7,4 @@ CREATE INDEX IF NOT EXISTS idx_store_orders_tenant ON store_orders(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_course_enrollments_tenant ON course_enrollments(tenant_id);
 -- Phase 9 new tables
 CREATE INDEX IF NOT EXISTS idx_saved_reports_tenant ON saved_reports(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_prayer_requests_tenant ON prayer_requests(tenant_id);;
+CREATE INDEX IF NOT EXISTS idx_prayer_requests_tenant ON prayer_requests(tenant_id);

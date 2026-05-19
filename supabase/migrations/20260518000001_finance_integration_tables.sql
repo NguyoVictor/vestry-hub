@@ -23,7 +23,6 @@ BEGIN
   RETURN v_entry_id;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Add missing columns to existing payroll_runs table if they don't exist
 DO $$ 
 BEGIN
@@ -42,7 +41,6 @@ BEGIN
     ALTER TABLE payroll_runs ADD COLUMN completed_at timestamptz;
   END IF;
 END $$;
-
 -- Payroll run lines (using varchar IDs to match existing schema)
 CREATE TABLE IF NOT EXISTS payroll_run_lines (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -55,15 +53,12 @@ CREATE TABLE IF NOT EXISTS payroll_run_lines (
   payhero_reference varchar(50),
   paid_at timestamptz
 );
-
 -- Create indexes for payroll tables
 CREATE INDEX IF NOT EXISTS idx_payroll_runs_tenant_id ON payroll_runs(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_payroll_runs_status ON payroll_runs(status);
 CREATE INDEX IF NOT EXISTS idx_payroll_run_lines_run_id ON payroll_run_lines(run_id);
-
 -- Enable RLS on new tables
 ALTER TABLE payroll_run_lines ENABLE ROW LEVEL SECURITY;
-
 -- RLS policies for payroll_run_lines
 CREATE POLICY "Users can view their tenant's payroll run lines" ON payroll_run_lines
   FOR SELECT USING (
@@ -73,7 +68,6 @@ CREATE POLICY "Users can view their tenant's payroll run lines" ON payroll_run_l
       AND pr.tenant_id = current_setting('app.current_tenant_id', true)
     )
   );
-
 CREATE POLICY "Users can manage their tenant's payroll run lines" ON payroll_run_lines
   FOR ALL USING (
     EXISTS (

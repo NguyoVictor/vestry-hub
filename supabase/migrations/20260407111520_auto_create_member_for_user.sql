@@ -26,7 +26,6 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS auto_create_member ON users;
 CREATE TRIGGER auto_create_member
   AFTER INSERT ON users

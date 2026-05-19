@@ -7,7 +7,6 @@ DROP POLICY IF EXISTS "Members can insert their own highlights" ON verse_highlig
 DROP POLICY IF EXISTS "Members can insert their own reactions" ON verse_reactions;
 DROP POLICY IF EXISTS "Members can insert their own progress" ON reading_progress;
 DROP POLICY IF EXISTS "Members can insert their own notes" ON verse_notes;
-
 -- Recreate INSERT policies with proper WITH CHECK clauses
 CREATE POLICY "Members can insert their own bookmarks" ON verse_bookmarks
   FOR INSERT
@@ -20,7 +19,6 @@ CREATE POLICY "Members can insert their own bookmarks" ON verse_bookmarks
         AND members.id = verse_bookmarks.member_id
     )
   );
-
 CREATE POLICY "Members can insert their own highlights" ON verse_highlights
   FOR INSERT
   TO public
@@ -32,7 +30,6 @@ CREATE POLICY "Members can insert their own highlights" ON verse_highlights
         AND members.id = verse_highlights.member_id
     )
   );
-
 CREATE POLICY "Members can insert their own reactions" ON verse_reactions
   FOR INSERT
   TO public
@@ -44,7 +41,6 @@ CREATE POLICY "Members can insert their own reactions" ON verse_reactions
         AND members.id = verse_reactions.member_id
     )
   );
-
 CREATE POLICY "Members can insert their own progress" ON reading_progress
   FOR INSERT
   TO public
@@ -56,7 +52,6 @@ CREATE POLICY "Members can insert their own progress" ON reading_progress
         AND members.id = reading_progress.member_id
     )
   );
-
 CREATE POLICY "Members can insert their own notes" ON verse_notes
   FOR INSERT
   TO public
@@ -67,4 +62,4 @@ CREATE POLICY "Members can insert their own notes" ON verse_notes
       WHERE members.tenant_id = verse_notes.tenant_id
         AND members.id = verse_notes.member_id
     )
-  );;
+  );

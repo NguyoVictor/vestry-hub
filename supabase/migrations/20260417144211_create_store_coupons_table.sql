@@ -15,11 +15,8 @@ CREATE TABLE IF NOT EXISTS store_coupons (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_store_coupons_tenant_code ON store_coupons(tenant_id, code);
 CREATE INDEX IF NOT EXISTS idx_store_coupons_tenant_id ON store_coupons(tenant_id);
-
 ALTER TABLE store_coupons ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "tenant_isolation_store_coupons" ON store_coupons
-  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));;
+  USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));

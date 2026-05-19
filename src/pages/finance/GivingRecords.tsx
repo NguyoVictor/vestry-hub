@@ -30,7 +30,7 @@ import { logActivity } from "@/lib/activityLogger";
 interface GivingRow { id: string; member_id: string | null; amount: number; giving_type: string; payment_method: string; given_at: string; recorded_by: string | null; created_at: string; }
 
 const GIVING_CATEGORIES = ["tithe", "offering", "building_fund", "welfare", "missions", "special", "other"];
-const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "card", "cheque", "other"];
+const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "cheque", "other"];
 
 // Premium page animations
 const pageVariants = {

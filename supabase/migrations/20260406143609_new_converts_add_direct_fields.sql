@@ -8,8 +8,6 @@ ALTER TABLE new_converts
   ADD COLUMN IF NOT EXISTS email VARCHAR,
   ADD COLUMN IF NOT EXISTS conversion_date DATE,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-
 -- Drop member_id FK constraint if it exists (make it optional)
 ALTER TABLE new_converts ALTER COLUMN member_id DROP NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_new_converts_tenant_id ON new_converts(tenant_id);;
+CREATE INDEX IF NOT EXISTS idx_new_converts_tenant_id ON new_converts(tenant_id);

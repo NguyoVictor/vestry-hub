@@ -25,7 +25,7 @@ import { format, startOfMonth, startOfYear } from "date-fns";
 import { formatCurrencyFull } from "@/lib/format";
 
 const GIVING_CATEGORIES = ["tithe", "offering", "building_fund", "welfare", "missions", "special", "other"] as const;
-const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "card", "cheque", "other"] as const;
+const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "cheque", "other"] as const;
 
 // Premium page animations
 const pageVariants = {

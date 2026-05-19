@@ -3,5 +3,4 @@
 
 ALTER TABLE groups 
 ADD COLUMN meeting_date date;
-
-COMMENT ON COLUMN groups.meeting_date IS 'Specific date for the next group meeting';;
+COMMENT ON COLUMN groups.meeting_date IS 'Specific date for the next group meeting';

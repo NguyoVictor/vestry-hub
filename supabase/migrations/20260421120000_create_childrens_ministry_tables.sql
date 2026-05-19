@@ -102,4 +102,4 @@ CREATE POLICY "tenant_isolation_children_qr_codes" ON children_qr_codes
 CREATE POLICY "tenant_isolation_cm_settings" ON children_ministry_settings
   FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text LIMIT 1));
 -- Seed default classes for existing tenants (runs once)
--- New tenants get seeded on first visit via the app;
+-- New tenants get seeded on first visit via the app;;

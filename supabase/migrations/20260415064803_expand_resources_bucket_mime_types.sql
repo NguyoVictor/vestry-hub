@@ -12,4 +12,4 @@ UPDATE storage.buckets SET allowed_mime_types = ARRAY[
   'video/quicktime',
   'image/webp'
 ], file_size_limit = 104857600
-WHERE id = 'resources';;
+WHERE id = 'resources';

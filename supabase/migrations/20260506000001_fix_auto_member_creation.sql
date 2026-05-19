@@ -77,7 +77,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- Update the member creation function to properly link user_id and include avatar
 CREATE OR REPLACE FUNCTION create_member_for_user()
 RETURNS TRIGGER AS $$
@@ -106,13 +105,11 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Ensure triggers are properly set up
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
 DROP TRIGGER IF EXISTS auto_create_member ON users;
 CREATE TRIGGER auto_create_member
   AFTER INSERT ON users

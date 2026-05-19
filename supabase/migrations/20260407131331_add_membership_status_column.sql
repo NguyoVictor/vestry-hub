@@ -7,5 +7,4 @@ ALTER TABLE members
   ADD COLUMN IF NOT EXISTS occupation TEXT,
   ADD COLUMN IF NOT EXISTS state TEXT,
   ADD COLUMN IF NOT EXISTS postal_code TEXT;
-
-CREATE INDEX IF NOT EXISTS idx_members_membership_status ON members(membership_status);;
+CREATE INDEX IF NOT EXISTS idx_members_membership_status ON members(membership_status);

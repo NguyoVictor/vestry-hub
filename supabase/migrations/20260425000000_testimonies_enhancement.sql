@@ -48,4 +48,4 @@ ALTER TABLE testimonies
   ADD CONSTRAINT testimonies_status_check
   CHECK (status IN ('pending', 'published', 'declined', 'retracted', 'approved'));
 -- Add TABLES constant entry for testimony_categories and testimony_reactions
--- (handled in schema.ts);
+-- (handled in schema.ts);;

@@ -21,6 +21,5 @@ SELECT
 FROM users u
 LEFT JOIN members m ON m.id = u.id
 WHERE m.id IS NULL;
-
 -- Verify
-SELECT COUNT(*) as total_members FROM members;;
+SELECT COUNT(*) as total_members FROM members;

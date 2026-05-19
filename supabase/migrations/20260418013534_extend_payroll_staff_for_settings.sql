@@ -17,6 +17,5 @@ ALTER TABLE payroll_staff
   ADD COLUMN IF NOT EXISTS sick_leave_days         integer DEFAULT 10,
   ADD COLUMN IF NOT EXISTS health_insurance        boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS pension_contribution    boolean DEFAULT false;
-
 CREATE INDEX IF NOT EXISTS idx_payroll_staff_tenant_id ON payroll_staff(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_payroll_staff_member_id ON payroll_staff(member_id);;
+CREATE INDEX IF NOT EXISTS idx_payroll_staff_member_id ON payroll_staff(member_id);

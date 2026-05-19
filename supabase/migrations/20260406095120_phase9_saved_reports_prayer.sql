@@ -14,7 +14,6 @@ ALTER TABLE saved_reports ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage saved reports" ON saved_reports FOR ALL
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_saved_reports_tenant ON saved_reports(tenant_id);
-
 -- Prayer Requests
 CREATE TABLE IF NOT EXISTS prayer_requests (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -34,4 +33,4 @@ CREATE POLICY "Members can manage their own prayer requests" ON prayer_requests 
 CREATE POLICY "Staff can view all prayer requests" ON prayer_requests FOR SELECT
   USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 CREATE INDEX IF NOT EXISTS idx_prayer_requests_tenant ON prayer_requests(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_prayer_requests_member ON prayer_requests(member_id);;
+CREATE INDEX IF NOT EXISTS idx_prayer_requests_member ON prayer_requests(member_id);

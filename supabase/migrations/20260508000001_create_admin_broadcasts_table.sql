@@ -19,17 +19,13 @@ CREATE TABLE IF NOT EXISTS admin_broadcasts (
   created_by varchar REFERENCES users(id),
   created_at timestamptz DEFAULT now()
 );
-
 -- Create index if it doesn't exist
 CREATE INDEX IF NOT EXISTS idx_admin_broadcasts_tenant ON admin_broadcasts(tenant_id);
-
 -- Enable RLS
 ALTER TABLE admin_broadcasts ENABLE ROW LEVEL SECURITY;
-
 -- Create policy if it doesn't exist
 DROP POLICY IF EXISTS "admin_broadcasts_tenant" ON admin_broadcasts;
 CREATE POLICY "admin_broadcasts_tenant" ON admin_broadcasts FOR ALL USING (tenant_id = get_my_tenant_id());
-
 -- Also create device_tokens table if it doesn't exist
 CREATE TABLE IF NOT EXISTS device_tokens (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -41,14 +37,11 @@ CREATE TABLE IF NOT EXISTS device_tokens (
   updated_at timestamptz DEFAULT now(),
   UNIQUE(user_id, token)
 );
-
 -- Create indexes if they don't exist
 CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_device_tokens_tenant ON device_tokens(tenant_id);
-
 -- Enable RLS
 ALTER TABLE device_tokens ENABLE ROW LEVEL SECURITY;
-
 -- Create policy if it doesn't exist
 DROP POLICY IF EXISTS "device_tokens_own" ON device_tokens;
 CREATE POLICY "device_tokens_own" ON device_tokens FOR ALL USING (user_id = auth.uid()::text);

@@ -113,7 +113,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 -- =====================================================
 -- Function: Update Trending Songs Status
 -- =====================================================
@@ -211,7 +210,6 @@ BEGIN
   );
 END;
 $$;
-
 -- =====================================================
 -- Function: Get Smart Song Recommendations
 -- =====================================================
@@ -352,7 +350,6 @@ BEGIN
   LIMIT p_limit;
 END;
 $$;
-
 -- =====================================================
 -- Function: Get Usage Analytics Summary
 -- =====================================================
@@ -409,7 +406,6 @@ BEGIN
   CROSS JOIN growth_stats gs;
 END;
 $$;
-
 -- =====================================================
 -- Indexes for Performance
 -- =====================================================
@@ -417,33 +413,26 @@ $$;
 -- Optimize usage analytics queries
 CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_tenant_used_at 
 ON song_usage_analytics(tenant_id, used_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_song_service_type 
 ON song_usage_analytics(song_id, service_type, used_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_setlist 
 ON song_usage_analytics(setlist_id, used_at DESC) 
 WHERE setlist_id IS NOT NULL;
-
 -- Optimize song queries for recommendations
 CREATE INDEX IF NOT EXISTS idx_songs_trending_usage 
 ON songs(tenant_id, is_trending, usage_count DESC) 
 WHERE is_trending = TRUE;
-
 CREATE INDEX IF NOT EXISTS idx_songs_last_played 
 ON songs(tenant_id, last_played_at DESC NULLS LAST);
-
 CREATE INDEX IF NOT EXISTS idx_songs_key_bpm 
 ON songs(tenant_id, key, bpm) 
 WHERE key IS NOT NULL AND bpm IS NOT NULL;
-
 -- =====================================================
 -- RLS Policies
 -- =====================================================
 
 -- Ensure RLS is enabled on song_usage_analytics table
 ALTER TABLE song_usage_analytics ENABLE ROW LEVEL SECURITY;
-
 -- Policy for song usage analytics
 DROP POLICY IF EXISTS "song_usage_analytics_tenant_isolation" ON song_usage_analytics;
 CREATE POLICY "song_usage_analytics_tenant_isolation" ON song_usage_analytics
@@ -454,13 +443,11 @@ CREATE POLICY "song_usage_analytics_tenant_isolation" ON song_usage_analytics
       WHERE u.id = auth.uid()
     )
   );
-
 -- Grant execute permissions on functions
 GRANT EXECUTE ON FUNCTION get_usage_reports(VARCHAR, VARCHAR, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_trending_songs(VARCHAR) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_song_recommendations(VARCHAR, VARCHAR, VARCHAR[], VARCHAR, VARCHAR, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_usage_analytics_summary(VARCHAR) TO authenticated;
-
 -- =====================================================
 -- Trigger: Auto-update trending songs daily
 -- =====================================================
@@ -480,7 +467,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 -- Note: In production, you would set up a cron job to call auto_update_trending_songs()
 -- For now, it can be called manually or triggered by application logic
 

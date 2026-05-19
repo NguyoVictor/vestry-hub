@@ -38,4 +38,4 @@ BEGIN
     'group_count', v_group_count
   );
 END;
-$$;;
+$$;

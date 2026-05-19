@@ -10,12 +10,10 @@ ALTER TABLE members
   ADD COLUMN IF NOT EXISTS communication_prefs JSONB DEFAULT '{"email":true,"sms":true,"push":true,"events":true,"newsletter":true}'::jsonb,
   ADD COLUMN IF NOT EXISTS pastoral_notes TEXT,
   ADD COLUMN IF NOT EXISTS occupation VARCHAR;
-
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_members_city ON members(city);
 CREATE INDEX IF NOT EXISTS idx_members_is_counselor ON members(is_counselor);
 CREATE INDEX IF NOT EXISTS idx_members_occupation ON members(occupation);
-
 -- Verify the columns exist
 SELECT column_name, data_type, is_nullable 
 FROM information_schema.columns 

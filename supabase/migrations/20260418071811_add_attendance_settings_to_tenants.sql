@@ -8,4 +8,4 @@ ALTER TABLE tenants
   ADD COLUMN IF NOT EXISTS absence_threshold INTEGER NOT NULL DEFAULT 3,
   ADD COLUMN IF NOT EXISTS absence_alert_recipients TEXT NOT NULL DEFAULT 'admins_only',
   ADD COLUMN IF NOT EXISTS qr_checkin_enabled BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS default_attendance_status TEXT NOT NULL DEFAULT 'present';;
+  ADD COLUMN IF NOT EXISTS default_attendance_status TEXT NOT NULL DEFAULT 'present';

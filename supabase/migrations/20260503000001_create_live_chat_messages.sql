@@ -18,21 +18,17 @@ CREATE TABLE IF NOT EXISTS live_chat_messages (
   is_admin BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_live_chat_messages_stream ON live_chat_messages (tenant_id, stream_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_live_chat_messages_member ON live_chat_messages (member_id);
-
 -- Enable Row Level Security
 ALTER TABLE live_chat_messages ENABLE ROW LEVEL SECURITY;
-
 -- RLS Policies for live_chat_messages
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Admins can manage chat messages" ON live_chat_messages;
 DROP POLICY IF EXISTS "Members can read chat messages" ON live_chat_messages;
 DROP POLICY IF EXISTS "Members can insert chat messages" ON live_chat_messages;
-
 -- Admins: Full access to their tenant's messages
 CREATE POLICY "Admins can manage chat messages"
   ON live_chat_messages
@@ -42,7 +38,6 @@ CREATE POLICY "Admins can manage chat messages"
       SELECT tenant_id FROM users WHERE id = auth.uid()::text
     )
   );
-
 -- Members: Can read messages from their tenant
 CREATE POLICY "Members can read chat messages"
   ON live_chat_messages
@@ -52,7 +47,6 @@ CREATE POLICY "Members can read chat messages"
       SELECT tenant_id FROM members WHERE id = auth.uid()::text
     )
   );
-
 -- Members: Can insert their own messages
 CREATE POLICY "Members can insert chat messages"
   ON live_chat_messages
@@ -63,7 +57,6 @@ CREATE POLICY "Members can insert chat messages"
     )
     AND member_id = auth.uid()::text
   );
-
 -- Enable Supabase Realtime (if not already enabled)
 DO $$
 BEGIN
@@ -75,7 +68,6 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE live_chat_messages;
   END IF;
 END $$;
-
 -- Add comments
 COMMENT ON TABLE live_chat_messages IS 'Live chat messages during streaming services';
 COMMENT ON COLUMN live_chat_messages.stream_id IS 'Reference to the livestream schedule';

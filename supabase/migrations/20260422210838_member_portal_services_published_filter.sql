@@ -4,4 +4,4 @@ DROP POLICY IF EXISTS "services_public_read" ON services;
 CREATE POLICY "services_public_read" ON services
   FOR SELECT
   TO anon
-  USING (status IN ('published', 'completed'));;
+  USING (status IN ('published', 'completed'));

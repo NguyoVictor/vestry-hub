@@ -40,4 +40,4 @@ BEGIN
   );
 END;
 $$;
-GRANT EXECUTE ON FUNCTION get_dashboard_stats(TEXT) TO authenticated;;
+GRANT EXECUTE ON FUNCTION get_dashboard_stats(TEXT) TO authenticated;

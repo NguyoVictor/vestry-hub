@@ -9,7 +9,6 @@
 DROP FUNCTION IF EXISTS get_dashboard_stats_optimized(UUID);
 DROP FUNCTION IF EXISTS get_member_stats_optimized(UUID);
 DROP FUNCTION IF EXISTS get_financial_stats_optimized(UUID);
-
 -- ─── OPTIMIZED DASHBOARD STATS FUNCTION ──────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION get_dashboard_stats_optimized(p_tenant_id UUID)
@@ -97,7 +96,6 @@ BEGIN
   RETURN result;
 END;
 $$;
-
 -- ─── OPTIMIZED MEMBER ANALYTICS FUNCTION ─────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION get_member_analytics_optimized(p_tenant_id UUID)
@@ -181,7 +179,6 @@ BEGIN
   RETURN result;
 END;
 $$;
-
 -- ─── OPTIMIZED FINANCIAL ANALYTICS FUNCTION ──────────────────────────────────
 
 CREATE OR REPLACE FUNCTION get_financial_analytics_optimized(p_tenant_id UUID)
@@ -275,7 +272,6 @@ BEGIN
   RETURN result;
 END;
 $$;
-
 -- ─── OPTIMIZED ACTIVITY FEED FUNCTION ────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION get_activity_feed_optimized(
@@ -345,7 +341,6 @@ BEGIN
   RETURN result;
 END;
 $$;
-
 -- ─── PERFORMANCE MONITORING FUNCTION ─────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION get_performance_metrics_optimized(p_tenant_id UUID)
@@ -420,7 +415,6 @@ BEGIN
   RETURN result;
 END;
 $$;
-
 -- ─── GRANT PERMISSIONS ───────────────────────────────────────────────────────
 
 -- Grant execute permissions to authenticated users
@@ -429,7 +423,6 @@ GRANT EXECUTE ON FUNCTION get_member_analytics_optimized(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_financial_analytics_optimized(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_activity_feed_optimized(UUID, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_performance_metrics_optimized(UUID) TO authenticated;
-
 -- ─── COMMENTS FOR DOCUMENTATION ──────────────────────────────────────────────
 
 COMMENT ON FUNCTION get_dashboard_stats_optimized(UUID) IS 'Optimized dashboard statistics - replaces 8+ individual queries with single RPC call';

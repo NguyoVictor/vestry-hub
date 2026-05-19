@@ -26,4 +26,4 @@ ALTER TABLE groups
 -- SELECT DISTINCT tenant_id, 'General', '#6366f1', 'General purpose group'
 -- FROM groups 
 -- WHERE NOT EXISTS (SELECT 1 FROM group_types WHERE tenant_id = groups.tenant_id)
--- ON CONFLICT DO NOTHING;
+-- ON CONFLICT DO NOTHING;;

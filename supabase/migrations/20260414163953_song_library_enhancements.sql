@@ -3,16 +3,12 @@ ALTER TABLE songs
   ADD COLUMN IF NOT EXISTS video_url text,
   ADD COLUMN IF NOT EXISTS chord_sheet_path text,
   ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
-
 -- Add index on tenant_id for songs (if not exists)
 CREATE INDEX IF NOT EXISTS idx_songs_tenant_id ON songs(tenant_id);
-
 -- Add index on tenant_id for set_lists (if not exists)
 CREATE INDEX IF NOT EXISTS idx_set_lists_tenant_id ON set_lists(tenant_id);
-
 -- Add index on set_list_id for set_list_songs (if not exists)
 CREATE INDEX IF NOT EXISTS idx_set_list_songs_set_list_id ON set_list_songs(set_list_id);
-
 -- Ensure RLS policies exist for songs
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -22,7 +18,6 @@ DO $$ BEGIN
       USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
   END IF;
 END $$;
-
 -- Ensure RLS policies exist for set_lists
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -32,7 +27,6 @@ DO $$ BEGIN
       USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
   END IF;
 END $$;
-
 -- Ensure RLS policies exist for set_list_songs
 DO $$ BEGIN
   IF NOT EXISTS (
@@ -47,8 +41,7 @@ DO $$ BEGIN
       );
   END IF;
 END $$;
-
 -- Create storage bucket for chord sheets if it doesn't exist
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('chord-sheets', 'chord-sheets', false)
-ON CONFLICT (id) DO NOTHING;;
+ON CONFLICT (id) DO NOTHING;

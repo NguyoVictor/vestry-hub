@@ -14,5 +14,4 @@ ALTER TABLE training_courses
   ADD COLUMN IF NOT EXISTS total_duration_minutes INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS instructor_member_id VARCHAR,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-
-CREATE INDEX IF NOT EXISTS idx_training_courses_tenant_id ON training_courses(tenant_id);;
+CREATE INDEX IF NOT EXISTS idx_training_courses_tenant_id ON training_courses(tenant_id);

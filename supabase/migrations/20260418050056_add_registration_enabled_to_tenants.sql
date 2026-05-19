@@ -1,1 +1,1 @@
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS registration_enabled BOOLEAN NOT NULL DEFAULT true;;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS registration_enabled BOOLEAN NOT NULL DEFAULT true;

@@ -17,10 +17,7 @@ CREATE TABLE IF NOT EXISTS public.sermon_archives (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 ALTER TABLE public.sermon_archives ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "authenticated_access_sermon_archives" ON public.sermon_archives
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-CREATE INDEX IF NOT EXISTS idx_sermon_archives_tenant_id ON public.sermon_archives(tenant_id);;
+CREATE INDEX IF NOT EXISTS idx_sermon_archives_tenant_id ON public.sermon_archives(tenant_id);

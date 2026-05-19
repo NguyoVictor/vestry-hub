@@ -155,6 +155,84 @@ export type Database = {
           },
         ]
       }
+      admin_broadcasts: {
+        Row: {
+          channels: string[] | null
+          created_at: string | null
+          created_by: string | null
+          email_failed_count: number | null
+          email_sent_count: number | null
+          id: string
+          message: string
+          priority: string | null
+          push_failed_count: number | null
+          push_sent_count: number | null
+          recipient_ids: string[] | null
+          recipient_type: string | null
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string | null
+          subject: string
+          tenant_id: string
+          total_recipients: number | null
+        }
+        Insert: {
+          channels?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          email_failed_count?: number | null
+          email_sent_count?: number | null
+          id?: string
+          message: string
+          priority?: string | null
+          push_failed_count?: number | null
+          push_sent_count?: number | null
+          recipient_ids?: string[] | null
+          recipient_type?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+          tenant_id: string
+          total_recipients?: number | null
+        }
+        Update: {
+          channels?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          email_failed_count?: number | null
+          email_sent_count?: number | null
+          id?: string
+          message?: string
+          priority?: string | null
+          push_failed_count?: number | null
+          push_sent_count?: number | null
+          recipient_ids?: string[] | null
+          recipient_type?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+          tenant_id?: string
+          total_recipients?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_broadcasts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_broadcasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_tool_usage: {
         Row: {
           created_at: string | null
@@ -635,6 +713,53 @@ export type Database = {
           },
           {
             foreignKeyName: "branches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcast_templates: {
+        Row: {
+          channels: string[] | null
+          created_at: string | null
+          id: string
+          is_system: boolean | null
+          message: string
+          name: string
+          priority: string | null
+          subject: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          channels?: string[] | null
+          created_at?: string | null
+          id?: string
+          is_system?: boolean | null
+          message: string
+          name: string
+          priority?: string | null
+          subject: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          channels?: string[] | null
+          created_at?: string | null
+          id?: string
+          is_system?: boolean | null
+          message?: string
+          name?: string
+          priority?: string | null
+          subject?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_templates_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1229,6 +1354,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      device_tokens: {
+        Row: {
+          created_at: string | null
+          device_type: string | null
+          id: string
+          last_used_at: string | null
+          tenant_id: string
+          token: string
+          updated_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_type?: string | null
+          id?: string
+          last_used_at?: string | null
+          tenant_id: string
+          token: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          device_type?: string | null
+          id?: string
+          last_used_at?: string | null
+          tenant_id?: string
+          token?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       discipleship_pathways: {
         Row: {
@@ -2155,17 +2316,22 @@ export type Database = {
       giving_records: {
         Row: {
           amount: number
+          checkout_request_id: string | null
           created_at: string | null
           currency: string | null
+          external_reference: string | null
           given_at: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id: string
           member_id: string | null
+          mpesa_receipt: string | null
+          payhero_reference: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id: string | null
+          phone_number: string | null
           pledge_id: string | null
           receipt_url: string | null
           recorded_by: string | null
@@ -2175,17 +2341,22 @@ export type Database = {
         }
         Insert: {
           amount: number
+          checkout_request_id?: string | null
           created_at?: string | null
           currency?: string | null
+          external_reference?: string | null
           given_at?: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
           member_id?: string | null
+          mpesa_receipt?: string | null
+          payhero_reference?: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id?: string | null
+          phone_number?: string | null
           pledge_id?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
@@ -2195,17 +2366,22 @@ export type Database = {
         }
         Update: {
           amount?: number
+          checkout_request_id?: string | null
           created_at?: string | null
           currency?: string | null
+          external_reference?: string | null
           given_at?: string
           giving_type?: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
           member_id?: string | null
+          mpesa_receipt?: string | null
+          payhero_reference?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
           pesapal_transaction_id?: string | null
+          phone_number?: string | null
           pledge_id?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
@@ -2218,7 +2394,7 @@ export type Database = {
             foreignKeyName: "giving_records_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "members"
             referencedColumns: ["id"]
           },
           {
@@ -2273,6 +2449,50 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_types: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3457,6 +3677,7 @@ export type Database = {
           baptism_date: string | null
           baptized: boolean | null
           city: string | null
+          communication_prefs: Json | null
           country: string | null
           created_at: string | null
           date_of_birth: string | null
@@ -3470,6 +3691,7 @@ export type Database = {
           gender: string | null
           id: string
           id_number: string | null
+          is_counselor: boolean | null
           join_date: string | null
           last_name: string
           marital_status: string | null
@@ -3479,10 +3701,14 @@ export type Database = {
           nationality: string | null
           notes: string | null
           occupation: string | null
+          pastoral_notes: string | null
           phone: string | null
+          postal_code: string | null
           registration_source: string | null
+          salvation_date: string | null
           secondary_phone: string | null
           skills: string[] | null
+          state: string | null
           status: string | null
           tenant_id: string
           updated_at: string | null
@@ -3494,6 +3720,7 @@ export type Database = {
           baptism_date?: string | null
           baptized?: boolean | null
           city?: string | null
+          communication_prefs?: Json | null
           country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
@@ -3507,6 +3734,7 @@ export type Database = {
           gender?: string | null
           id?: string
           id_number?: string | null
+          is_counselor?: boolean | null
           join_date?: string | null
           last_name: string
           marital_status?: string | null
@@ -3516,10 +3744,14 @@ export type Database = {
           nationality?: string | null
           notes?: string | null
           occupation?: string | null
+          pastoral_notes?: string | null
           phone?: string | null
+          postal_code?: string | null
           registration_source?: string | null
+          salvation_date?: string | null
           secondary_phone?: string | null
           skills?: string[] | null
+          state?: string | null
           status?: string | null
           tenant_id: string
           updated_at?: string | null
@@ -3531,6 +3763,7 @@ export type Database = {
           baptism_date?: string | null
           baptized?: boolean | null
           city?: string | null
+          communication_prefs?: Json | null
           country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
@@ -3544,6 +3777,7 @@ export type Database = {
           gender?: string | null
           id?: string
           id_number?: string | null
+          is_counselor?: boolean | null
           join_date?: string | null
           last_name?: string
           marital_status?: string | null
@@ -3553,10 +3787,14 @@ export type Database = {
           nationality?: string | null
           notes?: string | null
           occupation?: string | null
+          pastoral_notes?: string | null
           phone?: string | null
+          postal_code?: string | null
           registration_source?: string | null
+          salvation_date?: string | null
           secondary_phone?: string | null
           skills?: string[] | null
+          state?: string | null
           status?: string | null
           tenant_id?: string
           updated_at?: string | null
@@ -3845,13 +4083,6 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -4265,38 +4496,91 @@ export type Database = {
           },
         ]
       }
+      payroll_run_lines: {
+        Row: {
+          gross_amount: number | null
+          id: string
+          net_amount: number | null
+          paid_at: string | null
+          payhero_reference: string | null
+          payment_method: string | null
+          payout_status: string | null
+          run_id: string | null
+          staff_id: string | null
+        }
+        Insert: {
+          gross_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          paid_at?: string | null
+          payhero_reference?: string | null
+          payment_method?: string | null
+          payout_status?: string | null
+          run_id?: string | null
+          staff_id?: string | null
+        }
+        Update: {
+          gross_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          paid_at?: string | null
+          payhero_reference?: string | null
+          payment_method?: string | null
+          payout_status?: string | null
+          run_id?: string | null
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_run_lines_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_runs: {
         Row: {
+          completed_at: string | null
           id: string
+          journal_entry_id: string | null
           period_month: number
           period_year: number
           processed_at: string | null
           processed_by: string | null
           staff_count: number
+          status: string | null
           tenant_id: string
           total_deductions: number
           total_gross: number
           total_net: number
         }
         Insert: {
+          completed_at?: string | null
           id?: string
+          journal_entry_id?: string | null
           period_month: number
           period_year: number
           processed_at?: string | null
           processed_by?: string | null
           staff_count: number
+          status?: string | null
           tenant_id: string
           total_deductions: number
           total_gross: number
           total_net: number
         }
         Update: {
+          completed_at?: string | null
           id?: string
+          journal_entry_id?: string | null
           period_month?: number
           period_year?: number
           processed_at?: string | null
           processed_by?: string | null
           staff_count?: number
+          status?: string | null
           tenant_id?: string
           total_deductions?: number
           total_gross?: number
@@ -4417,6 +4701,115 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pledge_commitments: {
+        Row: {
+          campaign_id: string | null
+          created_at: string | null
+          frequency: string | null
+          id: string
+          member_id: string | null
+          notes: string | null
+          paid_amount: number | null
+          pledged_amount: number
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string | null
+          frequency?: string | null
+          id?: string
+          member_id?: string | null
+          notes?: string | null
+          paid_amount?: number | null
+          pledged_amount: number
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string | null
+          frequency?: string | null
+          id?: string
+          member_id?: string | null
+          notes?: string | null
+          paid_amount?: number | null
+          pledged_amount?: number
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pledge_commitments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "pledge_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pledge_commitments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pledge_commitments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pledge_payments: {
+        Row: {
+          amount: number
+          commitment_id: string | null
+          created_at: string | null
+          giving_record_id: string | null
+          id: string
+          paid_at: string | null
+          payment_status: string | null
+        }
+        Insert: {
+          amount: number
+          commitment_id?: string | null
+          created_at?: string | null
+          giving_record_id?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_status?: string | null
+        }
+        Update: {
+          amount?: number
+          commitment_id?: string | null
+          created_at?: string | null
+          giving_record_id?: string | null
+          id?: string
+          paid_at?: string | null
+          payment_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pledge_payments_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "pledge_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pledge_payments_giving_record_id_fkey"
+            columns: ["giving_record_id"]
+            isOneToOne: false
+            referencedRelation: "giving_records"
             referencedColumns: ["id"]
           },
         ]
@@ -4966,6 +5359,7 @@ export type Database = {
       }
       services: {
         Row: {
+          allow_attendance: boolean | null
           branch_id: string | null
           created_at: string | null
           created_by: string | null
@@ -4983,6 +5377,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          allow_attendance?: boolean | null
           branch_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -5000,6 +5395,7 @@ export type Database = {
           title: string
         }
         Update: {
+          allow_attendance?: boolean | null
           branch_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -5123,6 +5519,223 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "set_lists_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_history: {
+        Row: {
+          at_message_id: string | null
+          cost: number | null
+          created_at: string | null
+          currency: string | null
+          delivered_count: number | null
+          failed_count: number | null
+          id: string
+          is_test: boolean | null
+          message: string
+          recipient_count: number | null
+          recipients: Json | null
+          sent_at: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          at_message_id?: string | null
+          cost?: number | null
+          created_at?: string | null
+          currency?: string | null
+          delivered_count?: number | null
+          failed_count?: number | null
+          id?: string
+          is_test?: boolean | null
+          message: string
+          recipient_count?: number | null
+          recipients?: Json | null
+          sent_at?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          at_message_id?: string | null
+          cost?: number | null
+          created_at?: string | null
+          currency?: string | null
+          delivered_count?: number | null
+          failed_count?: number | null
+          id?: string
+          is_test?: boolean | null
+          message?: string
+          recipient_count?: number | null
+          recipients?: Json | null
+          sent_at?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_recipients: {
+        Row: {
+          at_message_id: string | null
+          cost: number | null
+          created_at: string | null
+          failure_reason: string | null
+          id: string
+          network_code: string | null
+          phone_number: string
+          sms_history_id: string
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          at_message_id?: string | null
+          cost?: number | null
+          created_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          network_code?: string | null
+          phone_number: string
+          sms_history_id: string
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          at_message_id?: string | null
+          cost?: number | null
+          created_at?: string | null
+          failure_reason?: string | null
+          id?: string
+          network_code?: string | null
+          phone_number?: string
+          sms_history_id?: string
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_recipients_sms_history_id_fkey"
+            columns: ["sms_history_id"]
+            isOneToOne: false
+            referencedRelation: "sms_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_recipients_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_settings: {
+        Row: {
+          at_api_key: string | null
+          at_username: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          is_configured: boolean | null
+          sender_id: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          at_api_key?: string | null
+          at_username?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_configured?: boolean | null
+          sender_id?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          at_api_key?: string | null
+          at_username?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_configured?: boolean | null
+          sender_id?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          message: string
+          name: string
+          tenant_id: string
+          updated_at: string | null
+          usage_count: number | null
+          variables: Json | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          message: string
+          name: string
+          tenant_id: string
+          updated_at?: string | null
+          usage_count?: number | null
+          variables?: Json | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          message?: string
+          name?: string
+          tenant_id?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_templates_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -5651,6 +6264,10 @@ export type Database = {
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
+          payhero_channel_id: number | null
+          payhero_channel_number: string | null
+          payhero_channel_type: string | null
+          payhero_connected: boolean | null
           phone: string | null
           service_days: string[] | null
           service_time: string | null
@@ -5689,6 +6306,10 @@ export type Database = {
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
+          payhero_channel_id?: number | null
+          payhero_channel_number?: string | null
+          payhero_channel_type?: string | null
+          payhero_connected?: boolean | null
           phone?: string | null
           service_days?: string[] | null
           service_time?: string | null
@@ -5727,6 +6348,10 @@ export type Database = {
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
+          payhero_channel_id?: number | null
+          payhero_channel_number?: string | null
+          payhero_channel_type?: string | null
+          payhero_connected?: boolean | null
           phone?: string | null
           service_days?: string[] | null
           service_time?: string | null
@@ -6241,6 +6866,16 @@ export type Database = {
     Functions: {
       get_my_tenant_id: { Args: never; Returns: string }
       get_my_tenant_id_safe: { Args: never; Returns: string }
+      post_auto_journal_entry: {
+        Args: {
+          p_date: string
+          p_description: string
+          p_lines: Json
+          p_reference: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       seed_chart_of_accounts: {
         Args: { p_tenant_id: string }
         Returns: undefined
@@ -6253,7 +6888,7 @@ export type Database = {
       checkin_method_enum: "manual" | "qr_scan" | "self_checkin"
       comm_channel_enum: "email" | "sms"
       comm_recipient_enum: "all" | "group" | "manual"
-      comm_status_enum: "draft" | "sent" | "failed"
+      comm_status_enum: "draft" | "sent" | "failed" | "scheduled"
       giving_type_enum:
         | "tithe"
         | "offering"
@@ -6273,7 +6908,7 @@ export type Database = {
         | "africas_talking"
         | "resend"
       marital_status_enum: "single" | "married" | "divorced" | "widowed"
-      payment_method_enum: "cash" | "mpesa" | "bank_transfer" | "card"
+      payment_method_enum: "cash" | "mpesa" | "bank_transfer"
       payment_schedule_enum: "one_time" | "weekly" | "monthly"
       payment_status_enum: "pending" | "confirmed" | "failed" | "voided"
       pledge_status_enum: "pending" | "partial" | "fulfilled" | "overdue"
@@ -6430,7 +7065,7 @@ export const Constants = {
       checkin_method_enum: ["manual", "qr_scan", "self_checkin"],
       comm_channel_enum: ["email", "sms"],
       comm_recipient_enum: ["all", "group", "manual"],
-      comm_status_enum: ["draft", "sent", "failed"],
+      comm_status_enum: ["draft", "sent", "failed", "scheduled"],
       giving_type_enum: [
         "tithe",
         "offering",
@@ -6453,7 +7088,7 @@ export const Constants = {
         "resend",
       ],
       marital_status_enum: ["single", "married", "divorced", "widowed"],
-      payment_method_enum: ["cash", "mpesa", "bank_transfer", "card"],
+      payment_method_enum: ["cash", "mpesa", "bank_transfer"],
       payment_schedule_enum: ["one_time", "weekly", "monthly"],
       payment_status_enum: ["pending", "confirmed", "failed", "voided"],
       pledge_status_enum: ["pending", "partial", "fulfilled", "overdue"],

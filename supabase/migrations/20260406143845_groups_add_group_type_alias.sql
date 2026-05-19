@@ -2,10 +2,8 @@
 -- Add group_type as a generated column alias
 ALTER TABLE groups
   ADD COLUMN IF NOT EXISTS group_type VARCHAR;
-
 -- Backfill group_type from type
 UPDATE groups SET group_type = type::text WHERE group_type IS NULL;
-
 -- services: code expects name, expected_attendance, actual_attendance, status, preacher
 ALTER TABLE services
   ADD COLUMN IF NOT EXISTS name VARCHAR,
@@ -19,6 +17,5 @@ ALTER TABLE services
   ADD COLUMN IF NOT EXISTS order_of_service JSONB DEFAULT '[]',
   ADD COLUMN IF NOT EXISTS notes TEXT,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
-
 -- Backfill name from title for existing rows
-UPDATE services SET name = title WHERE name IS NULL AND title IS NOT NULL;;
+UPDATE services SET name = title WHERE name IS NULL AND title IS NOT NULL;

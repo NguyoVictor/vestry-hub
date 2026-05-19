@@ -18,13 +18,10 @@ ALTER TABLE livestream_schedules
   ADD COLUMN IF NOT EXISTS recording_duration INTEGER,
   ADD COLUMN IF NOT EXISTS viewer_count INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
-
 -- Create index for stream provider queries
 CREATE INDEX IF NOT EXISTS idx_livestream_schedules_provider ON livestream_schedules (tenant_id, stream_provider);
-
 -- Create index for ended streams (recordings)
 CREATE INDEX IF NOT EXISTS idx_livestream_schedules_ended ON livestream_schedules (tenant_id, ended_at) WHERE ended_at IS NOT NULL;
-
 COMMENT ON COLUMN livestream_schedules.stream_provider IS 'Streaming platform: youtube, facebook, jitsi, or custom';
 COMMENT ON COLUMN livestream_schedules.stream_url IS 'URL for YouTube/Facebook/custom streams';
 COMMENT ON COLUMN livestream_schedules.jitsi_room IS 'Auto-generated Jitsi room name';

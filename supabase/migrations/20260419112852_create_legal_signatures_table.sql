@@ -13,11 +13,8 @@ CREATE TABLE IF NOT EXISTS legal_signatures (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, agreement_key)
 );
-
 CREATE INDEX IF NOT EXISTS idx_legal_signatures_tenant ON legal_signatures(tenant_id);
-
 ALTER TABLE legal_signatures ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "ls_tenant" ON legal_signatures
   FOR ALL TO authenticated
   USING (
@@ -25,4 +22,4 @@ CREATE POLICY "ls_tenant" ON legal_signatures
   )
   WITH CHECK (
     tenant_id = (SELECT users.tenant_id FROM users WHERE (users.id)::text = (auth.uid())::text LIMIT 1)::text
-  );;
+  );
