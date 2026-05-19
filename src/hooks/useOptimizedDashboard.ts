@@ -99,7 +99,7 @@ export interface ActivityFeed {
 // ─── OPTIMIZED DASHBOARD STATS HOOK ──────────────────────────────────────────
 
 export function useOptimizedDashboardStats() {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -113,7 +113,7 @@ export function useOptimizedDashboardStats() {
         "getDashboardStats",
         async () => {
           const { data, error } = await supabase.rpc('get_dashboard_stats_optimized', {
-            p_tenant_id: church.id
+            p_tenant_id: church.tenantId
           });
 
           if (error) {
@@ -145,7 +145,7 @@ export function useOptimizedDashboardStats() {
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         queryClient.invalidateQueries({
-          queryKey: ["dashboard-stats-optimized", church.id]
+          queryKey: ["dashboard-stats-optimized", church.tenantId]
         });
       }
     }, 300_000); // 5 minutes
@@ -159,7 +159,7 @@ export function useOptimizedDashboardStats() {
 // ─── OPTIMIZED MEMBER ANALYTICS HOOK ─────────────────────────────────────────
 
 export function useOptimizedMemberAnalytics() {
-  const { church } = useChurch();
+  const church = useChurch();
 
   return useQuery({
     queryKey: ["member-analytics-optimized", church?.id],
@@ -172,7 +172,7 @@ export function useOptimizedMemberAnalytics() {
         "getMemberAnalytics",
         async () => {
           const { data, error } = await supabase.rpc('get_member_analytics_optimized', {
-            p_tenant_id: church.id
+            p_tenant_id: church.tenantId
           });
 
           if (error) {
@@ -194,7 +194,7 @@ export function useOptimizedMemberAnalytics() {
 // ─── OPTIMIZED FINANCIAL ANALYTICS HOOK ──────────────────────────────────────
 
 export function useOptimizedFinancialAnalytics() {
-  const { church } = useChurch();
+  const church = useChurch();
 
   return useQuery({
     queryKey: ["financial-analytics-optimized", church?.id],
@@ -207,7 +207,7 @@ export function useOptimizedFinancialAnalytics() {
         "getFinancialAnalytics",
         async () => {
           const { data, error } = await supabase.rpc('get_financial_analytics_optimized', {
-            p_tenant_id: church.id
+            p_tenant_id: church.tenantId
           });
 
           if (error) {
@@ -232,20 +232,16 @@ export function useOptimizedActivityFeed(
   limit: number = 20,
   offset: number = 0
 ) {
-  const { church } = useChurch();
+  const church = useChurch();
 
   return useQuery({
-    queryKey: ["activity-feed-optimized", church?.id, limit, offset],
+    queryKey: ["activity-feed-optimized", church?.tenantId, limit, offset],
     queryFn: async (): Promise<ActivityFeed> => {
-      if (!church?.id) {
-        throw new Error("Church context is required");
-      }
-
       return queryMonitor.measureQuery(
         "getActivityFeed",
         async () => {
           const { data, error } = await supabase.rpc('get_activity_feed_optimized', {
-            p_tenant_id: church.id,
+            p_tenant_id: church.tenantId,
             p_limit: limit,
             p_offset: offset
           });
@@ -269,7 +265,7 @@ export function useOptimizedActivityFeed(
 // ─── PERFORMANCE METRICS HOOK ────────────────────────────────────────────────
 
 export function usePerformanceMetrics() {
-  const { church } = useChurch();
+  const church = useChurch();
 
   return useQuery({
     queryKey: ["performance-metrics", church?.id],
@@ -279,7 +275,7 @@ export function usePerformanceMetrics() {
       }
 
       const { data, error } = await supabase.rpc('get_performance_metrics_optimized', {
-        p_tenant_id: church.id
+        p_tenant_id: church.tenantId
       });
 
       if (error) {

@@ -48,8 +48,9 @@ const CATEGORIES: Category[] = [
     fetcher: async (tid) => {
       const { data } = await supabase.from(TABLES.GIVING_RECORDS).select("*").eq(COLS.TENANT_ID, tid);
       return (data ?? []).map(r => ({
-        "Donor Name": r.donor_name, "Amount": r.amount, "Giving Type": r.giving_type,
-        "Date": r.given_at, "Receipt Number": r.receipt_number, "Notes": r.notes,
+        "Amount": r.amount, "Giving Type": r.giving_type,
+        "Payment Method": r.payment_method, "Payment Status": r.payment_status,
+        "Date": r.given_at, "Currency": r.currency, "Member ID": r.member_id,
       }));
     },
   },

@@ -310,22 +310,172 @@ const Dashboard = () => {
     },
   });
 
-  const { data: recentDonations, isLoading: donationsLoading } = useQuery({
-    queryKey: ["dashboard", "recent-donations", church.tenantId],
-    staleTime: 60_000,
+  // Debug: Check all giving records to understand the data format
+  const { data: allGivingRecords } = useQuery({
+    queryKey: ["debug", "all-giving", church.tenantId],
+    staleTime: 30_000,
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.GIVING_RECORDS)
-        .select("id, amount, giving_type, payment_method, given_at, currency")
+      const { data } = await supabase.from("giving_records")
+        .select("id, amount, given_at, member_id")
         .eq("tenant_id", church.tenantId)
-        .order("given_at", { ascending: false }).limit(8);
+        .order("given_at", { ascending: false })
+        .limit(10);
+      
+      console.log("All Recent Giving Records Debug:", {
+        recordsCount: data?.length || 0,
+        records: data?.map(d => ({
+          id: d.id,
+          amount: d.amount,
+          given_at: d.given_at,
+          given_at_type: typeof d.given_at,
+          given_at_date: new Date(d.given_at).toISOString(),
+          given_at_date_only: new Date(d.given_at).toISOString().split('T')[0],
+          member_id: d.member_id
+        })),
+        tenantId: church.tenantId,
+        todayStr: new Date().toISOString().split('T')[0],
+        nowISO: new Date().toISOString()
+      });
+      
       return data || [];
     },
+  });
+
+  // Helper function to get local date string (no timezone conversion)
+  const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`; // YYYY-MM-DD in local timezone
+  };
+
+  // Helper function to get local date string from database date
+  const getLocalDateFromRecord = (dateString: string) => {
+    const date = new Date(dateString);
+    return getLocalDateString(date);
+  };
+
+  // Today's total - WORKING LOGIC (shows KSh 99 correctly)
+  const { data: todaysTotal, isLoading: todaysTotalLoading, error: todaysTotalError } = useQuery({
+    queryKey: ["dashboard", "todays-total", church.tenantId, new Date().toDateString()],
+    staleTime: 60_000,
+    queryFn: async () => {
+      // Get ALL records first
+      const { data: allRecords, error } = await supabase.from("giving_records")
+        .select("amount, given_at")
+        .eq("tenant_id", church.tenantId);
+      
+      if (error) {
+        console.error("Today's Total Query Error:", error);
+        throw error;
+      }
+      
+      // Use LOCAL date strings (no UTC conversion)
+      const today = new Date();
+      const todayStr = getLocalDateString(today);
+      
+      const todaysRecords = (allRecords || []).filter(record => {
+        const recordDate = getLocalDateFromRecord(record.given_at);
+        return recordDate === todayStr;
+      });
+      
+      const total = todaysRecords.reduce((sum, record) => sum + Number(record.amount), 0);
+      
+      console.log("Today's Total Debug - LOCAL TIMEZONE:", {
+        "Today String (Local)": todayStr,
+        allRecordsCount: allRecords?.length || 0,
+        todaysRecordsCount: todaysRecords.length,
+        total,
+        "Sample Record Dates (Local)": allRecords?.slice(0, 3).map(r => ({
+          given_at: r.given_at,
+          "Record Date (Local)": getLocalDateFromRecord(r.given_at),
+          matches: getLocalDateFromRecord(r.given_at) === todayStr
+        })),
+        "Total Matches Found": todaysRecords.length,
+        tenantId: church.tenantId
+      });
+      
+      return total;
+    },
+  });
+
+  // Today's donations - REPLICATE EXACT SAME LOGIC AS STAT CARD
+  const { data: todaysDonations, isLoading: donationsLoading, error: donationsError } = useQuery({
+    queryKey: ["dashboard", "todays-donations", church.tenantId, new Date().toDateString()],
+    staleTime: 60_000,
+    queryFn: async () => {
+      // Use IDENTICAL logic to todaysTotal query - ONLY use existing columns
+      const { data: allRecords, error } = await supabase.from("giving_records")
+        .select("id, amount, giving_type, payment_method, given_at, currency, member_id")
+        .eq("tenant_id", church.tenantId)
+        .order("given_at", { ascending: false });
+      
+      if (error) {
+        console.error("Today's Donations Query Error:", error);
+        throw error;
+      }
+      
+      // Use IDENTICAL filtering logic as todaysTotal
+      const today = new Date();
+      const todayStr = getLocalDateString(today);
+      
+      const todaysRecords = (allRecords || []).filter(record => {
+        const recordDate = getLocalDateFromRecord(record.given_at);
+        return recordDate === todayStr;
+      });
+      
+      console.log("Today's Donations Debug - LOCAL TIMEZONE:", {
+        "Today String (Local)": todayStr,
+        allRecordsCount: allRecords?.length || 0,
+        todaysRecordsCount: todaysRecords.length,
+        "Sample Record Dates (Local)": allRecords?.slice(0, 3).map(r => ({
+          given_at: r.given_at,
+          "Record Date (Local)": getLocalDateFromRecord(r.given_at),
+          matches: getLocalDateFromRecord(r.given_at) === todayStr
+        })),
+        "Total Matches Found": todaysRecords.length,
+        todaysRecords: todaysRecords.map(d => ({
+          id: d.id,
+          member_id: d.member_id,
+          amount: d.amount,
+          given_at: d.given_at,
+          "Record Date (Local)": getLocalDateFromRecord(d.given_at)
+        })),
+        tenantId: church.tenantId
+      });
+      
+      return todaysRecords.slice(0, 8); // Limit to 8 records
+    },
+  });
+
+  // Get member names for donations that have member_id
+  const { data: members = [] } = useQuery({
+    queryKey: ["dashboard", "members-for-donations", church.tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.from(TABLES.MEMBERS)
+        .select("id, first_name, last_name")
+        .eq("tenant_id", church.tenantId);
+      
+      // Debug: Log member data
+      console.log("Members for Donations Debug:", {
+        membersCount: data?.length || 0,
+        sampleMembers: data?.slice(0, 3).map(m => ({
+          id: m.id,
+          first_name: m.first_name,
+          last_name: m.last_name
+        })),
+        tenantId: church.tenantId
+      });
+      
+      return data || [];
+    },
+    staleTime: 300_000, // 5 minutes - member names don't change often
   });
 
   const totalGroupMembers = groupDistribution?.reduce((s, g) => s + g.value, 0) || 0;
 
   // Recent Activity — live feed with Realtime
-  const { data: activityEntries = [], isLoading: activityLoading } = useActivityLog(church.tenantId, 10);
+  const { data: activityEntries = [], isLoading: activityLoading } = useActivityLog(10);
 
   return (
     <>
@@ -414,7 +564,7 @@ const Dashboard = () => {
             </div>
           </motion.div>
 
-          {/* Giving This Month */}
+          {/* Today's Giving */}
           <motion.div
             variants={cardVariants}
             whileHover={{ 
@@ -430,16 +580,25 @@ const Dashboard = () => {
               </div>
               <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
                 <TrendingUp className="w-2.5 h-2.5 mr-1" />
-                This month
+                Today
               </span>
             </div>
             <div className="space-y-1">
-              {statsLoading ? (
+              {todaysTotalLoading ? (
                 <div className="h-8 w-20 bg-slate-200 rounded animate-pulse" />
+              ) : todaysTotalError ? (
+                <span className="text-3xl font-bold text-red-500 tracking-tight">Error</span>
               ) : (
-                <CountUpNumber value={givingTotal} prefix="KSh " />
+                <CountUpNumber value={todaysTotal || 0} prefix="KSh " />
               )}
-              <p className="text-sm font-medium text-slate-600">Giving This Month</p>
+              <p className="text-sm font-medium text-slate-600">
+                Today's Giving
+                {process.env.NODE_ENV === 'development' && (
+                  <span className="text-xs text-slate-400 ml-1">
+                    ({todaysTotal || 0})
+                  </span>
+                )}
+              </p>
             </div>
           </motion.div>
 
@@ -774,7 +933,7 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        {/* Recent Donations */}
+        {/* Today's Donations */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -782,7 +941,7 @@ const Dashboard = () => {
           className="bg-white border border-slate-100 rounded-2xl p-6"
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-900">Recent Donations</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Today's Donations</h3>
             <Link 
               to="/giving-records" 
               className="text-sm font-medium text-purple-600 hover:text-purple-700"
@@ -797,37 +956,51 @@ const Dashboard = () => {
                 <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />
               ))}
             </div>
-          ) : recentDonations?.length ? (
+          ) : todaysDonations?.length ? (
             <div className="space-y-3">
-              {recentDonations.slice(0, 6).map((donation, index) => (
-                <motion.div
-                  key={donation.id}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.9 + index * 0.05 }}
-                  className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
-                      <span className="text-xs font-semibold text-orange-600">D</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Anonymous Donor</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-full capitalize">
-                          {donation.giving_type?.replace(/_/g, " ")}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {format(new Date(donation.given_at), "MMM d")}
+              {todaysDonations.slice(0, 6).map((donation, index) => {
+                // Optimize member lookup - find once and reuse
+                const member = donation.member_id ? members.find(m => m.id === donation.member_id) : null;
+                
+                // Determine donor name with proper fallback logic (no is_anonymous or donor_name columns)
+                const donorName = member 
+                  ? `${member.first_name} ${member.last_name}`.trim()
+                  : 'Anonymous Donor';
+
+                return (
+                  <motion.div
+                    key={donation.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.9 + index * 0.05 }}
+                    className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                        <span className="text-xs font-semibold text-orange-600">
+                          {member ? donorName.charAt(0).toUpperCase() : 'A'}
                         </span>
                       </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {donorName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-full capitalize">
+                            {donation.giving_type?.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {format(new Date(donation.given_at), "h:mm a")}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-sm font-semibold text-purple-600">
-                    KSh {Number(donation.amount).toLocaleString()}
-                  </span>
-                </motion.div>
-              ))}
+                    <span className="text-sm font-semibold text-purple-600">
+                      KSh {Number(donation.amount).toLocaleString()}
+                    </span>
+                  </motion.div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12">

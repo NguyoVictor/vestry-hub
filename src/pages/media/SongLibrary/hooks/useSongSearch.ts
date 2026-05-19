@@ -94,7 +94,7 @@ const STORAGE_KEYS = {
  * Hook for song search functionality
  */
 export function useSongSearch(): UseSongSearchReturn {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
   
   // Search state
@@ -140,13 +140,13 @@ export function useSongSearch(): UseSongSearchReturn {
       const { data, error } = await supabase
         .from(TABLES.SONGS)
         .select('*')
-        .eq(COLS.TENANT_ID, church.id)
+        .eq(COLS.TENANT_ID, church.tenantId)
         .order('title');
       
       if (error) throw error;
       return data as Song[];
     },
-    enabled: !!church?.id,
+    enabled: !!church?.tenantId,
     staleTime: 300_000, // 5 minutes
   });
   
@@ -159,14 +159,14 @@ export function useSongSearch(): UseSongSearchReturn {
       const { data, error } = await supabase
         .from(TABLES.SONGS)
         .select('*')
-        .eq(COLS.TENANT_ID, church.id)
+        .eq(COLS.TENANT_ID, church.tenantId)
         .order('usage_count', { ascending: false })
         .limit(10);
       
       if (error) throw error;
       return data as Song[];
     },
-    enabled: !!church?.id,
+    enabled: !!church?.tenantId,
     staleTime: 300_000, // 5 minutes
   });
   

@@ -33,7 +33,7 @@ interface ImportDialogProps {
 type ImportType = 'csv' | 'chordpro';
 
 export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
   
   const [importType, setImportType] = useState<ImportType>('csv');
@@ -91,10 +91,10 @@ export function ImportDialog({ isOpen, onClose }: ImportDialogProps) {
 
       if (importType === 'csv') {
         // CSV import (single file)
-        result = await parseCSVFile(selectedFiles[0], church.id);
+        result = await parseCSVFile(selectedFiles[0], church.tenantId);
       } else {
         // ChordPro import (multiple files)
-        result = await parseMultipleChordProFiles(selectedFiles, church.id);
+        result = await parseMultipleChordProFiles(selectedFiles, church.tenantId);
       }
 
       setProgress(50);

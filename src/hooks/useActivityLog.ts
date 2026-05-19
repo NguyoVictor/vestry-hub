@@ -20,15 +20,11 @@ export interface ActivityEntry {
 }
 
 export function useActivityLog(limit = 10) {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
 
-  if (!church?.id) {
-    throw new Error("Church context is required for useActivityLog");
-  }
-
   const query = useQuery({
-    queryKey: ["activity-log", church.id, limit],
+    queryKey: ["activity-log", church.tenantId, limit],
     queryFn: async () => {
       // SECURITY FIX: Always use church context, never accept churchId parameter
       // This prevents multi-tenant data leakage
@@ -45,14 +41,14 @@ export function useActivityLog(limit = 10) {
           created_at,
           metadata
         `)
-        .eq(COLS.TENANT_ID, church.id)
+        .eq(COLS.TENANT_ID, church.tenantId)
         .order("created_at", { ascending: false })
         .limit(Math.min(limit, 100)); // Cap at 100 to prevent memory issues
       
       if (error) throw error;
       return (data || []) as ActivityEntry[];
     },
-    enabled: !!church?.id,
+    enabled: !!church?.tenantId,
     staleTime: 30_000, // 30s — activity feed should be fairly fresh
     gcTime: 300_000, // 5 minutes
     refetchOnWindowFocus: false,
@@ -60,21 +56,21 @@ export function useActivityLog(limit = 10) {
 
   // Realtime subscription — invalidate on new INSERT
   useEffect(() => {
-    if (!church?.id) return;
+    if (!church?.tenantId) return;
     
     const channel = supabase
-      .channel(`activity-log:${church.id}`)
+      .channel(`activity-log:${church.tenantId}`)
       .on(
         "postgres_changes",
         { 
           event: "INSERT", 
           schema: "public", 
           table: TABLES.ACTIVITY_LOG, 
-          filter: `tenant_id=eq.${church.id}` 
+          filter: `tenant_id=eq.${church.tenantId}` 
         },
         () => {
           queryClient.invalidateQueries({ 
-            queryKey: ["activity-log", church.id] 
+            queryKey: ["activity-log", church.tenantId] 
           });
         }
       )
@@ -83,7 +79,7 @@ export function useActivityLog(limit = 10) {
     return () => { 
       supabase.removeChannel(channel); 
     };
-  }, [church?.id, queryClient]);
+  }, [church?.tenantId, queryClient]);
 
   return query;
 }

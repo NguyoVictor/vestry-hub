@@ -45,19 +45,15 @@ export function useOptimizedMembers(
   filters: MemberFilters = {},
   pagination: MemberPagination = {}
 ) {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
 
-  if (!church?.id) {
-    throw new Error("Church context is required for useOptimizedMembers");
-  }
-
-  const optimizedQuery = createOptimizedQuery(church.id);
+  const optimizedQuery = createOptimizedQuery(church.tenantId);
 
   // Generate stable query key
   const queryKey = [
     "members-optimized",
-    church.id,
+    church.tenantId,
     filters,
     pagination
   ];
@@ -100,19 +96,19 @@ export function useOptimizedMembers(
     if (!church?.id) return;
 
     const unsubscribe = supabase
-      .channel(`members:${church.id}`)
+      .channel(`members:${church.tenantId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: TABLES.MEMBERS,
-          filter: `tenant_id=eq.${church.id}`
+          filter: `tenant_id=eq.${church.tenantId}`
         },
         (payload) => {
           // Invalidate all member queries for this tenant
           queryClient.invalidateQueries({
-            queryKey: ["members-optimized", church.id]
+            queryKey: ["members-optimized", church.tenantId]
           });
 
           // Show toast for new members
@@ -135,29 +131,25 @@ export function useOptimizedMembers(
     refetch: query.refetch,
     invalidate: useCallback(() => {
       queryClient.invalidateQueries({
-        queryKey: ["members-optimized", church.id]
+        queryKey: ["members-optimized", church.tenantId]
       });
-    }, [queryClient, church.id])
+    }, [queryClient, church.tenantId])
   };
 }
 
 // ─── MEMBER CREATION HOOK WITH DUPLICATE PREVENTION ─────────────────────────
 
 export function useCreateMember() {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (memberData: Omit<Member, 'id' | 'created_at'>) => {
-      if (!church?.id) {
-        throw new Error("Church context is required");
-      }
-
       // Check for duplicates BEFORE creating
       const { data: existingMember } = await supabase
         .from(TABLES.MEMBERS)
         .select('id, first_name, last_name, email')
-        .eq(COLS.TENANT_ID, church.id)
+        .eq(COLS.TENANT_ID, church.tenantId)
         .eq(COLS.EMAIL, memberData.email)
         .maybeSingle();
 
@@ -172,7 +164,7 @@ export function useCreateMember() {
         .from(TABLES.MEMBERS)
         .insert({
           ...memberData,
-          [COLS.TENANT_ID]: church.id
+          [COLS.TENANT_ID]: church.tenantId
         })
         .select()
         .single();
@@ -190,12 +182,12 @@ export function useCreateMember() {
     onSuccess: (newMember) => {
       // Invalidate member queries
       queryClient.invalidateQueries({
-        queryKey: ["members-optimized", church.id]
+        queryKey: ["members-optimized", church.tenantId]
       });
 
       // Update cache optimistically
       queryClient.setQueryData(
-        ["members-optimized", church.id, {}, { page: 1, limit: 20 }],
+        ["members-optimized", church.tenantId, {}, { page: 1, limit: 20 }],
         (oldData: any) => {
           if (!oldData) return oldData;
           return {
@@ -221,21 +213,17 @@ export function useCreateMember() {
 // ─── MEMBER UPDATE HOOK ──────────────────────────────────────────────────────
 
 export function useUpdateMember() {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Member> }) => {
-      if (!church?.id) {
-        throw new Error("Church context is required");
-      }
-
       // If updating email, check for duplicates
       if (updates.email) {
         const { data: existingMember } = await supabase
           .from(TABLES.MEMBERS)
           .select('id')
-          .eq(COLS.TENANT_ID, church.id)
+          .eq(COLS.TENANT_ID, church.tenantId)
           .eq(COLS.EMAIL, updates.email)
           .neq('id', id)
           .maybeSingle();
@@ -249,7 +237,7 @@ export function useUpdateMember() {
         .from(TABLES.MEMBERS)
         .update(updates)
         .eq('id', id)
-        .eq(COLS.TENANT_ID, church.id)
+        .eq(COLS.TENANT_ID, church.tenantId)
         .select()
         .single();
 
@@ -265,7 +253,7 @@ export function useUpdateMember() {
     onSuccess: (updatedMember) => {
       // Invalidate and update cache
       queryClient.invalidateQueries({
-        queryKey: ["members-optimized", church.id]
+        queryKey: ["members-optimized", church.tenantId]
       });
 
       toast.success(`Member ${updatedMember.first_name} ${updatedMember.last_name} updated successfully`);
@@ -280,20 +268,16 @@ export function useUpdateMember() {
 // ─── MEMBER DELETION HOOK ────────────────────────────────────────────────────
 
 export function useDeleteMember() {
-  const { church } = useChurch();
+  const church = useChurch();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (memberId: string) => {
-      if (!church?.id) {
-        throw new Error("Church context is required");
-      }
-
       const { error } = await supabase
         .from(TABLES.MEMBERS)
         .delete()
         .eq('id', memberId)
-        .eq(COLS.TENANT_ID, church.id);
+        .eq(COLS.TENANT_ID, church.tenantId);
 
       if (error) throw error;
 
@@ -302,7 +286,7 @@ export function useDeleteMember() {
     onSuccess: (deletedId) => {
       // Remove from cache optimistically
       queryClient.setQueriesData(
-        { queryKey: ["members-optimized", church.id] },
+        { queryKey: ["members-optimized", church.tenantId] },
         (oldData: any) => {
           if (!oldData) return oldData;
           return {
@@ -328,22 +312,22 @@ export function useDeleteMember() {
 // ─── MEMBER SEARCH HOOK ──────────────────────────────────────────────────────
 
 export function useMemberSearch(searchTerm: string, enabled: boolean = true) {
-  const { church } = useChurch();
+  const church = useChurch();
 
   return useQuery({
-    queryKey: ["member-search", church?.id, searchTerm],
+    queryKey: ["member-search", church?.tenantId, searchTerm],
     queryFn: async () => {
-      if (!church?.id || !searchTerm.trim()) {
+      if (!church?.tenantId || !searchTerm.trim()) {
         return { data: [], pagination: { total: 0, page: 1, limit: 10, hasNext: false, hasPrev: false, totalPages: 0 } };
       }
 
-      const optimizedQuery = createOptimizedQuery(church.id);
+      const optimizedQuery = createOptimizedQuery(church.tenantId);
       return optimizedQuery.getMembers(
         { search: searchTerm.trim() },
         { limit: 10 } // Smaller limit for search results
       );
     },
-    enabled: enabled && !!church?.id && searchTerm.trim().length >= 2,
+    enabled: enabled && !!church?.tenantId && searchTerm.trim().length >= 2,
     staleTime: 60_000, // 1 minute for search results
     gcTime: 300_000, // 5 minutes
   });
@@ -352,15 +336,15 @@ export function useMemberSearch(searchTerm: string, enabled: boolean = true) {
 // ─── MEMBER STATISTICS HOOK ──────────────────────────────────────────────────
 
 export function useMemberStats() {
-  const { church } = useChurch();
+  const church = useChurch();
 
   return useQuery({
-    queryKey: ["member-stats", church?.id],
+    queryKey: ["member-stats", church?.tenantId],
     queryFn: async () => {
-      if (!church?.id) return null;
+      if (!church?.tenantId) return null;
 
       const { data, error } = await supabase.rpc('get_member_analytics_optimized', {
-        p_tenant_id: church.id
+        p_tenant_id: church.tenantId
       });
 
       if (error) throw error;

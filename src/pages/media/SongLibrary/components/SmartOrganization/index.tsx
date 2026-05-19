@@ -56,7 +56,7 @@ export function SmartOrganization({
   onAddToSetlist,
   className = '' 
 }: SmartOrganizationProps) {
-  const { church } = useChurch();
+  const church = useChurch();
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('week');
   const [selectedServiceType, setSelectedServiceType] = useState<ServiceType | undefined>();
   const [activeTab, setActiveTab] = useState('overview');
