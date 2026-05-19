@@ -44,6 +44,7 @@ const ProfileSetup = lazy(() => import("./pages/member/ProfileSetup"));
 const MemberHome = lazy(() => import("./pages/member/MemberHome"));
 const MemberGive = lazy(() => import("./pages/member/MemberGive"));
 const MemberGivingHistory = lazy(() => import("./pages/member/MemberGivingHistory"));
+const MemberPledgeCampaigns = lazy(() => import("./pages/member/MemberPledgeCampaigns"));
 const MemberAnnouncements = lazy(() => import("./pages/member/MemberAnnouncements"));
 const MemberRequests = lazy(() => import("./pages/member/MemberRequests"));
 const MemberTestimonies = lazy(() => import("./pages/member/MemberTestimonies"));
@@ -132,6 +133,7 @@ const BackupPage = lazy(() => import("./pages/settings/Backup"));
 const LegalSettingsPage = lazy(() => import("./pages/settings/Legal"));
 const GivingSettingsPage = lazy(() => import("./pages/settings/GivingSettings"));
 const TaxSettingsPage = lazy(() => import("./pages/settings/TaxSettings"));
+const PaymentsPage = lazy(() => import("./pages/settings/PaymentsPage"));
 const CommunicationsSettingsPage = lazy(() => import("./pages/settings/CommunicationsSettings"));
 const LivestreamingSettingsPage = lazy(() => import("./pages/settings/LivestreamingSettings"));
 const AnnouncementTypesSettingsPage = lazy(() => import("./pages/settings/AnnouncementTypes"));
@@ -421,6 +423,8 @@ const App = () => (
                   <Route path="giving" element={<Suspense fallback={<Fallback />}><GivingSettingsPage /></Suspense>} />
                   {/* Tax settings */}
                   <Route path="tax" element={<Suspense fallback={<Fallback />}><TaxSettingsPage /></Suspense>} />
+                  {/* Payments settings */}
+                  <Route path="payments" element={<Suspense fallback={<Fallback />}><PaymentsPage /></Suspense>} />
                   {/* Communications settings */}
                   <Route path="communications-settings" element={<Suspense fallback={<Fallback />}><CommunicationsSettingsPage /></Suspense>} />
                   {/* Livestreaming settings */}
@@ -434,7 +438,7 @@ const App = () => (
                   <Route path="appointment-types" element={<Suspense fallback={<Fallback />}><AppointmentTypesSettingsPage /></Suspense>} />
                   <Route path="group-types" element={<Suspense fallback={<Fallback />}><GroupTypesSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
-                  {["branding","payments","whatsapp","verification"].map(slug => (
+                  {["branding","whatsapp","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
                       <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
                         <Settings className="h-10 w-10" />
@@ -466,6 +470,7 @@ const App = () => (
                 <Route path="/member" element={<Suspense fallback={<Fallback />}><MemberHome /></Suspense>} />
                 <Route path="/member/give" element={<Suspense fallback={<Fallback />}><MemberGive /></Suspense>} />
                 <Route path="/member/giving-history" element={<Suspense fallback={<Fallback />}><MemberGivingHistory /></Suspense>} />
+                <Route path="/member/pledge-campaigns" element={<Suspense fallback={<Fallback />}><MemberPledgeCampaigns /></Suspense>} />
                 <Route path="/member/events" element={<Suspense fallback={<Fallback />}><MemberEventsPage /></Suspense>} />
                 <Route path="/member/events/:eventId" element={<Suspense fallback={<Fallback />}><MemberEventDetailPage /></Suspense>} />
                 <Route path="/member/announcements" element={<Suspense fallback={<Fallback />}><MemberAnnouncements /></Suspense>} />

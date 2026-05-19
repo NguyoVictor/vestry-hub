@@ -8,7 +8,7 @@ import { useFcmToken } from "@/hooks/useFcmToken";
 import { cn } from "@/lib/utils";
 import {
   Home, Heart, CalendarDays, MessageCircle, User, BookOpen,
-  Megaphone, Users, LogOut, HandHeart, Quote, Baby, Clock,
+  Megaphone, Users, LogOut, HandHeart, Quote, Baby, Clock, Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/ui/notifications-1";
@@ -34,6 +34,7 @@ const SIDEBAR_NAV = [
   { path: "/member/groups", label: "My Groups", icon: Users },
   { path: "/member/house-fellowships", label: "House Fellowships", icon: Home },
   { path: "/member/giving-history", label: "My Giving", icon: Heart },
+  { path: "/member/pledge-campaigns", label: "Pledge Campaigns", icon: Target },
   { path: "/member/requests", label: "My Requests", icon: HandHeart },
   { path: "/member/appointments", label: "My Appointments", icon: Clock },
   { path: "/member/children", label: "My Children", icon: Baby },

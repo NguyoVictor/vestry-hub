@@ -43,7 +43,7 @@ function getVerseOfDay() {
 // All portal service modules — key matches enabled_modules.member_portal
 const ALL_MODULES = [
   { key: "give_online", label: "Give Online", desc: "Tithes, offerings, and donations", icon: Heart, color: "bg-red-500", path: "/member/give" },
-  { key: "pledge_campaigns", label: "Pledge Campaigns", desc: "View and commit to pledges", icon: Target, color: "bg-orange-500", path: "/member/give" },
+  { key: "pledge_campaigns", label: "Pledge Campaigns", desc: "View and commit to pledges", icon: Target, color: "bg-orange-500", path: "/member/pledge-campaigns" },
   { key: "my_giving_history", label: "My Giving History", desc: "View complete giving records and tax receipts", icon: Receipt, color: "bg-amber-500", path: "/member/giving-history" },
   { key: "announcements", label: "Announcements", desc: "Latest church news and updates", icon: Megaphone, color: "bg-yellow-500", path: "/member/announcements" },
   { key: "messages", label: "Messages", desc: "Direct messages from church staff", icon: MessageCircle, color: "bg-blue-500", path: "/member/messages" },
