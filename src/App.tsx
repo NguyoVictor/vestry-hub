@@ -12,6 +12,10 @@ import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import MemberLogin from "./pages/auth/MemberLogin";
+
+// Auth pages - lazy loaded
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 import AuthCallback from "./pages/auth/AuthCallback";
 import CanvaCallback from "./pages/auth/CanvaCallback";
 import Onboarding from "./pages/Onboarding";
@@ -262,6 +266,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth/signin" element={<SignIn />} />
             <Route path="/auth/signup" element={<SignUp />} />
+            <Route path="/auth/forgot-password" element={<Suspense fallback={<Fallback />}><ForgotPassword /></Suspense>} />
+            <Route path="/auth/reset-password" element={<Suspense fallback={<Fallback />}><ResetPassword /></Suspense>} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/canva/callback" element={<CanvaCallback />} />
             <Route path="/member-login" element={<Navigate to="/member/login" replace />} />

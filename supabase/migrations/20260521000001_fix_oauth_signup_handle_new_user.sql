@@ -97,18 +97,17 @@ EXCEPTION
     RAISE;
 END;
 $$;
-
 -- Ensure the trigger exists
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
 -- Add a policy to allow the trigger to insert (SECURITY DEFINER should handle this, but let's be explicit)
 DROP POLICY IF EXISTS "handle_new_user_insert" ON public.users;
 CREATE POLICY "handle_new_user_insert" ON public.users
   FOR INSERT
-  WITH CHECK (true); -- Allow all inserts from the trigger
+  WITH CHECK (true);
+-- Allow all inserts from the trigger
 
 -- Grant necessary permissions to ensure the trigger can execute
 GRANT INSERT ON public.users TO postgres;

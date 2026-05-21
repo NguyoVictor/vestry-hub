@@ -3,6 +3,5 @@
 
 ALTER TABLE tenants 
   ALTER COLUMN payhero_channel_id TYPE varchar(100);
-
 -- Add comment to clarify the column purpose
 COMMENT ON COLUMN tenants.payhero_channel_id IS 'PayHero channel ID - can be string or numeric, supports temporary IDs during manual setup';

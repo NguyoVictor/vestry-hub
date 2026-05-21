@@ -5,12 +5,10 @@
 ALTER TABLE device_tokens 
   ADD COLUMN IF NOT EXISTS last_used_at timestamptz,
   ADD COLUMN IF NOT EXISTS user_agent text;
-
 -- Update the RLS policy to ensure it's correct
 DROP POLICY IF EXISTS "device_tokens_own" ON device_tokens;
 CREATE POLICY "device_tokens_own" ON device_tokens 
   FOR ALL USING (user_id = auth.uid()::text);
-
 -- Add comment to clarify table purpose
 COMMENT ON TABLE device_tokens IS 'Stores FCM device tokens for push notifications';
 COMMENT ON COLUMN device_tokens.last_used_at IS 'Last time this token was used for sending notifications';
