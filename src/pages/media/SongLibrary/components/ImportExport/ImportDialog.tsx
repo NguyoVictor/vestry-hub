@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useChurch } from '@/contexts/ChurchContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { ImportResult, Song } from '@/types/song-library';
 import { parseCSVFile, generateCSVTemplate, downloadCSV } from '../../utils/csvImport';

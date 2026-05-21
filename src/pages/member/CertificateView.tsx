@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import {
   ArrowLeft, Download, Share2, Trophy, Award,
-  Star, Crown, Sparkles, Medal, Print
+  Star, Crown, Sparkles, Medal, Printer
 } from "lucide-react";
 
 // ── Certificate Design Component ──────────────────────────────────────────────
@@ -435,7 +435,7 @@ export default function CertificateView() {
                 "text-white"
               )}
             >
-              <Print className="h-4 w-4 mr-2" />
+              <Printer className="h-4 w-4 mr-2" />
               Print
             </Button>
           </div>

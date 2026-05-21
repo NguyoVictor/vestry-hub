@@ -16,11 +16,50 @@ export function useFcmToken(userId: string, tenantId: string) {
       const token = await requestFcmToken();
       if (!token) return;
 
-      // Upsert token — update updated_at if it already exists
-      await supabase.from(TABLES.DEVICE_TOKENS).upsert(
-        { user_id: userId, tenant_id: tenantId, token, device_type: "web", updated_at: new Date().toISOString() } as any,
-        { onConflict: "user_id,token" }
+      console.log('Attempting to register FCM token for user:', userId, 'tenant:', tenantId);
+
+      // Try upsert first
+      const { error } = await supabase.from(TABLES.DEVICE_TOKENS).upsert(
+        { 
+          user_id: userId, 
+          tenant_id: tenantId, 
+          token, 
+          device_type: "web", 
+          updated_at: new Date().toISOString() 
+        },
+        { 
+          onConflict: "user_id,token"
+        }
       );
+
+      if (error) {
+        console.error('FCM token registration error:', error);
+        console.error('FCM token registration details:', {
+          userId,
+          tenantId,
+          token: token.substring(0, 20) + '...',
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details
+        });
+        
+        // Try a simple insert as fallback
+        console.log('Trying simple insert as fallback...');
+        const { error: insertError } = await supabase.from(TABLES.DEVICE_TOKENS).insert({
+          user_id: userId, 
+          tenant_id: tenantId, 
+          token, 
+          device_type: "web"
+        });
+        
+        if (insertError) {
+          console.error('FCM token simple insert also failed:', insertError);
+        } else {
+          console.log('FCM token registered successfully via simple insert');
+        }
+      } else {
+        console.log('FCM token registered successfully via upsert');
+      }
     };
 
     register();

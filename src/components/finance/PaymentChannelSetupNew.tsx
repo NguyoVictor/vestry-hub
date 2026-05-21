@@ -6,7 +6,8 @@ import {
   Smartphone, 
   CheckCircle, 
   ArrowRight,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,7 @@ import { useChurch } from '@/contexts/ChurchContext'
 import { supabase } from '@/integrations/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { PaymentSetupStep2 } from './PaymentSetupStep2'
 
 interface PaymentChannelSetupProps {
   onComplete: () => void
@@ -28,7 +30,7 @@ const channelOptions = [
   {
     type: 'bank' as ChannelType,
     title: 'Bank Account',
-    description: 'Direct bank account deposits',
+    description: 'Direct bank account deposits via M-Pesa',
     icon: Building2,
     color: 'from-blue-500 to-blue-600'
   },
@@ -48,33 +50,41 @@ const channelOptions = [
   }
 ]
 
-export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
+export function PaymentChannelSetupNew({ onComplete }: PaymentChannelSetupProps) {
   const [step, setStep] = useState(1)
   const [selectedChannel, setSelectedChannel] = useState<ChannelType | null>(null)
   const [formData, setFormData] = useState({
     accountNumber: '',
-    businessName: ''
+    businessName: '',
+    paybillNumber: '',
+    beneficiary: '',
+    searchTerm: ''
   })
   const [isConnecting, setIsConnecting] = useState(false)
   const church = useChurch()
-
-  // Fetch supported banks when bank channel is selected
-  const { data: supportedBanks = [], isLoading: banksLoading, error: banksError } = useQuery({
-    queryKey: ['supported-banks'],
+  // Fetch PayHero banks when bank channel is selected
+  const { data: payheroBanks = [], isLoading: banksLoading, error: banksError } = useQuery({
+    queryKey: ['payhero-banks'],
     queryFn: async () => {
-      console.log('Fetching supported banks...')
-      const { data, error } = await supabase.functions.invoke('get-supported-banks')
+      console.log('Fetching PayHero banks...')
+      const { data, error } = await supabase.functions.invoke('get-payhero-banks')
       if (error) {
-        console.error('Error fetching banks:', error)
+        console.error('Error fetching PayHero banks:', error)
         throw error
       }
-      console.log('Banks fetched successfully:', data)
+      console.log('PayHero banks fetched successfully:', data)
       return data.banks || []
     },
     staleTime: 300_000, // Cache for 5 minutes
     enabled: selectedChannel === 'bank',
     retry: 2
   })
+
+  // Filter banks based on search term
+  const filteredBanks = payheroBanks.filter(bank => 
+    bank.name.toLowerCase().includes(formData.searchTerm.toLowerCase()) ||
+    bank.shortName.toLowerCase().includes(formData.searchTerm.toLowerCase())
+  )
 
   const handleChannelSelect = (type: ChannelType) => {
     setSelectedChannel(type)
@@ -84,33 +94,56 @@ export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
   const handleSubmit = async () => {
     if (!selectedChannel || !formData.accountNumber || !church.tenantId) return
 
-    // Enhanced validation for bank selection
+    // Enhanced validation based on channel type
     if (selectedChannel === 'bank') {
       if (!formData.businessName) {
         toast.error('Please select your bank')
         return
       }
       
-      // Validate bank selection against supported list (if available)
-      if (supportedBanks.length > 0) {
-        const isValidBank = supportedBanks.some(bank => bank.name === formData.businessName)
+      // Validate bank selection against PayHero list (if available)
+      if (payheroBanks.length > 0) {
+        const isValidBank = payheroBanks.some(bank => bank.name === formData.businessName)
         if (!isValidBank) {
           toast.error('Please select a valid bank from the list')
           return
         }
       }
+
+      // For banks, beneficiary name is required
+      if (!formData.beneficiary) {
+        toast.error('Please enter the beneficiary name')
+        return
+      }
+    } else if (selectedChannel === 'paybill' || selectedChannel === 'till') {
+      // For paybill/till, beneficiary name is always required (maps to PayHero description field)
+      if (!formData.beneficiary) {
+        toast.error('Please enter the beneficiary name')
+        return
+      }
     }
 
+    // Beneficiary name is required for ALL channel types (maps to PayHero description field)
+    if (!formData.beneficiary || formData.beneficiary.trim().length < 2) {
+      toast.error('Beneficiary name is required and must be at least 2 characters')
+      return
+    }
     setIsConnecting(true)
 
     try {
+      const requestData = {
+        channel_type: selectedChannel,
+        account_number: formData.accountNumber,
+        business_name: formData.businessName,
+        tenant_id: church.tenantId,
+        paybill_number: formData.paybillNumber,
+        beneficiary: formData.beneficiary
+      }
+
+      console.log('Registering payment channel with data:', requestData)
+
       const { data, error } = await supabase.functions.invoke('register-payment-channel', {
-        body: {
-          channel_type: selectedChannel,
-          account_number: formData.accountNumber,
-          business_name: formData.businessName,
-          tenant_id: church.tenantId
-        }
+        body: requestData
       })
 
       console.log('Payment channel registration response:', { data, error })
@@ -122,16 +155,66 @@ export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
 
       if (!data?.success) {
         console.error('Registration failed:', data)
-        throw new Error(data?.error || data?.details || 'Registration failed')
+        
+        // Handle manual setup requirement
+        if (data?.manual_setup_required) {
+          setStep(3)
+          
+          // Show manual setup success message
+          setTimeout(() => {
+            toast.success('Channel information saved! Manual PayHero setup required.', {
+              duration: 10000,
+              description: 'Please configure your payment channel in PayHero dashboard and contact support to complete integration.',
+              style: {
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                color: 'white',
+                borderRadius: '12px',
+                padding: '16px',
+                fontWeight: '600'
+              }
+            })
+            onComplete()
+          }, 2000)
+          
+          return
+        }
+        
+        // Show detailed error message
+        const errorMessage = data?.error || 'Registration failed'
+        const errorDetails = data?.details || 'Please check your information and try again'
+        throw new Error(`${errorMessage}: ${errorDetails}`)
       }
 
-      setStep(3)
-      
-      // Show success after animation
-      setTimeout(() => {
-        toast.success('Payment channel connected successfully! 🎉')
-        onComplete()
-      }, 2000)
+      // Handle successful registration
+      if (data?.success) {
+        setStep(3)
+        
+        if (data?.setup_type === 'manual' || data?.manual_setup_required) {
+          // Show manual setup success message
+          setTimeout(() => {
+            toast.success('Payment channel setup initiated! Manual setup required.', {
+              duration: 8000,
+              description: data?.next_steps?.join(' → ') || 'Our support team will contact you to complete the setup.',
+              style: {
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                color: 'white',
+                borderRadius: '12px',
+                padding: '16px',
+                fontWeight: '600'
+              }
+            })
+            onComplete()
+          }, 2000)
+        } else {
+          // Show regular success message
+          setTimeout(() => {
+            toast.success('Payment channel connected successfully! 🎉')
+            onComplete()
+          }, 2000)
+        }
+        
+        return
+      }
 
     } catch (error: any) {
       console.error('Error registering payment channel:', error)
@@ -140,26 +223,26 @@ export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
       let errorMessage = 'Failed to connect payment channel. Please try again.'
       
       if (error.message) {
-        if (error.message.includes('Invalid account number')) {
-          errorMessage = 'Invalid account number. Please check your bank account number.'
+        if (error.message.includes('manual channel setup')) {
+          errorMessage = 'PayHero requires manual setup. Please configure your channel in PayHero dashboard first, then contact support for integration.'
+        } else if (error.message.includes('Invalid account number')) {
+          errorMessage = 'Invalid account number. Please check your account details.'
         } else if (error.message.includes('Authentication failed')) {
           errorMessage = 'Payment service authentication failed. Please contact support.'
         } else if (error.message.includes('Channel type not supported')) {
-          errorMessage = 'This bank or channel type is not supported. Please try a different bank.'
+          errorMessage = 'This channel type is not supported. Please try a different option.'
         } else if (error.message.includes('Missing required fields')) {
           errorMessage = 'Please fill in all required fields.'
         } else if (error.message !== 'Failed to connect payment channel. Please try again.') {
           errorMessage = error.message
         }
       }
-      
       // Show detailed error in development
       if (process.env.NODE_ENV === 'development') {
         console.log('Detailed error info:', {
           error,
           selectedChannel,
-          accountNumber: formData.accountNumber,
-          businessName: formData.businessName,
+          formData,
           tenantId: church.tenantId
         })
         
@@ -168,7 +251,7 @@ export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
       }
       
       toast.error(errorMessage, {
-        duration: 6000,
+        duration: 8000,
         style: {
           background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
           color: 'white',
@@ -228,7 +311,6 @@ export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
           </React.Fragment>
         ))}
       </div>
-
       <AnimatePresence mode="wait">
         {step === 1 && (
           <motion.div
@@ -284,148 +366,19 @@ export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
             </div>
           </motion.div>
         )}
-
         {step === 2 && (
-          <motion.div
-            key="step2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Enter Your Details
-              </h2>
-              <p className="text-gray-600">
-                We'll connect this to your PayHero account
-              </p>
-            </div>
-
-            <Card>
-              <CardContent className="p-6 space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="accountNumber">{getFieldLabel()}</Label>
-                  <Input
-                    id="accountNumber"
-                    value={formData.accountNumber}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      accountNumber: e.target.value 
-                    }))}
-                    placeholder={`Enter your ${getFieldLabel().toLowerCase()}`}
-                    className="text-lg"
-                  />
-                </div>
-
-                {/* Enhanced Bank/Business Name Selection */}
-                {selectedChannel === 'bank' ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="bankSelect">Select Your Bank</Label>
-                    {banksLoading ? (
-                      <div className="flex items-center space-x-2 p-3 border rounded-lg bg-gray-50">
-                        <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
-                        <span className="text-sm text-gray-600">Loading banks...</span>
-                      </div>
-                    ) : banksError ? (
-                      <div className="p-3 border rounded-lg bg-red-50 border-red-200">
-                        <p className="text-sm text-red-600 mb-2">Failed to load banks. Using manual entry:</p>
-                        <Input
-                          value={formData.businessName}
-                          onChange={(e) => setFormData(prev => ({ 
-                            ...prev, 
-                            businessName: e.target.value 
-                          }))}
-                          placeholder="Enter your bank name"
-                          className="text-lg"
-                        />
-                      </div>
-                    ) : (
-                      <Select 
-                        value={formData.businessName} 
-                        onValueChange={v => setFormData(p => ({...p, businessName: v}))}
-                      >
-                        <SelectTrigger className="text-lg h-12">
-                          <SelectValue placeholder="Choose your bank" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          {supportedBanks.map(bank => (
-                            <SelectItem key={bank.code} value={bank.name} className="py-3">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                                  {bank.logo ? (
-                                    <img 
-                                      src={bank.logo.replace('.png', '.svg')} 
-                                      alt={bank.shortName} 
-                                      className="w-6 h-6 object-contain"
-                                      onError={(e) => {
-                                        // Fallback to building icon if logo fails to load
-                                        e.currentTarget.style.display = 'none'
-                                        e.currentTarget.nextElementSibling.style.display = 'block'
-                                      }}
-                                    />
-                                  ) : null}
-                                  <Building2 className="w-4 h-4 text-gray-400" style={{ display: bank.logo ? 'none' : 'block' }} />
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm">{bank.shortName}</p>
-                                  <p className="text-xs text-gray-500 truncate">{bank.name}</p>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {supportedBanks.length > 0 && (
-                      <p className="text-xs text-gray-500">
-                        Select from {supportedBanks.length} supported banks
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  // Original input for paybill/till
-                  <div className="space-y-2">
-                    <Label htmlFor="businessName">{getBusinessLabel()}</Label>
-                    <Input
-                      id="businessName"
-                      value={formData.businessName}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        businessName: e.target.value 
-                      }))}
-                      placeholder={`Enter ${getBusinessLabel().toLowerCase()}`}
-                      className="text-lg"
-                    />
-                  </div>
-                )}
-
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep(1)}
-                    className="flex-1"
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!formData.accountNumber || isConnecting}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      'Connect Channel'
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+          <PaymentSetupStep2
+            selectedChannel={selectedChannel!}
+            formData={formData}
+            setFormData={setFormData}
+            payheroBanks={payheroBanks}
+            banksLoading={banksLoading}
+            banksError={banksError}
+            filteredBanks={filteredBanks}
+            isConnecting={isConnecting}
+            onSubmit={handleSubmit}
+            onBack={() => setStep(1)}
+          />
         )}
 
         {step === 3 && (
@@ -446,12 +399,22 @@ export function PaymentChannelSetup({ onComplete }: PaymentChannelSetupProps) {
             </motion.div>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              All Set! 🎉
+              Setup Initiated! 📋
             </h2>
             <p className="text-gray-600 mb-6">
-              Your payment channel has been connected successfully.
-              Members can now make donations via M-Pesa.
+              Your payment channel information has been saved. PayHero requires manual setup in their dashboard.
+              Our support team will help you complete the integration.
             </p>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-amber-800 mb-2">Next Steps:</h3>
+              <ol className="text-sm text-amber-700 space-y-1 list-decimal list-inside">
+                <li>Log into your PayHero merchant dashboard</li>
+                <li>Configure the payment channel with your provided details</li>
+                <li>Contact VestryHub support to complete the integration</li>
+                <li>Provide your actual PayHero channel_id for live payments</li>
+              </ol>
+            </div>
 
             {/* Confetti Animation */}
             <motion.div

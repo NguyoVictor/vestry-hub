@@ -10,7 +10,16 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { PaymentChannelSetup } from '@/components/finance/PaymentChannelSetup'
+import { PaymentChannelSetupNew } from '@/components/finance/PaymentChannelSetupNew'
+import { BankSelectionTest } from '@/components/finance/BankSelectionTest'
+import { PayHeroDebugTest } from '@/components/finance/PayHeroDebugTest'
+import { PayHeroCredentialsTest } from '@/components/finance/PayHeroCredentialsTest'
+import { PayHeroAPITest } from '@/components/finance/PayHeroAPITest'
+import { PayHeroComprehensiveTest } from '@/components/finance/PayHeroComprehensiveTest'
+import { PaymentInfrastructureTest } from '@/components/finance/PaymentInfrastructureTest'
+import { PayHeroBanksAPITest } from '@/components/finance/PayHeroBanksAPITest'
+import { PayHeroSTKTest } from '@/components/finance/PayHeroSTKTest'
+import { QuickPayHeroTest } from '@/components/finance/QuickPayHeroTest'
 import { useChurch } from '@/contexts/ChurchContext'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
@@ -42,6 +51,8 @@ export default function PaymentsPage() {
     payhero_connected?: boolean
     payhero_channel_type?: string
     payhero_channel_number?: string
+    payhero_manual_setup?: boolean
+    payhero_business_name?: string
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const church = useChurch()
@@ -56,7 +67,7 @@ export default function PaymentsPage() {
     try {
       const { data, error } = await supabase
         .from('tenants')
-        .select('payhero_connected, payhero_channel_type, payhero_channel_number')
+        .select('payhero_connected, payhero_channel_type, payhero_channel_number, payhero_manual_setup, payhero_business_name')
         .eq('id', church.tenantId)
         .single()
 
@@ -80,6 +91,11 @@ export default function PaymentsPage() {
 
   const getChannelDisplayName = () => {
     if (!channelInfo) return ''
+    
+    // Show business name for manual setup
+    if (channelInfo.payhero_manual_setup && channelInfo.payhero_business_name) {
+      return `${channelInfo.payhero_business_name} (Manual Setup)`
+    }
     
     switch (channelInfo.payhero_channel_type) {
       case 'bank':
@@ -113,7 +129,7 @@ export default function PaymentsPage() {
         exit={{ opacity: 0 }}
         className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50/30 py-8"
       >
-        <PaymentChannelSetup onComplete={handleSetupComplete} />
+        <PaymentChannelSetupNew onComplete={handleSetupComplete} />
       </motion.div>
     )
   }
@@ -194,13 +210,20 @@ export default function PaymentsPage() {
                     isConnected ? 'text-green-800' : 'text-amber-800'
                   }`}>
                     {isConnected 
-                      ? `✅ Connected: Your church receives donations to ${getChannelDisplayName()}`
+                      ? channelInfo?.payhero_manual_setup 
+                        ? `⚠️ Setup in Progress: ${getChannelDisplayName()}`
+                        : `✅ Connected: Your church receives donations to ${getChannelDisplayName()}`
                       : '❌ Not connected: Set up your payment channel to enable M-Pesa giving'
                     }
                   </p>
                   {!isConnected && (
                     <p className="text-sm text-amber-700 mt-1">
                       Members won't be able to give online until you connect a payment method
+                    </p>
+                  )}
+                  {isConnected && channelInfo?.payhero_manual_setup && (
+                    <p className="text-sm text-amber-700 mt-1">
+                      Manual PayHero setup required. Contact support to complete integration.
                     </p>
                   )}
                 </div>
@@ -252,9 +275,18 @@ export default function PaymentsPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Status</span>
                   <span className={`font-semibold ${
-                    isConnected ? 'text-green-600' : 'text-slate-400'
+                    isConnected 
+                      ? channelInfo?.payhero_manual_setup 
+                        ? 'text-amber-600' 
+                        : 'text-green-600'
+                      : 'text-slate-400'
                   }`}>
-                    {isConnected ? 'Active' : 'Not configured'}
+                    {isConnected 
+                      ? channelInfo?.payhero_manual_setup 
+                        ? 'Setup in Progress' 
+                        : 'Active'
+                      : 'Not configured'
+                    }
                   </span>
                 </div>
                 
@@ -377,6 +409,47 @@ export default function PaymentsPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Debug Components - Development Only */}
+      {process.env.NODE_ENV === 'development' && (
+        <>
+          <motion.div variants={cardVariants}>
+            <PayHeroBanksAPITest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <PaymentInfrastructureTest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <PayHeroSTKTest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <QuickPayHeroTest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <PayHeroComprehensiveTest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <PayHeroAPITest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <PayHeroCredentialsTest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <BankSelectionTest />
+          </motion.div>
+          
+          <motion.div variants={cardVariants}>
+            <PayHeroDebugTest />
+          </motion.div>
+        </>
+      )}
     </motion.div>
   )
 }

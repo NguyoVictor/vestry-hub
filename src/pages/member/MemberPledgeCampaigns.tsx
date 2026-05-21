@@ -198,18 +198,15 @@ export default function MemberPledgeCampaigns() {
 
       // If M-Pesa and immediate payment, trigger STK Push
       if (paymentMethod === 'mpesa') {
-        const { data, error } = await supabase.functions.invoke('initiate-payment', {
+        const { data, error } = await supabase.functions.invoke('process-stk-push', {
           body: {
             amount: Number(pledgeAmount),
             phone_number: phoneNumber,
-            channel_id: 8272,
-            customer_name: `${member.firstName} ${member.lastName}`,
-            giving_category: 'pledge',
             tenant_id: member.churchId,
-            member_id: member.memberId,
+            donor_name: `${member.firstName} ${member.lastName}`,
+            giving_type: 'pledge',
             campaign_id: selectedCampaign.id,
-            commitment_id: commitment.id,
-            type: 'pledge'
+            notes: `Pledge payment for ${selectedCampaign.title}`
           }
         })
 
@@ -217,7 +214,7 @@ export default function MemberPledgeCampaigns() {
 
         setStkPushState({
           isActive: true,
-          checkoutRequestId: data.checkout_request_id,
+          checkoutRequestId: data.external_reference,
           countdown: 150
         })
       } else {

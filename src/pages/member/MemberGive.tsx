@@ -119,7 +119,7 @@ export default function MemberGive() {
 
     const channel = supabase.channel(`payment_updates_${member.churchId}`)
       .on('broadcast', { event: 'payment_update' }, (payload) => {
-        if (payload.payload.checkout_request_id === stkPushState.checkoutRequestId) {
+        if (payload.payload.external_reference === stkPushState.checkoutRequestId) {
           setStkPushState({ isActive: false, countdown: 150 });
           
           if (payload.payload.status === 'confirmed') {
@@ -173,17 +173,48 @@ export default function MemberGive() {
           throw new Error("Please enter a valid Kenyan phone number");
         }
 
-        // Call initiate-payment Edge Function
-        const { data, error } = await supabase.functions.invoke('initiate-payment', {
+        // CRITICAL: Check if church has configured PayHero channel BEFORE attempting STK push
+        console.log('Checking PayHero channel configuration for church:', member.churchId);
+        
+        const { data: tenantData, error: tenantError } = await supabase
+          .from('tenants')
+          .select('payhero_connected, payhero_channel_id, payhero_channel_type, name')
+          .eq('id', member.churchId)
+          .single();
+
+        if (tenantError) {
+          console.error('Failed to fetch church data:', tenantError);
+          throw new Error('Unable to verify payment configuration. Please try again.');
+        }
+
+        console.log('Church PayHero configuration:', tenantData);
+
+        // Check if PayHero is properly configured
+        if (!tenantData.payhero_connected || !tenantData.payhero_channel_id) {
+          console.error('PayHero not configured for church:', {
+            payhero_connected: tenantData.payhero_connected,
+            payhero_channel_id: tenantData.payhero_channel_id,
+            church_name: tenantData.name
+          });
+          
+          throw new Error('Payments not configured. Please contact church admin to set up M-Pesa donations in Settings → Payments.');
+        }
+
+        console.log('✅ PayHero channel verified:', {
+          channel_id: tenantData.payhero_channel_id,
+          channel_type: tenantData.payhero_channel_type,
+          church_name: tenantData.name
+        });
+
+        // Call process-stk-push Edge Function
+        const { data, error } = await supabase.functions.invoke('process-stk-push', {
           body: {
             amount: Number(amount),
             phone_number: cleanPhone,
-            channel_id: 8272, // Default test channel
-            customer_name: `${member.firstName} ${member.lastName}`,
-            giving_category: category,
             tenant_id: member.churchId,
-            member_id: member.memberId,
-            type: 'giving'
+            donor_name: `${member.firstName} ${member.lastName}`,
+            giving_type: category,
+            notes: dedication || null
           }
         });
 
@@ -202,7 +233,7 @@ export default function MemberGive() {
         // Start STK Push state
         setStkPushState({
           isActive: true,
-          checkoutRequestId: data.checkout_request_id,
+          checkoutRequestId: data.external_reference, // Use external_reference instead of checkout_request_id
           countdown: 150
         });
 
@@ -237,7 +268,7 @@ export default function MemberGive() {
     onError: (error: any) => {
       console.error('Payment error:', error);
       
-      // Handle specific error cases
+      // Handle specific error cases with clear messaging
       let errorMessage = error.message || "Failed to process payment";
       let toastStyle = {
         background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -247,7 +278,13 @@ export default function MemberGive() {
         fontWeight: '600'
       };
 
-      if (error.message?.includes('service temporarily unavailable')) {
+      if (error.message?.includes('Payments not configured')) {
+        errorMessage = "💳 Church admin needs to set up M-Pesa payments first. Please contact your church admin.";
+        toastStyle.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+      } else if (error.message?.includes('Payment setup in progress')) {
+        errorMessage = "⏳ Payment setup is in progress. Please try again in a few minutes or contact church admin.";
+        toastStyle.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+      } else if (error.message?.includes('service temporarily unavailable')) {
         errorMessage = "💳 Payment service is temporarily unavailable. Please try again in a few minutes or contact support.";
         toastStyle.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
       } else if (error.message?.includes('Invalid phone number')) {

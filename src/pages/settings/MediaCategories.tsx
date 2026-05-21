@@ -53,7 +53,7 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
       setName(editData?.name ?? "");
       setDescription(editData?.description ?? "");
       setColor(editData?.color ?? "#6366f1");
-      setIsActive((editData?.status === "active") ?? true);
+      setIsActive(editData?.status === "active");
     }
   }, [open, editData]);
 
