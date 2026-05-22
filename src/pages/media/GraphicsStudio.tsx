@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,10 +15,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Palette, ExternalLink, Plus, Unlink, Loader2, ImageOff, RefreshCw, Sparkles,
+  Palette, ExternalLink, Plus, Unlink, Loader2, ImageOff, RefreshCw, Sparkles, Download,
 } from "lucide-react";
-
-const CANVA_REDIRECT_URI = import.meta.env.VITE_CANVA_REDIRECT_URI as string;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CanvaDesign {
@@ -29,6 +27,15 @@ interface CanvaDesign {
   updated_at: number; // unix seconds
 }
 
+interface CanvaTokenData {
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  canva_user_id: string;
+  canva_user_name?: string;
+  canva_user_email?: string;
+}
+
 // ── Helper: get auth header from current session ──────────────────────────────
 async function getAuthHeader(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -36,37 +43,59 @@ async function getAuthHeader(): Promise<string> {
   return `Bearer ${session.access_token}`;
 }
 
-// ── Hook: get valid access token (auto-refresh if near expiry) ────────────────
-function useCanvaToken(tenantId: string, userId: string) {
+// ── Hook: get Canva connection status and token ───────────────────────────────
+function useCanvaConnection(tenantId: string) {
   return useQuery({
-    queryKey: ["canva-token", tenantId, userId],
+    queryKey: ["canva-connection", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("canva_tokens")
-        .select("access_token, refresh_token, expires_at")
+        .select("*")
         .eq("tenant_id", tenantId)
-        .eq("user_id", userId)
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) return null;
+      return data as CanvaTokenData | null;
+    },
+    enabled: !!tenantId,
+    staleTime: 60_000, // 1 minute
+  });
+}
 
-      // Refresh if expiring within 5 minutes
-      const expiresAt = new Date(data.expires_at).getTime();
-      if (expiresAt - Date.now() < 5 * 60 * 1000) {
-        const authHeader = await getAuthHeader();
-        const { data: refreshed, error: fnErr } = await supabase.functions.invoke("canva-oauth", {
-          body: { action: "refresh", tenant_id: tenantId },
-          headers: { Authorization: authHeader },
-        });
-        if (fnErr) throw fnErr;
-        return refreshed.access_token as string;
+// ── Hook: get valid access token (auto-refresh if expired) ────────────────────
+function useCanvaToken(tokenData: CanvaTokenData | null | undefined) {
+  return useQuery({
+    queryKey: ["canva-token-valid", tokenData?.access_token?.slice(-8)],
+    queryFn: async () => {
+      if (!tokenData) return null;
+
+      // Check if token is expired or expiring soon (within 5 minutes)
+      const expiresAt = new Date(tokenData.expires_at).getTime();
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+
+      if (expiresAt - now > fiveMinutes) {
+        // Token is still valid
+        return tokenData.access_token;
       }
 
-      return data.access_token as string;
+      // Token needs refresh - call refresh endpoint
+      try {
+        const authHeader = await getAuthHeader();
+        const { data, error } = await supabase.functions.invoke("canva-refresh-token", {
+          body: { refresh_token: tokenData.refresh_token },
+          headers: { Authorization: authHeader },
+        });
+
+        if (error) throw error;
+        return data.access_token as string;
+      } catch (err) {
+        console.error("Token refresh failed:", err);
+        throw err;
+      }
     },
-    enabled: !!tenantId && !!userId,
-    staleTime: 4 * 60 * 1000,
+    enabled: !!tokenData,
+    staleTime: 4 * 60 * 1000, // 4 minutes
     retry: false,
   });
 }
@@ -76,13 +105,17 @@ function useCanvaDesigns(accessToken: string | null | undefined) {
   return useQuery({
     queryKey: ["canva-designs", accessToken?.slice(-8)],
     queryFn: async () => {
+      if (!accessToken) return [];
+
       const res = await fetch("https://api.canva.com/rest/v1/designs?ownership=owned&limit=50", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || `Canva API error ${res.status}`);
       }
+      
       const json = await res.json();
       return (json.items ?? []) as CanvaDesign[];
     },
@@ -92,7 +125,7 @@ function useCanvaDesigns(accessToken: string | null | undefined) {
 }
 
 // ── Connect screen ────────────────────────────────────────────────────────────
-function ConnectCanva({ tenantId, onConnected }: { tenantId: string; onConnected: () => void }) {
+function ConnectCanva({ onConnected }: { onConnected: () => void }) {
   const [loading, setLoading] = useState(false);
 
   const handleConnect = async () => {
@@ -100,11 +133,13 @@ function ConnectCanva({ tenantId, onConnected }: { tenantId: string; onConnected
     try {
       const authHeader = await getAuthHeader();
       const { data, error } = await supabase.functions.invoke("canva-oauth", {
-        body: { action: "authorize", tenant_id: tenantId },
         headers: { Authorization: authHeader },
       });
+      
       if (error) throw error;
-      window.location.href = data.url;
+      
+      // Redirect to Canva OAuth
+      window.location.href = data.authUrl;
     } catch (err: any) {
       toast.error(err.message || "Failed to start Canva authorization");
       setLoading(false);
@@ -137,7 +172,80 @@ function ConnectCanva({ tenantId, onConnected }: { tenantId: string; onConnected
 }
 
 // ── Design card ───────────────────────────────────────────────────────────────
-function DesignCard({ design }: { design: CanvaDesign }) {
+function DesignCard({ design, accessToken }: { design: CanvaDesign; accessToken: string }) {
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Request PNG export from Canva API
+      const exportRes = await fetch(`https://api.canva.com/rest/v1/exports`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          design_id: design.id,
+          format: {
+            type: 'png',
+            quality: 'standard'
+          }
+        }),
+      });
+
+      if (!exportRes.ok) {
+        throw new Error('Export request failed');
+      }
+
+      const exportData = await exportRes.json();
+      const exportId = exportData.export.id;
+
+      // Poll for export completion
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds max
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        
+        const statusRes = await fetch(`https://api.canva.com/rest/v1/exports/${exportId}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          
+          if (statusData.export.status === 'success' && statusData.export.urls?.length > 0) {
+            // Download the exported image
+            const downloadUrl = statusData.export.urls[0].url;
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = `${design.title || 'design'}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            toast.success('Design exported successfully!');
+            break;
+          } else if (statusData.export.status === 'failed') {
+            throw new Error('Export failed');
+          }
+        }
+        
+        attempts++;
+      }
+
+      if (attempts >= maxAttempts) {
+        throw new Error('Export timed out');
+      }
+
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export design');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <Card className="border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
       <div className="aspect-video bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
@@ -160,15 +268,30 @@ function DesignCard({ design }: { design: CanvaDesign }) {
             ? `Updated ${format(new Date(design.updated_at * 1000), "d MMM yyyy")}`
             : "—"}
         </p>
-        <a
-          href={design.urls.edit_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Open in Canva
-        </a>
+        <div className="flex items-center justify-between">
+          <a
+            href={design.urls.edit_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Edit
+          </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting}
+            className="h-8 px-2 text-xs"
+          >
+            {exporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -176,40 +299,70 @@ function DesignCard({ design }: { design: CanvaDesign }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function GraphicsStudio() {
-  const { tenantId, userId } = useChurch();
+  const { tenantId } = useChurch();
   const queryClient = useQueryClient();
   const [disconnectOpen, setDisconnectOpen] = useState(false);
 
-  const { data: accessToken, isLoading: tokenLoading, refetch: refetchToken } = useCanvaToken(tenantId, userId);
-  const isConnected = !!accessToken;
+  // Check for OAuth callback success/error in URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const connected = urlParams.get('connected');
+    const error = urlParams.get('error');
+
+    if (connected === 'true') {
+      toast.success('Canva connected successfully!');
+      // Clean up URL
+      window.history.replaceState({}, '', '/graphics-studio');
+      // Refetch connection data
+      queryClient.invalidateQueries({ queryKey: ['canva-connection'] });
+    } else if (error) {
+      const errorMessages: Record<string, string> = {
+        oauth_failed: 'OAuth authorization failed',
+        missing_params: 'Missing authorization parameters',
+        invalid_state: 'Invalid authorization state',
+        config_error: 'Canva configuration error',
+        token_exchange_failed: 'Failed to exchange authorization code',
+        database_error: 'Database error during connection',
+        callback_failed: 'Authorization callback failed'
+      };
+      
+      toast.error(errorMessages[error] || 'Failed to connect to Canva');
+      // Clean up URL
+      window.history.replaceState({}, '', '/graphics-studio');
+    }
+  }, [queryClient]);
+
+  const { data: connectionData, isLoading: connectionLoading, refetch: refetchConnection } = useCanvaConnection(tenantId);
+  const { data: accessToken, isLoading: tokenLoading } = useCanvaToken(connectionData);
+  const isConnected = !!connectionData && !!accessToken;
 
   const { data: designs = [], isLoading: designsLoading, refetch: refetchDesigns, error: designsError } = useCanvaDesigns(accessToken);
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      const authHeader = await getAuthHeader();
-      const { error } = await supabase.functions.invoke("canva-oauth", {
-        body: { action: "disconnect", tenant_id: tenantId },
-        headers: { Authorization: authHeader },
-      });
+      const { error } = await supabase
+        .from('canva_tokens')
+        .delete()
+        .eq('tenant_id', tenantId);
+      
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["canva-token"] });
+      queryClient.invalidateQueries({ queryKey: ["canva-connection"] });
+      queryClient.invalidateQueries({ queryKey: ["canva-token-valid"] });
       queryClient.invalidateQueries({ queryKey: ["canva-designs"] });
       toast.success("Canva disconnected");
       setDisconnectOpen(false);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(err.message || 'Failed to disconnect Canva'),
   });
 
-  const handleCreateDesign = async () => {
-    if (!accessToken) return;
-    // Open Canva home — user creates a new design from there
+  const handleCreateDesign = () => {
+    // Open Canva create page in new tab
     window.open("https://www.canva.com/create/", "_blank");
   };
 
-  if (tokenLoading) {
+  if (connectionLoading || tokenLoading) {
     return (
       <>
         <Helmet><title>Graphics Studio — Vestry</title></Helmet>
@@ -241,7 +394,7 @@ export default function GraphicsStudio() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1.5 inline-block" />
-                Canva Connected
+                Connected as {connectionData?.canva_user_name || connectionData?.canva_user_email || 'Canva User'}
               </Badge>
               <Button
                 variant="outline"
@@ -275,7 +428,7 @@ export default function GraphicsStudio() {
       />
 
       {!isConnected ? (
-        <ConnectCanva tenantId={tenantId} onConnected={() => refetchToken()} />
+        <ConnectCanva onConnected={() => refetchConnection()} />
       ) : (
         <>
           {/* Designs grid */}
@@ -321,7 +474,7 @@ export default function GraphicsStudio() {
             <>
               <p className="text-sm text-muted-foreground mb-4">{designs.length} design{designs.length !== 1 ? "s" : ""}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {designs.map(d => <DesignCard key={d.id} design={d} />)}
+                {designs.map(d => <DesignCard key={d.id} design={d} accessToken={accessToken!} />)}
               </div>
             </>
           )}

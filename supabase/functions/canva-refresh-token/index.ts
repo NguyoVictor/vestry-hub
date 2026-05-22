@@ -57,6 +57,18 @@ serve(async (req) => {
       )
     }
 
+    const { refresh_token } = await req.json()
+
+    if (!refresh_token) {
+      return new Response(
+        JSON.stringify({ error: 'Refresh token required' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
     // Get Canva credentials from secrets
     const clientId = Deno.env.get('CANVA_CLIENT_ID')
     const clientSecret = Deno.env.get('CANVA_CLIENT_SECRET')
@@ -71,43 +83,69 @@ serve(async (req) => {
       )
     }
 
-    // Generate PKCE code verifier and challenge
-    const codeVerifier = generateCodeVerifier()
-    const codeChallenge = await generateCodeChallenge(codeVerifier)
+    // Refresh the access token
+    const tokenResponse = await fetch('https://api.canva.com/rest/v1/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refresh_token,
+      }),
+    })
 
-    // Store code verifier in session (we'll use a simple approach with state parameter)
-    const state = `${userData.tenant_id}:${codeVerifier}`
-    const encodedState = btoa(state)
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error('Token refresh failed:', errorText)
+      return new Response(
+        JSON.stringify({ error: 'Token refresh failed' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
 
-    // Determine redirect URI based on environment
-    const isProduction = Deno.env.get('ENVIRONMENT') === 'production'
-    const redirectUri = isProduction 
-      ? 'https://vestryhub.com/auth/canva/callback'
-      : 'http://localhost:8080/auth/canva/callback'
+    const tokenData = await tokenResponse.json()
+    const { access_token, refresh_token: new_refresh_token, expires_in } = tokenData
 
-    // Build Canva OAuth URL
-    const scopes = [
-      'design:content:write',
-      'asset:write', 
-      'profile:read',
-      'design:content:read',
-      'asset:read',
-      'design:meta:read'
-    ].join(' ')
+    // Calculate expiration time
+    const expiresAt = new Date(Date.now() + (expires_in * 1000)).toISOString()
 
-    const authUrl = new URL('https://www.canva.com/api/oauth/authorize')
-    authUrl.searchParams.set('client_id', clientId)
-    authUrl.searchParams.set('redirect_uri', redirectUri)
-    authUrl.searchParams.set('response_type', 'code')
-    authUrl.searchParams.set('scope', scopes)
-    authUrl.searchParams.set('state', encodedState)
-    authUrl.searchParams.set('code_challenge', codeChallenge)
-    authUrl.searchParams.set('code_challenge_method', 'S256')
+    // Update tokens in database using service role key
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    const { error: updateError } = await supabaseAdmin
+      .from('canva_tokens')
+      .update({
+        access_token: access_token,
+        refresh_token: new_refresh_token || refresh_token, // Some providers don't return new refresh token
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', userData.tenant_id)
+
+    if (updateError) {
+      console.error('Database update error:', updateError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to update tokens' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
 
     return new Response(
       JSON.stringify({ 
-        authUrl: authUrl.toString(),
-        redirectUri 
+        access_token: access_token,
+        expires_at: expiresAt 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -115,7 +153,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Canva OAuth error:', error)
+    console.error('Token refresh error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { 
@@ -125,23 +163,3 @@ serve(async (req) => {
     )
   }
 })
-
-// PKCE helper functions
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32)
-  crypto.getRandomValues(array)
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '')
-}
-
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(verifier)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '')
-}
