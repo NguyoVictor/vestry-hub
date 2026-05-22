@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import * as Sentry from "@sentry/react";
 import { useEffect } from "react";
 import { capturePageView } from "./lib/monitoring";
+import { useLenis } from "./hooks/useLenis";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
@@ -253,15 +254,19 @@ const GROWTH_PATHS = ["/discipleship", "/discipleship/graduates", "/discipleship
 const ADMIN_PATHS = ["/reports", "/branches"];
 const MEDIA_PATHS = ["/church-media", "/asset-management", "/song-library", "/graphics-studio", "/sermon-preparation", "/bible-explorer", "/sermons", "/ai-tools"];
 
-const App = () => (
-  <Sentry.ErrorBoundary fallback={<div className="flex items-center justify-center min-h-screen p-12 text-muted-foreground">Something went wrong. Please refresh the page.</div>}>
-  <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <PageViewTracker />
+const App = () => {
+  // Initialize Lenis smooth scrolling
+  useLenis();
+
+  return (
+    <Sentry.ErrorBoundary fallback={<div className="flex items-center justify-center min-h-screen p-12 text-muted-foreground">Something went wrong. Please refresh the page.</div>}>
+    <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <PageViewTracker />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth/signin" element={<SignIn />} />
@@ -522,6 +527,7 @@ const App = () => (
     </QueryClientProvider>
   </ThemeProvider>
   </Sentry.ErrorBoundary>
-);
+  );
+};
 
 export default App;
