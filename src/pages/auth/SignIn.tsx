@@ -152,13 +152,6 @@ const SignIn = () => {
             <LinkIcon className="h-4 w-4" />
             Member App Login
           </Link>
-          <a
-            href={`${import.meta.env.VITE_BASE_URL || window.location.origin}/visitor-registration/`}
-            className="text-sm text-muted-foreground hover:text-foreground"
-            onClick={e => { e.preventDefault(); window.location.href = `${import.meta.env.VITE_BASE_URL || window.location.origin}/visitor-registration/`; }}
-          >
-            Visiting for the first time? Register here
-          </a>
         </div>
       </div>
     </AuthLayout>
