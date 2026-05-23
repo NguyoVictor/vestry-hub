@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useSearchParams } from "react-router-dom";
+import SoftAurora from "@/components/SoftAurora";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,8 +138,11 @@ export default function JoinChurch() {
     return (
       <>
         <Helmet><title>Welcome! — Vestry</title></Helmet>
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-          <div className="w-full max-w-md space-y-6 text-center">
+        <div className="relative min-h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+          <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+            <SoftAurora speed={0.4} scale={1.8} brightness={1.2} color1="#7c3aed" color2="#f97316" noiseFrequency={2.5} noiseAmplitude={1.0} bandHeight={0.5} bandSpread={1.2} octaveDecay={0.1} layerOffset={0.4} colorSpeed={0.8} enableMouseInteraction={true} mouseInfluence={0.2} />
+          </div>
+          <div style={{ position: 'relative', zIndex: 1 }} className="w-full max-w-md space-y-6 text-center">
             {success.churchLogo ? (
               <img src={success.churchLogo} className="w-20 h-20 rounded-full mx-auto object-cover border-4 border-white shadow-lg" alt={success.churchName} />
             ) : (
@@ -196,8 +200,11 @@ export default function JoinChurch() {
     return (
       <>
         <Helmet><title>Join Us — Vestry</title></Helmet>
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-          <div className="w-full max-w-md space-y-6">
+        <div className="relative min-h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+          <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+            <SoftAurora speed={0.4} scale={1.8} brightness={1.2} color1="#7c3aed" color2="#f97316" noiseFrequency={2.5} noiseAmplitude={1.0} bandHeight={0.5} bandSpread={1.2} octaveDecay={0.1} layerOffset={0.4} colorSpeed={0.8} enableMouseInteraction={true} mouseInfluence={0.2} />
+          </div>
+          <div style={{ position: 'relative', zIndex: 1 }} className="w-full max-w-md space-y-6">
             <div className="text-center">
               {church?.logo ? (
                 <img src={church.logo} className="w-16 h-16 rounded-full mx-auto mb-3 object-cover" alt={church.name} />
@@ -251,8 +258,11 @@ export default function JoinChurch() {
   return (
     <>
       <Helmet><title>{memberType === "visitor" ? "Visitor Registration" : "Member Registration"} — Vestry</title></Helmet>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+      <div className="relative min-h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+          <SoftAurora speed={0.4} scale={1.8} brightness={1.2} color1="#7c3aed" color2="#f97316" noiseFrequency={2.5} noiseAmplitude={1.0} bandHeight={0.5} bandSpread={1.2} octaveDecay={0.1} layerOffset={0.4} colorSpeed={0.8} enableMouseInteraction={true} mouseInfluence={0.2} />
+        </div>
+        <div style={{ position: 'relative', zIndex: 1 }} className="w-full max-w-md">
           <div className="text-center mb-6">
             {church?.logo ? (
               <img src={church.logo} className="w-16 h-16 rounded-full mx-auto mb-3 object-cover" alt={church.name} />
