@@ -197,6 +197,7 @@ const TermsAndConditions = () => {
           </div>
         </div>
       </div>
+      </div>
     </>
   );
 };
