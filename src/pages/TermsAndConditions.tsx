@@ -1,9 +1,21 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 const TermsAndConditions = () => {
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      <Helmet>
+        <title>Terms and Conditions — Vestry Hub</title>
+        <meta name="description" content="Read the Terms and Conditions for using Vestry Hub, the church management platform for African churches. Governed by the laws of Kenya." />
+        <link rel="canonical" href="https://vestryhub.com/terms" />
+        <meta property="og:title" content="Terms and Conditions — Vestry Hub" />
+        <meta property="og:description" content="Read the Terms and Conditions for using Vestry Hub, the church management platform for African churches." />
+        <meta property="og:url" content="https://vestryhub.com/terms" />
+        <meta property="og:type" content="website" />
+      </Helmet>
+      
+      <div className="min-h-screen bg-white">
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
           {/* Back Navigation */}
@@ -185,7 +197,7 @@ const TermsAndConditions = () => {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

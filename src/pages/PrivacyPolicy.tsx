@@ -1,9 +1,21 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 const PrivacyPolicy = () => {
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      <Helmet>
+        <title>Privacy Policy — Vestry Hub</title>
+        <meta name="description" content="Read the Privacy Policy for Vestry Hub. We are committed to protecting your data in compliance with Kenya's Data Protection Act 2019." />
+        <link rel="canonical" href="https://vestryhub.com/privacy" />
+        <meta property="og:title" content="Privacy Policy — Vestry Hub" />
+        <meta property="og:description" content="Read the Privacy Policy for Vestry Hub. We are committed to protecting your data in compliance with Kenya's Data Protection Act 2019." />
+        <meta property="og:url" content="https://vestryhub.com/privacy" />
+        <meta property="og:type" content="website" />
+      </Helmet>
+      
+      <div className="min-h-screen bg-white">
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
           {/* Back Navigation */}
@@ -228,7 +240,7 @@ const PrivacyPolicy = () => {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

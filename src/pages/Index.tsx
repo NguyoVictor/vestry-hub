@@ -636,8 +636,16 @@ export default function Index() {
     <>
       <Helmet>
         <title>VestryHub — Church Management for African Churches | Free to Start</title>
-        <meta name="description" content="VestryHub helps African churches manage members, accept Mpesa offerings, track attendance, and communicate — all in one platform. Free for up to 100 members." />
+        <meta name="description" content="VestryHub helps African churches manage members, accept M-Pesa offerings, track attendance, and communicate — all in one platform. Free for up to 100 members." />
         <link rel="canonical" href="https://vestryhub.com/" />
+        <meta property="og:title" content="VestryHub — Church Management for African Churches | Free to Start" />
+        <meta property="og:description" content="VestryHub helps African churches manage members, accept M-Pesa offerings, track attendance, and communicate — all in one platform. Free for up to 100 members." />
+        <meta property="og:url" content="https://vestryhub.com/" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Vestry Hub" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="VestryHub — Church Management for African Churches" />
+        <meta name="twitter:description" content="Manage members, accept M-Pesa offerings, track attendance and communicate — all in one platform. Free for up to 100 members." />
       </Helmet>
 
       <div style={{ background: SITE_BG }} className="text-[#111] min-h-screen font-sans antialiased">

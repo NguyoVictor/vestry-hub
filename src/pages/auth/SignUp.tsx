@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import PasswordStrength from "@/components/auth/PasswordStrength";
+import { Helmet } from "react-helmet-async";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -66,7 +67,18 @@ const SignUp = () => {
   };
 
   return (
-    <AuthLayout>
+    <>
+      <Helmet>
+        <title>Create Your Account — Vestry Hub</title>
+        <meta name="description" content="Sign up for Vestry Hub and start managing your church for free. No credit card required. Built for African churches." />
+        <link rel="canonical" href="https://vestryhub.com/auth/signup" />
+        <meta property="og:title" content="Create Your Account — Vestry Hub" />
+        <meta property="og:description" content="Sign up for Vestry Hub and start managing your church for free. No credit card required." />
+        <meta property="og:url" content="https://vestryhub.com/auth/signup" />
+        <meta property="og:type" content="website" />
+      </Helmet>
+      
+      <AuthLayout>
       <div className="rounded-xl border border-border bg-card p-8 shadow-lg">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-card-foreground">Create your account</h1>
@@ -178,6 +190,7 @@ const SignUp = () => {
         </p>
       </div>
     </AuthLayout>
+    </>
   );
 };
 
