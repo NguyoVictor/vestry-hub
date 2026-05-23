@@ -9,6 +9,7 @@ import { useEffect, lazy, Suspense } from "react";
 import { capturePageView } from "./lib/monitoring";
 import { useLenis } from "./hooks/useLenis";
 import { Loader2, Settings } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
@@ -263,7 +264,17 @@ const App = () => {
 
   return (
     <Sentry.ErrorBoundary fallback={<div className="flex items-center justify-center min-h-screen p-12 text-muted-foreground">Something went wrong. Please refresh the page.</div>}>
-    <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
+      <Helmet>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-K4DP5L1678" />
+        <script>{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-K4DP5L1678');
+        `}</script>
+      </Helmet>
+      
+      <ThemeProvider attribute="class" defaultTheme="light" storageKey="theme">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
