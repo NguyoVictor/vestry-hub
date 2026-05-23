@@ -18,6 +18,10 @@ import MemberLogin from "./pages/auth/MemberLogin";
 // Auth pages - lazy loaded
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
+
+// Legal pages - lazy loaded
+const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 import AuthCallback from "./pages/auth/AuthCallback";
 import CanvaCallback from "./pages/auth/CanvaCallback";
 import Onboarding from "./pages/Onboarding";
@@ -274,6 +278,8 @@ const App = () => {
             <Route path="/auth/reset-password" element={<Suspense fallback={<Fallback />}><ResetPassword /></Suspense>} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/canva/callback" element={<CanvaCallback />} />
+            <Route path="/terms" element={<Suspense fallback={<Fallback />}><TermsAndConditions /></Suspense>} />
+            <Route path="/privacy" element={<Suspense fallback={<Fallback />}><PrivacyPolicy /></Suspense>} />
             <Route path="/member-login" element={<Navigate to="/member/login" replace />} />
             <Route path="/onboarding" element={<Onboarding />} />
             {/* Public quiz join routes — no auth required */}

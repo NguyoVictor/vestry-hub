@@ -1101,8 +1101,8 @@ export default function Index() {
             </div>
             <div className="flex items-center gap-6">
               {[
-                { label: "Privacy",       href: "/privacy-policy"   },
-                { label: "Terms",         href: "/terms-of-service" },
+                { label: "Privacy",       href: "/privacy"   },
+                { label: "Terms",         href: "/terms" },
                 { label: "Help",          href: "#"                 },
                 { label: "Member Portal", href: "/member/login"     },
               ].map(l => (
