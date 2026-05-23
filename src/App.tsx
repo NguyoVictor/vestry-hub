@@ -5,9 +5,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import * as Sentry from "@sentry/react";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { capturePageView } from "./lib/monitoring";
 import { useLenis } from "./hooks/useLenis";
+import { Loader2, Settings } from "lucide-react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
@@ -30,8 +31,6 @@ import { SettingsLayout } from "./components/settings/SettingsLayout";
 import { allNavItems } from "./config/navigation";
 import { SuperAdminGuard } from "./components/layout/SuperAdminGuard";
 import { SuperAdminLayout } from "./components/layout/SuperAdminLayout";
-import { lazy, Suspense } from "react";
-import { Loader2, Settings } from "lucide-react";
 
 // Dashboard — lazy loaded
 const Dashboard = lazy(() => import("./pages/Dashboard"));
