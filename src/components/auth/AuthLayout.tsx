@@ -1,86 +1,111 @@
-import { Link } from "react-router-dom";
-import { Shield, Clock, Sparkles, Users, DollarSign, Heart, Lock } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import SilkOGL from "@/components/SilkOGL";
+import logo from "@/assets/logo.png";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
 }
 
-const features = [
-  { icon: Users, label: "Member Growth", sub: "Smart CRM" },
-  { icon: DollarSign, label: "Financial Tracking", sub: "Real-time" },
-  { icon: Heart, label: "Giving Management", sub: "Simplified" },
-  { icon: Lock, label: "Data Security", sub: "Bank-grade" },
-];
+const TAGLINES: Record<string, { line1: string; line2: string }> = {
+  "/auth/signin": {
+    line1: "Welcome back.",
+    line2: "Your church is running.",
+  },
+  "/auth/signup": {
+    line1: "Get started today.",
+    line2: "Your congregation is waiting.",
+  },
+  "/auth/forgot-password": {
+    line1: "No worries.",
+    line2: "We'll get you back in.",
+  },
+  "/auth/reset-password": {
+    line1: "Almost there.",
+    line2: "Set a new password and get back to it.",
+  },
+};
 
 const AuthLayout = ({ children }: AuthLayoutProps) => {
+  const { pathname } = useLocation();
+  const tagline = TAGLINES[pathname] ?? TAGLINES["/auth/signin"];
+
   return (
     <div className="flex min-h-screen">
       {/* Left branding panel */}
-      <div className="hidden w-1/2 flex-col justify-between bg-sidebar p-10 lg:flex">
-        <div>
-          <Link to="/" className="mb-2 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Shield className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-extrabold text-sidebar-foreground">Vestry</h2>
-              <p className="text-sm text-sidebar-foreground/60">Church Management Reimagined</p>
-            </div>
-          </Link>
-
-          <div className="mt-2 flex gap-0.5">
-            {[...Array(5)].map((_, i) => (
-              <span key={i} className="text-yellow-400 text-lg">★</span>
-            ))}
-          </div>
-
-          <h3 className="mt-10 max-w-md text-3xl font-extrabold leading-tight text-sidebar-foreground">
-            Manage members, giving, services, and generate reports{" "}
-            <span className="text-accent">in one simple system</span>
-          </h3>
-
-          <p className="mt-4 text-sm text-sidebar-foreground/70">
-            Trusted by 500+ churches worldwide.
-          </p>
-
-          <div className="mt-10 grid grid-cols-2 gap-3">
-            {features.map((f) => (
-              <div
-                key={f.label}
-                className="flex items-center gap-3 rounded-lg bg-sidebar-accent/10 px-4 py-3"
-              >
-                <f.icon className="h-5 w-5 text-accent" />
-                <div>
-                  <p className="text-sm font-semibold text-sidebar-foreground">{f.label}</p>
-                  <p className="text-xs text-sidebar-foreground/50">{f.sub}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div
+        className="hidden md:flex"
+        style={{
+          position: "relative",
+          width: "45%",
+          minHeight: "100vh",
+          overflow: "hidden",
+          background: "#0d0e24",
+          flexShrink: 0,
+        }}
+      >
+        {/* Layer 1 — SilkOGL anchored bottom-right */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            right: 0,
+            width: "75%",
+            height: "55%",
+            pointerEvents: "none",
+            zIndex: 0,
+            maskImage: "radial-gradient(ellipse at bottom right, black 40%, transparent 75%)",
+            WebkitMaskImage: "radial-gradient(ellipse at bottom right, black 40%, transparent 75%)",
+          }}
+        >
+          <SilkOGL
+            color="#3D1C8E"
+            speed={4}
+            scale={1.2}
+            noiseIntensity={1.2}
+            rotation={0.3}
+          />
         </div>
 
-        <div className="space-y-4">
-          <p className="text-center text-sm font-medium text-accent">
-            Trusted by 500+ churches worldwide
-          </p>
-          <div className="flex items-center justify-center gap-4 text-xs text-sidebar-foreground/50">
-            <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> SSL Secured</span>
-            <span>·</span>
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> 5-min Setup</span>
-            <span>·</span>
-            <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" /> Free Trial</span>
+        {/* Layer 2 — Content */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            padding: "40px",
+            width: "100%",
+          }}
+        >
+          {/* Logo — top left */}
+          <div style={{ position: "absolute", top: 32, left: 32 }}>
+            <Link to="/">
+              <img src={logo} width={44} alt="Vestry Hub" style={{ height: "auto" }} />
+            </Link>
           </div>
-          <Link
-            to="/auth/signup"
-            className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-accent to-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+
+          {/* Tagline — vertically centered */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              paddingLeft: 8,
+            }}
           >
-            <Sparkles className="h-4 w-4" />
-            Start Free Today — No Credit Card Required
-          </Link>
+            <p style={{ fontSize: "2.2rem", fontWeight: 700, color: "#ffffff", lineHeight: 1.2, marginBottom: 12 }}>
+              {tagline.line1}
+            </p>
+            <p style={{ fontSize: "1rem", color: "rgba(255,255,255,0.6)", margin: 0 }}>
+              {tagline.line2}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Right form panel */}
+      {/* Right form panel — unchanged */}
       <div className="flex w-full flex-1 items-center justify-center bg-gradient-to-br from-background via-background to-secondary/30 p-6 lg:w-1/2">
         <div className="w-full max-w-md">
           {children}
