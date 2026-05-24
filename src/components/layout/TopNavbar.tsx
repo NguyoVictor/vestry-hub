@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useChurch } from "@/contexts/ChurchContext";
-import { usePageTitle } from "@/hooks/usePageTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,13 +15,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Menu, Search, Bell, Sun, Moon, Settings, LogOut, User } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { Breadcrumb } from "@/components/Breadcrumb";
 
 interface TopNavbarProps { onMenuClick: () => void; }
 
 export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
   const navigate = useNavigate();
   const church = useChurch();
-  const pageTitle = usePageTitle();
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -145,7 +144,7 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
+          <h1 className="text-lg font-semibold text-foreground"><Breadcrumb /></h1>
         </div>
 
         <div className="flex items-center gap-1">

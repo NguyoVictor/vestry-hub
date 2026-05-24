@@ -5,11 +5,19 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard } from "lucide-react";
 
+const PLACEHOLDER_ROUTE_MAP: Record<string, string> = {
+  '/appointments': 'Appointments',
+  '/church-studio': 'Church Studio',
+  '/livestreaming': 'Livestreaming'
+};
+
 const PlaceholderPage = () => {
   const { pathname } = useLocation();
   const item = allNavItems.find(i => i.path === pathname);
   const Icon = item?.icon || LayoutDashboard;
-  const title = item?.title || "Page";
+  
+  // Use the placeholder route map for correct titles, fallback to navigation item title
+  const title = PLACEHOLDER_ROUTE_MAP[pathname] || item?.title || "Page";
 
   return (
     <>
