@@ -41,6 +41,8 @@ export const AppLayout = () => {
   const scrollPosRef = useRef(0);
   const location = useLocation();
 
+  // Auto-expand group containing active route - removed to allow collapsing active groups
+
   // Save scroll position before navigation
   useEffect(() => {
     const el = sidebarScrollRef.current;
@@ -121,95 +123,149 @@ export const AppLayout = () => {
   const initials = church.name.slice(0, 2).toUpperCase();
   const userInitials = `${church.userFirstName?.[0] || ""}${church.userLastName?.[0] || ""}`;
 
-  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="flex h-full flex-col font-jakarta">
-      {/* Church logo / name */}
-      <div className={cn("flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 p-4", !mobile && collapsed && "justify-center")}>
-        {church.logoUrl ? (
-          <img src={church.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
-            {initials}
-          </div>
-        )}
-        {(mobile || !collapsed) && (
-          <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{church.name}</span>
-        )}
-      </div>
+  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => {
+    const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
+      const currentPath = window.location.pathname;
+      const activeGroup = navigationGroups.find(group =>
+        group.items.some(item => currentPath.startsWith(item.path))
+      );
+      return activeGroup ? [activeGroup.label] : [navigationGroups[0]?.label ?? ''];
+    });
 
-      {/* Nav items */}
-      <div
-          ref={mobile ? undefined : sidebarScrollRef}
-          onScroll={mobile ? undefined : handleSidebarScroll}
-          className="flex-1 overflow-y-auto py-2"
-        >
-        {navigationGroups.map(group => (
-          <div key={group.label} className="mb-1">
-            {(mobile || !collapsed) && (
-              <div className="px-4 py-2">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                  {group.label}
-                </span>
-              </div>
-            )}
-            {group.items.map(item => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => mobile && setMobileOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "mx-2 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
-                    isActive
-                      ? "bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400"
-                      : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100",
-                    !mobile && collapsed && "justify-center px-2"
-                  )
-                }
-              >
-                <div className="relative">
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {item.path === "/livestreaming" && isLiveNow && (
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse absolute -top-1 -right-1" />
-                  )}
-                </div>
-                {(mobile || !collapsed) && <span className="truncate">{item.title}</span>}
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </div>
+    useEffect(() => {
+      const activeGroup = navigationGroups.find(group =>
+        group.items.some(item => location.pathname.startsWith(item.path))
+      );
+      if (activeGroup) {
+        setExpandedGroups(prev =>
+          prev.includes(activeGroup.label) ? prev : [...prev, activeGroup.label]
+        );
+      }
+    }, [location.pathname]);
 
-      {/* User footer */}
-      <div className="border-t border-slate-200 dark:border-slate-700 p-3">
-        {!mobile && (
-          <Button variant="ghost" size="sm" className="mb-2 w-full justify-center text-slate-400 hover:text-slate-600" onClick={toggleCollapsed}>
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </Button>
-        )}
-        <div className={cn("flex items-center gap-3", !mobile && collapsed && "justify-center")}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-600 dark:bg-orange-950/40 dark:text-orange-400">
-            {userInitials}
-          </div>
-          {(mobile || !collapsed) && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{church.userName}</p>
-              <p className="truncate text-xs text-slate-400">{church.userEmail}</p>
+    const toggleGroup = (groupLabel: string) => {
+      setExpandedGroups(prev =>
+        prev.includes(groupLabel)
+          ? prev.filter(g => g !== groupLabel)
+          : [...prev, groupLabel]
+      );
+    };
+
+    return (
+      <div className="flex h-full flex-col font-jakarta overflow-hidden">
+        {/* Church logo / name */}
+        <div className={cn("flex items-center gap-3 border-b border-slate-200 dark:border-slate-700 p-4 flex-shrink-0", !mobile && collapsed && "justify-center")}>
+          {church.logoUrl ? (
+            <img src={church.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
+              {initials}
             </div>
           )}
+          {(mobile || !collapsed) && (
+            <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{church.name}</span>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn("mt-2 w-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30", !mobile && collapsed ? "justify-center" : "justify-start")}
-          onClick={handleLogout}
+
+        {/* Nav items */}
+        <div
+          ref={mobile ? undefined : sidebarScrollRef}
+          onScroll={mobile ? undefined : handleSidebarScroll}
+          onWheel={(e) => e.stopPropagation()}
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400"
         >
-          <LogOut className="h-4 w-4" />
-          {(mobile || !collapsed) && <span className="ml-2">Sign Out</span>}
-        </Button>
+          {navigationGroups.map(group => (
+            <div key={group.label} className="mb-1">
+              {(mobile || !collapsed) && (
+                <>
+                  {!mobile && !collapsed ? (
+                    <button
+                      onClick={() => toggleGroup(group.label)}
+                      className="w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md transition-colors"
+                    >
+                      <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                        {group.label}
+                      </span>
+                      <ChevronRight
+                        className="h-3 w-3 text-slate-400 transition-transform duration-200"
+                        style={{
+                          transform: expandedGroups.includes(group.label) ? 'rotate(90deg)' : 'rotate(0deg)'
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    <div className="px-4 py-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                        {group.label}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {(mobile || collapsed || expandedGroups.includes(group.label)) && (
+                <div>
+                  {group.items.map(item => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => mobile && setMobileOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "mx-2 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                          isActive
+                            ? "bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400"
+                            : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100",
+                          !mobile && collapsed && "justify-center px-2"
+                        )
+                      }
+                    >
+                      <div className="relative">
+                        <item.icon className="h-5 w-5 shrink-0" />
+                        {item.path === "/livestreaming" && isLiveNow && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse absolute -top-1 -right-1" />
+                        )}
+                      </div>
+                      {(mobile || !collapsed) && <span className="truncate">{item.title}</span>}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* User footer */}
+        <div className="border-t border-slate-200 dark:border-slate-700 p-3 flex-shrink-0">
+          {!mobile && (
+            <Button variant="ghost" size="sm" className="mb-2 w-full justify-center text-slate-400 hover:text-slate-600" onClick={toggleCollapsed}>
+              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+          )}
+          <div className={cn("flex items-center gap-3", !mobile && collapsed && "justify-center")}>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-orange-600 dark:bg-orange-950/40 dark:text-orange-400">
+              {userInitials}
+            </div>
+            {(mobile || !collapsed) && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{church.userName}</p>
+                <p className="truncate text-xs text-slate-400">{church.userEmail}</p>
+              </div>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("mt-2 w-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30", !mobile && collapsed ? "justify-center" : "justify-start")}
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            {(mobile || !collapsed) && <span className="ml-2">Sign Out</span>}
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
