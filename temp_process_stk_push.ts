@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper function to safely truncate strings
+const truncateString = (str: string | null | undefined, maxLength: number): string | null => {
+  if (!str) return null
+  return str.length > maxLength ? str.substring(0, maxLength) : str
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -17,7 +23,6 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     console.log('=== PayHero STK Push Processing ===')
-    console.log('Auth header preview:', PAYHERO_BASIC_AUTH?.substring(0, 20))
 
     if (!PAYHERO_BASIC_AUTH) {
       console.error('PayHero credentials missing')
@@ -113,34 +118,40 @@ serve(async (req) => {
       connected: tenant.payhero_connected
     })
 
-    // Helper function to safely truncate strings to prevent VARCHAR overflow
-    const truncateString = (str: string | null | undefined, maxLength: number): string | null => {
-      if (!str) return null
-      return str.length > maxLength ? str.substring(0, maxLength) : str
-    }
+    // Generate unique external reference for tracking (shortened to fit in 255 chars)
+    const timestamp = Date.now().toString()
+    const randomId = Math.random().toString(36).substr(2, 8)
+    const tenantShort = tenant_id.substring(0, 8) // Use first 8 chars of tenant ID
+    const externalReference = `vestry_${tenantShort}_${timestamp}_${randomId}`
 
-    // Generate unique external reference for tracking (shorter format to fit in 255 chars)
-    const timestamp = Date.now().toString(36) // Base36 is shorter than decimal
-    const randomId = Math.random().toString(36).substr(2, 6) // Shorter random part
-    const externalReference = `vestry_${tenant_id}_${timestamp}_${randomId}`
+    console.log('Generated external reference:', {
+      reference: externalReference,
+      length: externalReference.length
+    })
 
-    // Create giving record first (pending status) with truncation safeguards
+    // Create giving record first (pending status) with safe truncation
     const givingRecord = {
       tenant_id,
       amount: parseFloat(amount),
       donor_name: truncateString(donor_name || 'Anonymous', 255),
-      giving_type: truncateString(giving_type || 'offering', 100),
+      giving_type: giving_type || 'offering',
       payment_method: 'mpesa',
-      payment_status: 'pending', // Use payment_status instead of status
+      payment_status: 'pending',
       external_reference: truncateString(externalReference, 255),
-      notes: truncateString(notes, 500), // Assuming notes can be longer
+      notes: truncateString(notes, 1000), // TEXT field, but let's be safe
       fund_id: truncateString(fund_id, 255),
       campaign_id: truncateString(campaign_id, 255),
       given_at: new Date().toISOString(),
       currency: 'KES'
     }
 
-    console.log('Creating giving record:', givingRecord)
+    console.log('Creating giving record with safe field lengths:', {
+      donor_name_length: givingRecord.donor_name?.length || 0,
+      external_reference_length: givingRecord.external_reference?.length || 0,
+      notes_length: givingRecord.notes?.length || 0,
+      fund_id_length: givingRecord.fund_id?.length || 0,
+      campaign_id_length: givingRecord.campaign_id?.length || 0
+    })
 
     const { data: createdRecord, error: recordError } = await supabase
       .from('giving_records')
@@ -161,31 +172,16 @@ serve(async (req) => {
 
     console.log('Giving record created:', createdRecord)
 
-    // Helper function to format phone number for PayHero (07XXXXXXXX format)
-    const formatPhone = (phone: string) => {
-      const cleaned = phone.replace(/\D/g, '')
-      if (cleaned.startsWith('254')) return '0' + cleaned.substring(3)
-      if (cleaned.startsWith('0')) return cleaned
-      return '0' + cleaned
-    }
-
-    const formattedPhone = formatPhone(phone_number)
-
-    console.log('Phone number formatting:', {
-      original: phone_number,
-      formatted: formattedPhone
-    })
-
     // Prepare PayHero STK Push request with DYNAMIC channel_id from database
     const stkData = {
       amount: parseFloat(amount),
-      phone_number: formattedPhone,
-      channel_id: parseInt(tenant.payhero_channel_id), // Use DYNAMIC channel_id from database
-      provider: 'm-pesa',
-      external_reference: truncateString(externalReference, 100), // PayHero might have shorter limits
+      phone_number: phone_number.startsWith('254') ? phone_number : `254${phone_number.substring(1)}`,
+      channel_id: parseInt(tenant.payhero_channel_id),
+      provider: 'mpesa',
+      external_reference: externalReference, // Use the original (not truncated) for PayHero
       callback_url: `${SUPABASE_URL}/functions/v1/payment-webhook`,
       description: `Donation to ${tenant.name}`,
-      customer_name: truncateString(donor_name || 'Anonymous Donor', 100)
+      customer_name: truncateString(donor_name || 'Anonymous Donor', 100) // PayHero might have limits too
     }
 
     console.log('🚀 STK Push with DYNAMIC channel_id:', {
@@ -197,7 +193,6 @@ serve(async (req) => {
     })
 
     console.log('PayHero STK Push payload:', stkData)
-    console.log('Provider value being sent:', stkData.provider)
 
     // Send STK Push to PayHero
     const payHeroResponse = await fetch('https://backend.payhero.co.ke/api/v2/payments', {
@@ -220,31 +215,32 @@ serve(async (req) => {
         data: payHeroData
       })
 
-      // Update giving record to failed
+      // Update giving record to failed with safe truncation
+      const errorMessage = `PayHero error: ${payHeroData.message || payHeroData.error || 'Unknown error'}`
       await supabase
         .from('giving_records')
         .update({ 
           payment_status: 'failed',
-          notes: truncateString(`PayHero error: ${payHeroData.message || payHeroData.error || 'Unknown error'}`, 500)
+          notes: truncateString(errorMessage, 1000)
         })
         .eq('id', createdRecord.id)
 
-      let errorMessage = 'Payment request failed'
+      let userErrorMessage = 'Payment request failed'
       if (payHeroData.message) {
         if (payHeroData.message.includes('channel')) {
-          errorMessage = 'Payment channel configuration error. Please contact church admin.'
+          userErrorMessage = 'Payment channel configuration error. Please contact church admin.'
         } else if (payHeroData.message.includes('phone')) {
-          errorMessage = 'Invalid phone number. Please check and try again.'
+          userErrorMessage = 'Invalid phone number. Please check and try again.'
         } else if (payHeroData.message.includes('amount')) {
-          errorMessage = 'Invalid amount. Please check and try again.'
+          userErrorMessage = 'Invalid amount. Please check and try again.'
         } else {
-          errorMessage = payHeroData.message
+          userErrorMessage = payHeroData.message
         }
       }
 
       return new Response(
         JSON.stringify({ 
-          error: errorMessage,
+          error: userErrorMessage,
           details: payHeroData.message || payHeroData.error || 'Unknown error',
           payhero_status: payHeroResponse.status
         }),
@@ -256,7 +252,7 @@ serve(async (req) => {
 
     // Update giving record with PayHero transaction details
     const updateData = {
-      payhero_transaction_id: payHeroData.transaction_id || payHeroData.id,
+      payhero_reference: truncateString(payHeroData.transaction_id || payHeroData.id, 255),
       payment_status: 'processing'
     }
 

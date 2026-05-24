@@ -136,7 +136,7 @@ serve(async (req) => {
     const payheroResponse = await fetch('https://backend.payhero.co.ke/api/v2/payment_channels', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${PAYHERO_BASIC_AUTH}`,
+        'Authorization': PAYHERO_BASIC_AUTH,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payheroPayload)
@@ -145,21 +145,14 @@ serve(async (req) => {
     console.log('PayHero API response status:', payheroResponse.status)
     
     const payheroData = await payheroResponse.json()
-    console.log('PayHero API response data:', payheroData)
+    console.log('PayHero register channel response:', JSON.stringify(payheroData))
+    console.log('PayHero response status:', payheroResponse.status)
     
     if (!payheroResponse.ok) {
-      console.error('PayHero API error:', payheroData)
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'PayHero API error',
-          details: payheroData.error_message || payheroData.message || 'PayHero API returned an error',
-          payhero_error: payheroData,
-          status_code: payheroResponse.status
-        }),
-        { status: payheroResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return new Response(JSON.stringify({
+        error: 'PayHero channel registration failed',
+        details: payheroData
+      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
     
     console.log('🎉 PayHero API SUCCESS! Response:', payheroData)

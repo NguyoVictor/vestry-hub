@@ -63,8 +63,8 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
       setData({
         memberId: member.id,
         userId: member.id, // alias
-        tenantId: church.tenantId,
-        churchId: church.tenantId,
+        tenantId: church.id, // Fixed: use church.id instead of church.tenantId
+        churchId: church.id, // Fixed: use church.id instead of church.tenantId
         churchName: church.name,
         churchLogoUrl: church.logo,
         churchCode: church.church_code || "",

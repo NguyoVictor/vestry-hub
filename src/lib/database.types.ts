@@ -902,6 +902,53 @@ export type Database = {
           },
         ]
       }
+      canva_tokens: {
+        Row: {
+          access_token: string
+          canva_user_email: string | null
+          canva_user_id: string
+          canva_user_name: string | null
+          created_at: string | null
+          expires_at: string
+          id: string
+          refresh_token: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          canva_user_email?: string | null
+          canva_user_id: string
+          canva_user_name?: string | null
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          refresh_token: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          canva_user_email?: string | null
+          canva_user_id?: string
+          canva_user_name?: string | null
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canva_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_code: string | null
@@ -2316,15 +2363,21 @@ export type Database = {
       giving_records: {
         Row: {
           amount: number
+          campaign_id: string | null
+          category: string | null
           checkout_request_id: string | null
           created_at: string | null
           currency: string | null
+          donor_name: string | null
           external_reference: string | null
+          fund_id: string | null
           given_at: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id: string
+          is_anonymous: boolean | null
           member_id: string | null
           mpesa_receipt: string | null
+          notes: string | null
           payhero_reference: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status:
@@ -2333,6 +2386,7 @@ export type Database = {
           pesapal_transaction_id: string | null
           phone_number: string | null
           pledge_id: string | null
+          receipt_number: string | null
           receipt_url: string | null
           recorded_by: string | null
           tenant_id: string
@@ -2341,15 +2395,21 @@ export type Database = {
         }
         Insert: {
           amount: number
+          campaign_id?: string | null
+          category?: string | null
           checkout_request_id?: string | null
           created_at?: string | null
           currency?: string | null
+          donor_name?: string | null
           external_reference?: string | null
+          fund_id?: string | null
           given_at?: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          is_anonymous?: boolean | null
           member_id?: string | null
           mpesa_receipt?: string | null
+          notes?: string | null
           payhero_reference?: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
@@ -2358,6 +2418,7 @@ export type Database = {
           pesapal_transaction_id?: string | null
           phone_number?: string | null
           pledge_id?: string | null
+          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id: string
@@ -2366,15 +2427,21 @@ export type Database = {
         }
         Update: {
           amount?: number
+          campaign_id?: string | null
+          category?: string | null
           checkout_request_id?: string | null
           created_at?: string | null
           currency?: string | null
+          donor_name?: string | null
           external_reference?: string | null
+          fund_id?: string | null
           given_at?: string
           giving_type?: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          is_anonymous?: boolean | null
           member_id?: string | null
           mpesa_receipt?: string | null
+          notes?: string | null
           payhero_reference?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
@@ -2383,6 +2450,7 @@ export type Database = {
           pesapal_transaction_id?: string | null
           phone_number?: string | null
           pledge_id?: string | null
+          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id?: string
@@ -6264,10 +6332,13 @@ export type Database = {
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
-          payhero_channel_id: number | null
+          payhero_business_name: string | null
+          payhero_channel_id: string | null
           payhero_channel_number: string | null
           payhero_channel_type: string | null
           payhero_connected: boolean | null
+          payhero_manual_setup: boolean | null
+          payhero_setup_details: Json | null
           phone: string | null
           service_days: string[] | null
           service_time: string | null
@@ -6306,10 +6377,13 @@ export type Database = {
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
-          payhero_channel_id?: number | null
+          payhero_business_name?: string | null
+          payhero_channel_id?: string | null
           payhero_channel_number?: string | null
           payhero_channel_type?: string | null
           payhero_connected?: boolean | null
+          payhero_manual_setup?: boolean | null
+          payhero_setup_details?: Json | null
           phone?: string | null
           service_days?: string[] | null
           service_time?: string | null
@@ -6348,10 +6422,13 @@ export type Database = {
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
-          payhero_channel_id?: number | null
+          payhero_business_name?: string | null
+          payhero_channel_id?: string | null
           payhero_channel_number?: string | null
           payhero_channel_type?: string | null
           payhero_connected?: boolean | null
+          payhero_manual_setup?: boolean | null
+          payhero_setup_details?: Json | null
           phone?: string | null
           service_days?: string[] | null
           service_time?: string | null

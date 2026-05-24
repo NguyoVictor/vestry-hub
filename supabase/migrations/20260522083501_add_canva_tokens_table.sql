@@ -16,10 +16,8 @@ CREATE TABLE IF NOT EXISTS canva_tokens (
   -- Ensure one Canva connection per tenant
   UNIQUE(tenant_id)
 );
-
 -- Enable RLS
 ALTER TABLE canva_tokens ENABLE ROW LEVEL SECURITY;
-
 -- RLS Policies - scoped to tenant_id
 CREATE POLICY "Users can view their tenant's Canva tokens" ON canva_tokens
   FOR SELECT USING (
@@ -27,31 +25,26 @@ CREATE POLICY "Users can view their tenant's Canva tokens" ON canva_tokens
       SELECT u.tenant_id FROM users u WHERE u.id = auth.uid()::text
     )
   );
-
 CREATE POLICY "Users can insert Canva tokens for their tenant" ON canva_tokens
   FOR INSERT WITH CHECK (
     tenant_id IN (
       SELECT u.tenant_id FROM users u WHERE u.id = auth.uid()::text
     )
   );
-
 CREATE POLICY "Users can update their tenant's Canva tokens" ON canva_tokens
   FOR UPDATE USING (
     tenant_id IN (
       SELECT u.tenant_id FROM users u WHERE u.id = auth.uid()::text
     )
   );
-
 CREATE POLICY "Users can delete their tenant's Canva tokens" ON canva_tokens
   FOR DELETE USING (
     tenant_id IN (
       SELECT u.tenant_id FROM users u WHERE u.id = auth.uid()::text
     )
   );
-
 -- Create index for performance
 CREATE INDEX idx_canva_tokens_tenant_id ON canva_tokens(tenant_id);
-
 -- Add updated_at trigger
 CREATE OR REPLACE FUNCTION update_canva_tokens_updated_at()
 RETURNS TRIGGER AS $$
@@ -60,7 +53,6 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 CREATE TRIGGER update_canva_tokens_updated_at
   BEFORE UPDATE ON canva_tokens
   FOR EACH ROW

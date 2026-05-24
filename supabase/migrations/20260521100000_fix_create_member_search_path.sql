@@ -57,13 +57,11 @@ EXCEPTION
     RAISE;
 END;
 $$;
-
 -- Ensure the trigger exists and is properly configured
 DROP TRIGGER IF EXISTS auto_create_member_trigger ON public.users;
 CREATE TRIGGER auto_create_member_trigger
   AFTER INSERT ON public.users
   FOR EACH ROW
   EXECUTE FUNCTION create_member_for_user();
-
 -- Grant necessary permissions
 GRANT INSERT, UPDATE ON public.members TO postgres;
