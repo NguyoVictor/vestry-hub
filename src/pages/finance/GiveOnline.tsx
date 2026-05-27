@@ -90,9 +90,9 @@ const GiveOnline = () => {
       const todayStr = now.toISOString().split("T")[0];
 
       const [todayRes, monthRes, yearRes] = await Promise.all([
-        supabase.from("giving_records").select("amount").eq("tenant_id", tenantId!).gte("given_at", todayStr),
-        supabase.from("giving_records").select("amount").eq("tenant_id", tenantId!).gte("given_at", monthStart.split("T")[0]),
-        supabase.from("giving_records").select("amount").eq("tenant_id", tenantId!).gte("given_at", yearStart.split("T")[0]),
+        supabase.from("giving_records").select("amount").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").gte("given_at", todayStr),
+        supabase.from("giving_records").select("amount").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").gte("given_at", monthStart.split("T")[0]),
+        supabase.from("giving_records").select("amount").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").gte("given_at", yearStart.split("T")[0]),
       ]);
       const sum = (d: any) => (d.data || []).reduce((s: number, r: any) => s + Number(r.amount), 0);
       const monthData = monthRes.data || [];
@@ -109,7 +109,7 @@ const GiveOnline = () => {
   const { data: recentGiving = [] } = useQuery({
     queryKey: ["recent-giving", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("giving_records").select("*").eq("tenant_id", tenantId!).order("given_at", { ascending: false }).limit(10);
+      const { data } = await supabase.from("giving_records").select("*").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false }).limit(10);
       return data || [];
     },
     enabled: !!tenantId,

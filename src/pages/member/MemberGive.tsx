@@ -16,19 +16,20 @@ import NumberFlow from "@/components/finance/AnimatedNumber";
 import { toast } from "react-hot-toast";
 import { format } from "date-fns";
 import { formatCurrencyFull } from "@/lib/format";
-import { 
-  Heart, 
-  CheckCircle2, 
-  Download, 
-  RefreshCw, 
-  Smartphone, 
-  Loader2, 
-  X, 
+import {
+  Heart,
+  CheckCircle2,
+  Download,
+  RefreshCw,
+  Smartphone,
+  Loader2,
+  X,
   Clock,
   Sparkles,
   DollarSign,
   Zap,
-  Shield
+  Shield,
+  AlertCircle
 } from "lucide-react";
 
 const QUICK_AMOUNTS = [500, 1000, 2500, 5000];
@@ -40,25 +41,25 @@ const pageVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { 
-      duration: 0.6, 
-      ease: [0.22, 1, 0.36, 1], 
-      staggerChildren: 0.08 
+    transition: {
+      duration: 0.6,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+      staggerChildren: 0.08
     }
   }
 }
 
 const cardVariants = {
   hidden: { opacity: 0, y: 32, scale: 0.96 },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
-    scale: 1, 
-    transition: { 
-      type: 'spring', 
-      stiffness: 300, 
-      damping: 25 
-    } 
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 300,
+      damping: 25
+    }
   }
 }
 
@@ -68,7 +69,7 @@ const floatingVariants = {
     transition: {
       duration: 4,
       repeat: Infinity,
-      ease: "easeInOut"
+      ease: "easeInOut" as const
     }
   }
 }
@@ -86,8 +87,10 @@ export default function MemberGive() {
   const [stkPushState, setStkPushState] = useState<{
     isActive: boolean;
     checkoutRequestId?: string;
+    givingRecordId?: string;
     countdown: number;
-  }>({ isActive: false, countdown: 150 });
+    terminalState?: 'expired' | 'cancelled' | 'failed' | null;
+  }>({ isActive: false, countdown: 90, terminalState: null });
 
   // Auto-fill phone number from member profile
   useEffect(() => {
@@ -106,50 +109,91 @@ export default function MemberGive() {
           countdown: prev.countdown - 1
         }));
       }, 1000);
-    } else if (stkPushState.countdown === 0) {
-      setStkPushState({ isActive: false, countdown: 150 });
-      toast.error("Payment request expired. Please try again.");
+    } else if (stkPushState.countdown === 0 && !stkPushState.terminalState) {
+      setStkPushState(prev => ({ ...prev, terminalState: 'expired' }));
     }
     return () => clearInterval(interval);
   }, [stkPushState.isActive, stkPushState.countdown]);
 
-  // Listen for payment confirmation via Supabase Realtime
+  // Listen for payment outcome via postgres_changes on the specific giving_records row.
+  // The webhook always UPDATEs the row (never deletes), so this fires reliably.
+  // void_reason carries the granular reason: 'cancelled' | 'expired' | 'failed'.
   useEffect(() => {
-    if (!stkPushState.checkoutRequestId) return;
+    if (!stkPushState.givingRecordId) return;
 
-    const channel = supabase.channel(`payment_updates_${member.churchId}`)
-      .on('broadcast', { event: 'payment_update' }, (payload) => {
-        if (payload.payload.external_reference === stkPushState.checkoutRequestId) {
-          setStkPushState({ isActive: false, countdown: 150 });
-          
-          if (payload.payload.status === 'confirmed') {
+    const channel = supabase
+      .channel(`payment-status-${stkPushState.givingRecordId}`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'giving_records',
+          filter: `id=eq.${stkPushState.givingRecordId}`,
+        },
+        (payload: any) => {
+          const row = payload.new;
+          const status: string = row.payment_status;
+
+          if (status === 'confirmed') {
+            setStkPushState({ isActive: false, countdown: 90, terminalState: null });
             setSuccess({
-              amount: payload.payload.amount,
+              amount: row.amount,
               giving_type: category,
               donation_date: new Date().toISOString(),
-              mpesa_receipt: payload.payload.mpesa_receipt
+              mpesa_receipt: row.mpesa_receipt || null,
             });
-            queryClient.invalidateQueries({ queryKey: ["member-giving", member.memberId] });
-          } else {
-            toast.error("Payment was not completed. Please try again.", {
-              duration: 4000,
-              style: {
-                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                color: 'white',
-                borderRadius: '12px',
-                padding: '16px',
-                fontWeight: '600'
-              }
-            });
+            queryClient.invalidateQueries({ queryKey: ['member-giving', member.memberId] });
+            queryClient.invalidateQueries({ queryKey: ['member-all-giving', member.memberId] });
+          } else if (status === 'cancelled') {
+            setStkPushState(prev => ({ ...prev, terminalState: 'cancelled' }));
+          } else if (status === 'failed') {
+            setStkPushState(prev => ({ ...prev, terminalState: 'failed' }));
           }
         }
-      })
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [stkPushState.checkoutRequestId, member.churchId, category, queryClient, member.memberId]);
+  }, [stkPushState.givingRecordId, category, queryClient, member.memberId]);
+
+  // Polling fallback — queries the row every 2s to guarantee the UI reacts
+  // even when the Realtime subscription hasn't established before the webhook fires.
+  useEffect(() => {
+    if (!stkPushState.isActive || !stkPushState.givingRecordId || stkPushState.terminalState) return;
+
+    const recordId = stkPushState.givingRecordId;
+
+    const interval = setInterval(async () => {
+      const { data: row } = await supabase
+        .from('giving_records')
+        .select('payment_status, amount, mpesa_receipt')
+        .eq('id', recordId)
+        .single();
+
+      if (!row) return;
+
+      if (row.payment_status === 'confirmed') {
+        setStkPushState({ isActive: false, countdown: 90, terminalState: null });
+        setSuccess({
+          amount: row.amount,
+          giving_type: category,
+          donation_date: new Date().toISOString(),
+          mpesa_receipt: row.mpesa_receipt || null,
+        });
+        queryClient.invalidateQueries({ queryKey: ['member-giving', member.memberId] });
+        queryClient.invalidateQueries({ queryKey: ['member-all-giving', member.memberId] });
+      } else if (row.payment_status === 'cancelled') {
+        setStkPushState(prev => ({ ...prev, terminalState: 'cancelled' }));
+      } else if (row.payment_status === 'failed') {
+        setStkPushState(prev => ({ ...prev, terminalState: 'failed' }));
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [stkPushState.isActive, stkPushState.givingRecordId, stkPushState.terminalState, category, queryClient, member.memberId]);
 
   const { data: givingHistory = [], isLoading } = useQuery({
     queryKey: ["member-giving", member.memberId],
@@ -158,6 +202,7 @@ export default function MemberGive() {
         .from("giving_records")
         .select("*")
         .eq("member_id", member.memberId)
+        .in("payment_status", ["confirmed", "cancelled"])
         .order("given_at", { ascending: false })
         .limit(5);
       return data || [];
@@ -178,7 +223,7 @@ export default function MemberGive() {
         
         const { data: tenantData, error: tenantError } = await supabase
           .from('tenants')
-          .select('payhero_connected, payhero_channel_id, payhero_channel_type, name')
+          .select('payhero_connected, name')
           .eq('id', member.churchId)
           .single();
 
@@ -187,24 +232,9 @@ export default function MemberGive() {
           throw new Error('Unable to verify payment configuration. Please try again.');
         }
 
-        console.log('Church PayHero configuration:', tenantData);
-
-        // Check if PayHero is properly configured
-        if (!tenantData.payhero_connected || !tenantData.payhero_channel_id) {
-          console.error('PayHero not configured for church:', {
-            payhero_connected: tenantData.payhero_connected,
-            payhero_channel_id: tenantData.payhero_channel_id,
-            church_name: tenantData.name
-          });
-          
+        if (!tenantData.payhero_connected) {
           throw new Error('Payments not configured. Please contact church admin to set up M-Pesa donations in Settings → Payments.');
         }
-
-        console.log('✅ PayHero channel verified:', {
-          channel_id: tenantData.payhero_channel_id,
-          channel_type: tenantData.payhero_channel_type,
-          church_name: tenantData.name
-        });
 
         // Call process-stk-push Edge Function
         const { data, error } = await supabase.functions.invoke('process-stk-push', {
@@ -212,6 +242,7 @@ export default function MemberGive() {
             amount: Number(amount),
             phone_number: cleanPhone,
             tenant_id: member.churchId,
+            member_id: member.memberId,
             donor_name: `${member.firstName} ${member.lastName}`,
             giving_type: category,
             notes: dedication || null
@@ -230,40 +261,43 @@ export default function MemberGive() {
           throw new Error(data?.error || data?.details || 'Payment initiation failed');
         }
         
-        // Start STK Push state
-        setStkPushState({
-          isActive: true,
-          checkoutRequestId: data.external_reference, // Use external_reference instead of checkout_request_id
-          countdown: 150
-        });
-
         return data;
       } else {
         // Cash payment - direct insert
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await supabase.from("giving_records").insert({
           tenant_id: member.churchId,
           member_id: member.memberId,
           amount: Number(amount),
-          giving_type: category,
-          payment_method: paymentMethod,
-          payment_status: 'confirmed',
+          giving_type: category as any,
+          payment_method: paymentMethod as any,
+          payment_status: 'confirmed' as any,
           given_at: new Date().toISOString(),
           notes: dedication || null,
           currency: "KES",
-        }).select().single();
+        } as any).select().single();
         
         if (error) throw error;
         return data;
       }
     },
     onSuccess: (data) => {
-      if (paymentMethod !== "mpesa") {
-        queryClient.invalidateQueries({ queryKey: ["member-giving", member.memberId] });
+      if (paymentMethod === 'mpesa') {
+        const checkoutId = data?.data?.CheckoutRequestID ?? data?.CheckoutRequestID;
+        const recordId = data?.data?.giving_record_id ?? data?.giving_record_id;
+        setStkPushState({
+          isActive: true,
+          checkoutRequestId: checkoutId,
+          givingRecordId: recordId,
+          countdown: 90,
+          terminalState: null
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['member-giving', member.memberId] });
         setSuccess(data);
-        setAmount(""); 
-        setDedication("");
+        setAmount('');
+        setDedication('');
       }
-      // For M-Pesa, success is handled by the realtime listener
     },
     onError: (error: any) => {
       console.error('Payment error:', error);
@@ -298,7 +332,7 @@ export default function MemberGive() {
         duration: 6000,
         style: toastStyle
       });
-      setStkPushState({ isActive: false, countdown: 150 });
+      setStkPushState({ isActive: false, countdown: 90, terminalState: null });
     },
   });
 
@@ -479,6 +513,55 @@ export default function MemberGive() {
             <div className="absolute -bottom-8 -left-8 w-20 h-20 bg-blue-500/20 rounded-full blur-2xl" />
 
             <div className="relative z-10 space-y-8">
+              {stkPushState.terminalState ? (
+                <motion.div
+                  key="terminal"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className="space-y-6 text-center"
+                >
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+                    className="mx-auto w-20 h-20 rounded-full flex items-center justify-center"
+                    style={{
+                      background: stkPushState.terminalState === 'cancelled'
+                        ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+                        : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                    }}
+                  >
+                    {stkPushState.terminalState === 'expired' && <Clock className="w-10 h-10 text-white" />}
+                    {stkPushState.terminalState === 'cancelled' && <X className="w-10 h-10 text-white" />}
+                    {stkPushState.terminalState === 'failed' && <AlertCircle className="w-10 h-10 text-white" />}
+                  </motion.div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-bold text-gray-800">
+                      {stkPushState.terminalState === 'expired' && 'Time elapsed'}
+                      {stkPushState.terminalState === 'cancelled' && 'Payment cancelled'}
+                      {stkPushState.terminalState === 'failed' && 'Payment failed'}
+                    </h3>
+                    <p className="text-gray-500 text-sm">
+                      {stkPushState.terminalState === 'expired' && 'The payment request has expired. Please try again.'}
+                      {stkPushState.terminalState === 'cancelled' && 'You cancelled the M-Pesa payment request.'}
+                      {stkPushState.terminalState === 'failed' && 'The payment could not be processed. Please try again.'}
+                    </p>
+                  </div>
+
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button
+                      className="w-full h-12 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600 shadow-lg shadow-purple-500/25 font-semibold text-white border-0"
+                      onClick={() => setStkPushState({ isActive: false, countdown: 90, terminalState: null })}
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Try Again
+                    </Button>
+                  </motion.div>
+                </motion.div>
+              ) : (
+              <>
               {/* Animated Phone Icon */}
               <motion.div
                 animate={{ 
@@ -596,7 +679,7 @@ export default function MemberGive() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setStkPushState({ isActive: false, countdown: 150 })}
+                    onClick={() => setStkPushState({ isActive: false, countdown: 90, terminalState: null })}
                     className="w-full text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-2xl h-12 font-medium"
                   >
                     <X className="w-4 h-4 mr-2" />
@@ -604,6 +687,8 @@ export default function MemberGive() {
                   </Button>
                 </motion.div>
               </div>
+              </>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -1060,18 +1145,18 @@ export default function MemberGive() {
                             )}
                             
                             {g.payment_status && (
-                              <Badge 
-                                variant={g.payment_status === 'confirmed' ? 'default' : 'secondary'}
+                              <Badge
+                                variant="secondary"
                                 className={`text-xs border ${
-                                  g.payment_status === 'confirmed' 
-                                    ? 'bg-green-100 text-green-700 border-green-200' 
-                                    : g.payment_status === 'pending'
-                                    ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                                  g.payment_status === 'confirmed'
+                                    ? 'bg-green-100 text-green-700 border-green-200'
+                                    : g.payment_status === 'cancelled'
+                                    ? 'bg-gray-100 text-gray-600 border-gray-200'
                                     : 'bg-red-100 text-red-700 border-red-200'
                                 }`}
                               >
                                 {g.payment_status === 'confirmed' && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                {g.payment_status === 'pending' && <Clock className="w-3 h-3 mr-1" />}
+                                {g.payment_status === 'cancelled' && <X className="w-3 h-3 mr-1" />}
                                 {g.payment_status}
                               </Badge>
                             )}

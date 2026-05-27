@@ -73,7 +73,7 @@ const cardVariants = {
     scale: 1,
     transition: {
       duration: 0.5,
-      ease: [0.22, 1, 0.36, 1],
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   },
 };
@@ -86,7 +86,7 @@ const activityVariants = {
     transition: {
       delay: 0.6 + i * 0.07,
       duration: 0.4,
-      ease: [0.22, 1, 0.36, 1],
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   }),
 };
@@ -165,6 +165,7 @@ const Dashboard = () => {
           .from(TABLES.GIVING_RECORDS)
           .select("amount")
           .eq("tenant_id", church.tenantId)
+          .eq("payment_status", "confirmed")
           .gte("given_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
         
         // Count upcoming events (next 7 days)
@@ -271,6 +272,7 @@ const Dashboard = () => {
       start.setMonth(start.getMonth() - chartMonths);
       const { data } = await supabase.from(TABLES.GIVING_RECORDS).select("amount, given_at")
         .eq("tenant_id", church.tenantId)
+        .eq("payment_status", "confirmed")
         .gte("given_at", start.toISOString().split("T")[0]).order("given_at", { ascending: true });
       const monthly: Record<string, number> = {};
       data?.forEach(r => {
@@ -290,7 +292,8 @@ const Dashboard = () => {
     queryFn: async () => {
       const { data: groups } = await supabase.from(TABLES.GROUPS).select("id, name").eq("tenant_id", church.tenantId).eq("is_active", true);
       if (!groups?.length) return [];
-      const { data: gm } = await supabase.from(TABLES.GROUP_MEMBERS).select("group_id").eq("tenant_id", church.tenantId);
+      const groupIds = groups.map(g => g.id);
+      const { data: gm } = await supabase.from(TABLES.GROUP_MEMBERS).select("group_id").in("group_id", groupIds);
       const counts: Record<string, number> = {};
       gm?.forEach(m => { counts[m.group_id] = (counts[m.group_id] || 0) + 1; });
       return groups.map(g => ({ name: g.name, value: counts[g.id] || 0 }))
@@ -363,7 +366,8 @@ const Dashboard = () => {
       // Get ALL records first
       const { data: allRecords, error } = await supabase.from("giving_records")
         .select("amount, given_at")
-        .eq("tenant_id", church.tenantId);
+        .eq("tenant_id", church.tenantId)
+        .eq("payment_status", "confirmed");
       
       if (error) {
         console.error("Today's Total Query Error:", error);
@@ -408,6 +412,7 @@ const Dashboard = () => {
       const { data: allRecords, error } = await supabase.from("giving_records")
         .select("id, amount, giving_type, payment_method, given_at, currency, member_id")
         .eq("tenant_id", church.tenantId)
+        .eq("payment_status", "confirmed")
         .order("given_at", { ascending: false });
       
       if (error) {

@@ -81,6 +81,7 @@ export default function MemberGivingHistory() {
         .from(TABLES.GIVING_RECORDS)
         .select("*")
         .eq("member_id", member.memberId)
+        .in("payment_status", ["confirmed", "cancelled"])
         .order(COLS.GIVING_DATE, { ascending: false });
       return data || [];
     },
@@ -101,8 +102,8 @@ export default function MemberGivingHistory() {
     switch (status) {
       case 'confirmed':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'pending':
-        return <Clock className="w-4 h-4 text-yellow-600" />;
+      case 'cancelled':
+        return <XCircle className="w-4 h-4 text-gray-500" />;
       case 'failed':
         return <XCircle className="w-4 h-4 text-red-600" />;
       default:
@@ -114,8 +115,8 @@ export default function MemberGivingHistory() {
     switch (status) {
       case 'confirmed':
         return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
+      case 'cancelled':
+        return 'bg-gray-100 text-gray-600';
       case 'failed':
         return 'bg-red-100 text-red-700';
       default:

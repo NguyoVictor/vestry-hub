@@ -6264,10 +6264,18 @@ export type Database = {
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
-          payhero_channel_id: number | null
+          daraja_consumer_key: string | null
+          daraja_consumer_secret: string | null
+          daraja_passkey: string | null
+          daraja_transaction_type: string | null
+          payhero_channel_id: string | null
           payhero_channel_number: string | null
           payhero_channel_type: string | null
           payhero_connected: boolean | null
+          payhero_credential_id: string | null
+          payhero_manual_setup: boolean | null
+          payhero_business_name: string | null
+          payhero_setup_details: Json | null
           phone: string | null
           service_days: string[] | null
           service_time: string | null
@@ -6306,10 +6314,18 @@ export type Database = {
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
-          payhero_channel_id?: number | null
+          daraja_consumer_key?: string | null
+          daraja_consumer_secret?: string | null
+          daraja_passkey?: string | null
+          daraja_transaction_type?: string | null
+          payhero_channel_id?: string | null
           payhero_channel_number?: string | null
           payhero_channel_type?: string | null
           payhero_connected?: boolean | null
+          payhero_credential_id?: string | null
+          payhero_manual_setup?: boolean | null
+          payhero_business_name?: string | null
+          payhero_setup_details?: Json | null
           phone?: string | null
           service_days?: string[] | null
           service_time?: string | null
@@ -6348,10 +6364,18 @@ export type Database = {
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
-          payhero_channel_id?: number | null
+          daraja_consumer_key?: string | null
+          daraja_consumer_secret?: string | null
+          daraja_passkey?: string | null
+          daraja_transaction_type?: string | null
+          payhero_channel_id?: string | null
           payhero_channel_number?: string | null
           payhero_channel_type?: string | null
           payhero_connected?: boolean | null
+          payhero_credential_id?: string | null
+          payhero_manual_setup?: boolean | null
+          payhero_business_name?: string | null
+          payhero_setup_details?: Json | null
           phone?: string | null
           service_days?: string[] | null
           service_time?: string | null
@@ -6910,7 +6934,7 @@ export type Database = {
       marital_status_enum: "single" | "married" | "divorced" | "widowed"
       payment_method_enum: "cash" | "mpesa" | "bank_transfer"
       payment_schedule_enum: "one_time" | "weekly" | "monthly"
-      payment_status_enum: "pending" | "confirmed" | "failed" | "voided"
+      payment_status_enum: "pending" | "confirmed" | "failed" | "voided" | "cancelled"
       pledge_status_enum: "pending" | "partial" | "fulfilled" | "overdue"
       service_type_enum: "sunday" | "midweek" | "special"
       subscription_plan_enum: "free" | "foundation" | "growth" | "enterprise"
@@ -7090,7 +7114,7 @@ export const Constants = {
       marital_status_enum: ["single", "married", "divorced", "widowed"],
       payment_method_enum: ["cash", "mpesa", "bank_transfer"],
       payment_schedule_enum: ["one_time", "weekly", "monthly"],
-      payment_status_enum: ["pending", "confirmed", "failed", "voided"],
+      payment_status_enum: ["pending", "confirmed", "failed", "voided", "cancelled"],
       pledge_status_enum: ["pending", "partial", "fulfilled", "overdue"],
       service_type_enum: ["sunday", "midweek", "special"],
       subscription_plan_enum: ["free", "foundation", "growth", "enterprise"],

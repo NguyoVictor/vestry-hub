@@ -38,25 +38,25 @@ const pageVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { 
-      duration: 0.6, 
-      ease: [0.22, 1, 0.36, 1], 
-      staggerChildren: 0.08 
+    transition: {
+      duration: 0.6,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+      staggerChildren: 0.08
     }
   }
 }
 
 const cardVariants = {
   hidden: { opacity: 0, y: 32, scale: 0.96 },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
-    scale: 1, 
-    transition: { 
-      type: 'spring', 
-      stiffness: 300, 
-      damping: 25 
-    } 
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring' as const,
+      stiffness: 300,
+      damping: 25
+    }
   }
 }
 
@@ -76,7 +76,7 @@ const GivingRecords = () => {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["giving-records", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("giving_records").select("*").eq("tenant_id", tenantId!).order("given_at", { ascending: false });
+      const { data, error } = await supabase.from("giving_records").select("*").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false });
       if (error) throw error;
       return (data || []) as GivingRow[];
     },
