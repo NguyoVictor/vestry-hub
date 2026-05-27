@@ -391,7 +391,10 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-900 overflow-y-auto"
+      onWheel={(e) => e.stopPropagation()}
+    >
       {/* Top bar */}
       <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
