@@ -995,7 +995,12 @@ const Dashboard = () => {
                             {donation.giving_type?.replace(/_/g, " ")}
                           </span>
                           <span className="text-xs text-slate-500">
-                            {format(new Date(donation.given_at), "h:mm a")}
+                            {new Date(donation.created_at).toLocaleTimeString('en-KE', {
+                              timeZone: 'Africa/Nairobi',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
                           </span>
                         </div>
                       </div>

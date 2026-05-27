@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { format, startOfMonth, startOfYear } from "date-fns";
 
-const GIVING_CATEGORIES = ["tithe", "offering", "building_fund", "welfare", "missions", "special", "other"] as const;
+const GIVING_CATEGORIES = ["tithe", "offering", "pledge_payment", "special_donation"] as const;
 const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "cheque", "other"] as const;
 
 // ── Shared animation variants ─────────────────────────────────────────────────
@@ -68,7 +68,7 @@ const tableRowVariants = {
 
 // ── AdminGive constants ───────────────────────────────────────────────────────
 const QUICK_AMOUNTS = [500, 1000, 2500, 5000];
-const GIVE_CATEGORIES = ["tithe", "offering", "building_fund", "welfare", "missions", "other"];
+const GIVE_CATEGORIES = ["tithe", "offering", "pledge_payment", "special_donation"];
 
 const floatingVariants = {
   animate: {
@@ -93,7 +93,6 @@ function AdminGive() {
 
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("offering");
-  const [frequency, setFrequency] = useState("one_time");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dedication, setDedication] = useState("");
   const [success, setSuccess] = useState<any>(null);
@@ -632,21 +631,8 @@ function AdminGive() {
               </Select>
             </motion.div>
 
-            {/* Frequency */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="space-y-3">
-              <Label className="text-sm font-semibold text-gray-700">Frequency</Label>
-              <div className="grid grid-cols-3 gap-3">
-                {[["one_time", "One-Time"], ["weekly", "Weekly"], ["monthly", "Monthly"]].map(([val, label]) => (
-                  <motion.button key={val} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setFrequency(val)}
-                    className={`py-3 rounded-2xl text-sm font-medium border-2 transition-all duration-300 ${frequency === val ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white border-purple-600 shadow-lg shadow-purple-500/25" : "border-gray-200 hover:border-purple-200 hover:bg-purple-50/50 bg-white/60 backdrop-blur-sm"}`}>
-                    {label}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-
             {/* M-Pesa info */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="space-y-3">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="space-y-3">
               <Label className="text-sm font-semibold text-gray-700">Payment Method</Label>
               <div className="p-4 bg-green-50/80 rounded-2xl border border-green-200/50 backdrop-blur-sm">
                 <div className="flex items-start space-x-3">
@@ -660,7 +646,7 @@ function AdminGive() {
             </motion.div>
 
             {/* Phone number */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }} className="space-y-3">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="space-y-3">
               <Label htmlFor="adminPhoneNumber" className="text-sm font-semibold text-gray-700">M-Pesa Number</Label>
               <div className="relative">
                 <Input id="adminPhoneNumber" type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
@@ -675,7 +661,7 @@ function AdminGive() {
             </motion.div>
 
             {/* Dedication */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }} className="space-y-3">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }} className="space-y-3">
               <Label className="text-sm font-semibold text-gray-700">
                 Dedication / Note <span className="text-gray-400 font-normal">(optional)</span>
               </Label>
@@ -744,7 +730,17 @@ function AdminGive() {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">{format(new Date(g.given_at || g.donation_date), "dd MMM yyyy")} • {g.payment_method}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(g.created_at || g.donation_date).toLocaleString('en-KE', {
+                            timeZone: 'Africa/Nairobi',
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })} • {g.payment_method}
+                        </p>
                       </div>
                       <span className="text-lg font-bold text-emerald-600">
                         <NumberFlow value={Number(g.amount)} format={{ style: "currency", currency: g.currency || "KES", minimumFractionDigits: 0, maximumFractionDigits: 0 }} transformTiming={{ duration: 800, easing: "ease-out" }} />
@@ -796,7 +792,7 @@ const GiveOnline = () => {
   const { data: recentGiving = [] } = useQuery({
     queryKey: ["recent-giving", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("giving_records").select("*").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false }).limit(10);
+      const { data } = await supabase.from("giving_records").select("*, donor_name, is_anonymous").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false }).limit(10);
       return data || [];
     },
     enabled: !!tenantId,
@@ -959,14 +955,25 @@ const GiveOnline = () => {
                           <AnimatePresence>
                             {recentGiving.map((r: any, index: number) => {
                               const m = members.find((mb: any) => mb.id === r.member_id);
+                              const memberName = m ? `${m.first_name} ${m.last_name}` : null;
+                              const displayName = memberName || r.donor_name || 'Anonymous';
+                              const isAnonymous = r.is_anonymous;
+                              
                               return (
                                 <motion.tr key={r.id} variants={tableRowVariants} initial="hidden" animate="visible"
                                   transition={{ delay: index * 0.05 }} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                                   <TableCell>
-                                    {m ? (
+                                    {displayName !== 'Anonymous' ? (
                                       <div className="flex items-center gap-3">
-                                        <MemberAvatar name={`${m.first_name} ${m.last_name}`} size="sm" />
-                                        <span className="text-sm font-medium">{m.first_name} {m.last_name}</span>
+                                        <MemberAvatar name={displayName} size="sm" />
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-medium">{displayName}</span>
+                                          {isAnonymous && (
+                                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+                                              Anonymous
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                     ) : (
                                       <div className="flex items-center gap-3">
@@ -984,7 +991,17 @@ const GiveOnline = () => {
                                   </TableCell>
                                   <TableCell><TransactionBadge type={r.giving_type} /></TableCell>
                                   <TableCell><PaymentMethodIcon method={r.payment_method} /></TableCell>
-                                  <TableCell className="text-sm text-gray-600">{r.given_at ? format(new Date(r.given_at), "dd MMM yyyy") : "—"}</TableCell>
+                                  <TableCell className="text-sm text-gray-600">
+                                    {r.created_at ? new Date(r.created_at).toLocaleString('en-KE', {
+                                      timeZone: 'Africa/Nairobi',
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    }) : "—"}
+                                  </TableCell>
                                 </motion.tr>
                               );
                             })}

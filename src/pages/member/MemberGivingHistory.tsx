@@ -206,7 +206,15 @@ export default function MemberGivingHistory() {
         <div className="flex items-center space-x-2">
           <Calendar className="w-4 h-4 text-gray-400" />
           <span className="text-sm font-semibold text-gray-800">
-            {format(new Date(r.given_at), "dd MMM yyyy")}
+            {new Date(r.created_at).toLocaleString('en-KE', {
+              timeZone: 'Africa/Nairobi',
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            })}
           </span>
         </div>
       ) 

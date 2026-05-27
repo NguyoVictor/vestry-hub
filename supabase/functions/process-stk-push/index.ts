@@ -55,9 +55,14 @@ serve(async (req) => {
     console.log('=== Daraja STK Push Processing ===')
     console.log('Church:', tenant.name, '| Transaction Type:', tenant.daraja_transaction_type)
 
+    // Dynamic Daraja base URL
+    const DARAJA_BASE_URL = Deno.env.get('DARAJA_ENV') === 'production'
+      ? 'https://api.safaricom.co.ke'
+      : 'https://sandbox.safaricom.co.ke'
+
     // Generate access token
     const auth = btoa(`${tenant.daraja_consumer_key}:${tenant.daraja_consumer_secret}`)
-    const tokenResponse = await fetch('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
+    const tokenResponse = await fetch(`${DARAJA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials`, {
       headers: { 'Authorization': `Basic ${auth}` }
     })
 
@@ -107,7 +112,7 @@ serve(async (req) => {
 
     console.log('STK Push payload:', { ...stkPayload, Password: '[HIDDEN]' })
 
-    const stkResponse = await fetch('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
+    const stkResponse = await fetch(`${DARAJA_BASE_URL}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,

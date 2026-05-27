@@ -52,10 +52,12 @@ export default function PaymentsPage() {
     payhero_connected?: boolean
     payhero_channel_type?: string
     payhero_channel_number?: string
+    c2b_registered?: boolean
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [showWizard, setShowWizard] = useState(false)
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
+  const [c2bLoading, setC2bLoading] = useState(false)
 
   // Wizard state
   const [currentStep, setCurrentStep] = useState(1)
@@ -81,7 +83,7 @@ export default function PaymentsPage() {
     try {
       const { data, error } = await supabase
         .from('tenants')
-        .select('payhero_connected, payhero_channel_type, payhero_channel_number')
+        .select('payhero_connected, payhero_channel_type, payhero_channel_number, c2b_registered')
         .eq('id', church.tenantId)
         .single()
       if (error) throw error
@@ -141,6 +143,24 @@ export default function PaymentsPage() {
       setConnectError(err.message || 'Failed to connect payment channel. Please check your credentials and try again.')
     } finally {
       setConnecting(false)
+    }
+  }
+
+  const handleEnableC2B = async () => {
+    setC2bLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('register-c2b-urls', {
+        body: { tenant_id: church.tenantId }
+      })
+      if (error) throw error
+      if (data && !data.success) throw new Error(data.error || 'C2B registration failed')
+      
+      toast.success('Direct M-Pesa recording enabled successfully!')
+      checkConnectionStatus() // Refresh to show updated status
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to enable direct M-Pesa recording. Please try again.')
+    } finally {
+      setC2bLoading(false)
     }
   }
 
@@ -573,6 +593,51 @@ export default function PaymentsPage() {
                 Manage Channel
               </Button>
             </div>
+
+            {/* ── C2B DIRECT M-PESA RECORDING SECTION ── */}
+            {isConnected && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
+                className="mt-6 pt-6 border-t border-slate-200"
+              >
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-1">Direct M-Pesa Recording</h3>
+                  <p className="text-sm text-slate-500 mb-4">
+                    Automatically record payments made directly via M-Pesa Paybill/Till — no app required
+                  </p>
+
+                  {channelInfo?.c2b_registered ? (
+                    <div className="flex items-center justify-center gap-2 text-green-600 mb-4">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span className="font-medium">Direct M-Pesa Recording Active</span>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleEnableC2B}
+                      disabled={c2bLoading}
+                      className="bg-orange-500 hover:bg-orange-600 text-white"
+                    >
+                      {c2bLoading ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Enabling...
+                        </span>
+                      ) : (
+                        'Enable Direct Recording'
+                      )}
+                    </Button>
+                  )}
+
+                  {channelInfo?.c2b_registered && (
+                    <div className="text-xs text-slate-500 mt-2">
+                      Payments made directly to your {channelInfo.payhero_channel_type} {channelInfo.payhero_channel_number} will automatically appear in giving records
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </div>

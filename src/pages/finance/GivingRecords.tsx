@@ -27,9 +27,20 @@ import { formatCurrencyFull } from "@/lib/format";
 
 import { logActivity } from "@/lib/activityLogger";
 
-interface GivingRow { id: string; member_id: string | null; amount: number; giving_type: string; payment_method: string; given_at: string; recorded_by: string | null; created_at: string; }
+interface GivingRow { 
+  id: string; 
+  member_id: string | null; 
+  amount: number; 
+  giving_type: string; 
+  payment_method: string; 
+  given_at: string; 
+  recorded_by: string | null; 
+  created_at: string; 
+  donor_name?: string;
+  is_anonymous?: boolean;
+}
 
-const GIVING_CATEGORIES = ["tithe", "offering", "building_fund", "welfare", "missions", "special", "other"];
+const GIVING_CATEGORIES = ["tithe", "offering", "pledge_payment", "special_donation"];
 const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "cheque", "other"];
 
 // Premium page animations
@@ -76,7 +87,7 @@ const GivingRecords = () => {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["giving-records", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("giving_records").select("*").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false });
+      const { data, error } = await supabase.from("giving_records").select("*, donor_name, is_anonymous").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false });
       if (error) throw error;
       return (data || []) as GivingRow[];
     },
@@ -186,22 +197,40 @@ const GivingRecords = () => {
       header: "Donor", 
       sortable: true, 
       render: (r) => { 
-        const name = getMemberName(r.member_id); 
-        return name ? (
+        const memberName = getMemberName(r.member_id);
+        const displayName = memberName || (r as any).donor_name || 'Anonymous';
+        const isAnonymous = (r as any).is_anonymous;
+        
+        return (
           <div className="flex items-center gap-3">
-            <MemberAvatar name={name} size="sm" />
-            <span className="text-sm font-medium">{name}</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-              <Users className="w-4 h-4 text-gray-400" />
-            </div>
-            <span className="text-gray-500 italic text-sm">Anonymous</span>
+            {displayName !== 'Anonymous' ? (
+              <>
+                <MemberAvatar name={displayName} size="sm" />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{displayName}</span>
+                  {isAnonymous && (
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+                      Anonymous
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Users className="w-4 h-4 text-gray-400" />
+                </div>
+                <span className="text-gray-500 italic text-sm">Anonymous</span>
+              </>
+            )}
           </div>
         ); 
       }, 
-      exportValue: (r) => getMemberName(r.member_id) || "Anonymous" 
+      exportValue: (r) => {
+        const memberName = getMemberName(r.member_id);
+        const displayName = memberName || (r as any).donor_name || 'Anonymous';
+        return (r as any).is_anonymous ? 'Anonymous' : displayName;
+      }
     },
     { 
       key: "amount", 
@@ -242,7 +271,15 @@ const GivingRecords = () => {
         <div className="flex items-center space-x-2">
           <Calendar className="w-4 h-4 text-gray-400" />
           <span className="text-sm font-medium text-gray-700">
-            {r.given_at ? format(new Date(r.given_at), "dd MMM yyyy") : "—"}
+            {r.created_at ? new Date(r.created_at).toLocaleString('en-KE', {
+              timeZone: 'Africa/Nairobi',
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            }) : "—"}
           </span>
         </div>
       )

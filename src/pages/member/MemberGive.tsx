@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 
 const QUICK_AMOUNTS = [500, 1000, 2500, 5000];
-const CATEGORIES = ["tithe", "offering", "building_fund", "welfare", "missions", "other"];
+const CATEGORIES = ["tithe", "offering", "pledge_payment", "special_donation"];
 
 // Premium page animations
 const pageVariants = {
@@ -80,7 +80,6 @@ export default function MemberGive() {
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("offering");
-  const [frequency, setFrequency] = useState("one_time");
   const [paymentMethod, setPaymentMethod] = useState("mpesa");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dedication, setDedication] = useState("");
@@ -967,38 +966,11 @@ export default function MemberGive() {
                 </Select>
               </motion.div>
 
-              {/* Frequency Selection */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-                className="space-y-3"
-              >
-                <Label className="text-sm font-semibold text-gray-700">Frequency</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[["one_time", "One-Time"], ["weekly", "Weekly"], ["monthly", "Monthly"]].map(([val, label]) => (
-                    <motion.button 
-                      key={val} 
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setFrequency(val)} 
-                      className={`py-3 rounded-2xl text-sm font-medium border-2 transition-all duration-300 ${
-                        frequency === val 
-                          ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white border-purple-600 shadow-lg shadow-purple-500/25" 
-                          : "border-gray-200 hover:border-purple-200 hover:bg-purple-50/50 bg-white/60 backdrop-blur-sm"
-                      }`}
-                    >
-                      {label}
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-
               {/* Payment Method Selection */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
+                transition={{ delay: 0.7 }}
                 className="space-y-3"
               >
                 <Label className="text-sm font-semibold text-gray-700">Payment Method</Label>
@@ -1127,7 +1099,7 @@ export default function MemberGive() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
+                transition={{ delay: 0.8 }}
                 className="space-y-3"
               >
                 <Label className="text-sm font-semibold text-gray-700">
@@ -1136,7 +1108,7 @@ export default function MemberGive() {
                 <Input 
                   value={dedication} 
                   onChange={e => setDedication(e.target.value)} 
-                  placeholder="e.g. In memory of John, For building fund" 
+                  placeholder="e.g. In memory of John, For special project" 
                   className="h-12 rounded-2xl border-2 border-gray-100 focus:border-purple-300 bg-white/80 backdrop-blur-sm" 
                 />
               </motion.div>
@@ -1300,7 +1272,17 @@ export default function MemberGive() {
                           </div>
                           
                           <p className="text-xs text-gray-500 flex items-center space-x-2">
-                            <span>{format(new Date(g.given_at || g.donation_date), "dd MMM yyyy")}</span>
+                            <span>
+                              {new Date(g.created_at || g.donation_date).toLocaleString('en-KE', {
+                                timeZone: 'Africa/Nairobi',
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
                             <span>•</span>
                             <span className="capitalize">{g.payment_method}</span>
                           </p>
