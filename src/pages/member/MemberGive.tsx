@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { jsPDF } from "jspdf";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -350,6 +351,141 @@ export default function MemberGive() {
     return `${start}${middle}${end}`;
   };
 
+  const generateReceipt = () => {
+    if (!success) return;
+
+    const doc = new jsPDF({ format: 'a5', unit: 'mm' });
+    const W = 148;
+
+    // ── Dark header background ────────────────────────────────────────────────
+    doc.setFillColor(30, 27, 75); // deep indigo #1e1b4b
+    doc.rect(0, 0, W, 56, 'F');
+
+    // Orange accent bar at bottom of header
+    doc.setFillColor(249, 115, 22); // #f97316
+    doc.rect(0, 56, W, 2.5, 'F');
+
+    // Church initials avatar circle
+    const words = (member.churchName || 'CH').trim().split(/\s+/);
+    const initials = words.slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
+    doc.setFillColor(124, 58, 237); // #7c3aed
+    doc.circle(W / 2, 17, 10, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(initials.length > 1 ? 9 : 12);
+    doc.setTextColor(255, 255, 255);
+    doc.text(initials, W / 2, 20.5, { align: 'center' });
+
+    // Church name
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(member.churchName || 'Your Church', W / 2, 36, { align: 'center', maxWidth: W - 20 });
+
+    // Subtitle
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(167, 139, 250); // light purple #a78bfa
+    doc.text('OFFICIAL GIVING RECEIPT', W / 2, 47, { align: 'center' });
+
+    // ── Amount section ────────────────────────────────────────────────────────
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128); // gray
+    doc.text('AMOUNT PAID', W / 2, 70, { align: 'center' });
+
+    const formattedAmount = new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(Number(success.amount));
+
+    doc.setFontSize(26);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(22, 163, 74); // green #16a34a
+    doc.text(formattedAmount, W / 2, 83, { align: 'center' });
+
+    const categoryLabel = (success.giving_type || '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(124, 58, 237); // purple
+    doc.text(categoryLabel, W / 2, 91, { align: 'center' });
+
+    // ── Purple section divider ────────────────────────────────────────────────
+    doc.setDrawColor(124, 58, 237);
+    doc.setLineWidth(0.5);
+    doc.line(14, 97, W - 14, 97);
+
+    // ── Details rows ──────────────────────────────────────────────────────────
+    const lx = 16;
+    const vx = W - 16;
+    let y = 110;
+    const gap = 15;
+
+    const drawRow = (label: string, value: string, highlight = false) => {
+      if (highlight && value) {
+        doc.setFillColor(240, 253, 244); // very light green
+        doc.setDrawColor(134, 239, 172);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(lx - 2, y - 7, W - 28, 13, 2, 2, 'FD');
+      }
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(107, 114, 128);
+      doc.text(label.toUpperCase(), lx, y);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      if (highlight) {
+        doc.setTextColor(21, 128, 61); // dark green for highlighted
+      } else {
+        doc.setTextColor(31, 41, 55);
+      }
+      doc.text(value || '—', vx, y + 5.5, { align: 'right' });
+      y += gap;
+    };
+
+    const donorName = `${member.firstName || ''} ${member.lastName || ''}`.trim();
+    const dateStr = format(new Date(success.donation_date || new Date()), 'dd MMM yyyy, HH:mm');
+
+    drawRow('Donor Name', donorName);
+    drawRow('Payment Method', 'M-Pesa');
+    if (success.mpesa_receipt) drawRow('M-Pesa Receipt No.', success.mpesa_receipt, true);
+    drawRow('Date & Time', dateStr);
+    drawRow('Category', categoryLabel);
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    const footerTop = Math.max(y + 10, 173);
+
+    doc.setFillColor(249, 115, 22); // orange accent
+    doc.rect(0, footerTop, W, 1.5, 'F');
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(55, 65, 81);
+    doc.text(
+      `Thank you for your generous giving to ${member.churchName || 'the church'}.`,
+      W / 2,
+      footerTop + 12,
+      { align: 'center', maxWidth: W - 20 }
+    );
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(156, 163, 175);
+    doc.text(
+      'This is an official receipt. Please keep for your records.',
+      W / 2,
+      footerTop + 21,
+      { align: 'center' }
+    );
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+    const ref = success.mpesa_receipt || format(new Date(success.donation_date || new Date()), 'yyyyMMdd');
+    doc.save(`Vestry-Receipt-${ref}.pdf`);
+  };
+
   // Premium Success Screen
   if (success) {
     return (
@@ -462,9 +598,10 @@ export default function MemberGive() {
               whileTap={{ scale: 0.95 }}
               className="flex-1"
             >
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full h-12 rounded-2xl border-2 border-gray-200 hover:border-gray-300 bg-white/80 backdrop-blur-sm font-semibold"
+                onClick={generateReceipt}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Receipt

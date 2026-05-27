@@ -646,6 +646,14 @@ export default function Index() {
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="VestryHub — Church Management for African Churches" />
         <meta name="twitter:description" content="Manage members, accept M-Pesa offerings, track attendance and communicate — all in one platform. Free for up to 100 members." />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Vestry Hub",
+            "url": "https://vestryhub.com"
+          })}
+        </script>
       </Helmet>
 
       <div style={{ background: SITE_BG }} className="text-[#111] min-h-screen font-sans antialiased">

@@ -7,12 +7,13 @@ const PrivacyPolicy = () => {
     <>
       <Helmet>
         <title>Privacy Policy — Vestry Hub</title>
-        <meta name="description" content="Read the Privacy Policy for Vestry Hub. We are committed to protecting your data in compliance with Kenya's Data Protection Act 2019." />
+        <meta name="description" content="Learn how Vestry Hub protects your church's data and member information. Our comprehensive Privacy Policy outlines our commitment to data security, compliance with Kenya's Data Protection Act 2019, GDPR principles, and transparent data handling practices. We detail what information we collect, how we use it, your rights as a data subject, and our security measures to keep your church's sensitive information safe and secure." />
         <link rel="canonical" href="https://vestryhub.com/privacy" />
         <meta property="og:title" content="Privacy Policy — Vestry Hub" />
         <meta property="og:description" content="Read the Privacy Policy for Vestry Hub. We are committed to protecting your data in compliance with Kenya's Data Protection Act 2019." />
         <meta property="og:url" content="https://vestryhub.com/privacy" />
         <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Vestry Hub" />
       </Helmet>
       
       <div className="min-h-screen bg-white">

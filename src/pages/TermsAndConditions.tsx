@@ -7,12 +7,13 @@ const TermsAndConditions = () => {
     <>
       <Helmet>
         <title>Terms and Conditions — Vestry Hub</title>
-        <meta name="description" content="Read the Terms and Conditions for using Vestry Hub, the church management platform for African churches. Governed by the laws of Kenya." />
+        <meta name="description" content="Read the comprehensive Terms and Conditions for using Vestry Hub, the leading church management platform designed specifically for African churches. Our terms cover user responsibilities, service availability, data protection, payment processing, and legal compliance under Kenyan law. Understanding these terms ensures you get the most out of our platform while protecting both your church and our service." />
         <link rel="canonical" href="https://vestryhub.com/terms" />
         <meta property="og:title" content="Terms and Conditions — Vestry Hub" />
         <meta property="og:description" content="Read the Terms and Conditions for using Vestry Hub, the church management platform for African churches." />
         <meta property="og:url" content="https://vestryhub.com/terms" />
         <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Vestry Hub" />
       </Helmet>
       
       <div className="min-h-screen bg-white">
