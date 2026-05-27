@@ -207,7 +207,7 @@ function AdminGive() {
         .select("*")
         .eq("member_id", adminProfile!.id)
         .in("payment_status", ["confirmed", "cancelled"])
-        .order("given_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(5);
       return data || [];
     },
@@ -792,7 +792,7 @@ const GiveOnline = () => {
   const { data: recentGiving = [] } = useQuery({
     queryKey: ["recent-giving", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("giving_records").select("*, donor_name, is_anonymous").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false }).limit(10);
+      const { data } = await supabase.from("giving_records").select("*, donor_name, is_anonymous").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("created_at", { ascending: false }).limit(10);
       return data || [];
     },
     enabled: !!tenantId,

@@ -203,7 +203,7 @@ export default function MemberGive() {
         .select("*")
         .eq("member_id", member.memberId)
         .in("payment_status", ["confirmed", "cancelled"])
-        .order("given_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(5);
       return data || [];
     },

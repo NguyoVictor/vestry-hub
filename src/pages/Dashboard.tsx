@@ -321,7 +321,7 @@ const Dashboard = () => {
       const { data } = await supabase.from("giving_records")
         .select("id, amount, given_at, member_id")
         .eq("tenant_id", church.tenantId)
-        .order("given_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(10);
       
       console.log("All Recent Giving Records Debug:", {
@@ -410,10 +410,10 @@ const Dashboard = () => {
     queryFn: async () => {
       // Use IDENTICAL logic to todaysTotal query - ONLY use existing columns
       const { data: allRecords, error } = await supabase.from("giving_records")
-        .select("id, amount, giving_type, payment_method, given_at, currency, member_id")
+        .select("id, amount, giving_type, payment_method, given_at, created_at, currency, member_id, donor_name, is_anonymous")
         .eq("tenant_id", church.tenantId)
         .eq("payment_status", "confirmed")
-        .order("given_at", { ascending: false });
+        .order("created_at", { ascending: false });
       
       if (error) {
         console.error("Today's Donations Query Error:", error);
@@ -970,7 +970,7 @@ const Dashboard = () => {
                 // Determine donor name with proper fallback logic (no is_anonymous or donor_name columns)
                 const donorName = member 
                   ? `${member.first_name} ${member.last_name}`.trim()
-                  : 'Anonymous Donor';
+                  : donation.donor_name || 'Anonymous Donor';
 
                 return (
                   <motion.div
@@ -995,12 +995,12 @@ const Dashboard = () => {
                             {donation.giving_type?.replace(/_/g, " ")}
                           </span>
                           <span className="text-xs text-slate-500">
-                            {new Date(donation.created_at).toLocaleTimeString('en-KE', {
+                            {donation.created_at ? new Date(donation.created_at).toLocaleTimeString('en-KE', {
                               timeZone: 'Africa/Nairobi',
                               hour: '2-digit',
                               minute: '2-digit',
                               hour12: true
-                            })}
+                            }) : "—"}
                           </span>
                         </div>
                       </div>

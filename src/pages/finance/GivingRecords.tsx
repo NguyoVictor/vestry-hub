@@ -87,7 +87,7 @@ const GivingRecords = () => {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["giving-records", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("giving_records").select("*, donor_name, is_anonymous").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("given_at", { ascending: false });
+      const { data, error } = await supabase.from("giving_records").select("*, donor_name, is_anonymous").eq("tenant_id", tenantId!).eq("payment_status", "confirmed").order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as GivingRow[];
     },

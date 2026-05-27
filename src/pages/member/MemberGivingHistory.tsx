@@ -82,7 +82,7 @@ export default function MemberGivingHistory() {
         .select("*")
         .eq("member_id", member.memberId)
         .in("payment_status", ["confirmed", "cancelled"])
-        .order(COLS.GIVING_DATE, { ascending: false });
+        .order("created_at", { ascending: false });
       return data || [];
     },
   });
