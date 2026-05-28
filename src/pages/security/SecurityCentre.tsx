@@ -84,7 +84,18 @@ export default function SecurityCentre() {
     },
   });
 
-  const failedCount = loginEvents?.filter(e => e.status === "failed").length || 0;
+  // Calculate stats with proper 24h filtering
+  const twentyFourHoursAgo = new Date(Date.now() - 86400000).toISOString();
+  const failedCount = loginEvents?.filter(e => 
+    e.status === "failed" && 
+    new Date(e.created_at).getTime() > Date.now() - 86400000
+  ).length || 0;
+  
+  const activeSessionsCount = loginEvents?.filter(e => 
+    e.status === "success" && 
+    new Date(e.created_at).getTime() > Date.now() - 86400000
+  ).length || 0;
+  
   const unresolvedAlerts = alerts?.filter(a => a.status !== "resolved") || [];
   const staffCount = users?.filter(u => ["super_admin", "admin", "staff"].includes(u.role || "")).length || 0;
 
@@ -101,7 +112,7 @@ export default function SecurityCentre() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { title: "Active Sessions", value: users?.filter(u => u.status === "active").length || 0, icon: Monitor, color: "text-primary" },
+          { title: "Active Sessions", value: activeSessionsCount, icon: Monitor, color: "text-primary" },
           { title: "Failed Logins (24h)", value: failedCount, icon: AlertTriangle, color: "text-destructive" },
           { title: "Staff Accounts", value: staffCount, icon: Users, color: "text-primary" },
           { title: "Unresolved Alerts", value: unresolvedAlerts.length, icon: Shield, color: "text-amber-500" },

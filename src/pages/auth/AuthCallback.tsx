@@ -19,6 +19,21 @@ const AuthCallback = () => {
         if (error) throw error;
 
         if (data.session) {
+          // Track OAuth login event
+          try {
+            await supabase.from('login_events').insert({
+              id: crypto.randomUUID(),
+              user_id: data.session.user.id,
+              status: 'success',
+              ip_address: null, // not available client-side
+              user_agent: navigator.userAgent,
+              location: null,
+              created_at: new Date().toISOString()
+            });
+          } catch (trackingError) {
+            console.error('Failed to track OAuth login event:', trackingError);
+          }
+
           setStatus("success");
           setMessage("Signed in successfully!");
 

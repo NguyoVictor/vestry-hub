@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useChurch } from "@/contexts/ChurchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,9 +35,52 @@ const levelColors: Record<string, string> = {
 };
 
 export function SentryMonitor() {
+  const { tenantId } = useChurch();
+  
   const { data: issues, isLoading, isError, error } = useQuery({
     queryKey: ["sentry_issues"],
-    queryFn: fetchSentryIssues,
+    queryFn: async () => {
+      const data = await fetchSentryIssues();
+      
+      // Create security alerts for fatal and error level issues
+      if (tenantId && data?.length) {
+        for (const issue of data) {
+          if (issue.level === 'fatal' || issue.level === 'error') {
+            try {
+              // Check if alert already exists to avoid duplicates
+              const { data: existingAlert } = await supabase
+                .from('security_alerts')
+                .select('id')
+                .eq('tenant_id', tenantId)
+                .eq('alert_type', 'application_error')
+                .eq('description', issue.title)
+                .single();
+
+              if (!existingAlert) {
+                await supabase.from('security_alerts').insert({
+                  id: crypto.randomUUID(),
+                  tenant_id: tenantId,
+                  severity: issue.level === 'fatal' ? 'critical' : 'high',
+                  alert_type: 'application_error',
+                  description: issue.title,
+                  status: 'open',
+                  raw_data: JSON.stringify({ 
+                    sentry_id: issue.id, 
+                    permalink: issue.permalink, 
+                    count: issue.count 
+                  }),
+                  created_at: new Date().toISOString()
+                });
+              }
+            } catch (alertError) {
+              console.error('Failed to create security alert for Sentry issue:', alertError);
+            }
+          }
+        }
+      }
+      
+      return data;
+    },
     staleTime: 300000,
     retry: false,
   });
