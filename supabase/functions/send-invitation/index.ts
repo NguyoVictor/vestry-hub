@@ -11,7 +11,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const payload = await req.json();
-    const { email, role, church_name, invited_by, tenant_id } = payload;
+    const { email, role, church_name, invited_by, tenant_id, first_name, last_name } = payload;
 
     if (!email || !tenant_id) {
       return new Response(JSON.stringify({ error: "email and tenant_id are required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
 
     try {
       const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(email, {
-        data: { tenant_id, role, invited_by, church_name },
+        data: { tenant_id, role, invited_by, church_name, first_name: first_name || '', last_name: last_name || '' },
         redirectTo: `${Deno.env.get("SITE_URL") ?? "https://vestryhub.com"}/auth/invite`,
       });
 
@@ -53,14 +53,19 @@ Deno.serve(async (req: Request) => {
 
     // Create users table record if we have a valid user ID
     if (newUserId) {
-      await supabase.from('users').upsert({
+      const userRecord: any = {
         id: newUserId,
         tenant_id,
         email,
         role,
         status: 'active',
-        invitation_sent: !alreadyRegistered,
-      }, { onConflict: 'id' });
+        invitation_sent: true,
+      };
+
+      if (first_name) userRecord.first_name = first_name;
+      if (last_name !== undefined && last_name !== null) userRecord.last_name = last_name;
+
+      await supabase.from('users').upsert(userRecord, { onConflict: 'id' });
     }
 
     return new Response(JSON.stringify({ ok: true, already_registered: alreadyRegistered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

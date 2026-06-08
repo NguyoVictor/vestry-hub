@@ -102,6 +102,10 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
   const [branchId, setBranchId] = useState<string>("");
   const [sendInvite, setSendInvite] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [inviteByEmail, setInviteByEmail] = useState(false);
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
 
   const formatRole = (r: string) =>
     r.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -137,6 +141,52 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
   };
 
   const handleSubmit = async () => {
+    if (inviteByEmail) {
+      if (!inviteFirstName.trim() || !inviteEmail.trim()) {
+        toast.error("First name and email are required.");
+        setSubmitting(false);
+        return;
+      }
+      if (!role) {
+        toast.error("Please select a role.");
+        setSubmitting(false);
+        return;
+      }
+
+      setSubmitting(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("send-invitation", {
+          body: {
+            email: inviteEmail.trim(),
+            role,
+            church_name: church.name,
+            invited_by: church.userName || `${church.userFirstName} ${church.userLastName}`,
+            tenant_id: tenantId,
+            first_name: inviteFirstName.trim(),
+            last_name: inviteLastName.trim() || "",
+          },
+        });
+
+        if (error || data?.error) {
+          throw new Error(data?.error ?? error?.message ?? "Failed to send invitation.");
+        }
+
+        if (data?.already_registered) {
+          toast.success(`${inviteFirstName} already has a VestryHub account. They've been added as ${formatRole(role)} and can log in with existing credentials.`);
+        } else {
+          toast.success(`Invitation sent to ${inviteEmail}.`);
+        }
+
+        onSuccess();
+        handleClose();
+        return;
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to send invitation.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     if (!selectedMember) {
       toast.error("Please select a member first.");
       return;
@@ -358,6 +408,10 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
     setSelectedMember(null);
     setRole("member");
     setBranchId("");
+    setInviteByEmail(false);
+    setInviteFirstName("");
+    setInviteLastName("");
+    setInviteEmail("");
     setSendInvite(true);
     onClose();
   };
@@ -374,69 +428,129 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
 
         <div className="space-y-5 pt-1">
           {/* Search Member */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">
-              Search Member <span className="text-red-500">*</span>
-            </Label>
-            {/* Search input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                className="pl-9 focus-visible:ring-orange-400"
-                placeholder="Search by name or email..."
-                value={memberSearch}
-                onChange={e => {
-                  setMemberSearch(e.target.value);
-                  // Clear selection if user edits the search
-                  if (selectedMember) setSelectedMember(null);
-                }}
-              />
-            </div>
-            {/* Scrollable member list — always visible */}
-            <div className="rounded-md border border-slate-200 overflow-hidden">
-              {membersLoading ? (
-                <div className="p-3 space-y-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="space-y-1">
-                      <Skeleton className="h-3.5 w-32" />
-                      <Skeleton className="h-3 w-44" />
-                    </div>
-                  ))}
-                </div>
-              ) : filteredMembers.length === 0 ? (
-                <div className="py-6 text-center text-sm text-slate-400">No members found.</div>
-              ) : (
-                <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
-                  {filteredMembers.map(m => {
-                    const isSelected = selectedMember?.id === m.id;
-                    const fullName = `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—";
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => handleSelectMember(m)}
-                        className={`w-full px-4 py-2.5 text-left transition-colors ${
-                          isSelected
-                            ? "bg-orange-50 border-l-2 border-l-orange-500"
-                            : "hover:bg-slate-50"
-                        }`}
-                      >
-                        <p className={`text-sm font-medium ${isSelected ? "text-orange-700" : "text-slate-800"}`}>
-                          {fullName}
-                        </p>
-                        <p className="text-xs text-slate-400">{m.email ?? "No email"}</p>
-                      </button>
-                    );
-                  })}
-                </div>
+          {!inviteByEmail ? (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">
+                Search Member <span className="text-red-500">*</span>
+              </Label>
+              {/* Search input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  className="pl-9 focus-visible:ring-orange-400"
+                  placeholder="Search by name or email..."
+                  value={memberSearch}
+                  onChange={e => {
+                    setMemberSearch(e.target.value);
+                    // Clear selection if user edits the search
+                    if (selectedMember) setSelectedMember(null);
+                  }}
+                />
+              </div>
+              {/* Scrollable member list — always visible */}
+              <div className="rounded-md border border-slate-200 overflow-hidden">
+                {membersLoading ? (
+                  <div className="p-3 space-y-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="space-y-1">
+                        <Skeleton className="h-3.5 w-32" />
+                        <Skeleton className="h-3 w-44" />
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredMembers.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-slate-400">No members found.</div>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
+                    {filteredMembers.map(m => {
+                      const isSelected = selectedMember?.id === m.id;
+                      const fullName = `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || "—";
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => handleSelectMember(m)}
+                          className={`w-full px-4 py-2.5 text-left transition-colors ${
+                            isSelected
+                              ? "bg-orange-50 border-l-2 border-l-orange-500"
+                              : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <p className={`text-sm font-medium ${isSelected ? "text-orange-700" : "text-slate-800"}`}>
+                            {fullName}
+                          </p>
+                          <p className="text-xs text-slate-400">{m.email ?? "No email"}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {selectedMember && (
+                <p className="text-xs text-orange-600 font-medium">
+                  ✓ Selected: {`${selectedMember.first_name ?? ""} ${selectedMember.last_name ?? ""}`.trim()}
+                </p>
               )}
+              <button
+                type="button"
+                className="text-xs text-violet-600 hover:text-violet-700 underline underline-offset-2 mt-1"
+                onClick={() => {
+                  setInviteByEmail(true);
+                  setSelectedMember(null);
+                  setMemberSearch("");
+                  setSendInvite(true);
+                }}
+              >
+                Not in the system? Invite by email instead →
+              </button>
             </div>
-            {selectedMember && (
-              <p className="text-xs text-orange-600 font-medium">
-                ✓ Selected: {`${selectedMember.first_name ?? ""} ${selectedMember.last_name ?? ""}`.trim()}
-              </p>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Invite by Email</Label>
+                <button
+                  type="button"
+                  className="text-xs text-violet-600 hover:text-violet-700 underline underline-offset-2"
+                  onClick={() => {
+                    setInviteByEmail(false);
+                    setInviteFirstName("");
+                    setInviteLastName("");
+                    setInviteEmail("");
+                    setSendInvite(true);
+                  }}
+                >
+                  ← Back to member search
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">First Name <span className="text-red-500">*</span></Label>
+                  <Input
+                    placeholder="First name"
+                    value={inviteFirstName}
+                    onChange={e => setInviteFirstName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Last Name</Label>
+                  <Input
+                    placeholder="Last name"
+                    value={inviteLastName}
+                    onChange={e => setInviteLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Email <span className="text-red-500">*</span></Label>
+                <Input
+                  type="email"
+                  placeholder="their@email.com"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Role */}
           <div className="space-y-1.5">
@@ -481,17 +595,19 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
           </div>
 
           {/* Send Email Invitation */}
-          <div className="flex items-center justify-between rounded-md border border-slate-200 p-3">
-            <div>
-              <p className="text-sm font-medium text-slate-800">Send Email Invitation</p>
-              <p className="text-xs text-slate-400">Send an email to invite this user to join</p>
+          {!inviteByEmail && (
+            <div className="flex items-center justify-between rounded-md border border-slate-200 p-3">
+              <div>
+                <p className="text-sm font-medium text-slate-800">Send Email Invitation</p>
+                <p className="text-xs text-slate-400">Send an email to invite this user to join</p>
+              </div>
+              <Switch
+                checked={sendInvite}
+                onCheckedChange={setSendInvite}
+                className="data-[state=checked]:bg-orange-500"
+              />
             </div>
-            <Switch
-              checked={sendInvite}
-              onCheckedChange={setSendInvite}
-              className="data-[state=checked]:bg-orange-500"
-            />
-          </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -502,7 +618,7 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
           <Button
             className="bg-orange-500 hover:bg-orange-600 text-white"
             onClick={handleSubmit}
-            disabled={submitting || !selectedMember}
+            disabled={submitting || (!inviteByEmail && !selectedMember)}
           >
             {submitting ? (sendInvite ? "Sending..." : "Adding...") : (sendInvite ? "Send Invitation" : "Add User")}
           </Button>

@@ -20,14 +20,22 @@ export default function InviteCallback() {
       const invitedRole = userMeta.role;
 
       if (invitedTenantId && invitedRole) {
-        const { data: memberData } = await supabase
-          .from(TABLES.MEMBERS)
-          .select(`${COLS.FIRST_NAME}, ${COLS.LAST_NAME}`)
-          .eq('email', data.session.user.email)
-          .eq('tenant_id', invitedTenantId)
-          .maybeSingle();
+        // Check metadata first (external invites), fall back to members table (member-based invites)
+        let resolvedFirstName = userMeta.first_name || '';
+        let resolvedLastName = userMeta.last_name || '';
 
-        await supabase
+        if (!resolvedFirstName) {
+          const { data: memberData } = await supabase
+            .from(TABLES.MEMBERS)
+            .select(`${COLS.FIRST_NAME}, ${COLS.LAST_NAME}`)
+            .eq('email', data.session.user.email)
+            .eq('tenant_id', invitedTenantId)
+            .maybeSingle();
+          resolvedFirstName = memberData?.first_name || '';
+          resolvedLastName = memberData?.last_name || '';
+        }
+
+        const { error: upsertError } = await supabase
           .from('users')
           .upsert({
             id: data.session.user.id,
@@ -36,9 +44,13 @@ export default function InviteCallback() {
             role: invitedRole,
             status: 'active',
             invitation_sent: true,
-            first_name: memberData?.first_name || '',
-            last_name: memberData?.last_name || '',
+            first_name: resolvedFirstName,
+            last_name: resolvedLastName,
           }, { onConflict: 'id' });
+
+        if (upsertError) {
+          console.error('InviteCallback upsert failed:', upsertError);
+        }
       }
 
       navigate('/auth/reset-password', { replace: true });
