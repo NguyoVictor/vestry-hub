@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { TABLES, COLS } from '@/lib/schema';
 
 export default function InviteCallback() {
   const navigate = useNavigate();
@@ -19,6 +20,13 @@ export default function InviteCallback() {
       const invitedRole = userMeta.role;
 
       if (invitedTenantId && invitedRole) {
+        const { data: memberData } = await supabase
+          .from(TABLES.MEMBERS)
+          .select(`${COLS.FIRST_NAME}, ${COLS.LAST_NAME}`)
+          .eq('email', data.session.user.email)
+          .eq('tenant_id', invitedTenantId)
+          .maybeSingle();
+
         await supabase
           .from('users')
           .upsert({
@@ -28,6 +36,8 @@ export default function InviteCallback() {
             role: invitedRole,
             status: 'active',
             invitation_sent: true,
+            first_name: memberData?.first_name || '',
+            last_name: memberData?.last_name || '',
           }, { onConflict: 'id' });
       }
 
