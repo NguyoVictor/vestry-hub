@@ -1099,7 +1099,7 @@ const UsersPage = () => {
       // Then fetch user roles and status from users table
       const { data: userRolesData, error: userRolesError } = await supabase
         .from(TABLES.USERS)
-        .select("id, first_name, last_name, email, role, status, avatar_url, tenant_id, invitation_sent")
+        .select("id, first_name, last_name, email, role, status, avatar_url, tenant_id, invitation_sent, last_login_at")
         .eq("tenant_id", church.tenantId);
       
       console.log("🔍 USER ROLES QUERY RESPONSE:");
@@ -1124,7 +1124,7 @@ const UsersPage = () => {
             email: userRole.email || member?.email || '',
             role: userRole.role || '',
             status: userRole.status || '',
-            last_login_at: null,
+            last_login_at: userRole.last_login_at || null,
             avatar_url: userRole.avatar_url || null,
             tenant_id: userRole.tenant_id || church.tenantId,
             invitation_sent: userRole.invitation_sent ?? false,

@@ -35,6 +35,14 @@ const AuthCallback = () => {
               location: null,
               created_at: new Date().toISOString()
             });
+
+            // Update last_login_at
+            supabase
+              .from('users')
+              .update({ last_login_at: new Date().toISOString() })
+              .eq('id', data.session.user.id)
+              .then();
+
           } catch (trackingError) {
             console.error('Failed to track OAuth login event:', trackingError);
           }
