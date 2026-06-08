@@ -201,7 +201,7 @@ export default function MemberLoginPage() {
                 />
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Forgot your church code?{" "}
-                  <span className="text-slate-500">Contact your church admin — they can find it in Settings → Quick Links & QR Codes.</span>
+                  <span className="text-slate-500">Contact your church admin.</span>
                 </p>
               </div>
 

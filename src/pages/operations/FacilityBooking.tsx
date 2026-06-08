@@ -8,6 +8,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { TABLES, COLS } from "@/lib/schema";
 import { formatCurrencyFull } from "@/lib/format";
 import { convertToWebP } from "@/lib/imageUtils";
@@ -484,6 +486,7 @@ function AddEditFacilityModal({
   editData?: any | null; facilityTypes: any[];
 }) {
   const qc = useQueryClient();
+  const { limits, usage } = useSubscription();
   const isEdit = !!editData;
 
   // thumbnail
@@ -532,6 +535,22 @@ function AddEditFacilityModal({
 
   const saveMutation = useMutation({
     mutationFn: async (values: FacilityFormValues) => {
+      // Calculate total size of files to upload
+      let totalSizeGB = 0;
+      if (thumbFile) totalSizeGB += thumbFile.size / (1024 * 1024 * 1024);
+      if (videoFile) totalSizeGB += videoFile.size / (1024 * 1024 * 1024);
+      const newImages = images.filter(i => !i.existing);
+      // Estimate WebP size (approximately 70% of original for images)
+      for (const img of newImages) {
+        // Images are already uploaded in handleImageUpload, so skip here
+      }
+      
+      // Check storage limit before upload
+      if (totalSizeGB > 0 && (usage.storage_gb + totalSizeGB) > limits.storage_gb) {
+        showPaywallToast('storage', 'storage');
+        throw new Error('Storage limit reached');
+      }
+      
       setUploading(true);
       try {
         // 1. Upload thumbnail as WebP
@@ -581,7 +600,6 @@ function AddEditFacilityModal({
         const existingPaths = new Set((editData?.facility_images ?? []).map((i: any) => i.image_path));
         const keptPaths = new Set(images.filter(i => i.existing).map(i => i.path));
         const removedPaths = [...existingPaths].filter(p => !keptPaths.has(p as string));
-        const newImages = images.filter(i => !i.existing);
 
         if (removedPaths.length > 0) {
           await supabase.from(TABLES.FACILITY_IMAGES as any)
@@ -599,6 +617,16 @@ function AddEditFacilityModal({
           const { error: imgErr } = await supabase.from(TABLES.FACILITY_IMAGES as any).insert(rows);
           if (imgErr) throw imgErr;
         }
+        
+        // Increment storage usage after successful upload
+        if (totalSizeGB > 0) {
+          await supabase
+            .from(TABLES.TENANT_SUBSCRIPTIONS)
+            .update({
+              storage_used_gb: usage.storage_gb + totalSizeGB
+            })
+            .eq('tenant_id', tenantId);
+        }
 
         return facilityId;
       } finally {
@@ -610,7 +638,11 @@ function AddEditFacilityModal({
       toast.success(isEdit ? "Facility updated." : "Facility created.");
       onClose();
     },
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save facility."),
+    onError: (e: any) => {
+      if (e?.message !== 'Storage limit reached') {
+        toast.error(e?.message ?? "Failed to save facility.");
+      }
+    },
   });
 
   const handleThumbSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -627,7 +659,16 @@ function AddEditFacilityModal({
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     if (images.length + files.length > 5) { toast.error("Maximum 5 gallery images."); return; }
+    
+    // Calculate total size and check storage limit
+    const totalSizeGB = files.reduce((sum, f) => sum + (f.size / (1024 * 1024 * 1024)), 0);
+    if ((usage.storage_gb + totalSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     setUploading(true);
+    let uploadedSizeGB = 0;
     for (const file of files) {
       if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} exceeds 5 MB.`); continue; }
       try {
@@ -636,8 +677,20 @@ function AddEditFacilityModal({
         const { error } = await supabase.storage.from("facility-images").upload(path, webpBlob, { contentType: "image/webp" });
         if (error) { toast.error(`Failed to upload ${file.name}`); continue; }
         setImages(prev => [...prev, { path, name: path.split("/").pop()! }]);
+        uploadedSizeGB += webpBlob.size / (1024 * 1024 * 1024);
       } catch { toast.error(`Failed to convert ${file.name}`); }
     }
+    
+    // Increment storage usage after successful uploads
+    if (uploadedSizeGB > 0) {
+      await supabase
+        .from(TABLES.TENANT_SUBSCRIPTIONS)
+        .update({
+          storage_used_gb: usage.storage_gb + uploadedSizeGB
+        })
+        .eq('tenant_id', tenantId);
+    }
+    
     setUploading(false);
     e.target.value = "";
   };

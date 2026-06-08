@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    if (!caller || !["super_admin", "staff_leader"].includes(caller.role)) {
+    if (!caller || !["super_admin", "church_admin", "staff_leader"].includes(caller.role)) {
       return new Response(JSON.stringify({ error: "Forbidden: admin role required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -86,7 +86,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === "update_role") {
-      const validRoles = ["super_admin", "staff_leader", "member", "guest"];
+      const validRoles = [
+        "super_admin", "church_admin", "general_overseer", "senior_pastor",
+        "pastor", "assistant_pastor", "accountant", "leader", "studio_operator",
+        "staff_leader", "member", "staff", "volunteer", "guest"
+      ];
       if (!role || !validRoles.includes(role)) {
         return new Response(JSON.stringify({ error: "Invalid role" }), {
           status: 400,
@@ -111,7 +115,7 @@ Deno.serve(async (req) => {
 
       const { error: updateError } = await adminClient
         .from("users")
-        .update({ role })
+        .update({ role: role, status: status ?? "active" })
         .eq("id", targetUserId);
 
       if (updateError) throw updateError;
@@ -150,7 +154,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use 'update_role' or 'deactivate'" }), {
+    if (action === "reactivate") {
+      const { error: updateError } = await adminClient
+        .from("users")
+        .update({ status: "active", role, invitation_sent: true })
+        .eq("id", targetUserId);
+
+      if (updateError) throw updateError;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Invalid action. Use 'update_role', 'deactivate', or 'reactivate'" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

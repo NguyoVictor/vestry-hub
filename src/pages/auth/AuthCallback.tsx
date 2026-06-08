@@ -11,6 +11,11 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        // Check URL parameters for member portal redirect
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectTo = urlParams.get('redirect_to');
+        const tenantId = urlParams.get('tenant_id');
+
         // Let the SDK handle PKCE code exchange automatically via getSession().
         // It detects ?code= in the URL, reads the code_verifier from localStorage,
         // and exchanges them — no manual exchangeCodeForSession needed.
@@ -37,6 +42,15 @@ const AuthCallback = () => {
           setStatus("success");
           setMessage("Signed in successfully!");
 
+          // Handle member portal redirect
+          if (redirectTo === '/member/welcome' && tenantId) {
+            // Store tenant ID for member portal
+            localStorage.setItem('member_tenant_id', tenantId);
+            navigate(redirectTo, { replace: true });
+            return;
+          }
+
+          // Existing admin redirect logic
           const { data: userData } = await supabase
             .from("users")
             .select("tenant_id")

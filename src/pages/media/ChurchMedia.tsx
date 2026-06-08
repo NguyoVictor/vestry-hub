@@ -19,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Image as ImageIcon, Music, Video, X, Download, Trash2, Loader2, MoreHorizontal, Pencil, Play, ChevronUp, ChevronDown, ListMusic, Star, Search, FolderOpen, Plus, LayoutGrid, List } from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -41,6 +43,7 @@ interface UploadDialogProps {
   storageStats: StorageStats | null | undefined;
 }
 function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSuccess, categories, storageStats }: UploadDialogProps) {
+  const { limits, usage } = useSubscription();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -69,6 +72,16 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
     if (storageStats?.is_over_limit) { toast.error("Storage limit reached. Please upgrade your plan."); return; }
     const filesToUpload = files.length > 1 ? files : (file ? [file] : []);
     if (!filesToUpload.length) { toast.error("Please select a file"); return; }
+    
+    // Calculate total size of files to upload
+    const totalSizeGB = filesToUpload.reduce((sum, f) => sum + (f.size / (1024 * 1024 * 1024)), 0);
+    
+    // Check storage limit before upload
+    if ((usage.storage_gb + totalSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     setUploading(true); setUploadProgress(10);
     try {
       const bucket = BUCKET_MAP[mediaType];
@@ -90,6 +103,15 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
         });
         if (dbErr) throw dbErr;
       }
+      
+      // Increment storage usage after successful upload
+      await supabase
+        .from(TABLES.TENANT_SUBSCRIPTIONS)
+        .update({
+          storage_used_gb: usage.storage_gb + totalSizeGB
+        })
+        .eq('tenant_id', tenantId);
+      
       setUploadProgress(100);
       toast.success(filesToUpload.length > 1 ? `${filesToUpload.length} files uploaded!` : "Uploaded successfully");
       onSuccess(); handleClose();

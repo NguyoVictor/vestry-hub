@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { Loader2, Upload, X, ChevronDown, Globe, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TABLES } from "@/lib/schema";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 
 const seoSchema = z.object({
   page_title: z.string().max(60).optional().or(z.literal("")),
@@ -45,6 +47,7 @@ const SeoPublicPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [previewTab, setPreviewTab] = useState<"facebook" | "twitter">("facebook");
+  const { limits, usage } = useSubscription();
 
   const { data: seoData, isLoading } = useQuery({
     queryKey: ["seo-settings", church.tenantId],
@@ -117,16 +120,32 @@ const SeoPublicPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
+    
+    // Pre-upload storage check
+    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     setUploading(true);
     const ext = file.name.split(".").pop();
     const path = `${church.tenantId}/og.${ext}`;
     const { error } = await supabase.storage.from("church-media").upload(path, file, { upsert: true });
     if (error) { toast.error("Upload failed"); setUploading(false); return; }
     const { data: urlData } = supabase.storage.from("church-media").getPublicUrl(path);
+    
     // Save immediately
     await supabase.from(TABLES.TENANT_SEO_SETTINGS).upsert({
       tenant_id: church.tenantId, og_image_url: urlData.publicUrl
     } as any, { onConflict: "tenant_id" });
+    
+    // Post-upload increment storage
+    await supabase
+      .from(TABLES.TENANT_SUBSCRIPTIONS)
+      .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+      .eq('tenant_id', church.tenantId);
+    
     qc.invalidateQueries({ queryKey: ["seo-settings", church.tenantId] });
     toast.success("OG image uploaded");
     setUploading(false);

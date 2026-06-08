@@ -19,10 +19,13 @@ import {
   Archive, Loader2, Copy, Printer, CheckCircle2, Upload, Brain, FileCheck,
 } from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { TABLES } from "@/lib/schema";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -56,9 +59,10 @@ interface ComposeDialogProps {
   tenantId: string;
   userId: string | null;
   onSuccess: () => void;
+  hasSermonAi: boolean;
 }
 
-function ComposeDialog({ open, onClose, tenantId, userId, onSuccess }: ComposeDialogProps) {
+function ComposeDialog({ open, onClose, tenantId, userId, onSuccess, hasSermonAi }: ComposeDialogProps) {
   const [tab, setTab] = useState<"setup" | "preview">("setup");
   const [type, setType] = useState("sermon");
   const [style, setStyle] = useState("Expository");
@@ -84,6 +88,13 @@ function ComposeDialog({ open, onClose, tenantId, userId, onSuccess }: ComposeDi
 
   const handleGenerate = async () => {
     if (!theme && !scripture) { toast.error("Please enter a theme/topic or scripture reference"); return; }
+    
+    // Check Sermon AI feature access
+    if (!hasSermonAi) {
+      showPaywallToast('Sermon AI', 'Sermon AI');
+      return;
+    }
+    
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-sermon", {
@@ -357,6 +368,7 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [uploading, setUploading] = useState(false);
+  const { limits, usage } = useSubscription();
 
   const reset = () => {
     setFile(null); setTitle(""); setCategory("General"); setPreacher("");
@@ -366,6 +378,14 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
 
   const handleUpload = async () => {
     if (!file || !title.trim()) { toast.error("File and title are required"); return; }
+    
+    // Pre-upload storage check
+    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
@@ -390,6 +410,12 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
         uploaded_by: userId,
       }).select();
       if (dbErr) throw dbErr;
+
+      // Post-upload increment storage
+      await supabase
+        .from(TABLES.TENANT_SUBSCRIPTIONS)
+        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+        .eq('tenant_id', tenantId);
 
       // Kick off AI processing in the background — don't await so UI closes immediately
       toast.success("Uploaded! AI is processing your archive...");
@@ -518,6 +544,7 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
 const SermonPreparation = () => {
   const church = useChurch();
   const qc = useQueryClient();
+  const { hasSermonAi } = useSubscription();
   const [activeTab, setActiveTab] = useState<"saved" | "archive">("saved");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -979,6 +1006,7 @@ const SermonPreparation = () => {
         tenantId={church.tenantId!}
         userId={church.userId}
         onSuccess={invalidate}
+        hasSermonAi={hasSermonAi}
       />
 
       {/* ── Delete confirmation ── */}

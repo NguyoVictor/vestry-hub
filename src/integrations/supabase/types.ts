@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       accounts_payable: {
@@ -897,6 +872,53 @@ export type Database = {
             foreignKeyName: "budgets_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canva_tokens: {
+        Row: {
+          access_token: string
+          canva_user_email: string | null
+          canva_user_id: string
+          canva_user_name: string | null
+          created_at: string | null
+          expires_at: string
+          id: string
+          refresh_token: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          canva_user_email?: string | null
+          canva_user_id: string
+          canva_user_name?: string | null
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          refresh_token: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          canva_user_email?: string | null
+          canva_user_id?: string
+          canva_user_name?: string | null
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canva_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -2316,15 +2338,21 @@ export type Database = {
       giving_records: {
         Row: {
           amount: number
+          campaign_id: string | null
+          category: string | null
           checkout_request_id: string | null
           created_at: string | null
           currency: string | null
+          donor_name: string | null
           external_reference: string | null
+          fund_id: string | null
           given_at: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id: string
+          is_anonymous: boolean | null
           member_id: string | null
           mpesa_receipt: string | null
+          notes: string | null
           payhero_reference: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status:
@@ -2333,6 +2361,7 @@ export type Database = {
           pesapal_transaction_id: string | null
           phone_number: string | null
           pledge_id: string | null
+          receipt_number: string | null
           receipt_url: string | null
           recorded_by: string | null
           tenant_id: string
@@ -2341,15 +2370,21 @@ export type Database = {
         }
         Insert: {
           amount: number
+          campaign_id?: string | null
+          category?: string | null
           checkout_request_id?: string | null
           created_at?: string | null
           currency?: string | null
+          donor_name?: string | null
           external_reference?: string | null
+          fund_id?: string | null
           given_at?: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          is_anonymous?: boolean | null
           member_id?: string | null
           mpesa_receipt?: string | null
+          notes?: string | null
           payhero_reference?: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
@@ -2358,6 +2393,7 @@ export type Database = {
           pesapal_transaction_id?: string | null
           phone_number?: string | null
           pledge_id?: string | null
+          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id: string
@@ -2366,15 +2402,21 @@ export type Database = {
         }
         Update: {
           amount?: number
+          campaign_id?: string | null
+          category?: string | null
           checkout_request_id?: string | null
           created_at?: string | null
           currency?: string | null
+          donor_name?: string | null
           external_reference?: string | null
+          fund_id?: string | null
           given_at?: string
           giving_type?: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          is_anonymous?: boolean | null
           member_id?: string | null
           mpesa_receipt?: string | null
+          notes?: string | null
           payhero_reference?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method_enum"]
           payment_status?:
@@ -2383,6 +2425,7 @@ export type Database = {
           pesapal_transaction_id?: string | null
           phone_number?: string | null
           pledge_id?: string | null
+          receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
           tenant_id?: string
@@ -5651,6 +5694,8 @@ export type Database = {
           is_active: boolean | null
           is_configured: boolean | null
           sender_id: string | null
+          sozuri_api_key: string | null
+          sozuri_project: string | null
           tenant_id: string
           updated_at: string | null
         }
@@ -5662,6 +5707,8 @@ export type Database = {
           is_active?: boolean | null
           is_configured?: boolean | null
           sender_id?: string | null
+          sozuri_api_key?: string | null
+          sozuri_project?: string | null
           tenant_id: string
           updated_at?: string | null
         }
@@ -5673,6 +5720,8 @@ export type Database = {
           is_active?: boolean | null
           is_configured?: boolean | null
           sender_id?: string | null
+          sozuri_api_key?: string | null
+          sozuri_project?: string | null
           tenant_id?: string
           updated_at?: string | null
         }
@@ -6246,12 +6295,17 @@ export type Database = {
           about: string | null
           address: string | null
           average_attendance: number | null
+          c2b_registered: boolean | null
           church_code: string | null
           city: string | null
           contact_email: string | null
           country: string | null
           created_at: string | null
           currency: string | null
+          daraja_consumer_key: string | null
+          daraja_consumer_secret: string | null
+          daraja_passkey: string | null
+          daraja_transaction_type: string | null
           denomination: string | null
           enabled_modules: Json | null
           facebook_url: string | null
@@ -6264,17 +6318,13 @@ export type Database = {
           name: string
           onboarding_completed: boolean | null
           onboarding_step: number | null
-          daraja_consumer_key: string | null
-          daraja_consumer_secret: string | null
-          daraja_passkey: string | null
-          daraja_transaction_type: string | null
+          payhero_business_name: string | null
           payhero_channel_id: string | null
           payhero_channel_number: string | null
           payhero_channel_type: string | null
           payhero_connected: boolean | null
           payhero_credential_id: string | null
           payhero_manual_setup: boolean | null
-          payhero_business_name: string | null
           payhero_setup_details: Json | null
           phone: string | null
           service_days: string[] | null
@@ -6296,12 +6346,17 @@ export type Database = {
           about?: string | null
           address?: string | null
           average_attendance?: number | null
+          c2b_registered?: boolean | null
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
+          daraja_consumer_key?: string | null
+          daraja_consumer_secret?: string | null
+          daraja_passkey?: string | null
+          daraja_transaction_type?: string | null
           denomination?: string | null
           enabled_modules?: Json | null
           facebook_url?: string | null
@@ -6314,17 +6369,13 @@ export type Database = {
           name: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
-          daraja_consumer_key?: string | null
-          daraja_consumer_secret?: string | null
-          daraja_passkey?: string | null
-          daraja_transaction_type?: string | null
+          payhero_business_name?: string | null
           payhero_channel_id?: string | null
           payhero_channel_number?: string | null
           payhero_channel_type?: string | null
           payhero_connected?: boolean | null
           payhero_credential_id?: string | null
           payhero_manual_setup?: boolean | null
-          payhero_business_name?: string | null
           payhero_setup_details?: Json | null
           phone?: string | null
           service_days?: string[] | null
@@ -6346,12 +6397,17 @@ export type Database = {
           about?: string | null
           address?: string | null
           average_attendance?: number | null
+          c2b_registered?: boolean | null
           church_code?: string | null
           city?: string | null
           contact_email?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
+          daraja_consumer_key?: string | null
+          daraja_consumer_secret?: string | null
+          daraja_passkey?: string | null
+          daraja_transaction_type?: string | null
           denomination?: string | null
           enabled_modules?: Json | null
           facebook_url?: string | null
@@ -6364,17 +6420,13 @@ export type Database = {
           name?: string
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
-          daraja_consumer_key?: string | null
-          daraja_consumer_secret?: string | null
-          daraja_passkey?: string | null
-          daraja_transaction_type?: string | null
+          payhero_business_name?: string | null
           payhero_channel_id?: string | null
           payhero_channel_number?: string | null
           payhero_channel_type?: string | null
           payhero_connected?: boolean | null
           payhero_credential_id?: string | null
           payhero_manual_setup?: boolean | null
-          payhero_business_name?: string | null
           payhero_setup_details?: Json | null
           phone?: string | null
           service_days?: string[] | null
@@ -6934,7 +6986,12 @@ export type Database = {
       marital_status_enum: "single" | "married" | "divorced" | "widowed"
       payment_method_enum: "cash" | "mpesa" | "bank_transfer"
       payment_schedule_enum: "one_time" | "weekly" | "monthly"
-      payment_status_enum: "pending" | "confirmed" | "failed" | "voided" | "cancelled"
+      payment_status_enum:
+        | "pending"
+        | "confirmed"
+        | "failed"
+        | "voided"
+        | "cancelled"
       pledge_status_enum: "pending" | "partial" | "fulfilled" | "overdue"
       service_type_enum: "sunday" | "midweek" | "special"
       subscription_plan_enum: "free" | "foundation" | "growth" | "enterprise"
@@ -7078,9 +7135,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       announcement_audience_enum: ["all", "group", "branch"],
@@ -7114,7 +7168,13 @@ export const Constants = {
       marital_status_enum: ["single", "married", "divorced", "widowed"],
       payment_method_enum: ["cash", "mpesa", "bank_transfer"],
       payment_schedule_enum: ["one_time", "weekly", "monthly"],
-      payment_status_enum: ["pending", "confirmed", "failed", "voided", "cancelled"],
+      payment_status_enum: [
+        "pending",
+        "confirmed",
+        "failed",
+        "voided",
+        "cancelled",
+      ],
       pledge_status_enum: ["pending", "partial", "fulfilled", "overdue"],
       service_type_enum: ["sunday", "midweek", "special"],
       subscription_plan_enum: ["free", "foundation", "growth", "enterprise"],

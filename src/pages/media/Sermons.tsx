@@ -18,11 +18,14 @@ import {
   Copy, Download, Loader2, Image as ImageIcon, FileText, Music, Video,
 } from "lucide-react";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
+import { TABLES } from "@/lib/schema";
 
 // ── Add Sermon Dialog ─────────────────────────────────────────────────────────
 
@@ -36,6 +39,7 @@ interface AddSermonDialogProps {
 }
 
 function AddSermonDialog({ open, onClose, tenantId, userId, editing, onSuccess }: AddSermonDialogProps) {
+  const { limits, usage } = useSubscription();
   const thumbnailRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
@@ -78,6 +82,19 @@ function AddSermonDialog({ open, onClose, tenantId, userId, editing, onSuccess }
 
   const handleSave = async () => {
     if (!title.trim()) { toast.error("Title is required"); return; }
+    
+    // Calculate total size of files to upload
+    let totalSizeGB = 0;
+    if (thumbnailFile) totalSizeGB += thumbnailFile.size / (1024 * 1024 * 1024);
+    if (audioFile) totalSizeGB += audioFile.size / (1024 * 1024 * 1024);
+    if (docFile) totalSizeGB += docFile.size / (1024 * 1024 * 1024);
+    
+    // Check storage limit before upload
+    if (totalSizeGB > 0 && (usage.storage_gb + totalSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     setSaving(true);
     try {
       // Upload thumbnail → public bucket → getPublicUrl
@@ -132,6 +149,16 @@ function AddSermonDialog({ open, onClose, tenantId, userId, editing, onSuccess }
       } else {
         const { error } = await supabase.from("sermons").insert({ ...payload, created_by: userId });
         if (error) throw error;
+      }
+      
+      // Increment storage usage after successful upload
+      if (totalSizeGB > 0) {
+        await supabase
+          .from(TABLES.TENANT_SUBSCRIPTIONS)
+          .update({
+            storage_used_gb: usage.storage_gb + totalSizeGB
+          })
+          .eq('tenant_id', tenantId);
       }
 
       toast.success(editing?.id ? "Sermon updated" : "Sermon saved");

@@ -13,6 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useChurch } from '@/contexts/ChurchContext';
+import { useSubscription } from '@/hooks/useSubscription';
+import { showPaywallToast } from '@/components/PaywallToast';
+import { TABLES } from '@/lib/schema';
 
 import { validateImageFile, optimizeImage, generateImageSizes } from './utils/imageProcessing';
 import { ColorExtractor } from './ColorExtractor';
@@ -40,12 +43,20 @@ export function ImageUpload({
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tenantId } = useChurch();
+  const { limits, usage } = useSubscription();
 
   // Handle file selection
   const handleFileSelect = useCallback(async (file: File) => {
     setValidationError(null);
     setPreviewUrl(null);
     setExtractedColors(null);
+
+    // Pre-upload storage check
+    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
 
     // Validate file
     const validation = await validateImageFile(file, maxFileSize, acceptedTypes);
@@ -60,7 +71,7 @@ export function ImageUpload({
 
     // Start upload process
     await uploadImage(file);
-  }, [maxFileSize, acceptedTypes, songId, tenantId]);
+  }, [maxFileSize, acceptedTypes, songId, tenantId, limits, usage]);
 
   // Upload image to Supabase Storage
   const uploadImage = useCallback(async (file: File) => {
@@ -171,6 +182,13 @@ export function ImageUpload({
           height: 512
         }
       };
+
+      // Post-upload increment storage
+      const fileSizeGB = optimizedFile.size / (1024 * 1024 * 1024);
+      await supabase
+        .from(TABLES.TENANT_SUBSCRIPTIONS)
+        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+        .eq('tenant_id', tenantId);
 
       // Clean up preview
       if (previewUrl) {

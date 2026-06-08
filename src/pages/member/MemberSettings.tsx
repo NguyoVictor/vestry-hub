@@ -3,8 +3,10 @@ import { Helmet } from "react-helmet-async";
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -14,6 +16,8 @@ export default function MemberSettings() {
   const member = useMemberPortal();
   const navigate = useNavigate();
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState({
     inapp_announcements: true,
     inapp_event_reminders: true,
@@ -25,6 +29,40 @@ export default function MemberSettings() {
   const signOut = () => {
     localStorage.removeItem("member_session");
     navigate("/member/login");
+  };
+
+  const handleEmailChange = async (newEmail: string) => {
+    if (!newEmail || !newEmail.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      // 1. Update Supabase Auth email
+      const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
+      if (authError) throw authError;
+
+      // 2. Update members table
+      const { error: memberError } = await supabase
+        .from('members')
+        .update({ email: newEmail })
+        .eq('id', member.memberId);
+      if (memberError) throw memberError;
+
+      // 3. Update users table if this member is also an admin
+      await supabase
+        .from('users')
+        .update({ email: newEmail })
+        .eq('id', member.userId);
+      // No error check — member may not have a users record
+
+      toast.success('Confirmation sent to both your old and new email. Check both inboxes.');
+      setNewEmail('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update email');
+    } finally {
+      setSavingEmail(false);
+    }
   };
 
   const deleteAccount = useMutation({
@@ -66,6 +104,34 @@ export default function MemberSettings() {
                 />
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        {/* Change Email Address */}
+        <Card className="rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-base">Change Email Address</CardTitle>
+            <CardDescription>
+              Update the email address you use to access your church portal
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>New Email Address</Label>
+              <Input
+                type="email"
+                placeholder="Enter new email address"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={() => handleEmailChange(newEmail)}
+              disabled={savingEmail || !newEmail}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+            >
+              {savingEmail ? 'Updating...' : 'Update Email'}
+            </Button>
           </CardContent>
         </Card>
 

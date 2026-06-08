@@ -59,6 +59,8 @@ export const TABLES = {
   WHATSAPP_AUTOMATIONS: "whatsapp_automations",
   WHATSAPP_CREDITS: "whatsapp_credits",
   WHATSAPP_CREDIT_TRANSACTIONS: "whatsapp_credit_transactions",
+  WHATSAPP_CONTACTS: "whatsapp_contacts",
+  WHATSAPP_GROUPS: "whatsapp_groups",
   QUIZZES: "quizzes",
   QUIZ_SESSIONS: "quiz_sessions",
   QUIZ_PARTICIPANTS: "quiz_participants",
@@ -203,6 +205,10 @@ export const TABLES = {
   BIBLE_NOTES: "bible_notes",
   BIBLE_HIGHLIGHTS: "bible_highlights",
   BIBLE_FAVORITES: "bible_favorites",
+
+  // Subscription & Billing
+  TENANT_SUBSCRIPTIONS: "tenant_subscriptions",
+  BILLING_HISTORY: "billing_history",
 
   // Bible Explorer (Member Side)
   VERSE_HIGHLIGHTS: "verse_highlights",

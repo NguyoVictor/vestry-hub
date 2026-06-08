@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { X, Loader2, Upload, Image as ImageIcon, Video, Music, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSubscription } from '@/hooks/useSubscription';
+import { showPaywallToast } from '@/components/PaywallToast';
+import { TABLES } from '@/lib/schema';
 
 interface SermonDrawerProps {
   open: boolean;
@@ -31,6 +34,7 @@ export default function SermonDrawer({
   const thumbnailRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
+  const { limits, usage } = useSubscription();
 
   const [title, setTitle] = useState(sermon?.title || '');
   const [sermonDate, setSermonDate] = useState(sermon?.sermon_date || new Date().toISOString().split('T')[0]);
@@ -51,6 +55,14 @@ export default function SermonDrawer({
   const handleThumbnail = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    
+    // Pre-upload storage check
+    const fileSizeGB = f.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     setThumbnailFile(f);
     setThumbnailPreview(URL.createObjectURL(f));
   };
@@ -68,6 +80,7 @@ export default function SermonDrawer({
       if (!title.trim()) throw new Error('Title is required');
 
       setSaving(true);
+      let totalUploadedGB = 0;
 
       // Upload thumbnail
       let thumbnailUrl = sermon?.thumbnail_url || null;
@@ -99,6 +112,7 @@ export default function SermonDrawer({
           .from('sermon-thumbnails')
           .getPublicUrl(thumbnailPath);
         thumbnailUrl = publicUrl;
+        totalUploadedGB += thumbnailFile.size / (1024 * 1024 * 1024);
       }
 
       // Upload audio file
@@ -109,7 +123,10 @@ export default function SermonDrawer({
         const { error: audioErr } = await supabase.storage
           .from('sermon-audio')
           .upload(audioFilePath, audioFile);
-        if (!audioErr) resolvedAudioUrl = null;
+        if (!audioErr) {
+          resolvedAudioUrl = null;
+          totalUploadedGB += audioFile.size / (1024 * 1024 * 1024);
+        }
       }
 
       // Upload document
@@ -117,6 +134,7 @@ export default function SermonDrawer({
       if (docFile) {
         docFilePath = `${tenantId}/${Date.now()}-${docFile.name}`;
         await supabase.storage.from('sermon-documents').upload(docFilePath, docFile);
+        totalUploadedGB += docFile.size / (1024 * 1024 * 1024);
       }
 
       const payload: any = {
@@ -148,6 +166,14 @@ export default function SermonDrawer({
           .from('sermons')
           .insert({ ...payload, created_by: userId });
         if (error) throw error;
+      }
+
+      // Post-upload increment storage (only if files were uploaded)
+      if (totalUploadedGB > 0) {
+        await supabase
+          .from(TABLES.TENANT_SUBSCRIPTIONS)
+          .update({ storage_used_gb: usage.storage_gb + totalUploadedGB })
+          .eq('tenant_id', tenantId);
       }
     },
     onSuccess: () => {
@@ -363,7 +389,16 @@ export default function SermonDrawer({
                   type="file"
                   accept="audio/*"
                   className="hidden"
-                  onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const fileSizeGB = f.size / (1024 * 1024 * 1024);
+                    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+                      showPaywallToast('storage', 'storage');
+                      return;
+                    }
+                    setAudioFile(f);
+                  }}
                 />
                 <Button
                   variant="outline"
@@ -382,7 +417,16 @@ export default function SermonDrawer({
                   type="file"
                   accept=".pdf,.doc,.docx"
                   className="hidden"
-                  onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const fileSizeGB = f.size / (1024 * 1024 * 1024);
+                    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+                      showPaywallToast('storage', 'storage');
+                      return;
+                    }
+                    setDocFile(f);
+                  }}
                 />
                 <Button
                   variant="outline"

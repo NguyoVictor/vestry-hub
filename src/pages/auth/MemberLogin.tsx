@@ -55,7 +55,7 @@ const MemberLogin = () => {
     // Send magic link
     await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin + "/dashboard" },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?tenant_id=${tenant.id}&redirect_to=/member/welcome` },
     });
 
     setLoading(false);

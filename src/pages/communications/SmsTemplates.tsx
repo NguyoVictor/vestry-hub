@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -67,6 +67,16 @@ function TemplateModal({ open, onClose, tenantId, categories, editData, onSucces
   const [isActive, setIsActive] = useState(editData?.is_active ?? true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Reset form when editData changes
+  useEffect(() => {
+    if (editData) {
+      setName(editData.name ?? "");
+      setCategoryId(editData.category_id ?? "");
+      setBody(editData.body ?? "");
+      setIsActive(editData.is_active ?? true);
+    }
+  }, [editData]);
 
   const insertPlaceholder = useCallback((ph: string) => {
     const ta = bodyRef.current;

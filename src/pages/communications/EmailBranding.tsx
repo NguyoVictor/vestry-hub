@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   ImageIcon, UserCircle, PenLine, Palette, FileText, Eye, Save, X,
 } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BrandingState {
@@ -135,6 +137,7 @@ export function EmailBranding() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [softWarning, setSoftWarning] = useState(false);
+  const { limits, usage } = useSubscription();
 
   const [branding, setBranding] = useState<BrandingState>({
     logoUrl: "", logoFile: null, logoPreview: "",
@@ -191,6 +194,14 @@ export function EmailBranding() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { toast.error("Logo must be under 2MB."); return; }
+    
+    // Pre-upload storage check
+    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     set("logoFile", file);
     set("logoPreview", URL.createObjectURL(file));
   };
@@ -199,6 +210,14 @@ export function EmailBranding() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 1 * 1024 * 1024) { toast.error("Photo must be under 1MB."); return; }
+    
+    // Pre-upload storage check
+    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     set("senderPhotoFile", file);
     set("senderPhotoPreview", URL.createObjectURL(file));
   };
@@ -220,12 +239,15 @@ export function EmailBranding() {
     try {
       let logoUrl = branding.logoUrl;
       let senderPhotoUrl = branding.senderPhotoUrl;
+      let totalUploadedGB = 0;
 
       if (branding.logoFile) {
         logoUrl = await uploadFile(branding.logoFile, `${tenantId}/email-logo-${Date.now()}.${branding.logoFile.name.split(".").pop()}`);
+        totalUploadedGB += branding.logoFile.size / (1024 * 1024 * 1024);
       }
       if (branding.senderPhotoFile) {
         senderPhotoUrl = await uploadFile(branding.senderPhotoFile, `${tenantId}/sender-photo-${Date.now()}.${branding.senderPhotoFile.name.split(".").pop()}`);
+        totalUploadedGB += branding.senderPhotoFile.size / (1024 * 1024 * 1024);
       }
 
       const payload = {
@@ -245,6 +267,14 @@ export function EmailBranding() {
         .from(TABLES.EMAIL_BRANDING)
         .upsert(payload as never, { onConflict: "tenant_id" });
       if (error) throw error;
+
+      // Post-upload increment storage (only if files were uploaded)
+      if (totalUploadedGB > 0) {
+        await supabase
+          .from(TABLES.TENANT_SUBSCRIPTIONS)
+          .update({ storage_used_gb: usage.storage_gb + totalUploadedGB })
+          .eq('tenant_id', tenantId);
+      }
 
       // Update local state with uploaded URLs
       setBranding(prev => ({ ...prev, logoUrl, senderPhotoUrl, logoFile: null, senderPhotoFile: null }));
@@ -363,6 +393,15 @@ export function EmailBranding() {
               className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-xs file:font-medium file:bg-white file:text-slate-700 hover:file:bg-slate-50 cursor-pointer"
               onChange={handlePhotoChange}
             />
+            {(branding.senderPhotoPreview || branding.senderPhotoUrl) && (
+              <button
+                type="button"
+                onClick={() => { set("senderPhotoUrl", ""); set("senderPhotoPreview", ""); set("senderPhotoFile", null); if (photoRef.current) photoRef.current.value = ""; }}
+                className="text-xs text-red-500 hover:underline"
+              >
+                Remove Photo
+              </button>
+            )}
           </div>
         </div>
 

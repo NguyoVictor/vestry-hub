@@ -24,6 +24,8 @@ import {
   Search, Plus, Trash2, Upload, FolderOpen, Eye, Download, X,
   CheckCircle2, MoreVertical, Pencil, Loader2, ExternalLink,
 } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ResourceType = "document" | "video" | "link" | "lesson";
@@ -67,8 +69,17 @@ function bucketForFile(file: File): "resources" | "church-video" {
 async function uploadFile(
   file: File,
   tenantId: string,
+  limits: any,
+  usage: any,
   onProgress?: (pct: number) => void,
 ): Promise<string> {
+  // Pre-upload storage check
+  const fileSizeGB = file.size / (1024 * 1024 * 1024);
+  if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+    showPaywallToast('storage', 'storage');
+    throw new Error('Storage limit exceeded');
+  }
+
   const bucket = bucketForFile(file);
   const ext     = file.name.split(".").pop();
   const storagePath = `${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -77,6 +88,12 @@ async function uploadFile(
   const { error } = await supabase.storage.from(bucket).upload(storagePath, file, { upsert: false });
   if (error) throw error;
   onProgress?.(100);
+
+  // Post-upload increment storage
+  await supabase
+    .from(TABLES.TENANT_SUBSCRIPTIONS)
+    .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+    .eq('tenant_id', tenantId);
 
   if (bucket === "church-video") {
     const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
@@ -677,6 +694,7 @@ function ResourceForm({
 export default function DiscipleshipResources() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { limits, usage } = useSubscription();
 
   const [categoriesOpen, setCategoriesOpen]   = useState(false);
   const [addResourceOpen, setAddResourceOpen] = useState(false);
@@ -813,17 +831,17 @@ export default function DiscipleshipResources() {
     };
 
     if (form.resource_type === "document") {
-      if (docFile) payload.file_url = await uploadFile(docFile, tenantId, p => setUploadProgress(u => ({ ...u, doc: p })));
+      if (docFile) payload.file_url = await uploadFile(docFile, tenantId, limits, usage, p => setUploadProgress(u => ({ ...u, doc: p })));
       else payload.file_url = form.file_url || null;
     }
     if (form.resource_type === "video") {
-      if (videoFile) payload.video_url = await uploadFile(videoFile, tenantId, p => setUploadProgress(u => ({ ...u, video: p })));
+      if (videoFile) payload.video_url = await uploadFile(videoFile, tenantId, limits, usage, p => setUploadProgress(u => ({ ...u, video: p })));
       else payload.video_url = form.video_url || null;
     }
     if (form.resource_type === "link") payload.external_url = form.external_url || null;
     if (form.resource_type === "lesson") {
       payload.lesson_content = form.lesson_content || null;
-      if (lessonFile) payload.file_url = await uploadFile(lessonFile, tenantId, p => setUploadProgress(u => ({ ...u, lesson: p })));
+      if (lessonFile) payload.file_url = await uploadFile(lessonFile, tenantId, limits, usage, p => setUploadProgress(u => ({ ...u, lesson: p })));
       else payload.file_url = form.file_url || null;
     }
     return payload;

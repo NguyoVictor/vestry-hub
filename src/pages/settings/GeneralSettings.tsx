@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { TABLES, COLS } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,7 @@ const APP_BASE_URL = "https://www.churchcentralcloud.com/app/";
 
 export default function GeneralSettings() {
   const { tenantId } = useChurch();
+  const { limits, usage } = useSubscription();
   const queryClient = useQueryClient();
   const logoRef = useRef<HTMLInputElement>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -123,6 +126,13 @@ export default function GeneralSettings() {
 
       // Upload logo if a new file was selected
       if (logoFile) {
+        // Check storage limit
+        const fileSizeGB = logoFile.size / (1024 * 1024 * 1024);
+        if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+          showPaywallToast('storage', 'storage');
+          throw new Error('Storage limit reached');
+        }
+        
         setUploading(true);
         const ext = logoFile.name.split(".").pop();
         const path = `${tenantId}/logo-${Date.now()}.${ext}`;
@@ -130,6 +140,12 @@ export default function GeneralSettings() {
         if (!upErr) {
           const { data } = supabase.storage.from("church-logos").getPublicUrl(path);
           logoUrl = data.publicUrl;
+          
+          // Increment storage usage
+          await supabase
+            .from(TABLES.TENANT_SUBSCRIPTIONS)
+            .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+            .eq('tenant_id', tenantId);
         }
         setUploading(false);
       }

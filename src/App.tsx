@@ -24,6 +24,7 @@ const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 const TermsAndConditions = lazy(() => import("./pages/TermsAndConditions"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 import AuthCallback from "./pages/auth/AuthCallback";
+import InviteCallback from "./pages/auth/InviteCallback";
 import CanvaCallback from "./pages/auth/CanvaCallback";
 import Onboarding from "./pages/Onboarding";
 import PlaceholderPage from "./pages/PlaceholderPage";
@@ -82,9 +83,11 @@ const MemberFacilityBookingPage = lazy(() => import("./pages/member/MemberFacili
 const MemberLivestreamingPage = lazy(() => import("./pages/member/MemberLivestreaming"));
 const MemberWatchLivePage = lazy(() => import("./pages/member/MemberWatchLive"));
 const MemberOutreachPage = lazy(() => import("./pages/member/MemberOutreach"));
+const MemberWhatsAppPage = lazy(() => import("./pages/member/MemberWhatsApp"));
 const SurveyTakePage = lazy(() => import("./pages/public/SurveyTake"));
 const PublicBookingPage = lazy(() => import("./pages/public/PublicBookingPage"));
 const SurveyResponsesPage = lazy(() => import("./pages/communications/SurveyResponses"));
+const MemberWelcome = lazy(() => import("./pages/member/MemberWelcome"));
 
 // Member Training pages
 const MemberTraining = lazy(() => import("./pages/member/MemberTraining"));
@@ -288,6 +291,7 @@ const App = () => {
             <Route path="/auth/forgot-password" element={<Suspense fallback={<Fallback />}><ForgotPassword /></Suspense>} />
             <Route path="/auth/reset-password" element={<Suspense fallback={<Fallback />}><ResetPassword /></Suspense>} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/invite" element={<InviteCallback />} />
             <Route path="/auth/canva/callback" element={<CanvaCallback />} />
             <Route path="/terms" element={<Suspense fallback={<Fallback />}><TermsAndConditions /></Suspense>} />
             <Route path="/privacy" element={<Suspense fallback={<Fallback />}><PrivacyPolicy /></Suspense>} />
@@ -494,6 +498,7 @@ const App = () => {
             <Route element={<MemberAuthGuard />}>
               <Route path="/member/profile-setup" element={<Suspense fallback={<Fallback />}><ProfileSetup /></Suspense>} />
               <Route element={<MemberPortalLayout />}>
+                <Route path="/member/welcome" element={<Suspense fallback={<Fallback />}><MemberWelcome /></Suspense>} />
                 <Route path="/member" element={<Suspense fallback={<Fallback />}><MemberHome /></Suspense>} />
                 <Route path="/member/give" element={<Suspense fallback={<Fallback />}><MemberGive /></Suspense>} />
                 <Route path="/member/giving-history" element={<Suspense fallback={<Fallback />}><MemberGivingHistory /></Suspense>} />
@@ -522,6 +527,7 @@ const App = () => {
                 <Route path="/member/livestreaming" element={<Suspense fallback={<Fallback />}><MemberLivestreamingPage /></Suspense>} />
                 <Route path="/member/watch-live" element={<Suspense fallback={<Fallback />}><MemberWatchLivePage /></Suspense>} />
                 <Route path="/member/outreach" element={<Suspense fallback={<Fallback />}><MemberOutreachPage /></Suspense>} />
+                <Route path="/member/whatsapp" element={<Suspense fallback={<Fallback />}><MemberWhatsAppPage /></Suspense>} />
                 <Route path="/member/store" element={<Suspense fallback={<Fallback />}><MemberStore /></Suspense>} />
                 {/* Member Training routes */}
                 <Route path="/member/training" element={<Suspense fallback={<Fallback />}><MemberTraining /></Suspense>} />

@@ -26,6 +26,8 @@ import {
   TrendingDown, Download, Upload, Image as ImageIcon, CheckCircle,
   Loader2, Box, ChevronDown, TriangleAlert, RotateCcw, X,
 } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORIES = ["Electronics", "Furniture", "Vehicles", "Musical Instruments", "Buildings", "Other"];
@@ -96,6 +98,7 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: s
 function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
   const imgRef = useRef<HTMLInputElement>(null);
   const { symbol } = useCurrency();
+  const { limits, usage } = useSubscription();
   const [name, setName] = useState(editing?.name || "");
   const [category, setCategory] = useState(editing?.category || "");
   const [condition, setCondition] = useState(editing?.condition || "");
@@ -114,8 +117,18 @@ function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
   const [saving, setSaving] = useState(false);
 
   const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    setImgFile(f); setImgPreview(URL.createObjectURL(f));
+    const f = e.target.files?.[0]; 
+    if (!f) return;
+    
+    // Pre-upload storage check
+    const fileSizeGB = f.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
+    setImgFile(f); 
+    setImgPreview(URL.createObjectURL(f));
   };
 
   const handleSave = async () => {
@@ -123,11 +136,17 @@ function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
     setSaving(true);
     try {
       let imagePath = editing?.image_path || null;
+      let uploadedGB = 0;
+      
       if (imgFile) {
         const path = `${tenantId}/${Date.now()}-${imgFile.name}`;
         const { error: upErr } = await supabase.storage.from("asset-images").upload(path, imgFile);
-        if (!upErr) imagePath = path;
+        if (!upErr) {
+          imagePath = path;
+          uploadedGB = imgFile.size / (1024 * 1024 * 1024);
+        }
       }
+      
       const payload: any = {
         tenant_id: tenantId, name,
         category: category || null, condition: condition || null,
@@ -137,6 +156,7 @@ function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
         serial_number: serial || null, location: location || null,
         description: description || null, image_path: imagePath,
       };
+      
       if (editing?.id) {
         const { error } = await supabase.from(TABLES.CHURCH_ASSETS).update(payload).eq("id", editing.id);
         if (error) throw error;
@@ -144,6 +164,15 @@ function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
         const { error } = await supabase.from(TABLES.CHURCH_ASSETS).insert(payload);
         if (error) throw error;
       }
+      
+      // Post-upload increment storage (only if file was uploaded)
+      if (uploadedGB > 0) {
+        await supabase
+          .from(TABLES.TENANT_SUBSCRIPTIONS)
+          .update({ storage_used_gb: usage.storage_gb + uploadedGB })
+          .eq('tenant_id', tenantId);
+      }
+      
       toast.success(editing?.id ? "Asset updated" : "Asset added");
       onSuccess(); onClose();
     } catch (err: any) { toast.error(err.message); }

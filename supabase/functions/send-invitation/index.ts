@@ -24,38 +24,46 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(email, {
-      data: { tenant_id, role, invited_by },
-      redirectTo: `${Deno.env.get("SITE_URL") ?? "https://vestry.app"}/auth/callback`,
-    });
-    if (inviteErr) throw inviteErr;
+    let newUserId: string | null = null;
+    let alreadyRegistered = false;
 
-    const subject = `You've been invited to join ${church_name} on Vestry Hub`;
-    const bodyHtml = `
-      <p>Hi there,</p>
-      <p><strong>${invited_by}</strong> has invited you to join <strong>${church_name}</strong> on Vestry Hub as a <strong>${role.replace(/_/g, " ")}</strong>.</p>
-      <p>Click the button below to accept your invitation and set up your account.</p>
-    `;
+    try {
+      const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(email, {
+        data: { tenant_id, role, invited_by, church_name },
+        redirectTo: `${Deno.env.get("SITE_URL") ?? "https://vestryhub.com"}/auth/invite`,
+      });
 
-    const html = await buildBrandedEmail({
-      tenantId: tenant_id,
-      churchName: church_name,
-      subject,
-      bodyHtml,
-      ctaLabel: "Accept Invitation",
-      ctaUrl: `${Deno.env.get("SITE_URL") ?? "https://vestry.app"}/auth/callback`,
-      supabaseClient: supabase,
-    });
+      if (inviteErr) {
+        if (inviteErr.status === 422 || inviteErr.message?.includes('already been registered')) {
+          // User already has auth account — find their ID and add directly
+          const { data: { users: allUsers } } = await supabase.auth.admin.listUsers();
+          const existingAuthUser = allUsers?.find((u: any) => u.email === email);
+          newUserId = existingAuthUser?.id ?? null;
+          alreadyRegistered = true;
+          console.warn("User already registered, adding directly:", email);
+        } else {
+          console.warn("Auth invite warning:", inviteErr.message);
+        }
+      } else {
+        newUserId = inviteData?.user?.id ?? null;
+      }
+    } catch (authError) {
+      console.warn("Auth invite skipped:", authError);
+    }
 
-    const emailRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: `${church_name} via Vestry Hub <noreply@vestry.app>`, to: [email], subject, html }),
-    });
+    // Create users table record if we have a valid user ID
+    if (newUserId) {
+      await supabase.from('users').upsert({
+        id: newUserId,
+        tenant_id,
+        email,
+        role,
+        status: 'active',
+        invitation_sent: !alreadyRegistered,
+      }, { onConflict: 'id' });
+    }
 
-    if (!emailRes.ok) throw new Error(`Resend error: ${await emailRes.text()}`);
-
-    return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, already_registered: alreadyRegistered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }

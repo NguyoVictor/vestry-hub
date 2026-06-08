@@ -31,6 +31,7 @@ import { SmsTemplates } from "./SmsTemplates";
 import { SmsCredits } from "./SmsCredits";
 import { AdminBroadcast } from "./AdminBroadcast";
 import { WhatsAppCloud } from "./whatsapp/WhatsAppCloudMain";
+import WhatsAppDirectory from "./WhatsAppDirectory";
 import { PremiumBroadcastsView } from "./components/PremiumBroadcastsView";
 import { logActivity } from "@/lib/activityLogger";
 import { format } from "date-fns";
@@ -46,10 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "email_automation",  label: "Email Automation", icon: Zap,            group: "Email" },
   { id: "sms",               label: "SMS",              icon: MessageSquare,  group: "SMS" },
   { id: "sms_templates",     label: "SMS Templates",    icon: FileText,       group: "SMS" },
-  { id: "whatsapp",          label: "WhatsApp Cloud",   icon: MessageCircle,  group: "WhatsApp" },
-  { id: "wa_templates",      label: "WA Templates",     icon: LayoutTemplate, group: "WhatsApp" },
-  { id: "wa_automation",     label: "WA Automation",    icon: Zap,            group: "WhatsApp" },
-  { id: "wa_report",         label: "WA Report",        icon: BarChart2,      group: "WhatsApp" },
+  { id: "whatsapp",          label: "WhatsApp",         icon: MessageCircle,  group: "WhatsApp" },
   { id: "credits",           label: "Credits",          icon: CreditCard,     group: "Settings" },
   { id: "branding",          label: "Branding",         icon: Paintbrush,     group: "Settings" },
   { id: "admin_broadcast",   label: "Admin Broadcast",  icon: Radio,          group: "Settings" },
@@ -438,9 +436,9 @@ export default function Communications() {
           {/* ── CREDITS ── */}
           {activeSection === "credits" && <SmsCredits />}
 
-          {/* ── WHATSAPP (all WA tabs handled inside WhatsAppCloud component) ── */}
-          {["whatsapp", "wa_templates", "wa_automation", "wa_report"].includes(activeSection) && (
-            <WhatsAppCloud />
+          {/* ── WHATSAPP ── */}
+          {activeSection === "whatsapp" && (
+            <WhatsAppDirectory />
           )}
 
           {/* ── BRANDING ── */}

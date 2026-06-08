@@ -6,6 +6,9 @@ import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
+import { TABLES } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +55,7 @@ type FormData = z.infer<typeof schema>;
 
 const ChurchProfile = () => {
   const church = useChurch();
+  const { limits, usage } = useSubscription();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -142,6 +146,14 @@ const ChurchProfile = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { toast.error("Max 2MB"); return; }
+    
+    // Check storage limit
+    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     setUploading(true);
     const ext = file.name.split(".").pop();
     const path = `${church.tenantId}/logo.${ext}`;
@@ -149,6 +161,13 @@ const ChurchProfile = () => {
     if (uploadError) { toast.error("Upload failed"); setUploading(false); return; }
     const { data: urlData } = supabase.storage.from("church-logos").getPublicUrl(path);
     await supabase.from("tenants").update({ logo: urlData.publicUrl } as any).eq("id", church.tenantId);
+    
+    // Increment storage usage
+    await supabase
+      .from(TABLES.TENANT_SUBSCRIPTIONS)
+      .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+      .eq('tenant_id', church.tenantId);
+    
     qc.invalidateQueries({ queryKey: ["tenant", church.tenantId] });
     toast.success("Logo uploaded");
     setUploading(false);

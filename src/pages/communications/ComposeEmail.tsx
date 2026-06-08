@@ -470,6 +470,45 @@ export default function ComposeEmail() {
           return;
         }
 
+        // Upload attachments to Supabase Storage if any
+        let attachmentUrls: Array<{name: string, url: string}> = [];
+        if (attachments.length > 0) {
+          try {
+            for (const file of attachments) {
+              // Validate file size (10MB limit)
+              if (file.size > 10 * 1024 * 1024) {
+                toast.error(`File ${file.name} is too large. Maximum size is 10MB.`);
+                setSending(false);
+                return;
+              }
+
+              const fileName = `${tenantId}/email-attachments/${Date.now()}-${file.name}`;
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('church-assets')
+                .upload(fileName, file);
+              
+              if (uploadError) {
+                toast.error(`Failed to upload ${file.name}: ${uploadError.message}`);
+                setSending(false);
+                return;
+              }
+
+              const { data: { publicUrl } } = supabase.storage
+                .from('church-assets')
+                .getPublicUrl(fileName);
+              
+              attachmentUrls.push({
+                name: file.name,
+                url: publicUrl
+              });
+            }
+          } catch (uploadErr) {
+            toast.error(`Failed to upload attachments: ${(uploadErr as Error)?.message ?? 'Unknown error'}`);
+            setSending(false);
+            return;
+          }
+        }
+
         const { error } = await supabase.functions.invoke("send-communication", {
           body: {
             tenant_id: tenantId,
@@ -477,6 +516,7 @@ export default function ComposeEmail() {
             subject,
             body: message,
             recipients: emailRecipients,
+            attachments: attachmentUrls,
             schedule_at: scheduleAt,
           },
         });

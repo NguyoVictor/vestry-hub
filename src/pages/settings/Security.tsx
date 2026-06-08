@@ -6,8 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff, Shield, Lock } from "lucide-react";
+import { Loader2, Eye, EyeOff, Shield, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
 import { TABLES } from "@/lib/schema";
@@ -44,6 +45,8 @@ const Security = () => {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
 
   const form = useForm<z.infer<typeof pwSchema>>({
     resolver: zodResolver(pwSchema),
@@ -60,6 +63,40 @@ const Security = () => {
     if (error) { toast.error(error.message); return; }
     toast.success("Password updated successfully");
     form.reset();
+  };
+
+  const handleEmailChange = async (newEmail: string) => {
+    if (!newEmail || !newEmail.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      // 1. Update Supabase Auth email
+      const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
+      if (authError) throw authError;
+
+      // 2. Update users table
+      const { error: userError } = await supabase
+        .from('users')
+        .update({ email: newEmail })
+        .eq('id', church.userId);
+      if (userError) throw userError;
+
+      // 3. Update members table if this admin is also a member
+      await supabase
+        .from('members')
+        .update({ email: newEmail })
+        .eq('id', church.userId);
+      // No error check — admin may not have a members record
+
+      toast.success('Confirmation sent to both your old and new email. Check both inboxes.');
+      setNewEmail('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update email');
+    } finally {
+      setSavingEmail(false);
+    }
   };
 
   const { data: loginEvents, isLoading: eventsLoading } = useQuery({
@@ -133,6 +170,37 @@ const Security = () => {
                 </Button>
               </form>
             </Form>
+          </CardContent>
+        </Card>
+
+        {/* Change Email Address */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Change Email Address
+            </CardTitle>
+            <CardDescription>
+              Update the email address associated with your account
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>New Email Address</Label>
+              <Input
+                type="email"
+                placeholder="Enter new email address"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={() => handleEmailChange(newEmail)}
+              disabled={savingEmail || !newEmail}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {savingEmail ? 'Updating...' : 'Update Email'}
+            </Button>
           </CardContent>
         </Card>
 

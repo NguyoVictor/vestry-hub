@@ -27,8 +27,9 @@ interface SmsRecord {
 
 interface SmsSettings {
   is_configured: boolean;
-  at_username: string | null;
-  at_api_key: string | null;
+  sozuri_api_key: string | null;
+  sozuri_project: string | null;
+  sender_id: string | null;
 }
 
 interface MetricsSms {
@@ -51,23 +52,37 @@ const STATUS_PILL: Record<string, string> = {
 };
 
 export function SmsTab() {
-  const { tenantId, name: churchName, userPhone } = useChurch() as any;
+  const { tenantId, name: churchName, userId } = useChurch() as any;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [sendingTest, setSendingTest] = useState(false);
   const [metricsItem, setMetricsItem] = useState<MetricsSms | null>(null);
 
+  // Fetch admin's phone number
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin-phone', userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('members')
+        .select('phone')
+        .eq('id', userId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
+
   // Check if SMS is configured
   const { data: smsSettings, isLoading: settingsLoading } = useQuery<SmsSettings | null>({
     queryKey: ["sms-settings", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("is_configured, at_username, at_api_key").eq("tenant_id", tenantId).maybeSingle();
+      const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("is_configured, sozuri_api_key, sozuri_project, sender_id").eq("tenant_id", tenantId).maybeSingle();
       return data as SmsSettings | null;
     },
     staleTime: 300_000,
   });
 
-  const isConfigured = smsSettings?.is_configured === true;
+  const isConfigured = !!(smsSettings?.sozuri_api_key && smsSettings?.sozuri_project && smsSettings?.sender_id);
 
   // Stats
   const { data: smsStats } = useQuery({
@@ -97,7 +112,7 @@ export function SmsTab() {
   });
 
   const handleSendTest = async () => {
-    const phone = userPhone;
+    const phone = adminProfile?.phone;
     if (!phone) { toast.error("Please add a phone number to your profile to send a test SMS."); return; }
     setSendingTest(true);
     try {
@@ -109,7 +124,12 @@ export function SmsTab() {
       queryClient.invalidateQueries({ queryKey: ["sms-stats", tenantId] });
       toast.success(`✅ Test SMS sent to ${phone}`);
     } catch (err: unknown) {
-      toast.error((err as Error)?.message ?? "❌ Failed to send test SMS.");
+      const message = (err as Error)?.message ?? "";
+      if (message.includes("non-2xx")) {
+        toast.error("❌ SMS delivery failed. Check your Sozuri credentials and Sender ID approval status.");
+      } else {
+        toast.error(message || "❌ Failed to send test SMS.");
+      }
     } finally {
       setSendingTest(false);
     }
@@ -124,7 +144,7 @@ export function SmsTab() {
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
           <div className="flex-1 text-sm text-amber-800">
-            <span className="font-medium">SMS not configured.</span> Add your Africa's Talking credentials in{" "}
+            <span className="font-medium">SMS not configured.</span> Add your Sozuri credentials in{" "}
             <button onClick={() => navigate("/settings/communications-settings")} className="text-orange-600 font-medium hover:underline">
               Settings → Communications → SMS
             </button>

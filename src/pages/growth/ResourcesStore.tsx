@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TABLES, COLS } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -162,6 +164,7 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
 }) {
   const queryClient = useQueryClient();
   const { userId } = useChurch();
+  const { limits, usage } = useSubscription();
 
   // Fetch dynamic categories for this tenant
   const { data: categories = [] } = useQuery({
@@ -213,6 +216,13 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
   // Upload helper functions
   async function uploadCoverImage(file: File): Promise<string | null> {
     try {
+      // Check storage limit
+      const fileSizeGB = file.size / (1024 * 1024 * 1024);
+      if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+        showPaywallToast('storage', 'storage');
+        return null;
+      }
+      
       setUploadProgress(p => ({ ...p, cover: 10 }));
       const ext = file.name.split(".").pop();
       const path = `${tenantId}/${Date.now()}-cover.${ext}`;
@@ -224,6 +234,12 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       
       setUploadProgress(p => ({ ...p, cover: 90 }));
       const { data: { publicUrl } } = supabase.storage.from("store-covers").getPublicUrl(path);
+      
+      // Increment storage usage
+      await supabase
+        .from(TABLES.TENANT_SUBSCRIPTIONS)
+        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+        .eq('tenant_id', tenantId);
       
       setUploadProgress(p => ({ ...p, cover: 100 }));
       return publicUrl;
@@ -238,6 +254,13 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
   async function uploadGalleryImages(files: File[]): Promise<string[]> {
     const urls: string[] = [];
     try {
+      // Check storage limit for all files
+      const totalSizeGB = files.reduce((sum, f) => sum + (f.size / (1024 * 1024 * 1024)), 0);
+      if ((usage.storage_gb + totalSizeGB) > limits.storage_gb) {
+        showPaywallToast('storage', 'storage');
+        return [];
+      }
+      
       setUploadProgress(p => ({ ...p, gallery: 10 }));
       
       for (let i = 0; i < files.length; i++) {
@@ -256,6 +279,12 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
         urls.push(publicUrl);
       }
       
+      // Increment storage usage
+      await supabase
+        .from(TABLES.TENANT_SUBSCRIPTIONS)
+        .update({ storage_used_gb: usage.storage_gb + totalSizeGB })
+        .eq('tenant_id', tenantId);
+      
       setUploadProgress(p => ({ ...p, gallery: 100 }));
       return urls;
     } catch (error) {
@@ -268,6 +297,13 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
 
   async function uploadDigitalFile(file: File): Promise<string | null> {
     try {
+      // Check storage limit
+      const fileSizeGB = file.size / (1024 * 1024 * 1024);
+      if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+        showPaywallToast('storage', 'storage');
+        return null;
+      }
+      
       setUploadProgress(p => ({ ...p, digital: 10 }));
       const ext = file.name.split(".").pop();
       const path = `${tenantId}/${Date.now()}-${file.name}`;
@@ -278,6 +314,13 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       if (error) throw error;
       
       setUploadProgress(p => ({ ...p, digital: 90 }));
+      
+      // Increment storage usage
+      await supabase
+        .from(TABLES.TENANT_SUBSCRIPTIONS)
+        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+        .eq('tenant_id', tenantId);
+      
       // Digital files are private, so we store the path, not public URL
       setUploadProgress(p => ({ ...p, digital: 100 }));
       return path;

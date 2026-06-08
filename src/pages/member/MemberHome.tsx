@@ -47,7 +47,7 @@ const ALL_MODULES = [
   { key: "my_giving_history", label: "My Giving History", desc: "View complete giving records and tax receipts", icon: Receipt, color: "bg-amber-500", path: "/member/giving-history" },
   { key: "announcements", label: "Announcements", desc: "Latest church news and updates", icon: Megaphone, color: "bg-yellow-500", path: "/member/announcements" },
   { key: "messages", label: "Messages", desc: "Direct messages from church staff", icon: MessageCircle, color: "bg-blue-500", path: "/member/messages" },
-  { key: "chat_on_whatsapp", label: "Chat on WhatsApp", desc: "WhatsApp not yet configured for your church", icon: MessageSquare, color: "bg-green-500", path: "#" },
+  { key: "chat_on_whatsapp", label: "Chat on WhatsApp", desc: "Connect with church staff and join groups", icon: MessageSquare, color: "bg-green-500", path: "/member/whatsapp" },
   { key: "testimonies", label: "Testimonies", desc: "Read inspiring testimonies from members", icon: Quote, color: "bg-purple-500", path: "/member/testimonies" },
   { key: "member_request", label: "Member Request", desc: "Submit a request to the church", icon: Wrench, color: "bg-slate-500", path: "/member/requests" },
   { key: "my_appointments", label: "My Appointments", desc: "View scheduled counselling meetings", icon: Clock, color: "bg-indigo-400", path: "/member/appointments" },

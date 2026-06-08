@@ -65,7 +65,8 @@ export default function SecurityCentre() {
       const { data } = await supabase
         .from("users")
         .select("id, first_name, last_name, email, role, status")
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .eq("status", "active");
       return data || [];
     },
   });
@@ -97,7 +98,7 @@ export default function SecurityCentre() {
   ).length || 0;
   
   const unresolvedAlerts = alerts?.filter(a => a.status !== "resolved") || [];
-  const staffCount = users?.filter(u => ["super_admin", "admin", "staff"].includes(u.role || "")).length || 0;
+  const staffCount = users?.length || 0;
 
   return (
     <div>
@@ -112,9 +113,9 @@ export default function SecurityCentre() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { title: "Active Sessions", value: activeSessionsCount, icon: Monitor, color: "text-primary" },
+          { title: "Logins (24h)", value: activeSessionsCount, icon: Monitor, color: "text-primary" },
           { title: "Failed Logins (24h)", value: failedCount, icon: AlertTriangle, color: "text-destructive" },
-          { title: "Staff Accounts", value: staffCount, icon: Users, color: "text-primary" },
+          { title: "Admin Accounts", value: staffCount, icon: Users, color: "text-primary" },
           { title: "Unresolved Alerts", value: unresolvedAlerts.length, icon: Shield, color: "text-amber-500" },
         ].map((stat) => (
           <Card key={stat.title}>
@@ -233,7 +234,7 @@ export default function SecurityCentre() {
 
       {/* Staff Overview */}
       <Card>
-        <CardHeader><CardTitle>Staff Access Overview</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Admin Access Overview</CardTitle></CardHeader>
         <CardContent>
           {!users?.length ? (
             <p className="text-center text-muted-foreground py-8">No staff accounts found.</p>
@@ -241,13 +242,13 @@ export default function SecurityCentre() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Staff Member</TableHead>
+                  <TableHead>Admin</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.filter(u => ["super_admin", "admin", "staff"].includes(u.role || "")).map((user) => (
+                {users.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -258,7 +259,18 @@ export default function SecurityCentre() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {user.role === "super_admin"
+                          ? "Super Admin"
+                          : user.role === "church_admin"
+                          ? "Church Admin"
+                          : user.role
+                              ?.split("_")
+                              .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                              .join(" ") || user.role}
+                      </Badge>
+                    </TableCell>
                     <TableCell><Badge className={user.status === "active" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-muted text-muted-foreground"}>{user.status}</Badge></TableCell>
                   </TableRow>
                 ))}

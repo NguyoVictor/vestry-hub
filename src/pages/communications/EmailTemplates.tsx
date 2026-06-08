@@ -1,5 +1,5 @@
 // EmailTemplates component
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -97,13 +97,17 @@ function TemplateModal({ open, onClose, tenantId, userId, categories, editData, 
   const [errors,     setErrors]     = useState<Record<string,string>>({});
 
   // Reset when modal opens
-  useState(() => {
+  useEffect(() => {
     if (open) {
-      setName(editData?.name ?? ""); setCategoryId(editData?.category_id ?? "");
-      setSubject(editData?.subject ?? ""); setBody(editData?.body ?? "");
-      setIsActive(editData?.is_active ?? true); setHtmlMode(false); setErrors({});
+      setName(editData?.name ?? ""); 
+      setCategoryId(editData?.category_id ?? "");
+      setSubject(editData?.subject ?? ""); 
+      setBody(editData?.body ?? "");
+      setIsActive(editData?.is_active ?? true); 
+      setHtmlMode(false); 
+      setErrors({});
     }
-  });
+  }, [open, editData]);
 
   const insertPlaceholder = useCallback((placeholder: string) => {
     const ta = bodyRef.current;
@@ -287,6 +291,9 @@ function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibra
             </button>
             <button title="Edit" onClick={onEdit} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors">
               <Pencil className="h-3.5 w-3.5" /> Edit
+            </button>
+            <button title="Duplicate" onClick={onDuplicate} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors">
+              <Copy className="h-3.5 w-3.5" /> Duplicate
             </button>
             <button title="Delete" onClick={onDelete} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-red-100 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors">
               <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -474,6 +481,25 @@ export function EmailTemplates() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const handleDuplicateUserTemplate = async (template: EmailTemplate) => {
+    const { error } = await supabase.from(TABLES.EMAIL_TEMPLATES).insert({
+      tenant_id: tenantId, 
+      category_id: template.category_id, 
+      name: `${template.name} (Copy)`,
+      subject: template.subject, 
+      body: template.body, 
+      is_active: true, 
+      is_system: false, 
+      created_by: userId,
+    } as never);
+    if (error) { 
+      toast.error(error.message); 
+      return; 
+    }
+    qc.invalidateQueries({ queryKey: ["email-templates", tenantId] });
+    toast.success("✅ Template duplicated successfully.");
+  };
+
   const handleDuplicate = async (libTemplate: typeof LIBRARY_TEMPLATES[number]) => {
     const cat = categories.find(c => c.name === libTemplate.category);
     const { error } = await supabase.from(TABLES.EMAIL_TEMPLATES).insert({
@@ -530,6 +556,7 @@ export function EmailTemplates() {
                   onEdit={() => setEditTemplate(t)}
                   onDelete={() => setDeleteTemplate(t)}
                   onSend={() => setSendTemplate(t)}
+                  onDuplicate={() => handleDuplicateUserTemplate(t)}
                 />
               ))}
             </div>

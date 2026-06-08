@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { setActiveBranch } from "@/components/layout/AppLayout";
 import { TABLES, COLS } from "@/lib/schema";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,7 @@ export default function Branches() {
   const { tenantId, userId, currency } = useChurch();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { limits } = useSubscription();
   const [addSheet, setAddSheet] = useState(false);
   const [editBranch, setEditBranch] = useState<any>(null);
   const [form, setForm] = useState(defaultForm);
@@ -88,6 +91,12 @@ export default function Branches() {
 
   const saveBranch = useMutation({
     mutationFn: async () => {
+      // Check branch limit before creating new branch
+      if (!editBranch && branches.length >= limits.branches) {
+        showPaywallToast('branches', 'branches');
+        throw new Error('Branch limit reached');
+      }
+
       const payload = {
         name: form.name,
         tenant_id: tenantId,
@@ -113,7 +122,11 @@ export default function Branches() {
       setForm(defaultForm);
       toast.success(editBranch ? "Branch updated" : `${form.name} branch created successfully`);
     },
-    onError: () => toast.error("Failed to save branch"),
+    onError: (error: any) => {
+      if (error.message !== 'Branch limit reached') {
+        toast.error("Failed to save branch");
+      }
+    },
   });
 
   const openEdit = (branch: any) => {
@@ -128,7 +141,22 @@ export default function Branches() {
       <PageHeader
         title="Branches"
         subtitle="Manage multiple church locations from one account"
-        action={<Button onClick={() => { setForm(defaultForm); setEditBranch(null); setAddSheet(true); }}><Plus className="h-4 w-4 mr-1" />Add Branch</Button>}
+        action={
+          <Button 
+            onClick={() => { 
+              // Check branch limit before opening add sheet
+              if (branches.length >= limits.branches) {
+                showPaywallToast('branches', 'branches');
+                return;
+              }
+              setForm(defaultForm); 
+              setEditBranch(null); 
+              setAddSheet(true); 
+            }}
+          >
+            <Plus className="h-4 w-4 mr-1" />Add Branch
+          </Button>
+        }
       />
 
       {/* Stats */}
@@ -162,7 +190,18 @@ export default function Branches() {
           <GitBranch className="h-10 w-10 mx-auto mb-3 text-slate-300" />
           <p className="font-medium">No branches yet</p>
           <p className="text-sm mt-1">Add your first branch location to get started</p>
-          <Button className="mt-4" onClick={() => setAddSheet(true)}><Plus className="h-4 w-4 mr-1" />Add Branch</Button>
+          <Button 
+            className="mt-4" 
+            onClick={() => {
+              if (branches.length >= limits.branches) {
+                showPaywallToast('branches', 'branches');
+                return;
+              }
+              setAddSheet(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-1" />Add Branch
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

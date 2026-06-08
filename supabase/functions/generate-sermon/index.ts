@@ -165,6 +165,36 @@ Deno.serve(async (req: Request) => {
   try {
     const params = await req.json();
 
+    // Check AI usage limits if tenantId is provided
+    if (params.tenantId) {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+
+      const { data: subscription } = await supabase
+        .from("tenant_subscriptions")
+        .select("ai_credits, ai_addons, ai_used")
+        .eq("tenant_id", params.tenantId)
+        .maybeSingle();
+
+      if (subscription) {
+        const aiLimit = (subscription.ai_credits || 0) + (subscription.ai_addons || 0);
+        const aiUsed = subscription.ai_used || 0;
+        
+        if (aiUsed >= aiLimit) {
+          return new Response(JSON.stringify({ 
+            error: "AI credit limit reached. Top up to continue.",
+            limit_reached: true 
+          }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
     const groqKey = Deno.env.get("GROQ_API_KEY");
     if (!groqKey) {
       return new Response(JSON.stringify({ error: "GROQ_API_KEY not configured" }), {
@@ -228,6 +258,31 @@ Deno.serve(async (req: Request) => {
 
     const data = await groqRes.json();
     const content = data.choices?.[0]?.message?.content || "";
+
+    // Increment AI usage after successful call
+    if (params.tenantId) {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+
+      const { data: subscription } = await supabase
+        .from("tenant_subscriptions")
+        .select("ai_used")
+        .eq("tenant_id", params.tenantId)
+        .maybeSingle();
+
+      if (subscription) {
+        await supabase
+          .from("tenant_subscriptions")
+          .update({ 
+            ai_used: (subscription.ai_used || 0) + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq("tenant_id", params.tenantId);
+      }
+    }
 
     return new Response(JSON.stringify({ content }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },

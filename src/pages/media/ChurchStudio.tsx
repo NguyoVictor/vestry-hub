@@ -19,6 +19,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
+import { TABLES } from "@/lib/schema";
 
 const ChurchStudio = () => {
   const church = useChurch();
@@ -26,6 +29,7 @@ const ChurchStudio = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const form = useForm({ defaultValues: { title: "", media_type: "audio", speaker: "", scripture_reference: "", description: "", status: "published" } });
+  const { limits, usage } = useSubscription();
 
   const { data: media = [], isLoading } = useQuery({
     queryKey: ["studio_media", church.tenantId],
@@ -63,11 +67,26 @@ const ChurchStudio = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Pre-upload storage check
+    const fileSizeGB = file.size / (1024 * 1024 * 1024);
+    if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) {
+      showPaywallToast('storage', 'storage');
+      return;
+    }
+    
     const path = `${church.tenantId}/${Date.now()}-${file.name}`;
     const { error } = await supabase.storage.from("sermon-recordings").upload(path, file);
     if (error) { toast.error("Upload failed"); return; }
     const { data: { publicUrl } } = supabase.storage.from("sermon-recordings").getPublicUrl(path);
     form.setValue("file_url" as any, publicUrl);
+    
+    // Post-upload increment storage
+    await supabase
+      .from(TABLES.TENANT_SUBSCRIPTIONS)
+      .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
+      .eq('tenant_id', church.tenantId);
+    
     toast.success("File uploaded");
   };
 

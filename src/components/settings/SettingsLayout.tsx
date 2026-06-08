@@ -5,6 +5,7 @@ import {
   CreditCard, Banknote, Heart, Receipt,
   SlidersHorizontal, CalendarCheck, Bell, MessageSquare, Wrench, Globe,
   Lock, Scale, Database, BadgeCheck, QrCode, ExternalLink, Building2, Megaphone, Quote, Image, CalendarClock, UsersRound, Video,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -62,6 +63,7 @@ const NAV_GROUPS = [
   {
     label: "SECURITY & DATA",
     items: [
+      { label: "Security",         icon: Shield,          path: "/settings/security" },
       { label: "Privacy",          icon: Lock,            path: "/settings/privacy" },
       { label: "Legal",            icon: Scale,           path: "/settings/legal" },
       { label: "Backup",           icon: Database,        path: "/settings/backup" },

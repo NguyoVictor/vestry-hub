@@ -1,9 +1,11 @@
 import { Helmet } from "react-helmet-async";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -27,24 +29,32 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Users, Shield, Search, Plus, Key, Pencil, Trash2, CheckCircle2,
+  Users, Shield, Search, Plus, Key, Pencil, Trash2, CheckCircle2, Send,
 } from "lucide-react";
 
 // ─── Role config ──────────────────────────────────────────────────────────────
 const ROLES = [
   { value: "church_admin",      label: "Church Admin",      color: "bg-orange-100 text-orange-700 border-orange-200" },
   { value: "general_overseer",  label: "General Overseer",  color: "bg-slate-100 text-slate-600 border-slate-200" },
+  { value: "senior_pastor",     label: "Senior Pastor",     color: "bg-orange-50 text-orange-500 border-orange-100" },
   { value: "pastor",            label: "Pastor",            color: "bg-purple-100 text-purple-700 border-purple-200" },
-  { value: "staff_leader",      label: "Staff",             color: "bg-blue-100 text-blue-700 border-blue-200" },
-  { value: "volunteer",         label: "Volunteer",         color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { value: "assistant_pastor",  label: "Assistant Pastor",  color: "bg-purple-50 text-purple-500 border-purple-100" },
+  { value: "accountant",        label: "Accountant",        color: "bg-slate-100 text-slate-600 border-slate-200" },
+  { value: "leader",            label: "Leader",            color: "bg-blue-50 text-blue-500 border-blue-100" },
+  { value: "studio_operator",   label: "Studio Operator",   color: "bg-emerald-50 text-emerald-600 border-emerald-100" },
   { value: "member",            label: "Member",            color: "bg-slate-100 text-slate-500 border-slate-200" },
-  { value: "super_admin",       label: "Super Admin",       color: "bg-red-100 text-red-700 border-red-200" },
+  { value: "staff",             label: "Staff",             color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { value: "volunteer",         label: "Volunteer",         color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
   { value: "guest",             label: "Guest",             color: "bg-slate-100 text-slate-400 border-slate-200" },
 ] as const;
 
 type RoleValue = typeof ROLES[number]["value"];
 
 function getRoleConfig(role: string) {
+  // Display super_admin as "Church Admin" to church users
+  if (role === "super_admin") {
+    return { label: "Super Admin", color: "bg-purple-100 text-purple-700 border-purple-200" };
+  }
   return ROLES.find(r => r.value === role) ?? { label: role, color: "bg-slate-100 text-slate-500 border-slate-200" };
 }
 
@@ -59,6 +69,7 @@ interface UserRow {
   last_login_at: string | null;
   avatar_url: string | null;
   tenant_id: string;
+  invitation_sent: boolean | null;
 }
 
 interface MemberRow {
@@ -83,12 +94,17 @@ interface AddUserModalProps {
 }
 
 function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserModalProps) {
+  const church = useChurch();
+  const { canAddStaff, usage, limits } = useSubscription();
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<MemberRow | null>(null);
   const [role, setRole] = useState<RoleValue>("member");
   const [branchId, setBranchId] = useState<string>("");
   const [sendInvite, setSendInvite] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const formatRole = (r: string) =>
+    r.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
   // Fetch ALL members upfront — filtered client-side
   const { data: allMembers = [], isLoading: membersLoading } = useQuery({
@@ -125,28 +141,213 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
       toast.error("Please select a member first.");
       return;
     }
+    
+    // Check staff limit for non-member roles
+    if (role !== 'member' && !canAddStaff) {
+      showPaywallToast('staff', 'staff accounts');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("invite-user", {
-        body: {
-          memberId: selectedMember.id,
-          email: selectedMember.email,
-          role,
-          branchId: branchId || null,
-          sendInvite,
-          tenantId,
-        },
-      });
-      // The function returns { error: "message" } in the body on 400
-      if (error || data?.error) {
-        throw new Error(data?.error ?? error?.message ?? "Failed to add user.");
+      if (sendInvite) {
+        // Send Email Invitation ON - call send-invitation edge function
+        if (!selectedMember.email) {
+          toast.error("This member has no email address on file.");
+          setSubmitting(false);
+          return;
+        }
+
+        // Check 1 (was Check 2): active + same role → block FIRST
+        const { data: existingByEmail } = await supabase
+          .from('users')
+          .select('id, role, status')
+          .eq('email', selectedMember.email)
+          .eq('tenant_id', tenantId)
+          .eq('role', role)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (existingByEmail) {
+          toast.error(`${selectedMember.first_name} is already a ${formatRole(role)}.`);
+          setSubmitting(false);
+          return;
+        }
+
+        // Check 2 (was Check 1): inactive record → reactivate SECOND
+        const { data: inactiveRecords } = await supabase
+          .from('users')
+          .select('id, role, status')
+          .eq('email', selectedMember.email)
+          .eq('tenant_id', tenantId)
+          .eq('status', 'inactive')
+          .limit(1);
+
+        const existingInactive = inactiveRecords?.[0] ?? null;
+
+        if (existingInactive) {
+          const { data: reactivateData, error: reactivateError } = await supabase.functions.invoke(
+            "update-user-role",
+            { body: { action: "reactivate", targetUserId: existingInactive.id, role } }
+          );
+          if (reactivateError || reactivateData?.error) {
+            throw new Error(reactivateData?.error ?? reactivateError?.message ?? "Failed to restore access.");
+          }
+          toast.success(
+            existingInactive.role === role
+              ? `${selectedMember.first_name}'s access has been restored as ${formatRole(role)}.`
+              : `${selectedMember.first_name} has been added as ${formatRole(role)}.`
+          );
+          onSuccess();
+          handleClose();
+          return;
+        }
+
+        // Check 3: any active record exists → has credentials, add role directly, no email
+        const { data: anyActiveRecords } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', selectedMember.email)
+          .eq('tenant_id', tenantId)
+          .eq('status', 'active')
+          .limit(1);
+
+        if (anyActiveRecords && anyActiveRecords.length > 0) {
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: crypto.randomUUID(),
+              tenant_id: tenantId,
+              email: selectedMember.email,
+              first_name: selectedMember.first_name,
+              last_name: selectedMember.last_name,
+              role,
+              status: 'active',
+              invitation_sent: true,
+            });
+          if (insertError) throw insertError;
+          toast.success(`${selectedMember.first_name} has been added as ${formatRole(role)}.`);
+          onSuccess();
+          handleClose();
+          return;
+        }
+        // Active + different role → allow invitation for second role
+
+        // Brand new person — send invitation email
+        const { data, error } = await supabase.functions.invoke("send-invitation", {
+          body: {
+            email: selectedMember.email,
+            role,
+            church_name: church.name,
+            invited_by: church.userName || `${church.userFirstName} ${church.userLastName}`,
+            tenant_id: tenantId,
+          },
+        });
+
+        if (error || data?.error) {
+          throw new Error(data?.error ?? error?.message ?? "Failed to send invitation.");
+        }
+
+        if (data?.already_registered) {
+          toast.success(`${selectedMember.first_name} already has a VestryHub account. They've been added as ${formatRole(role)} and can log in with existing credentials.`);
+        } else {
+          toast.success("Invitation sent successfully.");
+        }
+      } else {
+        // Check if record exists by member ID
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id, role, status')
+          .eq('id', selectedMember.id)
+          .maybeSingle();
+
+        // Check by email+role to catch same role across different IDs
+        if (selectedMember.email) {
+          const { data: existingByEmailAndRole } = await supabase
+            .from('users')
+            .select('id, role, status')
+            .eq('email', selectedMember.email)
+            .eq('tenant_id', tenantId)
+            .eq('role', role)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (existingByEmailAndRole) {
+            toast.error(`${selectedMember.first_name} is already a ${formatRole(role)}.`);
+            setSubmitting(false);
+            return;
+          }
+        }
+
+        if (existingUser) {
+          if (existingUser.status === 'inactive') {
+            // Reactivate existing record
+            const { data: reactivateData, error: reactivateError } = await supabase.functions.invoke(
+              "update-user-role",
+              { body: { action: "reactivate", targetUserId: selectedMember.id, role } }
+            );
+            if (reactivateError || reactivateData?.error) {
+              throw new Error(reactivateData?.error ?? reactivateError?.message ?? "Failed to restore access.");
+            }
+            toast.success(
+              existingUser.role === role
+                ? `${selectedMember.first_name}'s access has been restored as ${formatRole(role)}.`
+                : `${selectedMember.first_name} has been added as ${formatRole(role)}.`
+            );
+            onSuccess();
+            handleClose();
+            return;
+          } else if (existingUser.role === role) {
+            // Active + same role → block
+            toast.error(`${selectedMember.first_name} is already a ${formatRole(role)}.`);
+            setSubmitting(false);
+            return;
+          }
+          // Active + different role → insert with new UUID
+          const { error } = await supabase
+            .from('users')
+            .insert({
+              id: crypto.randomUUID(),
+              tenant_id: tenantId,
+              email: selectedMember.email,
+              first_name: selectedMember.first_name,
+              last_name: selectedMember.last_name,
+              role,
+              status: 'active',
+              invitation_sent: true,
+            });
+          if (error) throw error;
+          toast.success("User added. Send them an invitation when ready.");
+        } else {
+          // No existing record → insert normally
+          const { error } = await supabase
+            .from('users')
+            .insert({
+              id: selectedMember.id,
+              tenant_id: tenantId,
+              email: selectedMember.email,
+              first_name: selectedMember.first_name,
+              last_name: selectedMember.last_name,
+              role,
+              status: 'active',
+              invitation_sent: false,
+            });
+          if (error) throw error;
+          toast.success("User added. Send them an invitation when ready.");
+        }
       }
-      const name = `${selectedMember.first_name ?? ""} ${selectedMember.last_name ?? ""}`.trim();
-      toast.success(sendInvite ? `Invitation sent to ${name}!` : `${name} added as user.`);
+
       onSuccess();
       handleClose();
     } catch (err: unknown) {
-      toast.error((err as Error)?.message ?? "Failed to add user.");
+      const message = (err as Error)?.message ?? '';
+      if (message.includes('duplicate key') || message.includes('unique constraint')) {
+        toast.error(`${selectedMember?.first_name ?? 'This user'} already has admin access.`);
+      } else if (message.includes('not found') || message.includes('404')) {
+        toast.error('Invitation service unavailable. Please try again.');
+      } else {
+        toast.error(message || 'Failed to add user. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -303,7 +504,7 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
             onClick={handleSubmit}
             disabled={submitting || !selectedMember}
           >
-            {submitting ? "Sending..." : "Send Invitation"}
+            {submitting ? (sendInvite ? "Sending..." : "Adding...") : (sendInvite ? "Send Invitation" : "Add User")}
           </Button>
         </div>
       </DialogContent>
@@ -313,8 +514,18 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
 
 // ─── Edit User Modal (full version) ──────────────────────────────────────────
 const EDIT_ROLES = [
-  "Church Admin", "General Overseer", "Senior Pastor", "Pastor",
-  "Assistant Pastor", "Accountant", "Leader", "Studio Operator", "Other",
+  { value: "church_admin", label: "Church Admin" },
+  { value: "general_overseer", label: "General Overseer" },
+  { value: "senior_pastor", label: "Senior Pastor" },
+  { value: "pastor", label: "Pastor" },
+  { value: "assistant_pastor", label: "Assistant Pastor" },
+  { value: "accountant", label: "Accountant" },
+  { value: "leader", label: "Leader" },
+  { value: "studio_operator", label: "Studio Operator" },
+  { value: "member", label: "Member" },
+  { value: "staff", label: "Staff" },
+  { value: "volunteer", label: "Volunteer" },
+  { value: "guest", label: "Guest" },
 ] as const;
 
 interface EditUserModalProps {
@@ -326,40 +537,46 @@ interface EditUserModalProps {
 
 function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProps) {
   const qc = useQueryClient();
+  const church = useChurch();
   const [role, setRole] = useState<string>("");
-  const [customRole, setCustomRole] = useState("");
   const [branchId, setBranchId] = useState<string>("");
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Sync state when user changes
-  useState(() => {
+  useEffect(() => {
     if (user) {
-      // Map stored role value to display label
-      const matchedRole = EDIT_ROLES.find(r =>
-        r.toLowerCase().replace(/\s+/g, "_") === user.role ||
-        r.toLowerCase() === user.role.toLowerCase()
-      );
-      setRole(matchedRole ?? "Other");
-      setCustomRole(matchedRole ? "" : user.role);
+      // Map stored role value to edit role
+      const matchedRole = EDIT_ROLES.find(r => r.value === user.role);
+      setRole(matchedRole?.value ?? "member");
       setIsActive(user.status === "active");
     }
-  });
+  }, [user]);
 
   if (!user) return null;
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const finalRole = role === "Other" ? customRole.trim() : role.toLowerCase().replace(/\s+/g, "_");
+      const finalRole = role;
       if (!finalRole) { toast.error("Please specify a role."); setSaving(false); return; }
-      const { error } = await supabase
-        .from(TABLES.USERS)
-        .update({ role: finalRole, status: isActive ? "active" : "inactive" } as never)
-        .eq(COLS.ID, user.id);
-      if (error) throw error;
-      toast.success("✅ User updated successfully.");
-      qc.invalidateQueries({ queryKey: ["settings-users"] });
+
+      const { data, error } = await supabase.functions.invoke("update-user-role", {
+        body: {
+          action: "update_role",
+          targetUserId: user.id,
+          role: finalRole,
+          status: isActive ? "active" : "inactive",
+        }
+      });
+
+      if (error || data?.error) {
+        throw new Error(data?.error ?? error?.message ?? "Failed to update user.");
+      }
+
+      toast.success("User updated successfully.");
+      qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
+      qc.invalidateQueries({ queryKey: ["staff-count", church.tenantId] });
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -389,24 +606,12 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
           {/* Role */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Role</Label>
-            <Select value={role} onValueChange={v => { setRole(v); if (v !== "Other") setCustomRole(""); }}>
+            <Select value={role} onValueChange={v => setRole(v)}>
               <SelectTrigger className="focus:ring-orange-400"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {EDIT_ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                {EDIT_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            {/* Other input — smooth slide */}
-            <div className={`overflow-hidden transition-all duration-200 ${role === "Other" ? "max-h-20 opacity-100" : "max-h-0 opacity-0"}`}>
-              <div className="pt-1.5">
-                <Label className="text-xs text-slate-500">Specify <span className="text-red-500">*</span></Label>
-                <Input
-                  placeholder="Enter role title"
-                  value={customRole}
-                  onChange={e => setCustomRole(e.target.value)}
-                  className="mt-1 focus:ring-orange-400"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Branch Assignment */}
@@ -748,6 +953,7 @@ function RolesOverview() {
 const UsersPage = () => {
   const church = useChurch();
   const qc = useQueryClient();
+  const { canAddStaff, limits } = useSubscription();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
@@ -757,13 +963,64 @@ const UsersPage = () => {
   const { data: users = [], isLoading: usersLoading } = useQuery<UserRow[]>({
     queryKey: ["settings-users", church.tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log("🔍 USERS QUERY DEBUG:");
+      console.log("- Primary table: members");
+      console.log("- Secondary table: users");
+      console.log("- Tenant ID filter:", church.tenantId);
+      
+      // First, fetch all members from members table
+      const { data: membersData, error: membersError } = await supabase
+        .from(TABLES.MEMBERS)
+        .select("id, first_name, last_name, email, tenant_id")
+        .eq(COLS.TENANT_ID, church.tenantId);
+      
+      console.log("🔍 MEMBERS QUERY RESPONSE:");
+      console.log("- Error:", membersError);
+      console.log("- Data count:", membersData?.length || 0);
+      
+      if (membersError) throw membersError;
+      
+      // Then fetch user roles and status from users table
+      const { data: userRolesData, error: userRolesError } = await supabase
         .from(TABLES.USERS)
-        .select("id, first_name, last_name, email, role, status, last_login_at, avatar_url, tenant_id")
-        .eq(COLS.TENANT_ID, church.tenantId)
-        .order(COLS.CREATED_AT, { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as UserRow[];
+        .select("id, first_name, last_name, email, role, status, avatar_url, tenant_id, invitation_sent")
+        .eq("tenant_id", church.tenantId);
+      
+      console.log("🔍 USER ROLES QUERY RESPONSE:");
+      console.log("- Error:", userRolesError);
+      console.log("- Data count:", userRolesData?.length || 0);
+      
+      if (userRolesError) throw userRolesError;
+      
+      // Merge the results - show all users from users table, enrich with member data if available
+      const mergedUsers: UserRow[] = [];
+      
+      if (userRolesData) {
+        for (const userRole of userRolesData) {
+          // Enrich with member data if available (by ID first, then email)
+          const member = membersData?.find(m => m.id === userRole.id) ||
+                         membersData?.find(m => m.email === userRole.email);
+          
+          mergedUsers.push({
+            id: userRole.id,
+            first_name: userRole.first_name || member?.first_name || 'Unknown',
+            last_name: userRole.last_name || member?.last_name || '',
+            email: userRole.email || member?.email || '',
+            role: userRole.role || '',
+            status: userRole.status || '',
+            last_login_at: null,
+            avatar_url: userRole.avatar_url || null,
+            tenant_id: userRole.tenant_id || church.tenantId,
+            invitation_sent: userRole.invitation_sent ?? false,
+          });
+        }
+      }
+      
+      console.log("🔍 MERGED USERS RESULT:");
+      console.log("- Final count:", mergedUsers.length);
+      console.log("- Final data:", mergedUsers);
+      
+      return mergedUsers.filter(u => u.status !== "inactive");
     },
     staleTime: 300_000,
   });
@@ -793,9 +1050,41 @@ const UsersPage = () => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
+      qc.invalidateQueries({ queryKey: ["staff-count", church.tenantId] });
       toast.success("User removed.");
     },
     onError: (e: Error) => toast.error(e.message ?? "Failed to remove user."),
+  });
+
+  const sendInviteMutation = useMutation({
+    mutationFn: async (targetUser: UserRow) => {
+      const { data, error } = await supabase.functions.invoke("send-invitation", {
+        body: {
+          email: targetUser.email,
+          role: targetUser.role,
+          church_name: church.name,
+          invited_by: church.userName || `${church.userFirstName} ${church.userLastName}`,
+          tenant_id: church.tenantId,
+        },
+      });
+      if (error || data?.error) {
+        throw new Error(data?.error ?? error?.message ?? "Failed to send invitation.");
+      }
+      return { data, targetUser };
+    },
+    onSuccess: ({ data, targetUser }) => {
+      qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
+      
+      const formatRole = (r: string) =>
+        r.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      
+      if (data?.already_registered) {
+        toast.success(`${targetUser.first_name} already has a VestryHub account. They've been added as ${formatRole(targetUser.role)} and can log in with existing credentials.`);
+      } else {
+        toast.success("Invitation sent successfully.");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Failed to send invitation."),
   });
 
   // Reset password
@@ -865,12 +1154,18 @@ const UsersPage = () => {
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                {adminCount}/{users.length} Admins
+                {users.length}/{limits.staff} Admins
               </span>
               <Button
                 className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
                 size="sm"
-                onClick={() => setAddOpen(true)}
+                onClick={() => {
+                  if (!canAddStaff) {
+                    showPaywallToast('staff', 'staff accounts');
+                    return;
+                  }
+                  setAddOpen(true);
+                }}
               >
                 <Plus className="h-4 w-4" />
                 Add User
@@ -980,24 +1275,43 @@ const UsersPage = () => {
                         {/* Actions */}
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
+                            {/* Send Invite — only for uninvited users, only church_admin/super_admin */}
+                            {!isCurrentUser &&
+                              !user.invitation_sent &&
+                              (church.userRole === "church_admin" || church.userRole === "super_admin") && (
+                              <button
+                                title="Send invitation"
+                                className="rounded p-1.5 text-slate-400 hover:bg-purple-50 hover:text-purple-500 transition-colors"
+                                onClick={() => sendInviteMutation.mutate(user)}
+                                disabled={sendInviteMutation.isPending}
+                              >
+                                <Send className="h-4 w-4" />
+                              </button>
+                            )}
                             {/* Fine-tune permissions */}
-                            <button
-                              title="Fine-tune permissions"
-                              className="rounded p-1.5 text-slate-400 hover:bg-orange-50 hover:text-orange-500 transition-colors"
-                              onClick={() => setFineTuneUser(user)}
-                            >
-                              <Key className="h-4 w-4" />
-                            </button>
+                            {(church.userRole === "church_admin" || church.userRole === "super_admin") && (
+                              <button
+                                title="Fine-tune permissions"
+                                className="rounded p-1.5 text-slate-400 hover:bg-orange-50 hover:text-orange-500 transition-colors"
+                                onClick={() => setFineTuneUser(user)}
+                              >
+                                <Key className="h-4 w-4" />
+                              </button>
+                            )}
                             {/* Edit */}
-                            <button
-                              title="Edit user"
-                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-                              onClick={() => setEditUser(user)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
+                            {(church.userRole === "church_admin" || church.userRole === "super_admin") && (
+                              <button
+                                title="Edit user"
+                                className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                                onClick={() => setEditUser(user)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            )}
                             {/* Delete */}
-                            {!isCurrentUser && (
+                            {!isCurrentUser &&
+                              (church.userRole === "church_admin" || church.userRole === "super_admin") &&
+                              !(church.userRole === "church_admin" && user.role === "super_admin") && (
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <button
@@ -1049,13 +1363,19 @@ const UsersPage = () => {
         onClose={() => setAddOpen(false)}
         branches={branches}
         tenantId={church.tenantId}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] })}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
+          qc.invalidateQueries({ queryKey: ["staff-count", church.tenantId] });
+        }}
       />
       <EditUserModal
         user={editUser}
         branches={branches}
         onClose={() => setEditUser(null)}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] })}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
+          qc.invalidateQueries({ queryKey: ["staff-count", church.tenantId] });
+        }}
       />
       <FineTunePermissionsModal
         user={fineTuneUser}

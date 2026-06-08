@@ -30,6 +30,8 @@ import { MemberFilters, type MemberFilterValues } from "@/components/members/Mem
 import { MemberImportModal } from "@/components/members/MemberImportModal";
 import { MemberUsageBanner } from "@/components/members/MemberStats";
 import { ChurchQRModal } from "@/components/shared/ChurchQRModal";
+import { useSubscription } from "@/hooks/useSubscription";
+import { showPaywallToast } from "@/components/PaywallToast";
 
 const addMemberSchema = z.object({
   first_name: z.string().min(2, "Min 2 chars"),
@@ -71,6 +73,7 @@ const Members = () => {
   const { tenantId } = useChurch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { canAddMember } = useSubscription();
 
   const [view, setView] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
@@ -227,7 +230,14 @@ const Members = () => {
               <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2 font-jakarta text-xs border-slate-200">
                 <Download className="h-4 w-4" />Export
               </Button>
-              <Button size="sm" onClick={() => { form.reset(); setSheetOpen(true); }} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta text-xs">
+              <Button size="sm" onClick={() => {
+                if (!canAddMember) {
+                  showPaywallToast('member', 'members');
+                  return;
+                }
+                form.reset(); 
+                setSheetOpen(true);
+              }} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta text-xs">
                 <UserPlus className="h-4 w-4" />Add Member
               </Button>
             </div>
@@ -281,7 +291,14 @@ const Members = () => {
               <Users className="h-12 w-12 opacity-30" />
               <p className="text-base font-semibold text-slate-600">No members found</p>
               <p className="text-sm">Try adjusting your search or filters</p>
-              <Button size="sm" onClick={() => { form.reset(); setSheetOpen(true); }} className="bg-orange-500 hover:bg-orange-600 text-white gap-2 mt-2 font-jakarta">
+              <Button size="sm" onClick={() => {
+                if (!canAddMember) {
+                  showPaywallToast('member', 'members');
+                  return;
+                }
+                form.reset(); 
+                setSheetOpen(true);
+              }} className="bg-orange-500 hover:bg-orange-600 text-white gap-2 mt-2 font-jakarta">
                 <UserPlus className="h-4 w-4" />Add Member
               </Button>
             </div>

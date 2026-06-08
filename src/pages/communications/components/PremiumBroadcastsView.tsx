@@ -194,26 +194,75 @@ export const PremiumBroadcastsView = () => {
     staleTime: 300_000,
   });
 
-  // Calculate stats - combine data from both communications and broadcasts tables
-  const sentMessages = [
-    ...communications.filter(c => c.status === "sent"),
-    ...broadcasts.filter(b => b.status === "sent")
+  // Fetch SMS history data
+  const { data: smsHistory = [], isLoading: smsLoading } = useQuery({
+    queryKey: ["sms-history", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.SMS_HISTORY)
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300_000,
+  });
+
+  // Fetch admin broadcasts data
+  const { data: adminBroadcasts = [], isLoading: adminBroadcastsLoading } = useQuery({
+    queryKey: ["admin-broadcasts", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.ADMIN_BROADCASTS)
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+    staleTime: 300_000,
+  });
+
+  // Calculate comprehensive stats - combine data from all communication sources
+  const allMessages = [
+    ...communications,
+    ...broadcasts,
+    ...smsHistory,
+    ...adminBroadcasts,
   ];
-  const draftMessages = [
-    ...communications.filter(c => c.status === "draft"),
-    ...broadcasts.filter(b => b.status === "draft")
-  ];
-  const scheduledMessages = [
-    ...communications.filter(c => c.status === "scheduled"),
-    ...broadcasts.filter(b => b.status === "scheduled")
-  ];
-  const totalBroadcasts = broadcasts.length;
+
+  const sentMessages = allMessages.filter(msg => msg.status === "sent");
+  const draftMessages = allMessages.filter(msg => msg.status === "draft");
+  const scheduledMessages = allMessages.filter(msg => msg.status === "scheduled");
+  
+  // Calculate channel-specific stats
+  const emailMessages = sentMessages.filter(msg => {
+    const channel = msg.channel || (msg.channels && msg.channels[0]) || "in_app";
+    return channel === "email";
+  });
+  
+  const smsMessages = sentMessages.filter(msg => {
+    const channel = msg.channel || (msg.channels && msg.channels[0]) || "in_app";
+    return channel === "sms" || smsHistory.includes(msg);
+  });
+  
+  const inAppMessages = sentMessages.filter(msg => {
+    const channel = msg.channel || (msg.channels && msg.channels[0]) || "in_app";
+    return channel === "in_app" || adminBroadcasts.includes(msg);
+  });
+
+  const totalBroadcasts = allMessages.length;
   const reachRate = sentMessages.length > 0 
     ? Math.round((sentMessages.reduce((sum, msg) => sum + (msg.delivered_count || msg.recipient_count || 1), 0) / 
         sentMessages.reduce((sum, msg) => sum + (msg.sent_count || msg.recipient_count || 1), 0)) * 100)
     : 0;
 
-  // Filter data based on active tab - combine both data sources
+  // Filter data based on active tab - combine all data sources
   const getFilteredData = () => {
     let data = activeTab === "sent" 
       ? sentMessages 
@@ -221,8 +270,13 @@ export const PremiumBroadcastsView = () => {
 
     if (selectedChannel !== "all") {
       data = data.filter(item => {
-        // Handle both communications (has 'channel' field) and broadcasts (has 'channels' array)
+        // Handle different data sources and their channel representations
         const itemChannel = item.channel || (item.channels && item.channels[0]) || "in_app";
+        
+        // Special handling for SMS history and admin broadcasts
+        if (selectedChannel === "sms" && smsHistory.includes(item)) return true;
+        if (selectedChannel === "in_app" && adminBroadcasts.includes(item)) return true;
+        
         return itemChannel === selectedChannel;
       });
     }
@@ -230,7 +284,8 @@ export const PremiumBroadcastsView = () => {
     if (searchQuery) {
       data = data.filter(item => 
         item.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.body?.toLowerCase().includes(searchQuery.toLowerCase())
+        item.body?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.message?.toLowerCase().includes(searchQuery.toLowerCase()) // For SMS history
       );
     }
 
@@ -239,7 +294,7 @@ export const PremiumBroadcastsView = () => {
 
   const filteredData = getFilteredData();
   const draftCount = draftMessages.length;
-  const isLoading = communicationsLoading || broadcastsLoading;
+  const isLoading = communicationsLoading || broadcastsLoading || smsLoading || adminBroadcastsLoading;
 
   // Mutation for updating messages (Edit Draft)
   const updateMessageMutation = useMutation({
@@ -293,12 +348,12 @@ export const PremiumBroadcastsView = () => {
     }
   });
 
-  // Real-time subscription for both communications and broadcasts
+  // Real-time subscription for all communication sources
   useEffect(() => {
     if (!tenantId) return;
 
     const communicationsChannel = supabase
-      .channel("communications-changes")
+      .channel("all-communications-changes")
       .on(
         "postgres_changes",
         {
@@ -309,10 +364,6 @@ export const PremiumBroadcastsView = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["communications", tenantId] });
-          toast("Communications updated", {
-            position: "bottom-right",
-            duration: 3000,
-          });
         }
       )
       .on(
@@ -325,10 +376,30 @@ export const PremiumBroadcastsView = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["broadcasts", tenantId] });
-          toast("Communications updated", {
-            position: "bottom-right",
-            duration: 3000,
-          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: TABLES.SMS_HISTORY,
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["sms-history", tenantId] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: TABLES.ADMIN_BROADCASTS,
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-broadcasts", tenantId] });
         }
       )
       .subscribe();
@@ -365,7 +436,6 @@ export const PremiumBroadcastsView = () => {
     { id: "all", label: "All" },
     { id: "email", label: "Email" },
     { id: "sms", label: "SMS" },
-    { id: "whatsapp", label: "WhatsApp" },
     { id: "in_app", label: "In-App" },
   ];
 
@@ -449,7 +519,7 @@ export const PremiumBroadcastsView = () => {
         variants={itemVariants}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
       >
-        {/* Messages Sent */}
+        {/* Messages Sent - Total */}
         <motion.div whileHover={{ scale: 1.02, boxShadow: "0 8px 25px rgba(0,0,0,0.1)" }}>
           <Card>
             <CardContent className="pt-6">
@@ -459,6 +529,11 @@ export const PremiumBroadcastsView = () => {
                   <p className="text-3xl font-bold">
                     <AnimatedCounter value={sentMessages.length} />
                   </p>
+                  <div className="flex gap-2 mt-2 text-xs text-muted-foreground">
+                    <span>📧 {emailMessages.length}</span>
+                    <span>📱 {smsMessages.length}</span>
+                    <span>🔔 {inAppMessages.length}</span>
+                  </div>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-full">
                   <Send className="h-6 w-6 text-blue-600" />
@@ -765,10 +840,6 @@ export const PremiumBroadcastsView = () => {
                                         <MessageSquare className="mr-2 h-4 w-4" />
                                         Send via SMS
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "whatsapp")}>
-                                        <MessageCircle className="mr-2 h-4 w-4" />
-                                        Send via WhatsApp
-                                      </DropdownMenuItem>
                                       <DropdownMenuItem 
                                         onClick={() => handleEditMessage(msg)}
                                         disabled={updateMessageMutation.isPending}
@@ -855,7 +926,6 @@ export const PremiumBroadcastsView = () => {
                   <SelectContent>
                     <SelectItem value="email">Email</SelectItem>
                     <SelectItem value="sms">SMS</SelectItem>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
                     <SelectItem value="in_app">In-App</SelectItem>
                   </SelectContent>
                 </Select>
