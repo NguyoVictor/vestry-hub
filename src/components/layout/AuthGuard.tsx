@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { ChurchProvider, type ChurchData } from "@/contexts/ChurchContext";
 import { Loader2 } from "lucide-react";
 
@@ -10,6 +11,8 @@ export const AuthGuard = () => {
   const [state, setState] = useState<AuthState>("loading");
   const [churchData, setChurchData] = useState<ChurchData | null>(null);
   const location = useLocation();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -80,6 +83,50 @@ export const AuthGuard = () => {
 
     return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    if (state !== "ready") return;
+
+    const clearTimers = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (warningRef.current) clearTimeout(warningRef.current);
+    };
+
+    const handleSignOut = async () => {
+      clearTimers();
+      toast.dismiss("inactivity-warning");
+      await supabase.auth.signOut();
+      toast.info("You were signed out due to inactivity.");
+    };
+
+    const startTimers = () => {
+      clearTimers();
+      // Warning at 28 minutes
+      warningRef.current = setTimeout(() => {
+        toast.warning(
+          "You'll be signed out in 2 minutes due to inactivity. Click anywhere to stay logged in.",
+          { duration: 120000, id: "inactivity-warning" }
+        );
+      }, 28 * 60 * 1000);
+      // Sign out at 30 minutes
+      timeoutRef.current = setTimeout(handleSignOut, 30 * 60 * 1000);
+    };
+
+    const resetTimers = () => {
+      toast.dismiss("inactivity-warning");
+      startTimers();
+    };
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
+    events.forEach(event => window.addEventListener(event, resetTimers, { passive: true }));
+    startTimers();
+
+    return () => {
+      clearTimers();
+      toast.dismiss("inactivity-warning");
+      events.forEach(event => window.removeEventListener(event, resetTimers));
+    };
+  }, [state]);
 
   if (state === "loading") {
     return (
