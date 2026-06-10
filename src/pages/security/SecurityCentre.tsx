@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
-import { Shield, AlertTriangle, Users, Clock, Monitor, Smartphone, Download } from "lucide-react";
+import { Shield, AlertTriangle, Users, Clock, Monitor, Smartphone, Download, RefreshCw } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { SentryMonitor } from "@/components/security/SentryMonitor";
@@ -31,7 +31,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function SecurityCentre() {
-  const { tenantId } = useChurch();
+  const { tenantId, userRole } = useChurch();
   const queryClient = useQueryClient();
 
   const { data: loginEvents, isLoading: loadingEvents } = useQuery({
@@ -69,6 +69,19 @@ export default function SecurityCentre() {
         .eq("status", "active");
       return data || [];
     },
+  });
+
+  const { data: activeSessions, isLoading: loadingSessions } = useQuery({
+    queryKey: ["active_sessions", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("get-active-sessions", {
+        body: { tenant_id: tenantId },
+      });
+      if (error) throw error;
+      return data?.sessions || [];
+    },
+    refetchInterval: 60000,
+    enabled: userRole === "church_admin" || userRole === "super_admin",
   });
 
   const resolveAlert = useMutation({
@@ -233,7 +246,7 @@ export default function SecurityCentre() {
       </Card>
 
       {/* Staff Overview */}
-      <Card>
+      <Card className="mb-6">
         <CardHeader><CardTitle>Admin Access Overview</CardTitle></CardHeader>
         <CardContent>
           {!users?.length ? (
@@ -279,6 +292,108 @@ export default function SecurityCentre() {
           )}
         </CardContent>
       </Card>
+
+      {/* Active Sessions — church_admin and super_admin only */}
+      {(userRole === "church_admin" || userRole === "super_admin") && (
+        <Card className="mb-6">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                Active Sessions
+              </div>
+              <span className="text-sm font-normal text-muted-foreground">
+                {activeSessions?.length || 0} online
+              </span>
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["active_sessions", tenantId] })}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {loadingSessions ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : !activeSessions?.length ? (
+              <div className="text-center py-8">
+                <Users className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground text-sm">No active sessions found</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Admin</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Last Active</TableHead>
+                    <TableHead>Device</TableHead>
+                    <TableHead>IP Address</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {activeSessions.map((session: any) => (
+                    <TableRow key={session.user_id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <MemberAvatar
+                            name={`${session.first_name || ""} ${session.last_name || ""}`.trim()}
+                            size="sm"
+                          />
+                          <div>
+                            <p className="font-medium text-sm">
+                              {session.first_name} {session.last_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{session.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs">
+                          {session.role?.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-slate-500">
+                          {session.last_active
+                            ? formatDistanceToNow(new Date(session.last_active), { addSuffix: true })
+                            : "Unknown"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {session.user_agent?.toLowerCase().includes("mobile") ? (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Smartphone className="h-3.5 w-3.5" />
+                            <span className="text-xs">Mobile</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Monitor className="h-3.5 w-3.5" />
+                            <span className="text-xs">Desktop</span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-slate-500 font-mono">
+                          {session.ip_address || "—"}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Error & Performance Monitor (Sentry) */}
       <div className="mt-6">
