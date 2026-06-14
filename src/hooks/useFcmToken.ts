@@ -14,7 +14,7 @@ export function useFcmToken(userId: string | null, tenantId: string | null) {
         { user_id: userId, tenant_id: tenantId, token, device_type: "web" },
         { onConflict: "user_id,token" }
       );
-    });
+    }).catch(() => {});
 
     // Handle foreground messages (app is open)
     const unsubscribe = onForegroundMessage((payload) => {
