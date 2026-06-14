@@ -16,6 +16,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -129,6 +132,9 @@ function DonutLabel({ cx, cy, value, label }: { cx: number; cy: number; value: s
 // TAB 1 — MEMBERSHIP
 // ═══════════════════════════════════════════════════════════════════════════
 function MembershipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
+  
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["rpt-members", tenantId, fromStr, toStr],
     queryFn: async () => {
@@ -273,7 +279,7 @@ function MembershipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
 
       <ChartCard
         title="Member Retention — Last 12 Months"
-        actions={<Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(retentionRows, "member-retention.csv")}><Download className="h-3.5 w-3.5" />CSV</Button>}
+        actions={<PermissionButton readOnly={readOnly} size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(retentionRows, "member-retention.csv")}><Download className="h-3.5 w-3.5" />CSV</PermissionButton>}
         loading={isLoading}
         height={0}
       >
@@ -414,7 +420,7 @@ function AttendanceTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
         title="Attendance Summary"
         loading={isLoading}
         height={0}
-        actions={<Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(summaryRows, "attendance-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</Button>}
+        actions={<PermissionButton readOnly={readOnly} size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(summaryRows, "attendance-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</PermissionButton>}
       >
         <DataTable data={summaryRows} columns={summaryCols} getRowId={r => r.service} emptyTitle="No attendance data" />
       </ChartCard>
@@ -581,7 +587,7 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
             title="Top 20 Donors"
             loading={isLoading}
             height={0}
-            actions={<Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(topDonors, "top-donors.csv")}><Download className="h-3.5 w-3.5" />CSV</Button>}
+            actions={<PermissionButton readOnly={readOnly} size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(topDonors, "top-donors.csv")}><Download className="h-3.5 w-3.5" />CSV</PermissionButton>}
           >
             <DataTable data={topDonors} columns={donorCols} getRowId={r => String(r.rank)} emptyTitle="No donor data" />
           </ChartCard>
@@ -606,7 +612,7 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
         title="Expense Summary"
         loading={isLoading}
         height={0}
-        actions={<Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(expSummaryRows, "expense-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</Button>}
+        actions={<PermissionButton readOnly={readOnly} size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(expSummaryRows, "expense-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</PermissionButton>}
       >
         <DataTable data={expSummaryRows} columns={expSummaryCols} getRowId={r => r.category} emptyTitle="No expense data" />
       </ChartCard>
@@ -727,7 +733,7 @@ function EventsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
                 {EVENT_TYPES.map(t => <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(summaryRows, "events-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</Button>
+            <PermissionButton readOnly={readOnly} size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(summaryRows, "events-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</PermissionButton>
           </div>
         }
       >
@@ -981,7 +987,7 @@ function DiscipleshipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
         title="Outreach Summary"
         loading={isLoading}
         height={0}
-        actions={<Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(outreach, "outreach-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</Button>}
+        actions={<PermissionButton readOnly={readOnly} size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(outreach, "outreach-summary.csv")}><Download className="h-3.5 w-3.5" />CSV</PermissionButton>}
       >
         <DataTable data={outreach} columns={outreachCols} getRowId={r => r.id} emptyTitle="No outreach activities" />
       </ChartCard>
@@ -1069,7 +1075,7 @@ function CommunicationsTab({ tenantId, fromStr, toStr }: { tenantId: string; fro
         title="Announcements Performance"
         loading={isLoading}
         height={0}
-        actions={<Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(broadcasts, "announcements.csv")}><Download className="h-3.5 w-3.5" />CSV</Button>}
+        actions={<PermissionButton readOnly={readOnly} size="sm" variant="outline" className="gap-1.5" onClick={() => exportCSV(broadcasts, "announcements.csv")}><Download className="h-3.5 w-3.5" />CSV</PermissionButton>}
       >
         <DataTable data={broadcasts} columns={broadcastCols} getRowId={r => r.id} emptyTitle="No announcements found" />
       </ChartCard>
@@ -1400,6 +1406,7 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-base">{reportName} — {results.length} rows</CardTitle>
                   <ExportMenu
+                    readOnly={readOnly}
                     onExportCSV={() => exportCSV(results, `${reportName.toLowerCase().replace(/\s+/g, "-")}.csv`)}
                     onExportPDF={() => toast.info("Use the page-level Export PDF for full page export")}
                   />
@@ -1445,6 +1452,8 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Reports() {
   const { tenantId, currency, userRole } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const pageRef = useRef<HTMLDivElement>(null);
 
   const defaultRange: DateRange = { from: subMonths(new Date(), 6), to: new Date() };
@@ -1508,12 +1517,15 @@ export default function Reports() {
               )}
               <DateRangePicker value={dateRange} onChange={setDateRange} presets />
               <ExportMenu
+                readOnly={readOnly}
                 onExportCSV={() => toast.info("Use individual tab CSV exports")}
                 onExportPDF={() => exportPagePDF(pageRef, "vestry-reports.pdf")}
               />
             </div>
           }
         />
+
+        {readOnly && <ReadOnlyBanner section="Reports & Analytics" />}
 
         {/* Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">

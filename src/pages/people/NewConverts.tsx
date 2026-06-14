@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -153,6 +155,8 @@ function MilestoneDialog({ convert, open, onOpenChange, onAdvance, advancing }: 
 
 const NewConverts = () => {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const queryClient = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingConvert, setEditingConvert] = useState<any | null>(null);
@@ -261,6 +265,7 @@ const NewConverts = () => {
   // ── Mutations ──────────────────────────────────────────────────────────────
   const saveMut = useMutation({
     mutationFn: async (values: z.infer<typeof convertSchema>) => {
+      if (readOnly) return;
       if (editingConvert) {
         const { error } = await supabase.from(TABLES.NEW_CONVERTS).update({
           first_name: values.first_name,
@@ -309,6 +314,7 @@ const NewConverts = () => {
 
   const advanceMilestoneMut = useMutation({
     mutationFn: async ({ id, newStage }: { id: string; newStage: number }) => {
+      if (readOnly) return;
       const isGraduating = newStage === 5;
       const isUndoingGraduation = newStage === 4;
       const updates: any = {
@@ -340,6 +346,7 @@ const NewConverts = () => {
 
   const createTaskMut = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (!taskDialogConvert) return;
       const convertName = `${taskDialogConvert.first_name} ${taskDialogConvert.last_name || ""}`.trim();
       const { error } = await supabase.from(TABLES.FOLLOW_UP_TASKS).insert({
@@ -367,6 +374,7 @@ const NewConverts = () => {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.NEW_CONVERTS).delete().eq("id", id);
       if (error) throw error;
     },
@@ -412,9 +420,9 @@ const NewConverts = () => {
             <Button variant="outline">
               <QrCode className="h-4 w-4 mr-2" />New Convert QR
             </Button>
-            <Button onClick={openCreate}>
+            <PermissionButton permission="member_management" readOnly={readOnly} onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />Add New Convert
-            </Button>
+            </PermissionButton>
           </div>
         }
       />
@@ -456,7 +464,7 @@ const NewConverts = () => {
           <Sparkles className="h-12 w-12 text-muted-foreground/40 mb-3" />
           <p className="font-medium text-muted-foreground">{search ? "No converts match your search" : "No new converts yet"}</p>
           {!search && <p className="text-sm text-muted-foreground mt-1">Add your first convert to begin discipleship tracking.</p>}
-          {!search && <Button className="mt-4" onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Convert</Button>}
+          {!search && <PermissionButton permission="member_management" readOnly={readOnly} className="mt-4" onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Convert</PermissionButton>}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

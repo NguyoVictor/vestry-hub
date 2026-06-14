@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from "@/integrations/supabase/client";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
@@ -188,6 +189,8 @@ interface Props {
 // ─── Modal ────────────────────────────────────────────────────────────────────
 export function ManagePermissionsModal({ open, onClose, tenantId, target, onSaved }: Props) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [local, setLocal] = useState<Record<string, OverrideLevel>>({});
   const [dirty, setDirty] = useState(false);
 
@@ -224,6 +227,7 @@ export function ManagePermissionsModal({ open, onClose, tenantId, target, onSave
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (!target) return;
       // Only upsert non-default values; delete rows that are back to default
       const toUpsert = FEATURES

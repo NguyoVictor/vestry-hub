@@ -3,10 +3,13 @@ import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatCardSkeletons } from "@/components/ui/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ReadOnlyBanner } from "@/components/shared/ReadOnlyBanner";
+import { PermissionButton } from "@/components/shared/PermissionButton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +24,8 @@ type Range = "this_month" | "last_month" | "3_months";
 
 export default function CMReports() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [range, setRange] = useState<Range>("this_month");
   const [classFilter, setClassFilter] = useState("all");
 
@@ -103,14 +108,15 @@ export default function CMReports() {
     <>
       <Helmet><title>Reports — Children's Ministry</title></Helmet>
       <PageTransition>
+        {reportsReadOnly && <div className="mb-6"><ReadOnlyBanner permission="reports_analytics" /></div>}
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Attendance Reports</h1>
             <p className="text-sm text-slate-500 mt-0.5">Track children's ministry attendance over time</p>
           </div>
-          <Button variant="outline" size="sm" className="gap-2 border-slate-200" onClick={exportCSV}>
+          <PermissionButton readOnly={reportsReadOnly} variant="outline" size="sm" className="gap-2 border-slate-200" onClick={exportCSV}>
             <Download className="h-4 w-4" />Export CSV
-          </Button>
+          </PermissionButton>
         </div>
 
         {/* Filters */}

@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,8 @@ function StarDisplay({ rating }: { rating: number }) {
 export default function WebsitePromo() {
   const { tenantId, name: churchName, userFirstName, userLastName } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   // Consultation modal
   const [consultOpen, setConsultOpen] = useState(false);
@@ -115,6 +118,7 @@ export default function WebsitePromo() {
 
   // Submit consultation
   const handleConsultSubmit = async () => {
+    if (readOnly) return;
     if (!consultForm.contactName.trim() || !consultForm.email.trim()) {
       toast.error("Please fill in your name and email.");
       return;
@@ -151,6 +155,7 @@ export default function WebsitePromo() {
   // Submit review
   const reviewMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (!reviewerName.trim()) throw new Error("Please enter your name.");
       if (rating === 0) throw new Error("Please select a star rating.");
       if (!reviewText.trim()) throw new Error("Please write a review.");

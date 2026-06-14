@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { setActiveBranch } from "@/components/layout/AppLayout";
 import { TABLES, COLS } from "@/lib/schema";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -38,6 +41,8 @@ const defaultForm = {
 
 export default function Branches() {
   const { tenantId, userId, currency } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { limits } = useSubscription();
@@ -91,6 +96,8 @@ export default function Branches() {
 
   const saveBranch = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
+      
       // Check branch limit before creating new branch
       if (!editBranch && branches.length >= limits.branches) {
         showPaywallToast('branches', 'branches');
@@ -142,7 +149,8 @@ export default function Branches() {
         title="Branches"
         subtitle="Manage multiple church locations from one account"
         action={
-          <Button 
+          <PermissionButton
+            readOnly={readOnly}
             onClick={() => { 
               // Check branch limit before opening add sheet
               if (branches.length >= limits.branches) {
@@ -155,9 +163,11 @@ export default function Branches() {
             }}
           >
             <Plus className="h-4 w-4 mr-1" />Add Branch
-          </Button>
+          </PermissionButton>
         }
       />
+      
+      {readOnly && <ReadOnlyBanner section="Church Settings" />}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -190,7 +200,8 @@ export default function Branches() {
           <GitBranch className="h-10 w-10 mx-auto mb-3 text-slate-300" />
           <p className="font-medium">No branches yet</p>
           <p className="text-sm mt-1">Add your first branch location to get started</p>
-          <Button 
+          <PermissionButton
+            readOnly={readOnly}
             className="mt-4" 
             onClick={() => {
               if (branches.length >= limits.branches) {
@@ -201,7 +212,7 @@ export default function Branches() {
             }}
           >
             <Plus className="h-4 w-4 mr-1" />Add Branch
-          </Button>
+          </PermissionButton>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -229,12 +240,12 @@ export default function Branches() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(branch)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem disabled={readOnly} onClick={() => openEdit(branch)}>Edit</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/branches/${branch.id}`)}>Manage Branch</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setActiveBranch({ id: branch.id, name: branch.name }); toast.success(`Switched to ${branch.name}`); }}>
                           <ArrowLeftRight className="h-4 w-4 mr-2" />Switch to Branch
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-500">Deactivate</DropdownMenuItem>
+                        <DropdownMenuItem disabled={readOnly} className="text-red-500">Deactivate</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -316,9 +327,14 @@ export default function Branches() {
               </Select>
             </div>
             <div className="space-y-1.5"><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} /></div>
-            <Button className="w-full" onClick={() => saveBranch.mutate()} disabled={!form.name || saveBranch.isPending}>
+            <PermissionButton 
+              readOnly={readOnly}
+              className="w-full" 
+              onClick={() => saveBranch.mutate()} 
+              disabled={!form.name || saveBranch.isPending}
+            >
               {saveBranch.isPending ? "Saving..." : editBranch ? "Update Branch" : "Create Branch"}
-            </Button>
+            </PermissionButton>
           </div>
         </SheetContent>
       </Sheet>

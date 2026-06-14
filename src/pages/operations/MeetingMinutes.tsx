@@ -3,6 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,6 +92,9 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { tenantId, name: churchName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
+  const reportsReadOnly = isReadOnly('reports_analytics');
 
   // ── Local state ──────────────────────────────────────────────────────────
   const [minutesText, setMinutesText] = useState("");
@@ -231,6 +237,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
 
   // ── Save logic ───────────────────────────────────────────────────────────
   const doSave = useCallback(async () => {
+    if (readOnly) return;
     if (!meetingId) return;
     setIsSaving(true);
     try {
@@ -488,6 +495,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
   return (
     <div className="min-h-screen bg-slate-50 font-jakarta">
       <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {reportsReadOnly && <ReadOnlyBanner permission="reports_analytics" />}
 
         {/* ── Page Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -530,9 +538,9 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
                 <><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Saved {formatDistanceToNow(lastSaved, { addSuffix: true })}</>
               ) : null}
             </span>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} className="border-slate-200 text-slate-600 hover:border-slate-300">
+            <PermissionButton readOnly={reportsReadOnly} variant="outline" size="sm" onClick={handleExportPDF} className="border-slate-200 text-slate-600 hover:border-slate-300">
               <Download className="h-4 w-4 mr-1.5" /> Export PDF
-            </Button>
+            </PermissionButton>
             <Button
               size="sm"
               className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"

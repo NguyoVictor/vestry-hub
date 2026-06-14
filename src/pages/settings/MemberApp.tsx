@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -50,6 +52,8 @@ const MODULES = [
 export default function MemberApp() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [modules, setModules] = useState<Record<string, boolean>>({});
 
   const { data: tenant, isLoading } = useQuery({
@@ -75,6 +79,7 @@ export default function MemberApp() {
 
   const save = useMutation({
     mutationFn: async (updated: Record<string, boolean>) => {
+      if (readOnly) return;
       const current = (tenant?.enabled_modules as any) || {};
       const { error } = await supabase.from("tenants").update({
         enabled_modules: { ...current, member_portal: updated },
@@ -98,6 +103,8 @@ export default function MemberApp() {
     <>
       <Helmet><title>Member App — Vestry</title></Helmet>
       <PageHeader title="Member App" subtitle="Control which features are visible in the member portal" />
+      
+      {readOnly && <ReadOnlyBanner section="Member App Settings" />}
 
       <Card>
         <CardHeader className="pb-3">
@@ -120,7 +127,7 @@ export default function MemberApp() {
                     <p className={`text-sm font-medium ${!enabled ? "text-muted-foreground" : ""}`}>{mod.label}</p>
                     <p className="text-xs text-muted-foreground">{mod.desc}</p>
                   </div>
-                  <Switch checked={enabled} onCheckedChange={() => toggle(mod.key)} />
+                  <Switch checked={enabled} onCheckedChange={() => toggle(mod.key)} disabled={readOnly} />
                 </div>
               );
             })

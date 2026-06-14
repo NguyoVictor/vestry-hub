@@ -10,6 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES, COLS } from "@/lib/schema";
 import { formatCurrencyFull } from "@/lib/format";
 import { convertToWebP } from "@/lib/imageUtils";
@@ -221,11 +224,11 @@ function getTypeGradient(type: string | null): string {
 
 function FacilityCard({
   facility, firstImage, typeName, onView, onEdit, onDelete, onBookNow, onShare,
-  currency,
+  currency, readOnly,
 }: {
   facility: any; firstImage: string | null; typeName: string; onView: () => void;
   onEdit: () => void; onDelete: () => void; onBookNow: () => void; onShare: () => void;
-  currency: string;
+  currency: string; readOnly?: boolean;
 }) {
   const gradient = getTypeGradient(facility.type);
   const imageCount = (facility.facility_images ?? []).length;
@@ -304,8 +307,8 @@ function FacilityCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onView}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
-              <DropdownMenuItem onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+              <DropdownMenuItem disabled={readOnly} onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+              <DropdownMenuItem disabled={readOnly} onClick={onDelete} className="text-destructive focus:text-destructive">
                 <Trash2 className="h-4 w-4 mr-2" />Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -328,13 +331,14 @@ function FacilityCard({
         )}
 
         <div className="flex items-center gap-2 mt-3">
-          <Button
+          <PermissionButton
+            readOnly={readOnly}
             size="sm"
             className="flex-1 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg"
             onClick={onBookNow}
           >
             Book Now
-          </Button>
+          </PermissionButton>
           <Button size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg" onClick={onShare} title="Share booking link">
             <Share2 className="h-3.5 w-3.5" />
           </Button>
@@ -535,6 +539,7 @@ function AddEditFacilityModal({
 
   const saveMutation = useMutation({
     mutationFn: async (values: FacilityFormValues) => {
+      if (readOnly) return;
       // Calculate total size of files to upload
       let totalSizeGB = 0;
       if (thumbFile) totalSizeGB += thumbFile.size / (1024 * 1024 * 1024);
@@ -865,6 +870,7 @@ function BookingDetailDrawer({
 
   const updateStatus = useMutation({
     mutationFn: async ({ status }: { status: string }) => {
+      if (readOnly) return;
       const updates: any = { status };
       if (status === "in_progress") { updates.approved_at = new Date().toISOString(); updates.approved_by = userId; }
       if (status === "cancelled") { updates.approved_at = null; }
@@ -1492,6 +1498,8 @@ function ResponseDetailModal({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FacilityBookingPage() {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const { tenantId, userId, currency, name: churchName } = useChurch();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1588,6 +1596,7 @@ export default function FacilityBookingPage() {
 
   const deleteFacilityMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.FACILITIES as any).delete().eq(COLS.ID, id);
       if (error) throw error;
     },
@@ -1601,6 +1610,7 @@ export default function FacilityBookingPage() {
 
   const deleteBookingMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       // Soft delete — set admin_deleted_at so the record stays visible to the member
       const { error } = await supabase
         .from(TABLES.FACILITY_BOOKINGS)
@@ -1660,15 +1670,16 @@ export default function FacilityBookingPage() {
         subtitle="Manage church spaces and booking requests"
         action={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setAddFacilityOpen(true)}>
+            <PermissionButton readOnly={readOnly} variant="outline" onClick={() => setAddFacilityOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />Add Facility
-            </Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => { setEditBooking(null); setPreselectedFacilityId(null); setNewBookingOpen(true); }}>
+            </PermissionButton>
+            <PermissionButton readOnly={readOnly} className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => { setEditBooking(null); setPreselectedFacilityId(null); setNewBookingOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />New Booking
-            </Button>
+            </PermissionButton>
           </div>
         }
       />
+      {readOnly && <ReadOnlyBanner section="Event Management" />}
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1718,9 +1729,9 @@ export default function FacilityBookingPage() {
               <Building2 className="h-12 w-12 text-slate-300" />
               <p className="text-base font-semibold text-slate-600">No facilities found</p>
               <p className="text-sm text-slate-400">Try adjusting your search or filters, or add a new facility.</p>
-              <Button size="sm" className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setAddFacilityOpen(true)}>
+              <PermissionButton permission="event_management" readOnly={readOnly} size="sm" className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setAddFacilityOpen(true)}>
                 <Plus className="h-4 w-4 mr-1.5" />Add Facility
-              </Button>
+              </PermissionButton>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1731,6 +1742,7 @@ export default function FacilityBookingPage() {
                   firstImage={getFirstImage(f)}
                   typeName={getTypeName(f.type)}
                   currency={currency}
+                  readOnly={readOnly}
                   onView={() => setViewFacility(f)}
                   onEdit={() => setEditFacility(f)}
                   onDelete={() => setDeleteFacility(f)}

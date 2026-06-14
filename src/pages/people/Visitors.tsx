@@ -7,6 +7,9 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -125,6 +128,7 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     const errors: Record<string, string> = {};
     if (!form.first_name.trim()) errors.first_name = "First name is required";
     if (!form.last_name.trim()) errors.last_name = "Last name is required";
@@ -437,6 +441,7 @@ function VisitorDetailsModal({
 
   const addFollowUpMut = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (!visitor) return;
       const taskTitle = followUpForm.task_type === "Custom Task"
         ? (followUpForm.notes.trim() || "Custom Follow-up")
@@ -468,6 +473,7 @@ function VisitorDetailsModal({
 
   const markContactedMut = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (!visitor) return;
       // Update visitor status to contacted
       const { error } = await supabase
@@ -506,6 +512,7 @@ function VisitorDetailsModal({
 
   const recordSalvationMut = useMutation({
     mutationFn: async (data: { salvation_date: string; counsellor_name: string; notes: string }) => {
+      if (readOnly) return;
       if (!visitor) return;
       const { error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
         id: crypto.randomUUID(),
@@ -541,6 +548,7 @@ function VisitorDetailsModal({
 
   const createMemberMut = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (!visitor) return;
       const newMemberId = crypto.randomUUID();
       const today = new Date().toISOString().split("T")[0];
@@ -872,6 +880,8 @@ const Visitors = () => {
   const { tenantId, userId, userName } = useChurch();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const [search, setSearch] = useState("");
   const [qrOpen, setQrOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -922,6 +932,7 @@ const Visitors = () => {
 
   const convertToNewConvertMut = useMutation({
     mutationFn: async (v: Visitor) => {
+      if (readOnly) return;
       const today = new Date().toISOString().split("T")[0];
       const { error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
         id: crypto.randomUUID(),
@@ -955,6 +966,7 @@ const Visitors = () => {
 
   const deleteVisitorMut = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       // Step 1: nullify related_visitor_id on any linked follow_up_tasks
       const { error: fkErr1 } = await supabase
         .from(TABLES.FOLLOW_UP_TASKS)
@@ -1033,13 +1045,15 @@ const Visitors = () => {
               <QrCode className="h-4 w-4 mr-2" />
               Visitor Registration Link
             </Button>
-            <Button onClick={() => setAddOpen(true)}>
+            <PermissionButton readOnly={readOnly} onClick={() => setAddOpen(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Add Visitor
-            </Button>
+            </PermissionButton>
           </div>
         }
       />
+
+      {readOnly && <ReadOnlyBanner section="Member Management" />}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

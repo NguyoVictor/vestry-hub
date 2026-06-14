@@ -5,6 +5,7 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -113,6 +114,8 @@ function TemplatePreviewModal({ template, onClose }: { template: typeof SYSTEM_T
 // ── Send Message Modal ────────────────────────────────────────────────────────
 function SendMessageModal({ open, onClose, tenantId, templates }: { open: boolean; onClose: () => void; tenantId: string; templates: typeof SYSTEM_TEMPLATES }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [step, setStep] = useState(1);
   const [recipientType, setRecipientType] = useState("all");
   const [selectedTemplate, setSelectedTemplate] = useState("");
@@ -131,6 +134,7 @@ function SendMessageModal({ open, onClose, tenantId, templates }: { open: boolea
   const recipientCount = recipientType === "all" ? members.length : 0;
 
   const handleSend = async () => {
+    if (readOnly) return;
     if (!selectedTemplate) { toast.error("Select a template."); return; }
     setSending(true);
     try {

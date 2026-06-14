@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -112,6 +113,8 @@ interface TaskModalProps {
 
 function TaskModal({ open, onClose, tenantId, staffList, editData, onSuccess }: TaskModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
 
   const [assignedTo, setAssignedTo] = useState(editData?.assigned_to ?? "");
@@ -131,6 +134,7 @@ function TaskModal({ open, onClose, tenantId, staffList, editData, onSuccess }: 
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!assignedTo) { toast.error("Please select a staff member."); return; }
     if (!title.trim()) { toast.error("Task title is required."); return; }
     setSubmitting(true);
@@ -285,6 +289,8 @@ export function TasksTab() {
   const church = useChurch();
   const tenantId = church.tenantId;
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   const [addOpen, setAddOpen]       = useState(false);
   const [editTask, setEditTask]     = useState<Task | null>(null);
@@ -323,6 +329,7 @@ export function TasksTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.STAFF_TASKS).delete().eq("id", id);
       if (error) throw error;
     },

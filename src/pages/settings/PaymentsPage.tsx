@@ -25,6 +25,9 @@ import { PayHeroBanksAPITest } from '@/components/finance/PayHeroBanksAPITest'
 import { PayHeroSTKTest } from '@/components/finance/PayHeroSTKTest'
 import { QuickPayHeroTest } from '@/components/finance/QuickPayHeroTest'
 import { useChurch } from '@/contexts/ChurchContext'
+import { usePermissions } from '@/hooks/usePermissions'
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner'
+import { PermissionButton } from '@/components/shared/PermissionButton'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
 
@@ -73,6 +76,8 @@ export default function PaymentsPage() {
   const [connectError, setConnectError] = useState('')
 
   const church = useChurch()
+  const { isReadOnly } = usePermissions()
+  const readOnly = isReadOnly('church_settings')
 
   useEffect(() => {
     checkConnectionStatus()
@@ -116,6 +121,7 @@ export default function PaymentsPage() {
   }
 
   const handleConnect = async () => {
+    if (readOnly) return;
     setConnecting(true)
     setConnectError('')
     try {
@@ -147,6 +153,7 @@ export default function PaymentsPage() {
   }
 
   const handleEnableC2B = async () => {
+    if (readOnly) return;
     setC2bLoading(true)
     try {
       const { data, error } = await supabase.functions.invoke('register-c2b-urls', {
@@ -190,6 +197,8 @@ export default function PaymentsPage() {
         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payment Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Configure how your church receives donations and payments</p>
       </div>
+
+      {readOnly && <ReadOnlyBanner section="Payment Settings" />}
 
       {/* M-Pesa Configuration — max 680px */}
       <div className="max-w-[680px]">
@@ -529,7 +538,8 @@ export default function PaymentsPage() {
                     >
                       Back
                     </Button>
-                    <Button
+                    <PermissionButton
+                      readOnly={readOnly}
                       onClick={handleConnect}
                       disabled={connecting}
                       className="flex-1 h-11 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium disabled:opacity-50"
@@ -542,7 +552,7 @@ export default function PaymentsPage() {
                       ) : (
                         'Connect Payment Channel'
                       )}
-                    </Button>
+                    </PermissionButton>
                   </div>
                 </motion.div>
               )}
@@ -614,7 +624,8 @@ export default function PaymentsPage() {
                       <span className="font-medium">Direct M-Pesa Recording Active</span>
                     </div>
                   ) : (
-                    <Button
+                    <PermissionButton
+                      readOnly={readOnly}
                       onClick={handleEnableC2B}
                       disabled={c2bLoading}
                       className="bg-orange-500 hover:bg-orange-600 text-white"
@@ -627,7 +638,7 @@ export default function PaymentsPage() {
                       ) : (
                         'Enable Direct Recording'
                       )}
-                    </Button>
+                    </PermissionButton>
                   )}
 
                   {channelInfo?.c2b_registered && (

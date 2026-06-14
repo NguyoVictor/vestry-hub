@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -43,6 +46,8 @@ interface LivestreamConfig {
 export default function LivestreamingSettings() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlatform, setEditingPlatform] = useState<LivestreamConfig | null>(null);
 
@@ -104,6 +109,7 @@ export default function LivestreamingSettings() {
   // Save mutation (INSERT or UPDATE)
   const saveMutation = useMutation({
     mutationFn: async (data: PlatformFormData) => {
+      if (readOnly) return;
       const platformInfo = detectPlatform(data.platform_url);
 
       const payload = {
@@ -193,6 +199,9 @@ export default function LivestreamingSettings() {
         <title>Livestreaming Settings — Vestry</title>
       </Helmet>
 
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Livestreaming Settings" />}
+
       <div className="max-w-3xl space-y-6">
         {/* Livestreaming Card */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-6">
@@ -208,10 +217,10 @@ export default function LivestreamingSettings() {
             </div>
             <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
               <DialogTrigger asChild>
-                <Button size="sm" className="bg-violet-500 hover:bg-violet-600 text-white gap-1.5">
+                <PermissionButton readOnly={readOnly} size="sm" className="bg-violet-500 hover:bg-violet-600 text-white gap-1.5">
                   <Plus className="h-4 w-4" />
                   Add Platform
-                </Button>
+                </PermissionButton>
               </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
@@ -295,7 +304,7 @@ export default function LivestreamingSettings() {
                     <Button
                       type="submit"
                       className="bg-violet-500 hover:bg-violet-600 text-white"
-                      disabled={saveMutation.isPending}
+                      disabled={saveMutation.isPending || readOnly}
                     >
                       {saveMutation.isPending
                         ? "Saving..."

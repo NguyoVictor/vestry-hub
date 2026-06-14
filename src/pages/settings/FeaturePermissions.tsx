@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -159,6 +160,8 @@ function AccessPill({
 // ─── Main component ───────────────────────────────────────────────────────────
 export function FeaturePermissions() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const qc = useQueryClient();
 
   // Local state: map of "feature:role" → AccessLevel
@@ -213,6 +216,7 @@ export function FeaturePermissions() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const rows = ROLES.flatMap(role =>
         FEATURES.map(feat => ({
           tenant_id: tenantId,

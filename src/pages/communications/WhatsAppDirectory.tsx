@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +56,8 @@ function ContactModal({
   tenantId: string;
 }) {
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [form, setForm] = useState({
     name: "",
     title: "",
@@ -85,6 +89,7 @@ function ContactModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (contact) {
         // Update existing contact
         const { error } = await supabase
@@ -220,6 +225,8 @@ function GroupModal({
   tenantId: string;
 }) {
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -254,6 +261,7 @@ function GroupModal({
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (group) {
         // Update existing group
         const { error } = await supabase
@@ -395,6 +403,8 @@ function GroupModal({
 export default function WhatsAppDirectory() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [activeTab, setActiveTab] = useState("individuals");
   const [contactModal, setContactModal] = useState<{ open: boolean; contact?: WhatsAppContact | null }>({ open: false });
   const [groupModal, setGroupModal] = useState<{ open: boolean; group?: WhatsAppGroup | null }>({ open: false });
@@ -432,6 +442,7 @@ export default function WhatsAppDirectory() {
   // Delete mutations
   const deleteContactMutation = useMutation({
     mutationFn: async (contactId: string) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.WHATSAPP_CONTACTS)
         .delete()
@@ -449,6 +460,7 @@ export default function WhatsAppDirectory() {
 
   const deleteGroupMutation = useMutation({
     mutationFn: async (groupId: string) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.WHATSAPP_GROUPS)
         .delete()
@@ -536,7 +548,9 @@ export default function WhatsAppDirectory() {
             </TabsTrigger>
           </TabsList>
 
-          <Button
+          <PermissionButton
+            permission="communication_tools"
+            readOnly={readOnly}
             onClick={() => {
               if (activeTab === "individuals") {
                 setContactModal({ open: true, contact: null });
@@ -549,7 +563,7 @@ export default function WhatsAppDirectory() {
           >
             <Plus className="h-4 w-4" />
             Add {activeTab === "individuals" ? "Individual" : "Group"}
-          </Button>
+          </PermissionButton>
         </div>
 
         <AnimatePresence mode="wait">
@@ -567,7 +581,9 @@ export default function WhatsAppDirectory() {
                 <p className="text-sm text-slate-400 max-w-sm font-jakarta">
                   Add WhatsApp contacts to help members connect with church staff directly.
                 </p>
-                <Button
+                <PermissionButton
+                  permission="communication_tools"
+                  readOnly={readOnly}
                   size="sm"
                   className="mt-2"
                   style={{ backgroundColor: WA_GREEN }}
@@ -575,7 +591,7 @@ export default function WhatsAppDirectory() {
                 >
                   <Plus className="h-4 w-4 mr-1.5" />
                   Add First Contact
-                </Button>
+                </PermissionButton>
               </div>
             ) : (
               <motion.div
@@ -666,7 +682,9 @@ export default function WhatsAppDirectory() {
                 <p className="text-sm text-slate-400 max-w-sm font-jakarta">
                   Add WhatsApp groups to help members join community discussions.
                 </p>
-                <Button
+                <PermissionButton
+                  permission="communication_tools"
+                  readOnly={readOnly}
                   size="sm"
                   className="mt-2"
                   style={{ backgroundColor: WA_GREEN }}
@@ -674,7 +692,7 @@ export default function WhatsAppDirectory() {
                 >
                   <Plus className="h-4 w-4 mr-1.5" />
                   Add First Group
-                </Button>
+                </PermissionButton>
               </div>
             ) : (
               <motion.div

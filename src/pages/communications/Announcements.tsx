@@ -9,10 +9,15 @@ import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { AnnouncementFeedAdmin } from "@/components/announcements/AnnouncementFeedAdmin";
 import { PostAnnouncementDrawer } from "@/components/announcements/PostAnnouncementDrawer";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import type { AnnouncementType } from "@/types/announcements";
 
 export default function Announcements() {
   const { tenantId, userId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // ── Fetch active announcement types ──────────────────────────────────────
@@ -57,14 +62,16 @@ export default function Announcements() {
               </p>
             </div>
           </div>
-          <Button
+          <PermissionButton
+            readOnly={readOnly}
             onClick={handleOpenDrawer}
             className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
           >
             <Megaphone className="h-4 w-4 mr-1.5" />
             Post Announcement
-          </Button>
+          </PermissionButton>
         </div>
+        {readOnly && <ReadOnlyBanner section="Communication Tools" />}
 
         {/* ── Feed ── */}
         <AnnouncementFeedAdmin

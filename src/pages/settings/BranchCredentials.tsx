@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { TABLES, COLS } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +43,8 @@ interface SetUpModalProps {
 function SetUpModal({ branch, onClose, onSaved }: SetUpModalProps) {
   const queryClient = useQueryClient();
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const hasCredentials = !!branch.branch_username;
 
   const [username, setUsername] = useState(branch.branch_username || toSlug(branch.name));
@@ -52,6 +56,7 @@ function SetUpModal({ branch, onClose, onSaved }: SetUpModalProps) {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const errs: Record<string, string> = {};
       if (!username.trim()) errs.username = "Username is required";
       if (!hasCredentials && !password) errs.password = "Password is required";
@@ -155,11 +160,11 @@ function SetUpModal({ branch, onClose, onSaved }: SetUpModalProps) {
 
           {/* Actions */}
           <div className="flex gap-3 pt-1">
-            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={save.isPending}>Cancel</Button>
             <Button
               className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
               onClick={() => save.mutate()}
-              disabled={save.isPending}
+              disabled={save.isPending || readOnly}
             >
               {save.isPending ? "Saving…" : "Save Credentials"}
             </Button>
@@ -173,6 +178,8 @@ function SetUpModal({ branch, onClose, onSaved }: SetUpModalProps) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BranchCredentials() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [setupBranch, setSetupBranch] = useState<any>(null);
 
   const { data: branches = [], isLoading } = useQuery({
@@ -204,6 +211,9 @@ export default function BranchCredentials() {
   return (
     <>
       <Helmet><title>Branch Credentials — Vestry</title></Helmet>
+
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Branch Credentials" />}
 
       <div className="max-w-4xl pb-10">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">

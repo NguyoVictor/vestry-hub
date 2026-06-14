@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,8 @@ const STRENGTH_COLORS = ["", "bg-destructive", "bg-amber-500", "bg-emerald-400",
 
 const Security = () => {
   const church = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -57,6 +60,7 @@ const Security = () => {
   const strength = getStrength(newPw || "");
 
   const handlePasswordChange = async (values: z.infer<typeof pwSchema>) => {
+    if (readOnly) return;
     setSaving(true);
     const { error } = await supabase.auth.updateUser({ password: values.newPassword });
     setSaving(false);
@@ -66,6 +70,7 @@ const Security = () => {
   };
 
   const handleEmailChange = async (newEmail: string) => {
+    if (readOnly) return;
     if (!newEmail || !newEmail.includes('@')) {
       toast.error('Please enter a valid email address');
       return;

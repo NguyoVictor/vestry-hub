@@ -3,6 +3,9 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -58,6 +61,8 @@ const DEFAULT_TYPES = [
 
 export default function AnnouncementTypesPage() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const qc = useQueryClient();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -100,6 +105,7 @@ export default function AnnouncementTypesPage() {
   // ─── Seed defaults ──────────────────────────────────────────────────────────
 
   const handleSeedDefaults = async () => {
+    if (readOnly) return;
     setSeeding(true);
     try {
       const records = DEFAULT_TYPES.map((d) => ({
@@ -124,6 +130,7 @@ export default function AnnouncementTypesPage() {
   // ─── Optimistic active toggle ───────────────────────────────────────────────
 
   const toggleActive = async (type: AnnouncementType) => {
+    if (readOnly) return;
     const newVal = !type.is_active;
     // Optimistic update
     setRows((prev) =>
@@ -174,6 +181,7 @@ export default function AnnouncementTypesPage() {
   // ─── Delete / Archive ───────────────────────────────────────────────────────
 
   const handleDeleteConfirm = async () => {
+    if (readOnly) return;
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
@@ -213,6 +221,9 @@ export default function AnnouncementTypesPage() {
         <title>Announcement Types — Vestry</title>
       </Helmet>
 
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Announcement Types" />}
+
       <div className="font-jakarta max-w-3xl">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           {/* Card header */}
@@ -225,7 +236,8 @@ export default function AnnouncementTypesPage() {
                 Manage categories used to organise announcements
               </p>
             </div>
-            <Button
+            <PermissionButton
+              readOnly={readOnly}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
               size="sm"
               onClick={() => {
@@ -235,7 +247,7 @@ export default function AnnouncementTypesPage() {
             >
               <Plus className="h-4 w-4" />
               Add Type
-            </Button>
+            </PermissionButton>
           </div>
 
           {/* Table */}
@@ -248,14 +260,15 @@ export default function AnnouncementTypesPage() {
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
               <p className="text-sm font-medium">No announcement types yet.</p>
-              <Button
+              <PermissionButton
+                readOnly={readOnly}
                 variant="outline"
                 size="sm"
                 onClick={handleSeedDefaults}
                 disabled={seeding}
               >
                 {seeding ? "Adding..." : "Add Default Types"}
-              </Button>
+              </PermissionButton>
             </div>
           ) : (
             <table className="w-full text-sm font-jakarta">
@@ -322,6 +335,7 @@ export default function AnnouncementTypesPage() {
                         checked={type.is_active}
                         onCheckedChange={() => toggleActive(type)}
                         className="data-[state=checked]:bg-orange-500"
+                        disabled={readOnly}
                       />
                     </td>
 

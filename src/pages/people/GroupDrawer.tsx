@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { TABLES, COLS } from "@/lib/schema";
+import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,8 @@ interface GroupDrawerProps {
 }
 
 export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onSuccess }: GroupDrawerProps) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management') || isReadOnly('groups_ministries');
   const qc = useQueryClient();
   const isEdit = !!editData;
 
@@ -108,6 +111,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!name.trim()) { toast.error("Group name is required."); return; }
     setSaving(true);
     try {

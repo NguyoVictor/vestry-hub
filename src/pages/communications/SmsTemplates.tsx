@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +61,8 @@ function CharCounter({ text }: { text: string }) {
 // ── Template Modal ─────────────────────────────────────────────────────────────
 function TemplateModal({ open, onClose, tenantId, categories, editData, onSuccess }: { open: boolean; onClose: () => void; tenantId: string; categories: EmailCategory[]; editData?: SmsTemplate | null; onSuccess: () => void }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const isEdit = !!editData;
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [name, setName] = useState(editData?.name ?? "");
@@ -91,6 +95,7 @@ function TemplateModal({ open, onClose, tenantId, categories, editData, onSucces
   const handleClose = () => { setName(""); setCategoryId(""); setBody(""); setIsActive(true); setErrors({}); onClose(); };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Template name is required.";
     if (!body.trim()) e.body = "Message body is required.";
@@ -196,7 +201,9 @@ function TemplateModal({ open, onClose, tenantId, categories, editData, onSucces
 }
 
 // ── Template Card ──────────────────────────────────────────────────────────────
-function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibrary }: { template: SmsTemplate; onEdit?: () => void; onDelete?: () => void; onSend?: () => void; onDuplicate?: () => void; isLibrary?: boolean }) {
+function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibrary, readOnly }: { 
+  template: SmsTemplate; onEdit?: () => void; onDelete?: () => void; onSend?: () => void; onDuplicate?: () => void; isLibrary?: boolean; readOnly?: boolean 
+}) {
   const segs = smsSegments(template.body.length);
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
@@ -215,12 +222,12 @@ function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibra
       </div>
       <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
         {isLibrary ? (
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs flex-1" onClick={onDuplicate}><Copy className="h-3.5 w-3.5" />Duplicate</Button>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs flex-1" onClick={onDuplicate} disabled={readOnly}><Copy className="h-3.5 w-3.5" />Duplicate</Button>
         ) : (
           <>
-            <button onClick={onSend} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors"><Send className="h-3.5 w-3.5" />Send</button>
-            <button onClick={onEdit} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors"><Pencil className="h-3.5 w-3.5" />Edit</button>
-            <button onClick={onDelete} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-red-100 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="h-3.5 w-3.5" />Delete</button>
+            <button onClick={onSend} disabled={readOnly} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><Send className="h-3.5 w-3.5" />Send</button>
+            <button onClick={onEdit} disabled={readOnly} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><Pencil className="h-3.5 w-3.5" />Edit</button>
+            <button onClick={onDelete} disabled={readOnly} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-red-100 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><Trash2 className="h-3.5 w-3.5" />Delete</button>
           </>
         )}
       </div>
@@ -232,6 +239,8 @@ function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibra
 export function SmsTemplates() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [activeCategory, setActiveCategory] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<SmsTemplate | null>(null);
@@ -257,6 +266,7 @@ export function SmsTemplates() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.SMS_TEMPLATES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -282,9 +292,14 @@ export function SmsTemplates() {
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">SMS Templates</h2>
           <p className="text-xs text-slate-500">Manage reusable SMS message templates</p>
         </div>
-        <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" size="sm" onClick={() => setCreateOpen(true)}>
+        <PermissionButton 
+          readOnly={readOnly}
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" 
+          size="sm" 
+          onClick={() => setCreateOpen(true)}
+        >
           <Plus className="h-4 w-4" />Create Template
-        </Button>
+        </PermissionButton>
       </div>
 
       {/* Category pills */}
@@ -311,7 +326,7 @@ export function SmsTemplates() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtered.map(t => <TemplateCard key={t.id} template={t} onEdit={() => setEditTemplate(t)} onDelete={() => setDeleteTemplate(t)} onSend={() => {}} />)}
+              {filtered.map(t => <TemplateCard key={t.id} template={t} onEdit={() => setEditTemplate(t)} onDelete={() => setDeleteTemplate(t)} onSend={() => {}} readOnly={readOnly} />)}
             </div>
           )}
         </TabsContent>
@@ -321,7 +336,7 @@ export function SmsTemplates() {
             {LIBRARY_TEMPLATES.map(lt => {
               const cat = categories.find(c => c.name === lt.category);
               const fake: SmsTemplate = { id: lt.name, tenant_id: tenantId, name: lt.name, category_id: cat?.id ?? null, body: lt.body, is_active: true, is_system: true, created_at: "", email_categories: cat ? { name: cat.name } : null };
-              return <TemplateCard key={lt.name} template={fake} isLibrary onDuplicate={() => handleDuplicate(lt)} />;
+              return <TemplateCard key={lt.name} template={fake} isLibrary onDuplicate={() => handleDuplicate(lt)} readOnly={readOnly} />;
             })}
           </div>
         </TabsContent>

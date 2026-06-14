@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TABLES } from "@/lib/schema";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ReadOnlyBanner } from "@/components/shared/ReadOnlyBanner";
+import { PermissionButton } from "@/components/shared/PermissionButton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, Download } from "lucide-react";
@@ -9,6 +12,8 @@ import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export function WaReportTab({ tenantId }: { tenantId: string }) {
+  const { isReadOnly } = usePermissions();
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [days, setDays] = useState(30);
 
   const since = subDays(new Date(), days).toISOString();
@@ -45,6 +50,7 @@ export function WaReportTab({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="space-y-5">
+      {reportsReadOnly && <ReadOnlyBanner permission="reports_analytics" />}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -106,9 +112,9 @@ export function WaReportTab({ tenantId }: { tenantId: string }) {
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Recent Message Log</p>
-          <Button variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
+          <PermissionButton readOnly={reportsReadOnly} variant="outline" size="sm" onClick={exportCsv} className="gap-1.5">
             <Download className="h-3.5 w-3.5" />Export CSV
-          </Button>
+          </PermissionButton>
         </div>
         {isLoading ? (
           <div className="p-5 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>

@@ -11,6 +11,9 @@ import { JitsiModal } from "@/components/shared/JitsiModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/activityLogger";
@@ -148,6 +151,8 @@ const Groups = () => {
   const { tenantId, userName } = useChurch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management') || isReadOnly('groups_ministries');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<any>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -320,11 +325,13 @@ const Groups = () => {
                 ))}
               </div>
             </div>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta"
+            <PermissionButton readOnly={readOnly} className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta"
               onClick={() => { setEditGroup(null); setDrawerOpen(true); }}>
               <Plus className="h-4 w-4 mr-1.5" />Create Group
-            </Button>
+            </PermissionButton>
           </div>
+
+          {readOnly && <div className="mb-6"><ReadOnlyBanner section="Groups & Ministries" /></div>}
 
           {/* Toolbar */}
           <BlurFadeIn delay={0.1}>
@@ -394,9 +401,14 @@ const Groups = () => {
                   </div>
                   <p className="text-base font-semibold text-foreground">No groups yet</p>
                   <p className="text-sm text-muted-foreground max-w-sm">Create your first ministry group to organize your congregation</p>
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={() => { setEditGroup(null); setDrawerOpen(true); }}>
+                  <PermissionButton
+                    permission="member_management"
+                    readOnly={readOnly}
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta"
+                    onClick={() => { setEditGroup(null); setDrawerOpen(true); }}
+                  >
                     <Plus className="h-4 w-4 mr-1.5" />Create Group
-                  </Button>
+                  </PermissionButton>
                 </>
               )}
             </div>

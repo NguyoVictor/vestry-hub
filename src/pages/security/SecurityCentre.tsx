@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +35,8 @@ const statusColors: Record<string, string> = {
 
 export default function SecurityCentre() {
   const { tenantId, userRole } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const queryClient = useQueryClient();
 
   const { data: loginEvents, isLoading: loadingEvents } = useQuery({
@@ -115,7 +120,9 @@ export default function SecurityCentre() {
 
   return (
     <div>
-      <PageHeader title="Security Centre" subtitle="Monitor access, sessions and suspicious activity" action={<Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export Logs</Button>} />
+      <PageHeader title="Security Centre" subtitle="Monitor access, sessions and suspicious activity" action={<PermissionButton readOnly={readOnly} variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export Logs</PermissionButton>} />
+
+      {readOnly && <ReadOnlyBanner permission="reports_analytics" />}
 
       {unresolvedAlerts.length > 0 && (
         <div className="mb-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex items-center gap-3">

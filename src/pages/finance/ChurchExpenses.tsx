@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { DataTable, Column } from "@/components/shared/DataTable";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { TransactionBadge } from "@/components/finance/TransactionBadge";
@@ -28,6 +31,9 @@ const METHODS = ["cash", "mpesa", "bank_transfer", "cheque"];
 const ChurchExpenses = () => {
   const { tenantId, currency, userId, userRole } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ description: "", amount: "", category: "other", payment_method: "cash", expense_date: new Date().toISOString().split("T")[0], recorded_by: "", title: "" });
@@ -51,6 +57,7 @@ const ChurchExpenses = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload: any = { tenant_id: tenantId, description: form.description || form.title, amount: parseFloat(form.amount), category: form.category, payment_method: form.payment_method, expense_date: form.expense_date, recorded_by: userId, currency, title: form.title };
       if (editingId) {
         const { error } = await supabase.from("expenses").update(payload as any).eq("id", editingId);
@@ -66,6 +73,7 @@ const ChurchExpenses = () => {
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      if (readOnly) return;
       const { error } = await supabase.from("expenses").update({ approval_status: status, approved_by: userId, approved_at: new Date().toISOString() } as any).eq("id", id);
       if (error) throw error;
     },
@@ -79,7 +87,7 @@ const ChurchExpenses = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("expenses").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { if (readOnly) return; const { error } = await supabase.from("expenses").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["expenses"] }); toast.success("Expense deleted"); },
   });
 
@@ -96,12 +104,12 @@ const ChurchExpenses = () => {
     { key: "actions", header: "", render: (r) => (
       <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => openEdit(r)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+          <DropdownMenuItem disabled={readOnly} onClick={() => openEdit(r)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
           {isAdmin && r.approval_status === "pending" && <>
-            <DropdownMenuItem onClick={() => approveMutation.mutate({ id: r.id, status: "approved" })}><CheckCircle className="h-4 w-4 mr-2" />Approve</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => approveMutation.mutate({ id: r.id, status: "rejected" })}><XCircle className="h-4 w-4 mr-2" />Reject</DropdownMenuItem>
+            <DropdownMenuItem disabled={readOnly} onClick={() => approveMutation.mutate({ id: r.id, status: "approved" })}><CheckCircle className="h-4 w-4 mr-2" />Approve</DropdownMenuItem>
+            <DropdownMenuItem disabled={readOnly} onClick={() => approveMutation.mutate({ id: r.id, status: "rejected" })}><XCircle className="h-4 w-4 mr-2" />Reject</DropdownMenuItem>
           </>}
-          <DropdownMenuItem className="text-destructive" onClick={() => deleteMutation.mutate(r.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+          <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => deleteMutation.mutate(r.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -110,13 +118,15 @@ const ChurchExpenses = () => {
   return (
     <>
       <Helmet><title>Church Expenses — Vestry</title></Helmet>
-      <PageHeader title="Church Expenses" subtitle="Log, categorize and approve church expenditure" action={<Button onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-1" />Add Expense</Button>} />
+      <PageHeader title="Church Expenses" subtitle="Log, categorize and approve church expenditure" action={<PermissionButton readOnly={readOnly} onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-1" />Add Expense</PermissionButton>} />
+      {readOnly && <ReadOnlyBanner section="Financial Records" />}
+      {reportsReadOnly && <ReadOnlyBanner section="Reports & Analytics" />}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <FinanceStatCard title="Expenses This Month" amount={stats.month} icon={TrendingDown} />
         <FinanceStatCard title="Expenses This Year" amount={stats.year} icon={Wallet} />
         <FinanceStatCard title="Pending Approval" amount={stats.pending} icon={AlertTriangle} isCurrency={false} />
       </div>
-      <DataTable data={expenses} columns={columns} loading={isLoading} getRowId={r => r.id} searchPlaceholder="Search expenses..." emptyIcon={<Wallet className="h-12 w-12 text-muted-foreground/30" />} emptyTitle="No expenses recorded" emptyCta={<Button onClick={() => setSheetOpen(true)}>Add Expense</Button>} />
+      <DataTable data={expenses} columns={columns} loading={isLoading} getRowId={r => r.id} searchPlaceholder="Search expenses..." emptyIcon={<Wallet className="h-12 w-12 text-muted-foreground/30" />} emptyTitle="No expenses recorded" hideExport={reportsReadOnly} emptyCta={<PermissionButton permission="financial_records" readOnly={readOnly} onClick={() => setSheetOpen(true)}>Add Expense</PermissionButton>} />
       <Sheet open={sheetOpen} onOpenChange={v => { if (!v) closeSheet(); }}>
         <SheetContent className="overflow-y-auto">
           <SheetHeader><SheetTitle>{editingId ? "Edit Expense" : "Add Expense"}</SheetTitle></SheetHeader>

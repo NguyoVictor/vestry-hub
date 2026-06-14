@@ -6,6 +6,9 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -353,6 +356,8 @@ const emptyForm = {
 export default function EventsPage() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const [view, setView] = useState<"cards" | "calendar" | "list">("cards");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -410,6 +415,7 @@ export default function EventsPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.EVENTS).insert({
         tenant_id: tenantId,
         title: formData.title,
@@ -447,6 +453,7 @@ export default function EventsPage() {
 
   const editMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.EVENTS)
         .update({
@@ -478,6 +485,7 @@ export default function EventsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.EVENTS).delete().eq("id", id);
       if (error) throw error;
     },
@@ -491,6 +499,7 @@ export default function EventsPage() {
 
   const updateEventStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.EVENTS)
         .update({ status, is_published: status === "published" } as any)
@@ -558,12 +567,14 @@ export default function EventsPage() {
                 <List className="h-4 w-4" />
               </Button>
             </div>
-            <Button onClick={() => setSheetOpen(true)}>
+            <PermissionButton readOnly={readOnly} onClick={() => setSheetOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />Create Event
-            </Button>
+            </PermissionButton>
           </div>
         }
       />
+
+      {readOnly && <ReadOnlyBanner section="Event Management" />}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -629,7 +640,7 @@ export default function EventsPage() {
           <CalendarDays className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-1">No events yet</h3>
           <p className="text-sm text-muted-foreground mb-4">Create your first church event to get started.</p>
-          <Button onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Create Event</Button>
+          <PermissionButton permission="event_management" readOnly={readOnly} onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Create Event</PermissionButton>
         </Card>
       ) : view === "cards" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

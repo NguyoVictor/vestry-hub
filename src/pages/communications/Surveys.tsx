@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -363,7 +366,7 @@ function SurveyFormDialog({
 
 // ─── Survey Card ──────────────────────────────────────────────────────────────
 function SurveyCard({
-  survey, responseCount, onEdit, onDelete, onTogglePublish, onViewResponses,
+  survey, responseCount, onEdit, onDelete, onTogglePublish, onViewResponses, readOnly,
 }: {
   survey: any;
   responseCount: number;
@@ -371,6 +374,7 @@ function SurveyCard({
   onDelete: () => void;
   onTogglePublish: () => void;
   onViewResponses: () => void;
+  readOnly: boolean;
 }) {
   const status = getSurveyStatus(survey);
   const questionCount = Array.isArray(survey.questions) ? survey.questions.length : 0;
@@ -429,13 +433,13 @@ function SurveyCard({
           <Button size="sm" variant="outline" onClick={copyShareLink} title="Copy share link">
             <Link className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="outline" onClick={onEdit} title="Edit survey">
+          <Button size="sm" variant="outline" onClick={onEdit} title="Edit survey" disabled={readOnly}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="outline" onClick={onTogglePublish} title={survey.is_published ? "Unpublish" : "Publish"}>
+          <Button size="sm" variant="outline" onClick={onTogglePublish} title={survey.is_published ? "Unpublish" : "Publish"} disabled={readOnly}>
             {survey.is_published ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           </Button>
-          <Button size="sm" variant="ghost" onClick={onDelete} title="Delete survey" className="text-destructive hover:text-destructive">
+          <Button size="sm" variant="ghost" onClick={onDelete} title="Delete survey" className="text-destructive hover:text-destructive" disabled={readOnly}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -449,6 +453,9 @@ export default function Surveys() {
   const { tenantId, userId } = useChurch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
+  const reportsReadOnly = isReadOnly('reports_analytics');
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingSurvey, setEditingSurvey] = useState<any | null>(null);
@@ -566,11 +573,14 @@ export default function Surveys() {
         title="Surveys"
         subtitle="Create and distribute surveys to your congregation"
         action={
-          <Button onClick={() => setShowCreate(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
+          <PermissionButton readOnly={readOnly} onClick={() => setShowCreate(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
             <Plus className="mr-2 h-4 w-4" />Create Survey
-          </Button>
+          </PermissionButton>
         }
       />
+
+      {readOnly && <ReadOnlyBanner section="Communication Tools" />}
+      {reportsReadOnly && <ReadOnlyBanner section="Reports & Analytics" />}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -582,9 +592,9 @@ export default function Surveys() {
             <BarChart2 className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p className="text-base font-semibold text-slate-600">No surveys yet</p>
             <p className="text-sm text-slate-400 mt-1">Create your first survey to gather feedback from your congregation.</p>
-            <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setShowCreate(true)}>
+            <PermissionButton permission="communication_tools" readOnly={readOnly} className="mt-4 bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setShowCreate(true)}>
               <Plus className="h-4 w-4 mr-1.5" />Create Survey
-            </Button>
+            </PermissionButton>
           </CardContent>
         </Card>
       ) : (
@@ -598,6 +608,7 @@ export default function Surveys() {
               onDelete={() => setDeletingId(survey.id)}
               onTogglePublish={() => togglePublish.mutate({ id: survey.id, published: !survey.is_published })}
               onViewResponses={() => navigate(`/surveys/${survey.id}/responses`)}
+              readOnly={readOnly}
             />
           ))}
         </div>

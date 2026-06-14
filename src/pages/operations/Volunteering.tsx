@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -167,6 +170,8 @@ function LogHoursDialog({ open, onClose, volunteer, onSave, isPending }: {
 
 // ─── Roles Tab ────────────────────────────────────────────────────────────────
 function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, onViewVolunteers, onAssign }: any) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -189,6 +194,7 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
 
   const createMutation = useMutation({
     mutationFn: async (form: any) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.VOLUNTEER_ROLES).insert({
         tenant_id: tenantId, name: form.name, department: form.department || null,
         description: form.description || null, min_volunteers: form.min_volunteers,
@@ -203,6 +209,7 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
 
   const editMutation = useMutation({
     mutationFn: async (form: any) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.VOLUNTEER_ROLES).update({
         name: form.name, department: form.department || null, description: form.description || null,
         min_volunteers: form.min_volunteers, max_volunteers: form.max_volunteers,
@@ -216,6 +223,7 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.VOLUNTEER_ROLES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -246,9 +254,9 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
             <Briefcase className="h-12 w-12 text-slate-300 mx-auto mb-3" />
             <p className="text-base font-semibold text-slate-600">No volunteer roles yet</p>
             <p className="text-sm text-slate-400 mt-1">Create your first role to start building your volunteer teams</p>
-            <Button className="mt-4 bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setCreateOpen(true)}>
+            <PermissionButton readOnly={readOnly} className="mt-4 bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" />Create Role
-            </Button>
+            </PermissionButton>
           </CardContent>
         </Card>
       ) : (
@@ -286,10 +294,10 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditRole(role)}>
+                        <DropdownMenuItem disabled={readOnly} onClick={() => setEditRole(role)}>
                           <Pencil className="h-3.5 w-3.5 mr-2" />Edit Role
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(role.id)}>
+                        <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => setDeleteId(role.id)}>
                           <Trash2 className="h-3.5 w-3.5 mr-2" />Delete Role
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -376,6 +384,8 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
 
 // ─── Volunteers Tab ───────────────────────────────────────────────────────────
 function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClient, userId, initialRoleFilter }: any) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState(initialRoleFilter || "all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -402,6 +412,7 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
 
   const logHoursMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (readOnly) return;
       const { error } = await supabase.from("volunteer_hours" as any).insert({
         tenant_id: tenantId,
         assignment_id: data.volunteer.id,
@@ -428,6 +439,7 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
 
   const markInactiveMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.VOLUNTEERS).update({ status: "inactive" } as any).eq("id", id);
       if (error) throw error;
     },
@@ -437,6 +449,7 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
 
   const removeMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.VOLUNTEERS).delete().eq("id", id);
       if (error) throw error;
     },
@@ -525,13 +538,13 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setLogHoursFor({ ...a, memberName: name })}>
+                          <DropdownMenuItem disabled={readOnly} onClick={() => setLogHoursFor({ ...a, memberName: name })}>
                             <Clock className="h-3.5 w-3.5 mr-2" />Log Hours
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => markInactiveMutation.mutate(a.id)}>
+                          <DropdownMenuItem disabled={readOnly} onClick={() => markInactiveMutation.mutate(a.id)}>
                             Mark Inactive
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(a.id)}>
+                          <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => setDeleteId(a.id)}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" />Remove
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -568,6 +581,8 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
 
 // ─── Reports Tab ──────────────────────────────────────────────────────────────
 function ReportsTab({ assignments, roles, memberRecords }: any) {
+  const { isReadOnly } = usePermissions();
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [period, setPeriod] = useState<"month" | "3months" | "year">("month");
 
   const periodStart = useMemo(() => {
@@ -641,9 +656,9 @@ function ReportsTab({ assignments, roles, memberRecords }: any) {
             </Button>
           ))}
         </div>
-        <Button variant="outline" size="sm" onClick={exportCSV}>
+        <PermissionButton readOnly={reportsReadOnly} variant="outline" size="sm" onClick={exportCSV}>
           <Download className="h-4 w-4 mr-1.5" />Export CSV
-        </Button>
+        </PermissionButton>
       </div>
 
       {/* Stats */}
@@ -735,6 +750,8 @@ function ReportsTab({ assignments, roles, memberRecords }: any) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function VolunteeringPage() {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const { tenantId, userId } = useChurch();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"roles" | "volunteers" | "reports">("roles");
@@ -786,6 +803,7 @@ export default function VolunteeringPage() {
   // ── Assign mutation ───────────────────────────────────────────────────────────
   const assignMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.VOLUNTEERS).insert({
         tenant_id: tenantId, member_id: assignForm.member_id, role_id: assignForm.role_id || null,
         reference_type: assignForm.reference_type, reference_id: assignForm.reference_id || null,
@@ -804,6 +822,7 @@ export default function VolunteeringPage() {
 
   const createRoleMutation = useMutation({
     mutationFn: async (form: any) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.VOLUNTEER_ROLES).insert({
         tenant_id: tenantId, name: form.name, department: form.department || null,
         description: form.description || null, min_volunteers: form.min_volunteers,
@@ -844,15 +863,17 @@ export default function VolunteeringPage() {
         subtitle="Coordinate and manage your church volunteer teams"
         action={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setCreateRoleOpen(true)}>
+            <PermissionButton readOnly={readOnly} variant="outline" onClick={() => setCreateRoleOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" />Create Role
-            </Button>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setAssignSheetOpen(true)}>
+            </PermissionButton>
+            <PermissionButton readOnly={readOnly} className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setAssignSheetOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" />Assign Volunteer
-            </Button>
+            </PermissionButton>
           </div>
         }
       />
+      {readOnly && <ReadOnlyBanner section="Event Management" />}
+      {isReadOnly('reports_analytics') && <ReadOnlyBanner permission="reports_analytics" />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -3,6 +3,9 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -59,6 +62,8 @@ interface CategoryModalProps {
 
 function CategoryModal({ open, onClose, tenantId, editData, existingNames, onSuccess }: CategoryModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
   const [name,       setName]       = useState(editData?.name ?? "");
   const [isActive,   setIsActive]   = useState(editData?.is_active ?? true);
@@ -70,6 +75,7 @@ function CategoryModal({ open, onClose, tenantId, editData, existingNames, onSuc
   const handleClose = () => { setName(""); setIsActive(true); setNameError(""); onClose(); };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!name.trim()) { setNameError("Category name is required."); return; }
     const others = existingNames.filter(n => isEdit ? n !== editData?.name : true);
     if (others.map(n => n.toLowerCase()).includes(name.trim().toLowerCase())) {
@@ -126,6 +132,8 @@ function CategoryModal({ open, onClose, tenantId, editData, existingNames, onSuc
 // ─── Email Categories Tab ─────────────────────────────────────────────────────
 function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [addOpen,    setAddOpen]    = useState(false);
   const [editCat,    setEditCat]    = useState<EmailCategory | null>(null);
   const [deleteCat,  setDeleteCat]  = useState<EmailCategory | null>(null);
@@ -144,6 +152,7 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
   const existingNames = categories.map(c => c.name);
 
   const handleSeedDefaults = async () => {
+    if (readOnly) return;
     setSeeding(true);
     try {
       const rows = SYSTEM_CATEGORIES.map(d => ({ ...d, tenant_id: tenantId, is_active: true, is_system: true }));
@@ -157,6 +166,7 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.EMAIL_CATEGORIES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -175,9 +185,9 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
               <p className="text-xs text-slate-500">Manage the categories used to organize your email templates</p>
             </div>
           </div>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" size="sm" onClick={() => setAddOpen(true)}>
+          <PermissionButton readOnly={readOnly} className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="h-4 w-4" /> Add Category
-          </Button>
+          </PermissionButton>
         </div>
 
         {isLoading ? (
@@ -185,7 +195,7 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
         ) : categories.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
             <p className="text-sm">No categories yet.</p>
-            <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={seeding}>{seeding ? "Adding..." : "Add Default Categories"}</Button>
+            <PermissionButton readOnly={readOnly} variant="outline" size="sm" onClick={handleSeedDefaults} disabled={seeding}>{seeding ? "Adding..." : "Add Default Categories"}</PermissionButton>
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -457,6 +467,8 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
 }
 function SmsSettingsTab({ tenantId }: { tenantId: string }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [apiKey, setApiKey] = useState("");
   const [projectName, setProjectName] = useState("");
   const [senderId, setSenderId] = useState("");
@@ -481,6 +493,7 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
   }, [existing]);
 
   const handleSave = async () => {
+    if (readOnly) return;
     if (!apiKey.trim() || !projectName.trim() || !senderId.trim()) { 
       toast.error("API Key, Project Name, and Sender ID are required."); 
       return; 
@@ -569,7 +582,7 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
           </ol>
         </div>
 
-        <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSave} disabled={saving}>
+        <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSave} disabled={saving || readOnly}>
           {saving ? "Saving..." : "💾 Save SMS Settings"}
         </Button>
       </div>
@@ -580,9 +593,16 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CommunicationsSettings() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
+  
   return (
     <>
       <Helmet><title>Communications Settings — Vestry</title></Helmet>
+      
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Communications Settings" />}
+      
       <div className="max-w-3xl">
         <Tabs defaultValue="email_categories" className="w-full">
           <TabsList className="bg-slate-100 p-1 rounded-lg w-auto mb-5">

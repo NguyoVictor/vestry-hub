@@ -8,6 +8,9 @@ import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PermissionButton } from "@/components/shared/PermissionButton";
+import { ReadOnlyBanner } from "@/components/shared/ReadOnlyBanner";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +38,8 @@ const MEMBERSHIP_STATUSES = [
 ];
 
 const MemberProfile = () => {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const { memberId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -103,6 +108,7 @@ const MemberProfile = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       // Start with core columns that definitely exist in the base members table
       const updateData: any = {
         first_name: editForm.first_name,
@@ -186,6 +192,8 @@ const MemberProfile = () => {
         <ArrowLeft className="h-4 w-4 mr-1" />Back to Members
       </Button>
 
+      {readOnly && <ReadOnlyBanner section="Member Management" />}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left profile card */}
         <Card className="lg:col-span-1">
@@ -210,15 +218,23 @@ const MemberProfile = () => {
               {member.join_date && <div className="flex items-center gap-2"><Calendar className="h-4 w-4" />Joined {format(new Date(member.join_date), "dd MMM yyyy")}</div>}
             </div>
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" size="sm" onClick={openEdit}>
+              <PermissionButton
+                permission="member_management"
+                readOnly={readOnly}
+                variant="outline"
+                className="flex-1"
+                size="sm"
+                onClick={openEdit}
+              >
                 <Edit className="h-4 w-4 mr-1" />Edit
-              </Button>
+              </PermissionButton>
               <Button className="flex-1" size="sm">
                 <Mail className="h-4 w-4 mr-1" />Message
               </Button>
             </div>
             {member.membership_status === "Pending Approval" && (
-              <Button
+              <PermissionButton
+                permission="member_management"
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                 size="sm"
                 onClick={async () => {
@@ -239,7 +255,7 @@ const MemberProfile = () => {
                 }}
               >
                 ✓ Approve Member
-              </Button>
+              </PermissionButton>
             )}
           </CardContent>
         </Card>

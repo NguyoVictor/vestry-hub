@@ -14,6 +14,9 @@ import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
@@ -74,6 +77,9 @@ const cardVariants = {
 const GivingRecords = () => {
   const { tenantId, currency, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -111,6 +117,7 @@ const GivingRecords = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload = {
         tenant_id: tenantId,
         member_id: isAnonymous ? null : form.member_id || null,
@@ -160,6 +167,7 @@ const GivingRecords = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from("giving_records").delete().eq("id", id);
       if (error) throw error;
     },
@@ -355,17 +363,20 @@ const GivingRecords = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button 
+                <PermissionButton readOnly={readOnly}
                   onClick={() => setSheetOpen(true)}
                   className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600 shadow-lg shadow-emerald-500/25"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Record Giving
-                </Button>
+                </PermissionButton>
               </motion.div>
             } 
           />
         </motion.div>
+
+        {readOnly && <ReadOnlyBanner section="Financial Records" />}
+        {reportsReadOnly && <ReadOnlyBanner section="Reports & Analytics" />}
 
         {/* Premium Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -460,6 +471,7 @@ const GivingRecords = () => {
                 emptyIcon={<Receipt className="h-12 w-12 text-gray-400" />} 
                 emptyTitle="No giving records" 
                 emptyDescription="Record your first donation to get started" 
+                hideExport={reportsReadOnly}
                 emptyCta={
                   <motion.div
                     whileHover={{ scale: 1.05 }}

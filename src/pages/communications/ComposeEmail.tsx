@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -181,6 +182,8 @@ export default function ComposeEmail() {
   const [searchParams] = useSearchParams();
   const { tenantId, name: churchName } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
 
   // Recipients state
   const [search, setSearch] = useState("");
@@ -412,6 +415,7 @@ export default function ComposeEmail() {
 
   // ── Send ──────────────────────────────────────────────────────────────────────
   const handleSend = async () => {
+    if (readOnly) return;
     if (channel === "email") {
       if (selectedIds.size === 0) { toast.error("Select at least one recipient."); return; }
       if (!subject.trim()) { toast.error("Subject is required."); return; }

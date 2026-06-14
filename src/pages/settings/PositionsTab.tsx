@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
@@ -58,6 +61,8 @@ interface PositionModalProps {
 
 function PositionModal({ open, onClose, tenantId, editData, onSuccess }: PositionModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
 
   const [name, setName]           = useState(editData?.name ?? "");
@@ -71,6 +76,7 @@ function PositionModal({ open, onClose, tenantId, editData, onSuccess }: Positio
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!name.trim()) { toast.error("Position name is required."); return; }
     setSubmitting(true);
     try {
@@ -145,8 +151,9 @@ function PositionModal({ open, onClose, tenantId, editData, onSuccess }: Positio
               checked={isActive}
               onCheckedChange={setIsActive}
               className="data-[state=checked]:bg-orange-500"
+              disabled={readOnly}
             />
-            <Label className="text-sm font-medium cursor-pointer" onClick={() => setIsActive(v => !v)}>
+            <Label className="text-sm font-medium cursor-pointer" onClick={() => !readOnly && setIsActive(v => !v)}>
               Active
             </Label>
           </div>
@@ -159,7 +166,7 @@ function PositionModal({ open, onClose, tenantId, editData, onSuccess }: Positio
           <Button
             className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-5"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || readOnly}
           >
             {submitting ? "Saving..." : isEdit ? "Save Changes" : "Create"}
           </Button>
@@ -174,6 +181,8 @@ export function PositionsTab() {
   const church = useChurch();
   const tenantId = church.tenantId;
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   const [addOpen, setAddOpen]     = useState(false);
   const [editPos, setEditPos]     = useState<Position | null>(null);
@@ -195,6 +204,7 @@ export function PositionsTab() {
 
   // Seed defaults on first load when table is empty
   const handleSeedDefaults = async () => {
+    if (readOnly) return;
     setSeeding(true);
     try {
       const rows = DEFAULT_POSITIONS.map(p => ({
@@ -217,6 +227,7 @@ export function PositionsTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.STAFF_POSITIONS)
         .delete()
@@ -243,6 +254,9 @@ export function PositionsTab() {
 
   return (
     <>
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Staff Positions" />}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-start gap-3">
@@ -254,14 +268,15 @@ export function PositionsTab() {
             <p className="text-xs text-slate-500">Define and manage staff positions/roles</p>
           </div>
         </div>
-        <Button
+        <PermissionButton
+          readOnly={readOnly}
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
           size="sm"
           onClick={() => setAddOpen(true)}
         >
           <Plus className="h-4 w-4" />
           Add Position
-        </Button>
+        </PermissionButton>
       </div>
 
       {/* Table */}
@@ -276,7 +291,8 @@ export function PositionsTab() {
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <Briefcase className="h-8 w-8" />
             <p className="text-sm font-medium">No positions defined yet.</p>
-            <Button
+            <PermissionButton
+              readOnly={readOnly}
               variant="outline"
               size="sm"
               className="gap-2 text-slate-600"
@@ -284,7 +300,7 @@ export function PositionsTab() {
               disabled={seeding}
             >
               {seeding ? "Adding..." : "Add Default Positions"}
-            </Button>
+            </PermissionButton>
           </div>
         ) : (
           <Table>

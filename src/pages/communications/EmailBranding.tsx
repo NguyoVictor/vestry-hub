@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -132,6 +134,8 @@ function EmailPreview({ branding, churchName }: { branding: BrandingState; churc
 export function EmailBranding() {
   const { tenantId, name: churchName, city, country } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const logoRef = useRef<HTMLInputElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -230,6 +234,7 @@ export function EmailBranding() {
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
     const hasLogo = branding.logoPreview || branding.logoUrl;
     const hasSender = branding.senderName.trim();
     if (!hasLogo && !hasSender) setSoftWarning(true);
@@ -267,14 +272,6 @@ export function EmailBranding() {
         .from(TABLES.EMAIL_BRANDING)
         .upsert(payload as never, { onConflict: "tenant_id" });
       if (error) throw error;
-
-      // Post-upload increment storage (only if files were uploaded)
-      if (totalUploadedGB > 0) {
-        await supabase
-          .from(TABLES.TENANT_SUBSCRIPTIONS)
-          .update({ storage_used_gb: usage.storage_gb + totalUploadedGB })
-          .eq('tenant_id', tenantId);
-      }
 
       // Update local state with uploaded URLs
       setBranding(prev => ({ ...prev, logoUrl, senderPhotoUrl, logoFile: null, senderPhotoFile: null }));
@@ -342,8 +339,9 @@ export function EmailBranding() {
               ref={logoRef}
               type="file"
               accept="image/png,image/jpeg,image/svg+xml"
-              className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-xs file:font-medium file:bg-white file:text-slate-700 hover:file:bg-slate-50 cursor-pointer"
+              className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-xs file:font-medium file:bg-white file:text-slate-700 hover:file:bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               onChange={handleLogoChange}
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -352,7 +350,8 @@ export function EmailBranding() {
           <button
             type="button"
             onClick={() => { set("logoUrl", ""); set("logoPreview", ""); set("logoFile", null); if (logoRef.current) logoRef.current.value = ""; }}
-            className="text-xs text-red-500 hover:underline"
+            className="text-xs text-red-500 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={readOnly}
           >
             Remove Logo
           </button>
@@ -390,14 +389,16 @@ export function EmailBranding() {
               ref={photoRef}
               type="file"
               accept="image/png,image/jpeg"
-              className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-xs file:font-medium file:bg-white file:text-slate-700 hover:file:bg-slate-50 cursor-pointer"
+              className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-slate-200 file:text-xs file:font-medium file:bg-white file:text-slate-700 hover:file:bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               onChange={handlePhotoChange}
+              disabled={readOnly}
             />
             {(branding.senderPhotoPreview || branding.senderPhotoUrl) && (
               <button
                 type="button"
                 onClick={() => { set("senderPhotoUrl", ""); set("senderPhotoPreview", ""); set("senderPhotoFile", null); if (photoRef.current) photoRef.current.value = ""; }}
-                className="text-xs text-red-500 hover:underline"
+                className="text-xs text-red-500 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={readOnly}
               >
                 Remove Photo
               </button>
@@ -474,14 +475,16 @@ export function EmailBranding() {
       </div>
 
       {/* Save button */}
-      <Button
+      <PermissionButton
+        permission="communication_tools"
+        readOnly={readOnly}
         className="w-full bg-orange-500 hover:bg-orange-600 text-white gap-2 py-3 text-base"
         onClick={handleSave}
         disabled={saving}
       >
         <Save className="h-5 w-5" />
         {saving ? "Saving..." : "💾 Save Branding Settings"}
-      </Button>
+      </PermissionButton>
 
       {/* Preview Modal */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>

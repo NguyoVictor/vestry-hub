@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -152,6 +155,8 @@ function CardHeader({ icon: Icon, title, subtitle, action }: {
 // ─── TAX SETTINGS TAB ────────────────────────────────────────────────────────
 function TaxSettingsTab({ tenantId, onSaved }: { tenantId: string; onSaved: () => void }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [regType,       setRegType]       = useState("");
   const [regTypeOther,  setRegTypeOther]  = useState("");
   const [regNumber,     setRegNumber]     = useState("");
@@ -202,6 +207,7 @@ function TaxSettingsTab({ tenantId, onSaved }: { tenantId: string; onSaved: () =
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const isConfigured = !!(regType && regNumber.trim() && legalName.trim());
       const payload = {
         tenant_id: tenantId,
@@ -242,6 +248,8 @@ function TaxSettingsTab({ tenantId, onSaved }: { tenantId: string; onSaved: () =
 
   return (
     <div className="space-y-5 pb-24">
+      {readOnly && <ReadOnlyBanner section="Tax Settings" />}
+      
       {/* Card 1: Registration */}
       <Card>
         <CardHeader icon={Receipt} title="Tax Registration Information" subtitle="Configure your church's tax-exempt registration details for generating official tax receipts" />
@@ -328,10 +336,15 @@ function TaxSettingsTab({ tenantId, onSaved }: { tenantId: string; onSaved: () =
 
       {/* Sticky save */}
       <div className="fixed bottom-6 right-6 z-10">
-        <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+        <PermissionButton
+          readOnly={readOnly}
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
+        >
           <Settings className="h-4 w-4" />
           {saveMutation.isPending ? "Saving..." : "Save Tax Settings"}
-        </Button>
+        </PermissionButton>
       </div>
     </div>
   );
@@ -354,6 +367,8 @@ interface DeductibleModalProps {
 
 function DeductibleModal({ open, onClose, tenantId, editData, onSuccess }: DeductibleModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
   const [typeName,      setTypeName]      = useState(editData?.type_name ?? "");
   const [isDeductible,  setIsDeductible]  = useState(editData?.is_deductible ?? true);
@@ -363,6 +378,7 @@ function DeductibleModal({ open, onClose, tenantId, editData, onSuccess }: Deduc
   const handleClose = () => { if (!isEdit) { setTypeName(""); setIsDeductible(true); setNotes(""); } onClose(); };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!typeName.trim()) { toast.error("Type name is required."); return; }
     setSubmitting(true);
     try {
@@ -427,6 +443,8 @@ function DeductibleModal({ open, onClose, tenantId, editData, onSuccess }: Deduc
 
 function DeductibilityTab({ tenantId }: { tenantId: string }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [addOpen,   setAddOpen]   = useState(false);
   const [editType,  setEditType]  = useState<DeductibleType | null>(null);
   const [deleteType,setDeleteType]= useState<DeductibleType | null>(null);
@@ -443,6 +461,7 @@ function DeductibilityTab({ tenantId }: { tenantId: string }) {
   });
 
   const handleSeedDefaults = async () => {
+    if (readOnly) return;
     setSeeding(true);
     try {
       const rows = SYSTEM_DEDUCTIBLE.map(d => ({ ...d, tenant_id: tenantId, is_deductible: true, is_system: true }));
@@ -466,6 +485,7 @@ function DeductibilityTab({ tenantId }: { tenantId: string }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.TAX_DEDUCTIBLE_TYPES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -481,9 +501,14 @@ function DeductibilityTab({ tenantId }: { tenantId: string }) {
           title="Giving Type Deductibility"
           subtitle="Configure which giving types are tax-deductible. This affects how donations appear on tax statements."
           action={
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" size="sm" onClick={() => setAddOpen(true)}>
+            <PermissionButton
+              readOnly={readOnly}
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
+              size="sm"
+              onClick={() => setAddOpen(true)}
+            >
               <Plus className="h-4 w-4" /> Add Custom Type
-            </Button>
+            </PermissionButton>
           }
         />
 
@@ -510,7 +535,12 @@ function DeductibilityTab({ tenantId }: { tenantId: string }) {
                   <tr key={t.id} className={`border-b border-slate-100 hover:bg-slate-50/50 ${idx === types.length-1 ? "border-b-0" : ""}`}>
                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{t.type_name}</td>
                     <td className="px-4 py-3 text-center">
-                      <Switch checked={t.is_deductible} onCheckedChange={() => toggleDeductible(t)} className="data-[state=checked]:bg-orange-500" />
+                      <Switch
+                        checked={t.is_deductible}
+                        onCheckedChange={() => toggleDeductible(t)}
+                        disabled={readOnly}
+                        className="data-[state=checked]:bg-orange-500"
+                      />
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">
                       {t.is_deductible ? "Will appear on tax statements as deductible" : "Will not appear on tax statements"}

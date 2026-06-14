@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
@@ -65,6 +68,8 @@ interface TypeModalProps {
 
 function TypeModal({ open, onClose, tenantId, editData, onSuccess }: TypeModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
 
   const [label,        setLabel]        = useState(editData?.label ?? "");
@@ -85,6 +90,7 @@ function TypeModal({ open, onClose, tenantId, editData, onSuccess }: TypeModalPr
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!label.trim())        { toast.error("Display label is required."); return; }
     if (!internalName.trim()) { toast.error("Internal name is required."); return; }
     setSubmitting(true);
@@ -122,6 +128,7 @@ function TypeModal({ open, onClose, tenantId, editData, onSuccess }: TypeModalPr
   };
 
   const handleDelete = async () => {
+    if (readOnly) return;
     if (!editData) return;
     try {
       const { error } = await supabase.from(TABLES.SERVICE_REQUEST_TYPES).delete().eq("id", editData.id);
@@ -256,6 +263,8 @@ function TypeModal({ open, onClose, tenantId, editData, onSuccess }: TypeModalPr
 export default function ServiceRequestTypesPage() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [addOpen,  setAddOpen]  = useState(false);
   const [editType, setEditType] = useState<SRType | null>(null);
   const [seeding,  setSeeding]  = useState(false);
@@ -282,6 +291,7 @@ export default function ServiceRequestTypesPage() {
 
   // Seed defaults on first load
   const handleSeedDefaults = async () => {
+    if (readOnly) return;
     setSeeding(true);
     try {
       const rows = DEFAULTS.map(d => ({ ...d, tenant_id: tenantId, is_active: true, is_default: true }));
@@ -298,6 +308,7 @@ export default function ServiceRequestTypesPage() {
 
   // Toggle active status immediately
   const toggleActive = async (type: SRType) => {
+    if (readOnly) return;
     const newVal = !type.is_active;
     // Optimistic update
     setRows(prev => prev.map(r => r.id === type.id ? { ...r, is_active: newVal } : r));
@@ -338,6 +349,8 @@ export default function ServiceRequestTypesPage() {
     <>
       <Helmet><title>Member Request Types — Vestry</title></Helmet>
 
+      {readOnly && <ReadOnlyBanner section="Service Request Types" />}
+
       <div className="max-w-3xl">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           {/* Card header */}
@@ -346,14 +359,15 @@ export default function ServiceRequestTypesPage() {
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Member Request Types</p>
               <p className="text-xs text-slate-500 mt-0.5">Manage the types of member requests members can submit</p>
             </div>
-            <Button
+            <PermissionButton
+              readOnly={readOnly}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
               size="sm"
               onClick={() => setAddOpen(true)}
             >
               <Plus className="h-4 w-4" />
               Add Type
-            </Button>
+            </PermissionButton>
           </div>
 
           {/* Table */}
@@ -413,6 +427,7 @@ export default function ServiceRequestTypesPage() {
                       <Switch
                         checked={type.is_active}
                         onCheckedChange={() => toggleActive(type)}
+                        disabled={readOnly}
                         className="data-[state=checked]:bg-orange-500"
                       />
                     </td>

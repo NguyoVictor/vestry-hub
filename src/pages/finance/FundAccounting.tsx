@@ -6,6 +6,9 @@ import NumberFlow from "@/components/finance/AnimatedNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useFundsRealtime } from "@/hooks/useFinanceRealtime";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +57,8 @@ const cardVariants = {
 const FundAccounting = () => {
   const { tenantId, currency } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ name: "", type: "unrestricted", description: "", purpose: "", target_amount: "", opening_balance: "0" });
 
@@ -168,17 +173,20 @@ const FundAccounting = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button 
+                <PermissionButton 
+                  readOnly={readOnly}
                   onClick={() => setDialogOpen(true)}
                   className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Create Fund
-                </Button>
+                </PermissionButton>
               </motion.div>
             } 
           />
         </motion.div>
+
+        {readOnly && <ReadOnlyBanner section="Financial Records" />}
 
         {/* Premium Funds Grid */}
         {isLoading ? (
@@ -211,13 +219,15 @@ const FundAccounting = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Button 
+              <PermissionButton 
+                permission="financial_records"
+                readOnly={readOnly}
                 onClick={() => setDialogOpen(true)}
                 className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create First Fund
-              </Button>
+              </PermissionButton>
             </motion.div>
           </motion.div>
         ) : (
@@ -424,7 +434,8 @@ const FundAccounting = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <Button 
+                  <PermissionButton 
+                    readOnly={readOnly}
                     className="w-full h-12 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25 text-white font-semibold transition-all duration-200" 
                     onClick={() => createMutation.mutate()} 
                     disabled={!form.name || createMutation.isPending}
@@ -440,7 +451,7 @@ const FundAccounting = () => {
                         <span>Create Fund</span>
                       </div>
                     )}
-                  </Button>
+                  </PermissionButton>
                 </motion.div>
               </motion.div>
             </div>

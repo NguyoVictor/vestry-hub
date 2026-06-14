@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { TABLES, COLS } from "@/lib/schema";
 import { BlurFadeIn } from "@/components/ui/BlurFadeIn";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
@@ -121,6 +122,8 @@ const FellowshipDetail = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management') || isReadOnly('groups_ministries');
   const [activeTab, setActiveTab] = useState<"members"|"attendance"|"analytics"|"details">("members");
   const [selectedMember, setSelectedMember] = useState("");
   const [recordingAttendance, setRecordingAttendance] = useState(false);
@@ -211,6 +214,7 @@ const FellowshipDetail = () => {
   // ── Mutations ────────────────────────────────────────────────────────────
   const addMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
         .insert({ fellowship_id: fellowshipId!, member_id: memberId, tenant_id: tenantId } as any);
       if (error) { if (error.code === "23505") throw new Error("Already a member"); throw error; }
@@ -221,6 +225,7 @@ const FellowshipDetail = () => {
 
   const removeMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
         .delete().eq("fellowship_id", fellowshipId!).eq("member_id", memberId);
       if (error) throw error;
@@ -230,6 +235,7 @@ const FellowshipDetail = () => {
 
   const setLeaderMut = useMutation({
     mutationFn: async (memberId: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS)
         .update({ leader_id: memberId } as any).eq("id", fellowshipId!);
       if (error) throw error;
@@ -253,6 +259,7 @@ const FellowshipDetail = () => {
   };
 
   const handleEditSave = async () => {
+    if (readOnly) return;
     if (!eName.trim()) { toast.error("Name is required"); return; }
     setESaving(true);
     try {

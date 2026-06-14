@@ -3,6 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ReadOnlyBanner } from "@/components/shared/ReadOnlyBanner";
+import { PermissionButton } from "@/components/shared/PermissionButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -284,6 +287,8 @@ export default function SurveyResponsesPage() {
   const { surveyId } = useParams<{ surveyId: string }>();
   const navigate = useNavigate();
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [activeTab, setActiveTab] = useState<"summary" | "individual">("summary");
   const [viewingResponse, setViewingResponse] = useState<any | null>(null);
 
@@ -391,6 +396,7 @@ export default function SurveyResponsesPage() {
 
   return (
     <div className="space-y-6">
+      {reportsReadOnly && <ReadOnlyBanner permission="reports_analytics" />}
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -402,9 +408,9 @@ export default function SurveyResponsesPage() {
             {survey.description && <p className="text-sm text-slate-500 mt-0.5">{survey.description}</p>}
           </div>
         </div>
-        <Button variant="outline" onClick={exportCSV} disabled={!responses.length}>
+        <PermissionButton readOnly={reportsReadOnly} variant="outline" onClick={exportCSV} disabled={!responses.length}>
           <Download className="h-4 w-4 mr-1.5" />Export CSV
-        </Button>
+        </PermissionButton>
       </div>
 
       {/* Stats */}

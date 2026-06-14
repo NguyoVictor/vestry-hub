@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { usePayrollRealtime } from "@/hooks/useFinanceRealtime";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { DataTable, Column } from "@/components/shared/DataTable";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
@@ -54,6 +57,9 @@ const cardVariants = {
 const Payroll = () => {
   const { tenantId, currency, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ member_id: "", job_title: "", employment_type: "full_time", gross_salary: "", net_salary: "", payment_method: "bank_transfer", bank_name: "", account_number: "", mpesa_number: "", start_date: new Date().toISOString().split("T")[0], notes: "" });
@@ -95,6 +101,7 @@ const Payroll = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const gross = parseFloat(form.gross_salary) || 0;
       const net = parseFloat(form.net_salary) || gross;
       const payload: any = { tenant_id: tenantId, member_id: form.member_id || null, job_title: form.job_title, employment_type: form.employment_type, gross_salary: gross, net_salary: net, payment_method: form.payment_method, bank_name: form.bank_name, account_number: form.account_number, mpesa_number: form.mpesa_number, start_date: form.start_date, notes: form.notes, deductions: [] };
@@ -254,16 +261,19 @@ const Payroll = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button 
+                <PermissionButton 
+                  readOnly={readOnly}
                   onClick={() => setSheetOpen(true)}
                   className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Staff
-                </Button>
+                </PermissionButton>
               </motion.div>
             } 
           />
+          {readOnly && <ReadOnlyBanner section="Financial Records" />}
+          {reportsReadOnly && <ReadOnlyBanner section="Reports & Analytics" />}
         </motion.div>
 
         {/* Premium Stats Cards */}
@@ -352,18 +362,21 @@ const Payroll = () => {
                 emptyIcon={<Banknote className="h-12 w-12 text-gray-400" />} 
                 emptyTitle="No payroll staff" 
                 emptyDescription="Add your first staff member to get started with payroll"
+                hideExport={reportsReadOnly}
                 emptyCta={
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <Button 
+                    <PermissionButton 
+                      permission="financial_records"
+                      readOnly={readOnly}
                       onClick={() => setSheetOpen(true)}
                       className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add First Staff
-                    </Button>
+                    </PermissionButton>
                   </motion.div>
                 }
               />

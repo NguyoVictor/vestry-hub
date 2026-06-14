@@ -3,6 +3,9 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES, COLS } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +80,8 @@ function SocialRow({ icon, placeholder, value, onChange }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ContactSocial() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState({
@@ -123,6 +128,7 @@ export default function ContactSocial() {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload = {
         phone:           form.phone.trim() || null,
         contact_email:   form.contact_email.trim() || null,
@@ -155,6 +161,8 @@ export default function ContactSocial() {
   return (
     <>
       <Helmet><title>Contact & Social — Vestry</title></Helmet>
+
+      {readOnly && <ReadOnlyBanner section="Contact & Social" />}
 
       <div className="max-w-3xl pb-24">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-6">
@@ -258,14 +266,15 @@ export default function ContactSocial() {
 
       {/* Sticky Save */}
       <div className="fixed bottom-6 right-6 z-10">
-        <Button
+        <PermissionButton
+          readOnly={readOnly}
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
           onClick={() => save.mutate()}
           disabled={save.isPending}
         >
           <Save className="h-4 w-4" />
           {save.isPending ? "Saving…" : "Save Changes"}
-        </Button>
+        </PermissionButton>
       </div>
     </>
   );

@@ -8,6 +8,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -86,6 +89,8 @@ export default function Communications() {
   const { tenantId, userId, userEmail, userFirstName } = useChurch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [activeSection, setActiveSection] = useState("email");
   const [showCompose, setShowCompose] = useState(false);
   const [form, setForm] = useState({ subject: "", body: "", recipient_type: "all_members", channel: "in_app" as string });
@@ -161,6 +166,7 @@ export default function Communications() {
 
   const sendBroadcast = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase.from("broadcasts").insert({
         tenant_id: tenantId,
         subject: form.subject,
@@ -194,11 +200,13 @@ export default function Communications() {
         title="Communications"
         subtitle="Send emails, SMS, WhatsApp and manage automated notifications"
         action={
-          <Button onClick={() => navigate("/communications/compose")}>
+          <PermissionButton readOnly={readOnly} onClick={() => navigate("/communications/compose")}>
             <Plus className="mr-2 h-4 w-4" />Compose Message
-          </Button>
+          </PermissionButton>
         }
       />
+
+      {readOnly && <ReadOnlyBanner section="Communication Tools" />}
 
       <div className="flex gap-6">
         {/* ── Left sidebar nav ── */}
@@ -254,7 +262,8 @@ export default function Communications() {
             <>
               {/* Top action buttons */}
               <div className="flex items-center gap-2 mb-5 justify-end">
-                <Button
+                <PermissionButton
+                  readOnly={readOnly}
                   variant="outline"
                   size="sm"
                   onClick={handleSendTestEmail}
@@ -263,14 +272,15 @@ export default function Communications() {
                 >
                   <FlaskConical className="h-4 w-4" />
                   {sendingTest ? "Sending..." : "Send Test Email"}
-                </Button>
-                <Button
+                </PermissionButton>
+                <PermissionButton
+                  readOnly={readOnly}
                   size="sm"
                   className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
                   onClick={() => navigate("/communications/compose")}
                 >
                   <Plus className="h-4 w-4" /> Compose Message
-                </Button>
+                </PermissionButton>
               </div>
 
               {/* Stats row */}

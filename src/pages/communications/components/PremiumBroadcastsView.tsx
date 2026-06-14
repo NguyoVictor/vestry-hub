@@ -7,6 +7,7 @@ import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { usePermissions } from '@/hooks/usePermissions';
 import { 
   Send, 
   FileText, 
@@ -144,6 +145,8 @@ export const PremiumBroadcastsView = () => {
   const { tenantId, userId } = useChurch();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [activeTab, setActiveTab] = useState("sent");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChannel, setSelectedChannel] = useState("all");
@@ -299,6 +302,7 @@ export const PremiumBroadcastsView = () => {
   // Mutation for updating messages (Edit Draft)
   const updateMessageMutation = useMutation({
     mutationFn: async ({ messageId, updates }: { messageId: string; updates: any }) => {
+      if (readOnly) return;
       // Determine which table the message is in
       const isFromBroadcasts = broadcasts.some(b => b.id === messageId);
       const tableName = isFromBroadcasts ? TABLES.BROADCASTS : TABLES.COMMUNICATIONS;
@@ -325,6 +329,7 @@ export const PremiumBroadcastsView = () => {
   // Mutation for deleting messages
   const deleteMessageMutation = useMutation({
     mutationFn: async (messageId: string) => {
+      if (readOnly) return;
       // Determine which table the message is in
       const isFromBroadcasts = broadcasts.some(b => b.id === messageId);
       const tableName = isFromBroadcasts ? TABLES.BROADCASTS : TABLES.COMMUNICATIONS;
@@ -832,17 +837,17 @@ export const PremiumBroadcastsView = () => {
                                     transition={{ duration: 0.1 }}
                                   >
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "email")}>
+                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "email")} disabled={readOnly}>
                                         <Mail className="mr-2 h-4 w-4" />
                                         Send via Email
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "sms")}>
+                                      <DropdownMenuItem onClick={() => handleSendMessage(msg, "sms")} disabled={readOnly}>
                                         <MessageSquare className="mr-2 h-4 w-4" />
                                         Send via SMS
                                       </DropdownMenuItem>
                                       <DropdownMenuItem 
                                         onClick={() => handleEditMessage(msg)}
-                                        disabled={updateMessageMutation.isPending}
+                                        disabled={updateMessageMutation.isPending || readOnly}
                                       >
                                         <Edit className="mr-2 h-4 w-4" />
                                         Edit Draft
@@ -850,7 +855,7 @@ export const PremiumBroadcastsView = () => {
                                       <DropdownMenuItem 
                                         className="text-red-600" 
                                         onClick={() => handleDeleteMessage(msg)}
-                                        disabled={deleteMessageMutation.isPending}
+                                        disabled={deleteMessageMutation.isPending || readOnly}
                                       >
                                         <Trash2 className="mr-2 h-4 w-4" />
                                         Delete

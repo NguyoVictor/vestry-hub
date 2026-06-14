@@ -6,6 +6,9 @@ import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
 import { TABLES } from "@/lib/schema";
@@ -56,6 +59,8 @@ type FormData = z.infer<typeof schema>;
 const ChurchProfile = () => {
   const church = useChurch();
   const { limits, usage } = useSubscription();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -105,6 +110,7 @@ const ChurchProfile = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (values: FormData) => {
+      if (readOnly) return;
       const { error } = await supabase.from("tenants").update({
         name: values.name,
         slug: values.slug,
@@ -143,6 +149,7 @@ const ChurchProfile = () => {
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { toast.error("Max 2MB"); return; }
@@ -187,6 +194,9 @@ const ChurchProfile = () => {
   return (
     <>
       <Helmet><title>Church Profile — Vestry</title></Helmet>
+      
+      {readOnly && <ReadOnlyBanner section="Church Profile" />}
+      
       <PageHeader
         title="Church Profile"
         subtitle="Update your church's public information"
@@ -374,10 +384,15 @@ const ChurchProfile = () => {
             </CardContent>
           </Card>
 
-          <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
+          <PermissionButton
+            readOnly={readOnly}
+            type="submit"
+            className="w-full"
+            disabled={saveMutation.isPending}
+          >
             {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Changes
-          </Button>
+          </PermissionButton>
         </form>
       </Form>
     </>

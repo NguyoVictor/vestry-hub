@@ -6,6 +6,9 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -272,6 +275,8 @@ const emptyForm = {
 export default function ServicesPage() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const [view, setView] = useState<"cards" | "calendar" | "list">("cards");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [formData, setFormData] = useState({ ...emptyForm });
@@ -320,6 +325,7 @@ export default function ServicesPage() {
   // ── Mutations ─────────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       try {
         const { error } = await supabase.from(TABLES.SERVICES).insert({
           tenant_id: tenantId!,
@@ -382,6 +388,7 @@ export default function ServicesPage() {
 
   const editMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       try {
         const { error } = await supabase.from(TABLES.SERVICES).update({
           name: editForm.name,
@@ -441,6 +448,7 @@ export default function ServicesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.SERVICES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -450,6 +458,7 @@ export default function ServicesPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.SERVICES).update({ status } as any).eq("id", id);
       if (error) throw error;
     },
@@ -496,10 +505,12 @@ export default function ServicesPage() {
               <Button variant={view === "calendar" ? "default" : "ghost"} size="sm" onClick={() => setView("calendar")}><Calendar className="h-4 w-4" /></Button>
               <Button variant={view === "list" ? "default" : "ghost"} size="sm" onClick={() => setView("list")}><List className="h-4 w-4" /></Button>
             </div>
-            <Button onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Schedule Service</Button>
+            <PermissionButton readOnly={readOnly} onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Schedule Service</PermissionButton>
           </div>
         }
       />
+
+      {readOnly && <ReadOnlyBanner section="Attendance" />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -533,7 +544,7 @@ export default function ServicesPage() {
           <Church className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-1">No services yet</h3>
           <p className="text-sm text-muted-foreground mb-4">Schedule your first church service to get started.</p>
-          <Button onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Schedule Service</Button>
+          <PermissionButton permission="event_management" readOnly={readOnly} onClick={() => setSheetOpen(true)}><Plus className="h-4 w-4 mr-2" />Schedule Service</PermissionButton>
         </Card>
       ) : view === "cards" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

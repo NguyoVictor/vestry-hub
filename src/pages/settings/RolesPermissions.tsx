@@ -3,6 +3,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -205,6 +208,8 @@ function ComingSoonTab({ label }: { label: string }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 const RolesPermissions = () => {
   const { tenantId, userRole, name: churchName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -233,6 +238,7 @@ const RolesPermissions = () => {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       // Edge function handles: personalized prefix + uniqueness check + DB update
       const { data, error } = await supabase.functions.invoke("generate-church-code", {
         body: { tenantId, churchName },
@@ -260,6 +266,8 @@ const RolesPermissions = () => {
   return (
     <>
       <Helmet><title>Access Control — Vestry</title></Helmet>
+
+      {readOnly && <ReadOnlyBanner section="Church Settings" />}
 
       <div className="max-w-4xl space-y-5">
 
@@ -300,7 +308,8 @@ const RolesPermissions = () => {
             This code has been used <span className="font-semibold text-slate-700 dark:text-slate-300">{tenant?.invite_code_uses ?? 0}</span> time(s).
           </p>
           {/* Generate button */}
-          <Button
+          <PermissionButton
+            readOnly={readOnly}
             className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
             size="sm"
             onClick={() => setConfirmOpen(true)}
@@ -308,7 +317,7 @@ const RolesPermissions = () => {
           >
             <RefreshCw className={`h-4 w-4 ${generateMutation.isPending ? "animate-spin" : ""}`} />
             Generate New Code
-          </Button>
+          </PermissionButton>
 
           {/* How it works */}
           <div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 space-y-1.5">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { usePermissions } from '@/hooks/usePermissions';
 import { useChurch } from "@/contexts/ChurchContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,12 +16,15 @@ import {
 
 export default function Privacy() {
   const { name: churchName, userFirstName, userLastName, userEmail, tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const adminName = `${userFirstName ?? ""} ${userLastName ?? ""}`.trim() || "Admin";
 
   const handleSubmitRequest = async () => {
+    if (readOnly) return;
     setSubmitting(true);
     try {
       const { error } = await supabase.functions.invoke("data-download-request", {

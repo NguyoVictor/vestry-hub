@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -37,6 +40,8 @@ interface DrawerProps { open: boolean; onClose: () => void; tenantId: string; ed
 
 function TypeDrawer({ open, onClose, tenantId, editData, nextOrder }: DrawerProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
@@ -56,6 +61,7 @@ function TypeDrawer({ open, onClose, tenantId, editData, nextOrder }: DrawerProp
   const handleClose = () => { setLabel(""); setDescription(""); setColor("#7c3aed"); setIsActive(true); onClose(); };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!label.trim()) { toast.error("Label is required."); return; }
     setSaving(true);
     try {
@@ -109,9 +115,9 @@ function TypeDrawer({ open, onClose, tenantId, editData, nextOrder }: DrawerProp
           </div>
           <div className="flex items-center justify-between">
             <Label className="font-jakarta">Active</Label>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
+            <Switch checked={isActive} onCheckedChange={setIsActive} disabled={readOnly} />
           </div>
-          <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={handleSubmit} disabled={!label.trim() || saving}>
+          <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={handleSubmit} disabled={!label.trim() || saving || readOnly}>
             {saving ? "Saving..." : isEdit ? "Save Changes" : "Add Group Type"}
           </Button>
         </div>
@@ -123,6 +129,8 @@ function TypeDrawer({ open, onClose, tenantId, editData, nextOrder }: DrawerProp
 export default function GroupTypes() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editData, setEditData] = useState<GroupType | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<GroupType | null>(null);
@@ -168,6 +176,7 @@ export default function GroupTypes() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.GROUP_TYPES).update({ is_active, updated_at: new Date().toISOString() } as never).eq("id", id);
       if (error) throw error;
     },
@@ -177,7 +186,8 @@ export default function GroupTypes() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.GROUP_TYPES).delete().eq("id", id);
+      if (readOnly) return;
+      const { error} = await supabase.from(TABLES.GROUP_TYPES).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["group-types", tenantId] }); toast.success("Group type deleted."); setDeleteTarget(null); },
@@ -202,15 +212,18 @@ export default function GroupTypes() {
 
   return (
     <PageTransition>
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Group Types" />}
+      
       <div className="font-jakarta space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-jakarta">Group Types</h1>
             <p className="text-sm text-slate-500 mt-0.5 font-jakarta">Manage the types used to categorize ministry groups</p>
           </div>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
+          <PermissionButton readOnly={readOnly} className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
             <Plus className="h-4 w-4 mr-1.5" />Add Type
-          </Button>
+          </PermissionButton>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -238,9 +251,9 @@ export default function GroupTypes() {
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
               <UsersRound className="h-12 w-12 text-slate-300" />
               <p className="text-base font-semibold text-slate-600 dark:text-slate-300 font-jakarta">No group types yet</p>
-              <Button size="sm" className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
+              <PermissionButton readOnly={readOnly} size="sm" className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
                 <Plus className="h-4 w-4 mr-1" />Add Type
-              </Button>
+              </PermissionButton>
             </div>
           ) : (
             <table className="w-full text-sm font-jakarta">
@@ -266,7 +279,7 @@ export default function GroupTypes() {
                     </td>
                     <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 hidden md:table-cell">{t.description ?? <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3.5 text-center">
-                      <Switch checked={t.is_active} onCheckedChange={v => toggleMutation.mutate({ id: t.id, is_active: v })} />
+                      <Switch checked={t.is_active} onCheckedChange={v => toggleMutation.mutate({ id: t.id, is_active: v })} disabled={readOnly} />
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">

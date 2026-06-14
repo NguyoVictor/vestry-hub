@@ -24,6 +24,31 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { autoRefreshToken: false, persistSession: false } });
 
+    // Enforce staff limit at backend level
+    const { count: currentStaffCount } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenant_id)
+      .neq('role', 'member')
+      .eq('status', 'active');
+
+    const { data: subscription } = await supabase
+      .from('tenant_subscriptions')
+      .select('staff_limit')
+      .eq('tenant_id', tenant_id)
+      .maybeSingle();
+
+    const staffLimit = subscription?.staff_limit ?? 3;
+
+    if ((currentStaffCount ?? 0) >= staffLimit) {
+      return new Response(
+        JSON.stringify({
+          error: `Staff limit reached. Your plan allows ${staffLimit} admins. Remove an existing admin before adding a new one.`
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     let newUserId: string | null = null;
     let alreadyRegistered = false;
 

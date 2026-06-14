@@ -1,5 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -66,6 +68,8 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
 const ServicesModules = () => {
   const church = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   const { data: enabledModules, isLoading } = useQuery({
     queryKey: ["tenant-modules", church.tenantId],
@@ -78,6 +82,7 @@ const ServicesModules = () => {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ path, enabled }: { path: string; enabled: boolean }) => {
+      if (readOnly) return;
       // Get current modules
       const { data: current } = await supabase.from(TABLES.TENANTS).select("enabled_modules").eq("id", church.tenantId).single();
       let mods: string[] = (current as any)?.enabled_modules || [];
@@ -116,6 +121,8 @@ const ServicesModules = () => {
       <Helmet><title>Services & Modules — Vestry</title></Helmet>
       <PageHeader title="Services & Modules" subtitle="Enable or disable features for your church" />
 
+      {readOnly && <ReadOnlyBanner section="Services & Modules" />}
+
       <div className="max-w-3xl space-y-6">
         {navigationGroups.filter(g => g.label !== "Overview").map(group => (
           <Card key={group.label}>
@@ -138,7 +145,7 @@ const ServicesModules = () => {
                     </div>
                     <Switch
                       checked={enabled}
-                      disabled={isCore || toggleMutation.isPending}
+                      disabled={isCore || toggleMutation.isPending || readOnly}
                       onCheckedChange={(checked) => toggleMutation.mutate({ path: item.path, enabled: checked })}
                     />
                   </div>

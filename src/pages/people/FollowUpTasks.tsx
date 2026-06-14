@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, Column } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -36,6 +38,8 @@ const PRIORITIES = ["low", "medium", "high", "urgent"];
 
 const FollowUpTasks = () => {
   const { tenantId, userId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const queryClient = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any | null>(null);
@@ -108,6 +112,7 @@ const FollowUpTasks = () => {
 
   const saveMut = useMutation({
     mutationFn: async (values: z.infer<typeof taskSchema>) => {
+      if (readOnly) return;
       if (editingTask) {
         const { error } = await supabase
           .from("follow_up_tasks")
@@ -135,6 +140,10 @@ const FollowUpTasks = () => {
 
   const updateStatusMut = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      if (readOnly) {
+        toast.error("You don't have permission to update tasks");
+        return;
+      }
       const { error } = await supabase
         .from("follow_up_tasks")
         .update({ status, updated_at: new Date().toISOString() } as any)
@@ -146,6 +155,7 @@ const FollowUpTasks = () => {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from("follow_up_tasks").delete().eq("id", id);
       if (error) throw error;
     },
@@ -161,6 +171,11 @@ const FollowUpTasks = () => {
   const onDrop = (e: React.DragEvent, targetStatus: string) => {
     e.preventDefault();
     if (!dragId) return;
+    if (readOnly) {
+      toast.error("You don't have permission to update tasks");
+      setDragId(null);
+      return;
+    }
     const task = tasks.find((t: any) => t.id === dragId);
     if (task && (task as any).status !== targetStatus) updateStatusMut.mutate({ id: dragId, status: targetStatus });
     setDragId(null);
@@ -226,7 +241,7 @@ const FollowUpTasks = () => {
           <Button variant={viewMode === "kanban" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("kanban")}><LayoutGrid className="h-4 w-4" /></Button>
           <Button variant={viewMode === "table" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("table")}><LayoutList className="h-4 w-4" /></Button>
         </div>
-        <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Create Task</Button>
+        <PermissionButton permission="member_management" readOnly={readOnly} onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Create Task</PermissionButton>
       </div>
 
       {viewMode === "kanban" ? (
@@ -297,6 +312,7 @@ const FollowUpTasks = () => {
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 text-xs capitalize px-2"
+                                disabled={readOnly}
                                 onClick={() => updateStatusMut.mutate({ id: task.id, status: s })}
                               >
                                 {s.replace(/_/g, " ")}
@@ -322,7 +338,7 @@ const FollowUpTasks = () => {
           emptyIcon={<ClipboardList className="h-12 w-12 text-muted-foreground/40" />}
           emptyTitle="No follow-up tasks"
           emptyDescription="Create your first follow-up task."
-          emptyCta={<Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Create Task</Button>}
+          emptyCta={<PermissionButton permission="member_management" readOnly={readOnly} onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Create Task</PermissionButton>}
         />
       )}
 

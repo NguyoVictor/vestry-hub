@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageTransition } from "@/components/ui/PageTransition";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -22,6 +24,8 @@ import RegisterChildModal from "./RegisterChildModal";
 
 export default function CMChildren() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState("all");
@@ -64,7 +68,7 @@ export default function CMChildren() {
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from(TABLES.CHILDREN).update({ active: false } as any).eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { if (readOnly) return; const { error } = await supabase.from(TABLES.CHILDREN).update({ active: false } as any).eq("id", id); if (error) throw error; },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["children-list"] }); qc.invalidateQueries({ queryKey: ["cm-stats"] }); toast.success("Child deactivated"); setDeleteId(null); },
     onError: (e: any) => toast.error(e.message),
   });
@@ -85,9 +89,15 @@ export default function CMChildren() {
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Children</h1>
             <p className="text-sm text-slate-500 mt-0.5">All registered children in the ministry</p>
           </div>
-          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-2" onClick={() => setRegisterOpen(true)}>
+          <PermissionButton 
+            permission="member_management"
+            readOnly={readOnly}
+            size="sm" 
+            className="bg-orange-500 hover:bg-orange-600 text-white gap-2" 
+            onClick={() => setRegisterOpen(true)}
+          >
             <UserPlus className="h-4 w-4" />Register Child
-          </Button>
+          </PermissionButton>
         </div>
 
         {/* Filters */}
@@ -119,7 +129,7 @@ export default function CMChildren() {
             <div className="p-4 space-y-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-full" /><div className="flex-1 space-y-1.5"><Skeleton className="h-3.5 w-32" /><Skeleton className="h-3 w-24" /></div><Skeleton className="h-5 w-16 rounded-full" /></div>)}</div>
           </div>
         ) : filtered.length === 0 ? (
-          <EmptyState icon={Users} title="No children found" description="Register your first child to get started." action={<Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setRegisterOpen(true)}><UserPlus className="h-4 w-4 mr-1.5" />Register Child</Button>} />
+          <EmptyState icon={Users} title="No children found" description="Register your first child to get started." action={<PermissionButton permission="member_management" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setRegisterOpen(true)}><UserPlus className="h-4 w-4 mr-1.5" />Register Child</PermissionButton>} />
         ) : (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <table className="w-full text-sm font-jakarta">

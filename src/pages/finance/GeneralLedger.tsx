@@ -6,6 +6,9 @@ import NumberFlow from "@/components/finance/AnimatedNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useJournalEntriesRealtime } from "@/hooks/useFinanceRealtime";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +66,8 @@ const tableRowVariants = {
 const GeneralLedger = () => {
   const { tenantId, currency, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [entryForm, setEntryForm] = useState({ description: "", reference: "", entry_date: new Date().toISOString().split("T")[0] });
   const [journalLines, setJournalLines] = useState([{ account_id: "", debit_amount: "", credit_amount: "" }, { account_id: "", debit_amount: "", credit_amount: "" }]);
@@ -219,17 +224,20 @@ const GeneralLedger = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button 
+                <PermissionButton 
+                  readOnly={readOnly}
                   onClick={() => { if (accounts.length === 0) seedMutation.mutate(); else setDialogOpen(true); }}
                   className="bg-gradient-to-r from-gray-600 to-slate-700 hover:from-gray-700 hover:to-slate-800 shadow-lg shadow-gray-500/25"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   {accounts.length === 0 ? "Setup Chart of Accounts" : "Add Journal Entry"}
-                </Button>
+                </PermissionButton>
               </motion.div>
             } 
           />
         </motion.div>
+
+        {readOnly && <ReadOnlyBanner section="Financial Records" />}
 
         {/* Premium Balance Summary */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -321,13 +329,15 @@ const GeneralLedger = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <Button 
+                    <PermissionButton 
+                      permission="financial_records"
+                      readOnly={readOnly}
                       onClick={() => { if (accounts.length === 0) seedMutation.mutate(); else setDialogOpen(true); }}
                       className="bg-gradient-to-r from-gray-600 to-slate-700 hover:from-gray-700 hover:to-slate-800 shadow-lg shadow-gray-500/25"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       {accounts.length === 0 ? "Setup Chart of Accounts" : "Add First Entry"}
-                    </Button>
+                    </PermissionButton>
                   </motion.div>
                 </motion.div>
               ) : (

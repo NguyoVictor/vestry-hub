@@ -7,6 +7,9 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -207,6 +210,8 @@ interface AddStaffModalProps {
 function AddStaffModal({ open, onClose, tenantId, members, staffList, editData, onSuccess }: AddStaffModalProps) {
   const qc = useQueryClient();
   const { symbol } = useCurrency();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
 
   const [form, setForm] = useState<StaffFormState>(EMPTY_FORM);
@@ -263,6 +268,7 @@ function AddStaffModal({ open, onClose, tenantId, members, staffList, editData, 
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!form.member_id) { toast.error("Please select a member."); return; }
     if (!form.start_date) { toast.error("Start date is required."); return; }
     setSubmitting(true);
@@ -636,6 +642,8 @@ function StaffTab() {
   const church = useChurch();
   const { format: fmtCurrency } = useCurrency();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [addOpen, setAddOpen] = useState(false);
   const [editStaff, setEditStaff] = useState<StaffRow | null>(null);
 
@@ -671,6 +679,7 @@ function StaffTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.PAYROLL_STAFF).delete().eq(COLS.ID, id);
       if (error) throw error;
     },
@@ -694,15 +703,17 @@ function StaffTab() {
           <h2 className="text-base font-semibold text-slate-800">Staff Members</h2>
           <p className="text-xs text-slate-500">Manage church staff, salaries, and employment details</p>
         </div>
-        <Button
+        <PermissionButton
+          readOnly={readOnly}
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
           size="sm"
           onClick={() => setAddOpen(true)}
         >
           <UserPlus className="h-4 w-4" />
           Add Staff
-        </Button>
+        </PermissionButton>
       </div>
+      {readOnly && <ReadOnlyBanner section="Church Settings" />}
 
       {/* Table / Empty */}
       <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -982,6 +993,8 @@ function PaymentModal({ open, onClose, tenantId, staffList, defaultMonth, defaul
     s.members ? `${s.members.first_name ?? ""} ${s.members.last_name ?? ""}`.trim() : s.job_title ?? s.id;
 
   const handleSubmit = async () => {
+    if (readOnly) return;
+    
     if (!staffId) { toast.error("Select a staff member."); return; }
     setSubmitting(true);
     try {
@@ -1129,6 +1142,8 @@ function PayrollTab({ staffList }: { staffList: StaffRow[] }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
+      
       const { error } = await supabase.from("staff_payroll").delete().eq("id", id);
       if (error) throw error;
     },
@@ -1140,6 +1155,8 @@ function PayrollTab({ staffList }: { staffList: StaffRow[] }) {
   });
 
   const updateStatus = async (id: string, status: string) => {
+    if (readOnly) return;
+    
     const { error } = await supabase.from("staff_payroll").update({ status, payment_date: status === "paid" ? new Date().toISOString().split("T")[0] : null } as never).eq("id", id);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["staff-payroll", church.tenantId] });
@@ -1147,6 +1164,8 @@ function PayrollTab({ staffList }: { staffList: StaffRow[] }) {
   };
 
   const handleGenerate = async () => {
+    if (readOnly) return;
+    
     const active = staffList.filter(s => s.status?.toLowerCase() === "active");
     if (active.length === 0) { toast.error("No active staff members found."); return; }
     if (records.length > 0) {

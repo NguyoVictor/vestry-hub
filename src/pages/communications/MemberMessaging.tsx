@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -190,11 +193,12 @@ interface MessageBubbleProps {
   isOnline?: boolean;
   showDateLabel?: boolean;
   dateLabel?: string;
+  readOnly?: boolean;
 }
 
 const MessageBubble = React.memo(function MessageBubble({
   msg, isOwn, isGrouped, senderName, onReply, onReact, onDelete,
-  reactions, isOnline, showDateLabel, dateLabel,
+  reactions, isOnline, showDateLabel, dateLabel, readOnly,
 }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -291,7 +295,7 @@ const MessageBubble = React.memo(function MessageBubble({
                     className="text-slate-400 hover:text-orange-500 transition-colors p-0.5" title="Reply">
                     <Reply className="h-3.5 w-3.5" />
                   </motion.button>
-                  {isOwn && (
+                  {isOwn && !readOnly && (
                     <motion.button whileHover={{ scale: 1.2 }} whileTap={{ scale: 0.9 }}
                       onClick={() => onDelete(msg.id)}
                       className="text-slate-400 hover:text-red-500 transition-colors p-0.5" title="Delete">
@@ -375,10 +379,10 @@ const ConversationItem = React.memo(function ConversationItem({
 });
 
 // ── ChatPanel ─────────────────────────────────────────────────────────────────
-function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUsers }: {
+function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUsers, readOnly }: {
   conv: Conversation; userId: string; tenantId: string; userName: string;
   onBack: () => void; onClose: (id: string) => void;
-  onlineUsers: Set<string>;
+  onlineUsers: Set<string>; readOnly: boolean;
 }) {
   const qc = useQueryClient();
   const [input, setInput] = useState("");
@@ -858,6 +862,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
                 isOnline={onlineUsers.has(msg.sender_id)}
                 showDateLabel={showDateSeparator(allMessages, idx)}
                 dateLabel={getDateLabel(msg.created_at)}
+                readOnly={readOnly}
               />
             ))}
             <AnimatePresence>
@@ -910,24 +915,24 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ""; }}
         />
         <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-          onClick={() => fileInputRef.current?.click()} disabled={uploading}
-          className="text-slate-400 hover:text-orange-500 transition-colors shrink-0 pb-2.5">
+          onClick={() => fileInputRef.current?.click()} disabled={uploading || readOnly}
+          className="text-slate-400 hover:text-orange-500 transition-colors shrink-0 pb-2.5 disabled:opacity-50 disabled:cursor-not-allowed">
           <Paperclip className="h-5 w-5" />
         </motion.button>
         <div className="flex-1 relative">
           <textarea value={input}
             onChange={e => { setInput(e.target.value); sendTyping(); }}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (input.trim()) sendMsg.mutate(input.trim()); } }}
-            placeholder={uploading ? "Uploading..." : "Type a message..."}
-            disabled={uploading} rows={1}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (input.trim() && !readOnly) sendMsg.mutate(input.trim()); } }}
+            placeholder={uploading ? "Uploading..." : readOnly ? "Read-only mode" : "Type a message..."}
+            disabled={uploading || readOnly} rows={1}
             className="w-full resize-none rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/20 focus:border-orange-400 transition-colors max-h-32 overflow-y-auto"
             style={{ height: "auto" }}
             onInput={e => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = `${Math.min(el.scrollHeight, 128)}px`; }}
           />
         </div>
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-          onClick={() => { if (input.trim()) sendMsg.mutate(input.trim()); }}
-          disabled={!input.trim() || sendMsg.isPending || uploading}
+          onClick={() => { if (input.trim() && !readOnly) sendMsg.mutate(input.trim()); }}
+          disabled={!input.trim() || sendMsg.isPending || uploading || readOnly}
           className="h-10 w-10 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shrink-0 transition-colors shadow-sm pb-0">
           <Send className="h-4 w-4" />
         </motion.button>
@@ -1174,6 +1179,8 @@ function EditGroupMembers({ convId, tenantId, userId }: { convId: string; tenant
 // ── DirectMessagesTab ─────────────────────────────────────────────────────────
 function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenantId: string; userId: string; userName: string; onlineUsers: Set<string> }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [filter, setFilter] = useState<"all" | "unread" | "open" | "closed">("all");
   const [search, setSearch] = useState("");
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
@@ -1261,8 +1268,9 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
                   <p className="text-xs text-slate-500">Direct messages with church members</p>
                 </div>
               </div>
-              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1" onClick={() => setNewMsgOpen(true)}><Plus className="h-3.5 w-3.5" />New</Button>
+              <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1" onClick={() => setNewMsgOpen(true)}><Plus className="h-3.5 w-3.5" />New</PermissionButton>
             </div>
+            {readOnly && <ReadOnlyBanner section="Communication Tools" />}
             <div className="flex items-center gap-1 mb-2">
               {(["all", "unread", "open", "closed"] as const).map(f => (
                 <button key={f} onClick={() => setFilter(f)} className={cn("px-2.5 py-1 rounded-full text-xs font-medium capitalize transition-colors", filter === f ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>{f}</button>
@@ -1280,7 +1288,7 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
                 <MessageCircle className="h-10 w-10 opacity-30" />
                 <p className="text-sm font-medium">No conversations yet</p>
-                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1 mt-1" onClick={() => setNewMsgOpen(true)}><Plus className="h-3.5 w-3.5" />New Message</Button>
+                <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1 mt-1" onClick={() => setNewMsgOpen(true)}><Plus className="h-3.5 w-3.5" />New Message</PermissionButton>
               </div>
             ) : filtered.map(conv => {
               const other = getOtherUser(conv);
@@ -1312,7 +1320,7 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
               <p className="text-sm">Or start a new one</p>
             </div>
           ) : (
-            <ChatPanel conv={selectedConv} userId={userId} tenantId={tenantId} userName={userName} onBack={() => setSelectedConvId(null)} onClose={closeConversation} onlineUsers={onlineUsers} />
+            <ChatPanel conv={selectedConv} userId={userId} tenantId={tenantId} userName={userName} onBack={() => setSelectedConvId(null)} onClose={closeConversation} onlineUsers={onlineUsers} readOnly={readOnly} />
           )}
         </div>
       </div>
@@ -1483,7 +1491,7 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
                   <p className="text-xs text-slate-500">Connect &amp; chat with your community</p>
                 </div>
               </div>
-              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1" onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" />New</Button>
+              <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1" onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" />New</PermissionButton>
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
@@ -1497,7 +1505,7 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
               <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
                 <Users className="h-10 w-10 opacity-30" />
                 <p className="text-sm font-medium">No groups yet</p>
-                <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1 mt-1" onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" />New Group</Button>
+                <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1 mt-1" onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" />New Group</PermissionButton>
               </div>
             ) : filtered.map(conv => {
               const memberCount = conv.conversation_participants?.length ?? 0;
@@ -1537,7 +1545,7 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
               <p className="text-sm">Or create a new one</p>
             </div>
           ) : (
-            <ChatPanel conv={selectedConv} userId={userId} tenantId={tenantId} userName={userName} onBack={() => setSelectedConvId(null)} onClose={closeConversation} onlineUsers={onlineUsers} />
+            <ChatPanel conv={selectedConv} userId={userId} tenantId={tenantId} userName={userName} onBack={() => setSelectedConvId(null)} onClose={closeConversation} onlineUsers={onlineUsers} readOnly={readOnly} />
           )}
         </div>
       </div>
@@ -1549,6 +1557,8 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function MemberMessaging() {
   const { tenantId, userId, userName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [activeTab, setActiveTab] = useState<"dm" | "groups">("dm");
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 

@@ -6,6 +6,9 @@ import NumberFlow from "@/components/finance/AnimatedNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useExpensesRealtime } from "@/hooks/useFinanceRealtime";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, Column } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -67,6 +70,8 @@ const tableRowVariants = {
 const AccountsPayable = () => {
   const { tenantId, currency, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ vendor_name: "", description: "", amount: "", due_date: "", currency: "KES" });
@@ -175,9 +180,9 @@ const AccountsPayable = () => {
     { key: "actions", header: "", render: r => (
       <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {r.payment_status !== "paid" && <DropdownMenuItem onClick={() => markPaidMutation.mutate(r.id)}><CheckCircle className="h-4 w-4 mr-2" />Mark as Paid</DropdownMenuItem>}
-          <DropdownMenuItem onClick={() => { setEditingId(r.id); setForm({ vendor_name: r.vendor_name, description: r.description || "", amount: String(r.amount), due_date: r.due_date || "", currency: r.currency || "KES" }); setSheetOpen(true); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
-          <DropdownMenuItem className="text-destructive" onClick={() => deleteMutation.mutate(r.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+          {r.payment_status !== "paid" && <DropdownMenuItem disabled={readOnly} onClick={() => markPaidMutation.mutate(r.id)}><CheckCircle className="h-4 w-4 mr-2" />Mark as Paid</DropdownMenuItem>}
+          <DropdownMenuItem disabled={readOnly} onClick={() => { setEditingId(r.id); setForm({ vendor_name: r.vendor_name, description: r.description || "", amount: String(r.amount), due_date: r.due_date || "", currency: r.currency || "KES" }); setSheetOpen(true); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+          <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => deleteMutation.mutate(r.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     )},
@@ -226,17 +231,20 @@ const AccountsPayable = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button 
+                <PermissionButton 
+                  readOnly={readOnly}
                   onClick={() => setSheetOpen(true)}
                   className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-amber-500/25"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Invoice
-                </Button>
+                </PermissionButton>
               </motion.div>
             } 
           />
         </motion.div>
+
+        {readOnly && <ReadOnlyBanner section="Financial Records" />}
 
         {/* Premium Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -326,13 +334,15 @@ const AccountsPayable = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <Button 
+                    <PermissionButton 
+                      permission="financial_records"
+                      readOnly={readOnly}
                       onClick={() => setSheetOpen(true)}
                       className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-amber-500/25"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Add First Invoice
-                    </Button>
+                    </PermissionButton>
                   </motion.div>
                 </motion.div>
               ) : (
@@ -400,12 +410,12 @@ const AccountsPayable = () => {
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     {invoice.payment_status !== "paid" && (
-                                      <DropdownMenuItem onClick={() => markPaidMutation.mutate(invoice.id)}>
+                                      <DropdownMenuItem disabled={readOnly} onClick={() => markPaidMutation.mutate(invoice.id)}>
                                         <CheckCircle className="h-4 w-4 mr-2" />
                                         Mark as Paid
                                       </DropdownMenuItem>
                                     )}
-                                    <DropdownMenuItem onClick={() => { 
+                                    <DropdownMenuItem disabled={readOnly} onClick={() => { 
                                       setEditingId(invoice.id); 
                                       setForm({ 
                                         vendor_name: invoice.vendor_name, 
@@ -420,6 +430,7 @@ const AccountsPayable = () => {
                                       Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuItem 
+                                      disabled={readOnly}
                                       className="text-red-600" 
                                       onClick={() => deleteMutation.mutate(invoice.id)}
                                     >

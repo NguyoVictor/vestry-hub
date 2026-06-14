@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from "@/integrations/supabase/client";
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
@@ -217,6 +218,8 @@ function CategoryCard({ cat, selected, onToggle }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function BackupPage() {
   const { tenantId, name: churchName, userFirstName, userLastName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [selected, setSelected] = useState<Set<string>>(new Set(ALL_KEYS));
   const [exporting, setExporting] = useState<"excel" | "json" | null>(null);
   const [noSelectionWarning, setNoSelectionWarning] = useState(false);
@@ -249,6 +252,7 @@ export default function BackupPage() {
   };
 
   const handleExcelExport = async () => {
+    if (readOnly) return;
     if (selected.size === 0) { setNoSelectionWarning(true); return; }
     setExporting("excel");
     try {
@@ -272,6 +276,7 @@ export default function BackupPage() {
   };
 
   const handleJsonExport = async () => {
+    if (readOnly) return;
     if (selected.size === 0) { setNoSelectionWarning(true); return; }
     setExporting("json");
     try {

@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,8 @@ interface AddMemberModalProps {
 
 function AddMemberModal({ open, onClose, tenantId, existingMemberIds, editOverride, onSuccess }: AddMemberModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editOverride;
   const [search, setSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -108,6 +111,7 @@ function AddMemberModal({ open, onClose, tenantId, existingMemberIds, editOverri
   }, [members, search]);
 
   const handleAssign = async (member: MemberRow, roleKey: string) => {
+    if (readOnly) return;
     const roleInfo = getRoleInfo(roleKey);
     setSubmitting(true);
     try {
@@ -235,6 +239,8 @@ function AddMemberModal({ open, onClose, tenantId, existingMemberIds, editOverri
 export function UserOverrides() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editOverride, setEditOverride] = useState<OverrideRow | null>(null);
@@ -274,6 +280,7 @@ export function UserOverrides() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.USER_ROLE_OVERRIDES).delete().eq("id", id);
       if (error) throw error;
     },

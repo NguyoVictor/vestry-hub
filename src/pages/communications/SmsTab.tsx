@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, MessageSquare, FlaskConical, Plus, History, Phone, CheckCircle2, CalendarClock, X } from "lucide-react";
@@ -55,6 +57,8 @@ export function SmsTab() {
   const { tenantId, name: churchName, userId } = useChurch() as any;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [sendingTest, setSendingTest] = useState(false);
   const [metricsItem, setMetricsItem] = useState<MetricsSms | null>(null);
 
@@ -154,14 +158,26 @@ export function SmsTab() {
 
       {/* Top buttons */}
       <div className="flex items-center gap-2 justify-end">
-        <Button variant="outline" size="sm" onClick={handleSendTest} disabled={sendingTest || !isConfigured} className="gap-1.5">
+        <PermissionButton 
+          readOnly={readOnly}
+          variant="outline" 
+          size="sm" 
+          onClick={handleSendTest} 
+          disabled={sendingTest || !isConfigured} 
+          className="gap-1.5"
+        >
           <FlaskConical className="h-4 w-4" />
           {sendingTest ? "Sending..." : "Send Test SMS"}
-        </Button>
-        <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5" disabled={!isConfigured}
-          onClick={() => navigate("/communications/compose?channel=sms")}>
+        </PermissionButton>
+        <PermissionButton 
+          readOnly={readOnly}
+          size="sm" 
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5" 
+          disabled={!isConfigured}
+          onClick={() => navigate("/communications/compose?channel=sms")}
+        >
           <Plus className="h-4 w-4" /> Compose Message
-        </Button>
+        </PermissionButton>
       </div>
 
       {/* Stats */}

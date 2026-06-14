@@ -20,9 +20,10 @@ interface MemberRowProps {
   onSelect: (id: string) => void;
   onClick: () => void;
   onDelete: (id: string) => void;
+  readOnly?: boolean;
 }
 
-export function MemberRow({ member, index, selected, onSelect, onClick, onDelete }: MemberRowProps) {
+export function MemberRow({ member, index, selected, onSelect, onClick, onDelete, readOnly }: MemberRowProps) {
   const name = `${member.first_name} ${member.last_name}`;
   const grad = avatarGradient(name);
   const ini = initials(member.first_name, member.last_name);
@@ -107,7 +108,7 @@ export function MemberRow({ member, index, selected, onSelect, onClick, onDelete
             <DropdownMenuItem onClick={onClick}>
               <Eye className="h-4 w-4 mr-2" />View Profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-500 focus:text-red-500" onClick={e => { e.stopPropagation(); onDelete(member.id); }}>
+            <DropdownMenuItem disabled={readOnly} className="text-red-500 focus:text-red-500" onClick={e => { e.stopPropagation(); onDelete(member.id); }}>
               <Trash2 className="h-4 w-4 mr-2" />Remove
             </DropdownMenuItem>
           </DropdownMenuContent>

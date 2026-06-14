@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { toast } from "sonner";
@@ -13,6 +14,8 @@ import { TABLES } from "@/lib/schema";
 export function SmsSettings() {
   const { tenantId, name: churchName, userPhone } = useChurch() as any;
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [form, setForm] = useState({
     at_username: "",
     at_api_key: "",
@@ -44,6 +47,7 @@ export function SmsSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload = {
         tenant_id: tenantId,
         at_username: form.at_username,

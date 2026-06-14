@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageTransition } from "@/components/ui/PageTransition";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -19,6 +21,8 @@ import RegisterChildModal from "./RegisterChildModal";
 
 export default function CMOverview() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const navigate = useNavigate();
   const [registerOpen, setRegisterOpen] = useState(false);
   const today = new Date().toISOString().split("T")[0];
@@ -87,9 +91,15 @@ export default function CMOverview() {
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Children's Ministry</h1>
             <p className="text-sm text-slate-500 mt-0.5">Manage check-in, attendance, and child records</p>
           </div>
-          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-2" onClick={() => setRegisterOpen(true)}>
+          <PermissionButton 
+            permission="member_management"
+            readOnly={readOnly}
+            size="sm" 
+            className="bg-orange-500 hover:bg-orange-600 text-white gap-2" 
+            onClick={() => setRegisterOpen(true)}
+          >
             <UserPlus className="h-4 w-4" />Register Child
-          </Button>
+          </PermissionButton>
         </div>
 
         {/* Stats */}
@@ -211,9 +221,11 @@ export default function CMOverview() {
               { icon: Monitor,   label: "Kiosk Mode",      desc: "Full-screen tablet check-in",     action: () => navigate("/childrens-ministry/kiosk"), primary: false },
               { icon: BarChart2, label: "View Reports",    desc: "Attendance analytics",             action: () => navigate("/childrens-ministry/reports"), primary: false },
             ].map(({ icon: Icon, label, desc, action, primary }) => (
-              <button key={label} onClick={action}
+              <button key={label} onClick={readOnly && primary ? undefined : action}
+                disabled={readOnly && primary}
                 className={cn("w-full text-left bg-white rounded-xl border shadow-sm p-4 flex items-center gap-4 transition-all hover:shadow-md hover:-translate-y-0.5",
-                  primary ? "border-orange-200 hover:border-orange-300" : "border-slate-200"
+                  primary ? "border-orange-200 hover:border-orange-300" : "border-slate-200",
+                  readOnly && primary && "opacity-50 cursor-not-allowed hover:shadow-sm hover:translate-y-0"
                 )}>
                 <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", primary ? "bg-orange-50" : "bg-slate-100")}>
                   <Icon className={cn("h-5 w-5", primary ? "text-orange-500" : "text-slate-500")} />

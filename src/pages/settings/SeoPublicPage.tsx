@@ -4,6 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -44,6 +46,8 @@ type SeoFormData = z.infer<typeof seoSchema>;
 const SeoPublicPage = () => {
   const church = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [previewTab, setPreviewTab] = useState<"facebook" | "twitter">("facebook");
@@ -90,6 +94,7 @@ const SeoPublicPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (values: SeoFormData) => {
+      if (readOnly) return;
       const payload = {
         tenant_id: church.tenantId,
         page_title: values.page_title || null,
@@ -117,6 +122,7 @@ const SeoPublicPage = () => {
   });
 
   const handleOgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast.error("Max 5MB"); return; }
@@ -172,6 +178,10 @@ const SeoPublicPage = () => {
   return (
     <>
       <Helmet><title>SEO & Public Page — Vestry</title></Helmet>
+      
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="SEO & Public Page Settings" />}
+      
       <PageHeader title="SEO & Public Page" subtitle="Control how your church appears in search engines and social media" />
 
       <Form {...form}>
@@ -238,7 +248,7 @@ const SeoPublicPage = () => {
                       <img src={seoData.og_image_url} alt="" className="w-full max-w-md rounded-md border object-cover aspect-[1200/630] mb-2" />
                     )}
                     <input ref={fileInputRef} type="file" accept=".jpg,.png,.webp" className="hidden" onChange={handleOgUpload} />
-                    <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+                    <Button type="button" variant="outline" size="sm" disabled={uploading || readOnly} onClick={() => fileInputRef.current?.click()}>
                       {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Upload Image
                     </Button>
                   </div>
@@ -284,7 +294,7 @@ const SeoPublicPage = () => {
                   <FormField control={form.control} name="structured_data_enabled" render={({ field }) => (
                     <div className="flex items-center justify-between">
                       <div><p className="text-sm font-medium">Enable Schema.org Structured Data</p><p className="text-xs text-muted-foreground">Auto-generates JSON-LD from your church profile</p></div>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} disabled={readOnly} />
                     </div>
                   )} />
                   {form.watch("structured_data_enabled") && (
@@ -305,19 +315,19 @@ const SeoPublicPage = () => {
                   <FormField control={form.control} name="public_page_visible" render={({ field }) => (
                     <div className="flex items-center justify-between">
                       <div><p className="text-sm font-medium">Make Public Page Visible</p><p className="text-xs text-muted-foreground">When off, your /church page returns a 404</p></div>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} disabled={readOnly} />
                     </div>
                   )} />
                   <FormField control={form.control} name="show_in_directory" render={({ field }) => (
                     <div className="flex items-center justify-between">
                       <div><p className="text-sm font-medium">Show in Church Directory</p><p className="text-xs text-muted-foreground">Appear in the Vestry church directory</p></div>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} disabled={readOnly} />
                     </div>
                   )} />
                 </CardContent>
               </Card>
 
-              <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
+              <Button type="submit" className="w-full" disabled={saveMutation.isPending || readOnly}>
                 {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save SEO Settings
               </Button>
             </div>

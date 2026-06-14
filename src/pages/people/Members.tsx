@@ -8,6 +8,9 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { UserPlus, Search, QrCode, Upload, Download, LayoutGrid, List, Users, Mail, MessageSquare, Copy, CheckCircle2 } from "lucide-react";
 import { format, subDays, startOfMonth, startOfYear } from "date-fns";
 import { z } from "zod";
@@ -74,6 +77,9 @@ const Members = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { canAddMember } = useSubscription();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
+  const reportsReadOnly = isReadOnly('reports_analytics');
 
   const [view, setView] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
@@ -125,6 +131,7 @@ const Members = () => {
 
   const addMutation = useMutation({
     mutationFn: async (values: MemberForm) => {
+      if (readOnly) return;
       const memberId = crypto.randomUUID();
       const { error } = await supabase.from("members").insert({
         id: memberId, tenant_id: tenantId!,
@@ -160,6 +167,7 @@ const Members = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from("members").update({ status: "inactive" }).eq("id", id);
       if (error) throw error;
     },
@@ -224,13 +232,13 @@ const Members = () => {
               <Button variant="outline" size="sm" onClick={() => setQrOpen(true)} className="gap-2 font-jakarta text-xs border-slate-200">
                 <QrCode className="h-4 w-4" />Member Registration QR
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-2 font-jakarta text-xs border-slate-200">
+              <PermissionButton readOnly={reportsReadOnly} variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-2 font-jakarta text-xs border-slate-200">
                 <Upload className="h-4 w-4" />Import Members
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2 font-jakarta text-xs border-slate-200">
+              </PermissionButton>
+              <PermissionButton readOnly={reportsReadOnly} variant="outline" size="sm" onClick={exportCSV} className="gap-2 font-jakarta text-xs border-slate-200">
                 <Download className="h-4 w-4" />Export
-              </Button>
-              <Button size="sm" onClick={() => {
+              </PermissionButton>
+              <PermissionButton readOnly={readOnly} size="sm" onClick={() => {
                 if (!canAddMember) {
                   showPaywallToast('member', 'members');
                   return;
@@ -239,9 +247,12 @@ const Members = () => {
                 setSheetOpen(true);
               }} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta text-xs">
                 <UserPlus className="h-4 w-4" />Add Member
-              </Button>
+              </PermissionButton>
             </div>
           </div>
+
+          {readOnly && <ReadOnlyBanner section="Member Management" />}
+          {reportsReadOnly && <ReadOnlyBanner permission="reports_analytics" />}
 
           {/* Search */}
           <div className="relative mb-4">
@@ -331,6 +342,7 @@ const Members = () => {
                       onSelect={id => setSelectedIds(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; })}
                       onClick={() => navigate(`/members/${m.id}`)}
                       onDelete={id => deleteMutation.mutate(id)}
+                      readOnly={readOnly}
                     />
                   ))}
                 </tbody>

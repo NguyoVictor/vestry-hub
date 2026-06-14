@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -457,12 +460,12 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
 
 // ─── Meeting Card ─────────────────────────────────────────────────────────────
 function MeetingCard({
-  m, attendeeCount, onEdit, onDelete, onAdvance, onJump, onView, onMinutes, hasMinutes, userName,
+  m, attendeeCount, onEdit, onDelete, onAdvance, onJump, onView, onMinutes, hasMinutes, userName, readOnly,
 }: {
   m: any; attendeeCount: number;
   onEdit: () => void; onDelete: () => void;
   onAdvance: (s: string) => void; onJump: (s: string) => void;
-  onView: () => void; onMinutes: () => void; hasMinutes: boolean; userName: string;
+  onView: () => void; onMinutes: () => void; hasMinutes: boolean; userName: string; readOnly: boolean;
 }) {
   const status = m.status || "scheduled";
   const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label || m.type?.replace(/_/g, " ") || "Meeting";
@@ -491,9 +494,9 @@ function MeetingCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={e => { e.stopPropagation(); onView(); }}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
-              <DropdownMenuItem onClick={e => { e.stopPropagation(); onEdit(); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={e => { e.stopPropagation(); onEdit(); }} disabled={readOnly}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); onDelete(); }}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); onDelete(); }} disabled={readOnly}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -580,6 +583,7 @@ function MeetingCard({
               ? "w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
               : "w-full text-xs border-orange-400 text-orange-600 bg-white hover:bg-orange-500 hover:text-white hover:border-orange-500"}
             onClick={onMinutes}
+            disabled={readOnly && !hasMinutes}
           >
             <FileText className="h-3.5 w-3.5 mr-1.5" />
             {hasMinutes ? "View Minutes" : "Write Minutes"}
@@ -594,6 +598,8 @@ export default function BoardMeetingsPage() {
   const { tenantId, userId, userName } = useChurch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const [view, setView] = useState<"cards" | "list" | "calendar">("cards");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -806,9 +812,13 @@ export default function BoardMeetingsPage() {
                 <Calendar className="h-4 w-4" />
               </Button>
             </div>
-            <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>
+            <PermissionButton permission="event_management" readOnly={readOnly} onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-2" />Schedule Meeting
+            </PermissionButton>
           </div>
         }      />
+
+      {readOnly && <ReadOnlyBanner section="Event Management" />}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -844,7 +854,7 @@ export default function BoardMeetingsPage() {
           <Video className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-1">No meetings yet</h3>
           <p className="text-sm text-muted-foreground mb-4">Schedule your first board meeting.</p>
-          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</Button>
+          <PermissionButton permission="event_management" readOnly={readOnly} onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Schedule Meeting</PermissionButton>
         </Card>
       ) : view === "cards" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -855,6 +865,7 @@ export default function BoardMeetingsPage() {
               attendeeCount={(attendeeCounts as Record<string, number>)[m.id] || 0}
               hasMinutes={!!(minutesMap as Record<string, boolean>)[m.id]}
               userName={userName}
+              readOnly={readOnly}
               onView={() => setViewingMeeting(m)}
               onEdit={() => openEdit(m)}
               onDelete={() => setDeleteId(m.id)}
@@ -931,7 +942,8 @@ export default function BoardMeetingsPage() {
                             className={has
                               ? "text-xs bg-emerald-600 hover:bg-emerald-700 text-white h-7 px-2.5"
                               : "text-xs border-orange-300 text-orange-600 hover:bg-orange-50 h-7 px-2.5"}
-                            onClick={() => navigate(`/board-meetings/${m.id}/minutes`)}>
+                            onClick={() => navigate(`/board-meetings/${m.id}/minutes`)}
+                            disabled={readOnly && !has}>
                             <FileText className="h-3 w-3 mr-1" />{has ? "View Minutes" : "Write Minutes"}
                           </Button>
                         );
@@ -963,11 +975,11 @@ export default function BoardMeetingsPage() {
                           <DropdownMenuItem onClick={() => setViewingMeeting(m)}>
                             <Eye className="h-4 w-4 mr-2" />View
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEdit(m)}>
+                          <DropdownMenuItem onClick={() => openEdit(m)} disabled={readOnly}>
                             <Pencil className="h-4 w-4 mr-2" />Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(m.id)}>
+                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(m.id)} disabled={readOnly}>
                             <Trash2 className="h-4 w-4 mr-2" />Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>

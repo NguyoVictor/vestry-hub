@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageTransition } from "@/components/ui/PageTransition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +31,8 @@ const DEFAULT_SETTINGS: Omit<CMSettingsType, "id" | "tenant_id"> = {
 
 export default function CMSettings() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const qc = useQueryClient();
   const [form, setForm] = useState(DEFAULT_SETTINGS);
   const [showPin, setShowPin] = useState(false);
@@ -49,6 +53,7 @@ export default function CMSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       if (settings) {
         const { error } = await supabase.from(TABLES.CHILDREN_MINISTRY_SETTINGS).update({ ...form, updated_at: new Date().toISOString() } as any).eq("tenant_id", tenantId!);
         if (error) throw error;
@@ -136,9 +141,15 @@ export default function CMSettings() {
             <ToggleRow label="Auto-assign class based on age" description="When registering a child, automatically select the class that matches their age" checked={form.auto_assign_class_by_age} onChange={v => set("auto_assign_class_by_age", v)} />
           </SettingsCard>
 
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold w-full sm:w-auto" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          <PermissionButton 
+            permission="member_management"
+            readOnly={readOnly}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-semibold w-full sm:w-auto" 
+            onClick={() => saveMutation.mutate()} 
+            disabled={saveMutation.isPending}
+          >
             {saveMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</> : "Save Settings"}
-          </Button>
+          </PermissionButton>
         </div>
       </PageTransition>
     </>

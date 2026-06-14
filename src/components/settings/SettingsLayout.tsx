@@ -10,6 +10,8 @@ import {
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 
 const NAV_GROUPS = [
   {
@@ -77,6 +79,8 @@ const ALL_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 export const SettingsLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isReadOnly } = usePermissions();
+  const settingsReadOnly = isReadOnly('church_settings');
   if (location.pathname === "/settings") return <Navigate to="/settings/general" replace />;
 
   const SidebarContent = () => (
@@ -151,6 +155,7 @@ export const SettingsLayout = () => {
 
       {/* Content */}
       <div className="flex-1 min-w-0 overflow-y-auto bg-slate-50 dark:bg-slate-900">
+        {settingsReadOnly && <ReadOnlyBanner section="Church Settings" />}
         {/* Quick Links & QR Codes banner */}
         <div className="px-6 pt-6 pb-0">
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-4 flex items-center justify-between mb-6">

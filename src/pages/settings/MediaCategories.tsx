@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -129,6 +132,8 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
 export default function MediaCategories() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editData, setEditData] = useState<MediaCategory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MediaCategory | null>(null);
@@ -171,6 +176,7 @@ export default function MediaCategories() {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.MEDIA_CATEGORIES)
         .update({ status, updated_at: new Date().toISOString() } as never).eq("id", id);
       if (error) throw error;
@@ -181,6 +187,7 @@ export default function MediaCategories() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.MEDIA_CATEGORIES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -206,15 +213,21 @@ export default function MediaCategories() {
 
   return (
     <PageTransition>
+      {readOnly && <ReadOnlyBanner section="Media Categories" />}
+      
       <div className="font-jakarta space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-jakarta">Media Categories</h1>
             <p className="text-sm text-slate-500 mt-0.5 font-jakarta">Manage categories for organizing church media</p>
           </div>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
+          <PermissionButton
+            readOnly={readOnly}
+            className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta"
+            onClick={() => { setEditData(null); setDrawerOpen(true); }}
+          >
             <Plus className="h-4 w-4 mr-1.5" />Add Category
-          </Button>
+          </PermissionButton>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -224,9 +237,14 @@ export default function MediaCategories() {
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
               <Image className="h-12 w-12 text-slate-300" />
               <p className="text-base font-semibold text-slate-600 dark:text-slate-300 font-jakarta">No categories yet</p>
-              <Button size="sm" className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
+              <PermissionButton
+                readOnly={readOnly}
+                size="sm"
+                className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta"
+                onClick={() => { setEditData(null); setDrawerOpen(true); }}
+              >
                 <Plus className="h-4 w-4 mr-1" />Add Category
-              </Button>
+              </PermissionButton>
             </div>
           ) : (
             <table className="w-full text-sm font-jakarta">
@@ -252,7 +270,11 @@ export default function MediaCategories() {
                     </td>
                     <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 hidden md:table-cell">{cat.description ?? <span className="text-slate-300">—</span>}</td>
                     <td className="px-4 py-3.5 text-center">
-                      <Switch checked={cat.status === "active"} onCheckedChange={v => toggleMutation.mutate({ id: cat.id, status: v ? "active" : "inactive" })} />
+                      <Switch
+                        checked={cat.status === "active"}
+                        onCheckedChange={v => toggleMutation.mutate({ id: cat.id, status: v ? "active" : "inactive" })}
+                        disabled={readOnly}
+                      />
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">

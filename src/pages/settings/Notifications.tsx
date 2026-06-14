@@ -1,5 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -37,6 +39,8 @@ type PrefsState = Record<string, boolean>;
 const Notifications = () => {
   const church = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [prefs, setPrefs] = useState<PrefsState>({});
 
   const { data, isLoading } = useQuery({
@@ -66,6 +70,7 @@ const Notifications = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload = { user_id: church.userId, tenant_id: church.tenantId, ...prefs };
       const { error } = await supabase.from(TABLES.NOTIFICATION_PREFERENCES).upsert(payload as any, { onConflict: "user_id,tenant_id" });
       if (error) throw error;
@@ -77,7 +82,7 @@ const Notifications = () => {
     onError: () => toast.error("Failed to save preferences"),
   });
 
-  const toggle = (key: string, value: boolean) => setPrefs(p => ({ ...p, [key]: value }));
+  const toggle = (key: string, value: boolean) => { if (!readOnly) setPrefs(p => ({ ...p, [key]: value })); };
 
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
 
@@ -94,7 +99,7 @@ const Notifications = () => {
                 <p className="text-xs text-muted-foreground">{desc}</p>
               </div>
             </div>
-            <Switch checked={prefs[key] ?? true} onCheckedChange={(v) => toggle(key, v)} />
+            <Switch checked={prefs[key] ?? true} onCheckedChange={(v) => toggle(key, v)} disabled={readOnly} />
           </div>
         ))}
         {/* Security alert — always on */}
@@ -115,13 +120,17 @@ const Notifications = () => {
   return (
     <>
       <Helmet><title>Notifications — Vestry</title></Helmet>
+      
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Notification Preferences" />}
+      
       <PageHeader title="Notification Preferences" subtitle="Choose what updates you want to be notified about" />
 
       <div className="max-w-3xl space-y-6">
         {renderSection("Email Notifications", <Mail className="h-4 w-4" />, EMAIL_PREFS)}
         {renderSection("In-App Notifications", <Bell className="h-4 w-4" />, INAPP_PREFS)}
 
-        <Button className="w-full" disabled={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+        <Button className="w-full" disabled={saveMutation.isPending || readOnly} onClick={() => saveMutation.mutate()}>
           {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save Preferences
         </Button>

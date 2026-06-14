@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,6 +85,8 @@ interface TemplateModalProps {
 
 function TemplateModal({ open, onClose, tenantId, userId, categories, editData, onSuccess }: TemplateModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const isEdit = !!editData;
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
@@ -122,6 +126,7 @@ function TemplateModal({ open, onClose, tenantId, userId, categories, editData, 
   const handleClose = () => { setName(""); setCategoryId(""); setSubject(""); setBody(""); setIsActive(true); setErrors({}); onClose(); };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     const e: Record<string,string> = {};
     if (!name.trim()) e.name = "Template name is required.";
     if (!subject.trim()) e.subject = "Subject line is required.";
@@ -254,9 +259,9 @@ function TemplateModal({ open, onClose, tenantId, userId, categories, editData, 
 }
 
 // ─── Template Card ────────────────────────────────────────────────────────────
-function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibrary }: {
+function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibrary, readOnly }: {
   template: EmailTemplate; onEdit?: () => void; onDelete?: () => void;
-  onSend?: () => void; onDuplicate?: () => void; isLibrary?: boolean;
+  onSend?: () => void; onDuplicate?: () => void; isLibrary?: boolean; readOnly?: boolean;
 }) {
   const catName = template.email_categories?.name;
   const catActive = template.email_categories?.is_active;
@@ -281,21 +286,21 @@ function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibra
       </div>
       <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
         {isLibrary ? (
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs flex-1" onClick={onDuplicate}>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs flex-1" onClick={onDuplicate} disabled={readOnly}>
             <Copy className="h-3.5 w-3.5" /> Duplicate
           </Button>
         ) : (
           <>
-            <button title="Send" onClick={onSend} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors">
+            <button title="Send" onClick={onSend} disabled={readOnly} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <Send className="h-3.5 w-3.5" /> Send
             </button>
-            <button title="Edit" onClick={onEdit} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors">
+            <button title="Edit" onClick={onEdit} disabled={readOnly} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
-            <button title="Duplicate" onClick={onDuplicate} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors">
+            <button title="Duplicate" onClick={onDuplicate} disabled={readOnly} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-slate-200 py-1.5 text-xs text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <Copy className="h-3.5 w-3.5" /> Duplicate
             </button>
-            <button title="Delete" onClick={onDelete} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-red-100 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors">
+            <button title="Delete" onClick={onDelete} disabled={readOnly} className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-red-100 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               <Trash2 className="h-3.5 w-3.5" /> Delete
             </button>
           </>
@@ -308,6 +313,8 @@ function TemplateCard({ template, onEdit, onDelete, onSend, onDuplicate, isLibra
 // ─── Send Modal ───────────────────────────────────────────────────────────────
 function SendModal({ template, tenantId, onClose }: { template: EmailTemplate | null; tenantId: string; onClose: () => void }) {
   const { name: churchName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [sendTo,       setSendTo]       = useState("all");
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set());
@@ -340,6 +347,7 @@ function SendModal({ template, tenantId, onClose }: { template: EmailTemplate | 
   });
 
   const handleSend = async () => {
+    if (readOnly) return;
     if (!template) return;
     setSending(true);
     try {
@@ -443,6 +451,8 @@ function SendModal({ template, tenantId, onClose }: { template: EmailTemplate | 
 export function EmailTemplates() {
   const { tenantId, userId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [activeCategory, setActiveCategory] = useState("all");
   const [createOpen,     setCreateOpen]     = useState(false);
   const [editTemplate,   setEditTemplate]   = useState<EmailTemplate | null>(null);
@@ -474,6 +484,7 @@ export function EmailTemplates() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.EMAIL_TEMPLATES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -521,9 +532,14 @@ export function EmailTemplates() {
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Email Templates</h2>
           <p className="text-xs text-slate-500">Manage and customize email templates for different scenarios</p>
         </div>
-        <Button className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" size="sm" onClick={() => setCreateOpen(true)}>
+        <PermissionButton 
+          readOnly={readOnly}
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" 
+          size="sm" 
+          onClick={() => setCreateOpen(true)}
+        >
           <Plus className="h-4 w-4" /> Create Template
-        </Button>
+        </PermissionButton>
       </div>
 
       {/* Category filter pills */}
@@ -557,6 +573,7 @@ export function EmailTemplates() {
                   onDelete={() => setDeleteTemplate(t)}
                   onSend={() => setSendTemplate(t)}
                   onDuplicate={() => handleDuplicateUserTemplate(t)}
+                  readOnly={readOnly}
                 />
               ))}
             </div>
@@ -568,7 +585,7 @@ export function EmailTemplates() {
             {LIBRARY_TEMPLATES.map(lt => {
               const cat = categories.find(c => c.name === lt.category);
               const fakeTemplate: EmailTemplate = { id: lt.name, tenant_id: tenantId, category_id: cat?.id ?? null, name: lt.name, subject: lt.subject, body: lt.body, is_active: true, is_system: true, created_at: "", email_categories: cat ? { name: cat.name, is_active: cat.is_active } : null };
-              return <TemplateCard key={lt.name} template={fakeTemplate} isLibrary onDuplicate={() => handleDuplicate(lt)} />;
+              return <TemplateCard key={lt.name} template={fakeTemplate} isLibrary onDuplicate={() => handleDuplicate(lt)} readOnly={readOnly} />;
             })}
           </div>
         </TabsContent>

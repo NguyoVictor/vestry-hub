@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES, COLS } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +59,7 @@ interface PendingCardProps {
   onApprove: () => void; onDecline: () => void; onEdit: () => void;
   exiting: "approve" | "decline" | null;
 }
-function PendingTestimonyCard({ testimony, onApprove, onDecline, onEdit, exiting }: PendingCardProps) {
+function PendingTestimonyCard({ testimony, onApprove, onDecline, onEdit, exiting, readOnly }: PendingCardProps & { readOnly: boolean }) {
   const cat = testimony.testimony_categories;
   const member = testimony.members;
   const displayName = testimony.is_anonymous ? "Anonymous Member"
@@ -83,9 +86,9 @@ function PendingTestimonyCard({ testimony, onApprove, onDecline, onEdit, exiting
             <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">{testimony.body}</p>
           </div>
           <div className="flex flex-col gap-1.5 shrink-0">
-            <button onClick={onApprove} title="Approve" className="h-8 w-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors"><Check className="h-4 w-4" /></button>
-            <button onClick={onDecline} title="Decline" className="h-8 w-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"><X className="h-4 w-4" /></button>
-            <button onClick={onEdit} title="Edit" className="h-8 w-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors"><Pencil className="h-4 w-4" /></button>
+            <button onClick={onApprove} title="Approve" disabled={readOnly} className="h-8 w-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><Check className="h-4 w-4" /></button>
+            <button onClick={onDecline} title="Decline" disabled={readOnly} className="h-8 w-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><X className="h-4 w-4" /></button>
+            <button onClick={onEdit} title="Edit" disabled={readOnly} className="h-8 w-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><Pencil className="h-4 w-4" /></button>
           </div>
         </motion.div>
       )}
@@ -97,7 +100,7 @@ interface PublishedCardProps {
   testimony: TestimonyWithRelations; index: number;
   onEdit: () => void; onFeatureToggle: () => void; onArchive: () => void; onDelete: () => void;
 }
-function PublishedTestimonyCard({ testimony, index, onEdit, onFeatureToggle, onArchive, onDelete }: PublishedCardProps) {
+function PublishedTestimonyCard({ testimony, index, onEdit, onFeatureToggle, onArchive, onDelete, readOnly }: PublishedCardProps & { readOnly: boolean }) {
   const cat = testimony.testimony_categories;
   const member = testimony.members;
   const displayName = testimony.is_anonymous ? "Anonymous Member"
@@ -125,8 +128,8 @@ function PublishedTestimonyCard({ testimony, index, onEdit, onFeatureToggle, onA
               )}
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <button onClick={onFeatureToggle} title={testimony.is_featured ? "Unfeature" : "Feature"}
-                className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors ${testimony.is_featured ? "bg-amber-100 text-amber-500" : "bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-500"}`}>
+              <button onClick={onFeatureToggle} title={testimony.is_featured ? "Unfeature" : "Feature"} disabled={readOnly}
+                className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${testimony.is_featured ? "bg-amber-100 text-amber-500" : "bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-500"}`}>
                 <Star className={`h-3.5 w-3.5 ${testimony.is_featured ? "fill-amber-500" : ""}`} />
               </button>
               <DropdownMenu>
@@ -134,11 +137,11 @@ function PublishedTestimonyCard({ testimony, index, onEdit, onFeatureToggle, onA
                   <button className="h-7 w-7 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 flex items-center justify-center transition-colors"><MoreHorizontal className="h-3.5 w-3.5" /></button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="font-jakarta text-sm">
-                  <DropdownMenuItem onClick={onEdit}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onFeatureToggle}><Star className="h-3.5 w-3.5 mr-2" />{testimony.is_featured ? "Unfeature" : "Feature"}</DropdownMenuItem>
+                  <DropdownMenuItem disabled={readOnly} onClick={onEdit}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
+                  <DropdownMenuItem disabled={readOnly} onClick={onFeatureToggle}><Star className="h-3.5 w-3.5 mr-2" />{testimony.is_featured ? "Unfeature" : "Feature"}</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onArchive}><Archive className="h-3.5 w-3.5 mr-2" />Archive</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onDelete} className="text-red-600 focus:text-red-600"><Trash2 className="h-3.5 w-3.5 mr-2" />Delete</DropdownMenuItem>
+                  <DropdownMenuItem disabled={readOnly} onClick={onArchive}><Archive className="h-3.5 w-3.5 mr-2" />Archive</DropdownMenuItem>
+                  <DropdownMenuItem disabled={readOnly} onClick={onDelete} className="text-red-600 focus:text-red-600"><Trash2 className="h-3.5 w-3.5 mr-2" />Delete</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -267,6 +270,8 @@ function TestimonyDrawer({ open, onClose, editing, categories, tenantId, userId,
 export default function Testimonies() {
   const { tenantId, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const { notifyMemberApproved, notifyMemberDeclined, notifyMemberFeatured } = useTestimonyNotifications();
   const [activeTab, setActiveTab] = useState<ActiveTab>("published");
   const [drawer, setDrawer] = useState<DrawerState>({ open: false, editing: null });
@@ -369,9 +374,9 @@ export default function Testimonies() {
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-jakarta">Testimonies</h1>
                 <p className="text-sm text-slate-500 mt-0.5 font-jakarta">Collect and share stories from your congregation</p>
               </div>
-              <Button onClick={() => setDrawer({ open: true, editing: null })} className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta font-semibold shrink-0">
+              <PermissionButton readOnly={readOnly} onClick={() => setDrawer({ open: true, editing: null })} className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta font-semibold shrink-0">
                 <Plus className="h-4 w-4 mr-1.5" />Add Testimony
-              </Button>
+              </PermissionButton>
             </div>
 
             {/* Stats */}
@@ -392,6 +397,8 @@ export default function Testimonies() {
                 ))}
               </div>
             </BlurFadeIn>
+
+            {readOnly && <ReadOnlyBanner section="Communication Tools" />}
 
             {/* Tabs */}
             <div className="flex gap-2">
@@ -426,7 +433,7 @@ export default function Testimonies() {
                       renderItem={(testimony) => (
                         <PendingTestimonyCard testimony={testimony} exiting={exitingIds[testimony.id] ?? null}
                           onApprove={() => handleApprove(testimony)} onDecline={() => handleDecline(testimony)}
-                          onEdit={() => setDrawer({ open: true, editing: testimony })} />
+                          onEdit={() => setDrawer({ open: true, editing: testimony })} readOnly={readOnly} />
                       )} />
                   )}
                 </motion.div>
@@ -440,7 +447,7 @@ export default function Testimonies() {
                       <Quote className="h-12 w-12 text-slate-300" />
                       <p className="text-base font-semibold text-slate-600 font-jakarta">No testimonies yet</p>
                       <p className="text-sm text-slate-400 font-jakarta">Add the first testimony to get started</p>
-                      <Button size="sm" onClick={() => setDrawer({ open: true, editing: null })} className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta"><Plus className="h-4 w-4 mr-1.5" />Add Testimony</Button>
+                      <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" onClick={() => setDrawer({ open: true, editing: null })} className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta"><Plus className="h-4 w-4 mr-1.5" />Add Testimony</PermissionButton>
                     </div>
                   ) : (
                     <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" variants={{ show: { transition: { staggerChildren: 0.08 } }, hidden: {} }} initial="hidden" animate="show">
@@ -449,7 +456,7 @@ export default function Testimonies() {
                           onEdit={() => setDrawer({ open: true, editing: testimony })}
                           onFeatureToggle={() => featureMutation.mutate({ id: testimony.id, is_featured: !testimony.is_featured, memberId: testimony.member_id })}
                           onArchive={() => archiveMutation.mutate(testimony.id)}
-                          onDelete={() => setDeleteTarget(testimony)} />
+                          onDelete={() => setDeleteTarget(testimony)} readOnly={readOnly} />
                       ))}
                     </motion.div>
                   )}

@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,6 +48,8 @@ interface CategoryDrawerProps {
 
 function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: CategoryDrawerProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
 
   const [label,       setLabel]       = useState(editData?.label ?? "");
@@ -68,6 +73,7 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!label.trim()) { toast.error("Label is required."); return; }
     setSubmitting(true);
     try {
@@ -134,12 +140,12 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
           </div>
           <div className="flex items-center justify-between">
             <Label className="font-jakarta">Active</Label>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
+            <Switch checked={isActive} onCheckedChange={setIsActive} disabled={readOnly} />
           </div>
           <Button
             className="w-full bg-orange-500 hover:bg-orange-600 text-white font-jakarta"
             onClick={handleSubmit}
-            disabled={!label.trim() || submitting}
+            disabled={!label.trim() || submitting || readOnly}
           >
             {submitting ? "Saving..." : isEdit ? "Save Changes" : "Add Category"}
           </Button>
@@ -153,6 +159,8 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
 export default function TestimonyCategories() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editData, setEditData] = useState<TestimonyCategory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TestimonyCategory | null>(null);
@@ -185,6 +193,7 @@ export default function TestimonyCategories() {
   }, [isLoading, categories.length]); // primitives only — no object refs
 
   const handleSeedDefaults = async () => {
+    if (readOnly) return;
     setSeeding(true);
     try {
       const records = DEFAULTS.map(d => ({ ...d, tenant_id: tenantId }));
@@ -200,6 +209,7 @@ export default function TestimonyCategories() {
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.TESTIMONY_CATEGORIES)
         .update({ is_active, updated_at: new Date().toISOString() } as never)
@@ -212,6 +222,7 @@ export default function TestimonyCategories() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.TESTIMONY_CATEGORIES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -255,19 +266,23 @@ export default function TestimonyCategories() {
   return (
     <PageTransition>
       <div className="font-jakarta space-y-6">
+        {/* Read-only banner */}
+        {readOnly && <ReadOnlyBanner section="Testimony Categories" />}
+
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-jakarta">Testimony Categories</h1>
             <p className="text-sm text-slate-500 mt-0.5 font-jakarta">Manage categories for organizing testimonies</p>
           </div>
-          <Button
+          <PermissionButton
+            readOnly={readOnly}
             className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta"
             onClick={() => { setEditData(null); setDrawerOpen(true); }}
           >
             <Plus className="h-4 w-4 mr-1.5" />
             Add Category
-          </Button>
+          </PermissionButton>
         </div>
 
         {/* Table */}
@@ -281,9 +296,9 @@ export default function TestimonyCategories() {
               <Quote className="h-12 w-12 text-slate-300" />
               <p className="text-base font-semibold text-slate-600 dark:text-slate-300 font-jakarta">No categories yet</p>
               <p className="text-sm text-slate-400 font-jakarta">Add your first testimony category</p>
-              <Button size="sm" className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
+              <PermissionButton readOnly={readOnly} size="sm" className="mt-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={() => { setEditData(null); setDrawerOpen(true); }}>
                 <Plus className="h-4 w-4 mr-1" />Add Category
-              </Button>
+              </PermissionButton>
             </div>
           ) : (
             <table className="w-full text-sm font-jakarta">
@@ -322,6 +337,7 @@ export default function TestimonyCategories() {
                       <Switch
                         checked={cat.is_active}
                         onCheckedChange={v => toggleActiveMutation.mutate({ id: cat.id, is_active: v })}
+                        disabled={readOnly}
                       />
                     </td>
                     <td className="px-4 py-3.5 text-right">

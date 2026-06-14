@@ -7,8 +7,10 @@ import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { usePermissions } from '@/hooks/usePermissions';
 import { TABLES } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,18 +63,18 @@ function exportCSV(rows: any[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function ExportMenu({ onCSV }: { onCSV: () => void }) {
+function ExportMenu({ onCSV, readOnly = false }: { onCSV: () => void; readOnly?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" disabled={readOnly}>
           <Download className="mr-2 h-4 w-4" />Export<ChevronDown className="ml-1 h-3 w-3" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onCSV}>Export CSV</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("PDF export coming soon")}>Export PDF</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("Word export coming soon")}>Export Word</DropdownMenuItem>
+        <DropdownMenuItem onClick={onCSV} disabled={readOnly}>Export CSV</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast.info("PDF export coming soon")} disabled={readOnly}>Export PDF</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast.info("Word export coming soon")} disabled={readOnly}>Export Word</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -474,6 +476,8 @@ function MaintenanceDialog({ open, onClose, tenantId, assets, onSuccess }: any) 
 export default function AssetManagement() {
   const { tenantId } = useChurch();
   const { format: fmtCurrency } = useCurrency();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState("assets");
@@ -618,7 +622,7 @@ export default function AssetManagement() {
         subtitle="Track church assets, maintenance schedules, and release requests"
         action={
           <div className="flex items-center gap-2">
-            <ExportMenu onCSV={() => exportCSV(filteredAssets, "assets.csv")} />
+            <ExportMenu onCSV={() => exportCSV(filteredAssets, "assets.csv")} readOnly={readOnly} />
             <Button
               size="sm"
               className="bg-orange-500 hover:bg-orange-600 text-white"
@@ -629,6 +633,8 @@ export default function AssetManagement() {
           </div>
         }
       />
+
+      {readOnly && <ReadOnlyBanner permission="reports_analytics" />}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

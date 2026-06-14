@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
 import { format, differenceInCalendarDays, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -187,6 +188,8 @@ interface NewLeaveRequestModalProps {
 
 function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }: NewLeaveRequestModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [staffId, setStaffId]       = useState("");
   const [leaveType, setLeaveType]   = useState<LeaveType>("Annual Leave");
   const [otherLeaveType, setOtherLeaveType] = useState("");
@@ -209,6 +212,7 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!staffId)    { toast.error("Please select a staff member."); return; }
     if (!startDate)  { toast.error("Start date is required."); return; }
     if (!endDate)    { toast.error("End date is required."); return; }
@@ -426,6 +430,8 @@ interface AbsenceModalProps {
 
 function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess }: AbsenceModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const isEdit = !!editData;
   const today = format(new Date(), "yyyy-MM-dd");
 
@@ -448,6 +454,7 @@ function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess 
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!staffId)     { toast.error("Please select a staff member."); return; }
     if (!absenceDate) { toast.error("Date is required."); return; }
     if (absenceType === "Other" && !otherType.trim()) {
@@ -555,6 +562,8 @@ function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess 
 // ─── Leave Requests Sub-tab ───────────────────────────────────────────────────
 function LeaveRequestsTab({ tenantId, staffList }: { tenantId: string; staffList: StaffRow[] }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [newOpen, setNewOpen] = useState(false);
 
   const { data: requests = [], isLoading } = useQuery<LeaveRequest[]>({
@@ -587,6 +596,7 @@ function LeaveRequestsTab({ tenantId, staffList }: { tenantId: string; staffList
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.STAFF_LEAVE_REQUESTS).delete().eq("id", id);
       if (error) throw error;
     },
@@ -1033,6 +1043,8 @@ function LeaveBalancesTab({ tenantId, staffList }: { tenantId: string; staffList
 // ─── Absences Sub-tab ─────────────────────────────────────────────────────────
 function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: StaffRow[] }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [recordOpen, setRecordOpen]   = useState(false);
   const [editAbsence, setEditAbsence] = useState<Absence | null>(null);
 
@@ -1052,6 +1064,7 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.STAFF_ABSENCES).delete().eq("id", id);
       if (error) throw error;
     },

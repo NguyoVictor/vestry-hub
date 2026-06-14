@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -150,6 +153,8 @@ function defaultState(): Record<string, boolean> {
 export default function Modules() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [state, setState] = useState<Record<string, boolean>>(defaultState());
   // Track sub-feature states before parent was disabled (for restore)
   const [prevSubStates, setPrevSubStates] = useState<Record<string, Record<string, boolean>>>({});
@@ -214,6 +219,7 @@ export default function Modules() {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.TENANTS)
         .update({ enabled_modules: state, updated_at: new Date().toISOString() })
@@ -238,6 +244,8 @@ export default function Modules() {
   return (
     <>
       <Helmet><title>Modules — Vestry</title></Helmet>
+
+      {readOnly && <ReadOnlyBanner section="Church Settings" />}
 
       <div className="max-w-3xl pb-24">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -307,7 +315,7 @@ export default function Modules() {
                     <Switch
                       checked={isOn}
                       onCheckedChange={() => toggleModule(module.key, module)}
-                      disabled={module.isCore}
+                      disabled={module.isCore || readOnly}
                       className="shrink-0"
                     />
                   </div>
@@ -339,7 +347,7 @@ export default function Modules() {
                             <Switch
                               checked={!!state[sf.key]}
                               onCheckedChange={() => toggleSub(sf.key)}
-                              disabled={!isOn}
+                              disabled={!isOn || readOnly}
                             />
                           )}
                         </div>
@@ -363,7 +371,8 @@ export default function Modules() {
 
       {/* Sticky Save */}
       <div className="fixed bottom-6 right-6 z-10">
-        <Button
+        <PermissionButton
+          readOnly={readOnly}
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
           onClick={() => save.mutate()}
           disabled={save.isPending}

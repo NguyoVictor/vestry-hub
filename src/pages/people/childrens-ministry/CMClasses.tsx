@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageTransition } from "@/components/ui/PageTransition";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -23,6 +25,8 @@ import { cn } from "@/lib/utils";
 
 export default function CMClasses() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const qc = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ChildClass | null>(null);
@@ -77,9 +81,15 @@ export default function CMClasses() {
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Classes</h1>
             <p className="text-sm text-slate-500 mt-0.5">Manage children's ministry class groups</p>
           </div>
-          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-2" onClick={() => { setEditing(null); setModalOpen(true); }}>
+          <PermissionButton 
+            permission="member_management"
+            readOnly={readOnly}
+            size="sm" 
+            className="bg-orange-500 hover:bg-orange-600 text-white gap-2" 
+            onClick={() => { setEditing(null); setModalOpen(true); }}
+          >
             <Plus className="h-4 w-4" />Add Class
-          </Button>
+          </PermissionButton>
         </div>
 
         {isLoading ? (
@@ -87,7 +97,7 @@ export default function CMClasses() {
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
           </div>
         ) : classes.length === 0 ? (
-          <EmptyState icon={BookOpen} title="No classes yet" description="Add your first class to get started." action={<Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setModalOpen(true)}><Plus className="h-4 w-4 mr-1.5" />Add Class</Button>} />
+          <EmptyState icon={BookOpen} title="No classes yet" description="Add your first class to get started." action={<PermissionButton permission="member_management" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setModalOpen(true)}><Plus className="h-4 w-4 mr-1.5" />Add Class</PermissionButton>} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {classes.map(cls => {

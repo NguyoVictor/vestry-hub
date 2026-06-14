@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -76,6 +79,8 @@ interface FacilityTypeModalProps {
 }
 
 function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, onSuccess }: FacilityTypeModalProps) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const form = useForm<FacilityTypeFormValues>({
     resolver: zodResolver(facilityTypeSchema),
     defaultValues: { label: "", description: "", is_active: true },
@@ -96,6 +101,7 @@ function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, on
 
   const createMutation = useMutation({
     mutationFn: async (values: FacilityTypeFormValues) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.FACILITY_TYPES).insert({
         tenant_id: tenantId,
         label: values.label,
@@ -118,6 +124,7 @@ function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, on
 
   const updateMutation = useMutation({
     mutationFn: async (values: FacilityTypeFormValues) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.FACILITY_TYPES)
         .update({
@@ -218,6 +225,7 @@ function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, on
                           checked={field.value}
                           onCheckedChange={field.onChange}
                           className="data-[state=checked]:bg-orange-500"
+                          disabled={readOnly}
                         />
                       </FormControl>
                     </div>
@@ -234,7 +242,7 @@ function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, on
               <Button
                 type="submit"
                 className="bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={isPending}
+                disabled={isPending || readOnly}
               >
                 {isPending ? "Saving..." : editing ? "Save Changes" : "Add Type"}
               </Button>
@@ -249,6 +257,8 @@ function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, on
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function FacilityTypesPage() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const qc = useQueryClient();
   const [rows, setRows] = useState<FacilityType[]>([]);
 
@@ -285,6 +295,7 @@ export default function FacilityTypesPage() {
   // Seed default facility types
   const seedDefaultsMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const inserts = FACILITY_DEFAULTS.map(d => ({
         ...d,
         tenant_id: tenantId,
@@ -305,6 +316,7 @@ export default function FacilityTypesPage() {
 
   // Toggle active status with optimistic UI
   const toggleActive = async (type: FacilityType) => {
+    if (readOnly) return;
     const newVal = !type.is_active;
     setRows(prev => prev.map(r => r.id === type.id ? { ...r, is_active: newVal } : r));
     const { error } = await supabase
@@ -365,6 +377,9 @@ export default function FacilityTypesPage() {
     <PageTransition>
       <Helmet><title>Facility Types — Vestry</title></Helmet>
 
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Facility Types" />}
+
       <div className="max-w-3xl">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           {/* Card header */}
@@ -373,14 +388,15 @@ export default function FacilityTypesPage() {
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Facility Types</p>
               <p className="text-xs text-slate-500 mt-0.5">Manage the types of facilities your church offers</p>
             </div>
-            <Button
+            <PermissionButton
+              readOnly={readOnly}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
               size="sm"
               onClick={openAdd}
             >
               <Plus className="h-4 w-4" />
               Add Type
-            </Button>
+            </PermissionButton>
           </div>
 
           {/* Content */}
@@ -397,7 +413,8 @@ export default function FacilityTypesPage() {
               <p className="text-sm text-slate-400 max-w-sm font-jakarta">
                 Add facility types to categorise the spaces your church offers for booking.
               </p>
-              <Button
+              <PermissionButton
+                readOnly={readOnly}
                 variant="outline"
                 size="sm"
                 className="mt-2"
@@ -405,7 +422,7 @@ export default function FacilityTypesPage() {
                 disabled={seedDefaultsMutation.isPending}
               >
                 {seedDefaultsMutation.isPending ? "Adding..." : "Add Default Types"}
-              </Button>
+              </PermissionButton>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -453,6 +470,7 @@ export default function FacilityTypesPage() {
                         checked={type.is_active}
                         onCheckedChange={() => toggleActive(type)}
                         className="data-[state=checked]:bg-orange-500"
+                        disabled={readOnly}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">

@@ -1,5 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -15,6 +17,8 @@ const APP_BASE_URL = window.location.origin;
 export default function RegistrationSettings() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["tenant-registration", tenantId],
@@ -33,6 +37,7 @@ export default function RegistrationSettings() {
 
   const toggleMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.TENANTS)
         .update({ registration_enabled: enabled } as never)
@@ -68,6 +73,8 @@ export default function RegistrationSettings() {
     <>
       <Helmet><title>Registration — Vestry</title></Helmet>
 
+      {readOnly && <ReadOnlyBanner section="Registration Settings" />}
+
       <div className="max-w-2xl space-y-5">
         {/* Header */}
         <div className="flex items-start gap-3">
@@ -97,7 +104,7 @@ export default function RegistrationSettings() {
           <Switch
             checked={isEnabled}
             onCheckedChange={v => toggleMutation.mutate(v)}
-            disabled={toggleMutation.isPending}
+            disabled={toggleMutation.isPending || readOnly}
             className="data-[state=checked]:bg-orange-500 shrink-0"
           />
         </div>

@@ -2,8 +2,11 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { TABLES } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -1196,6 +1199,8 @@ async function exportToPDF(incidents: Incident[], churchName: string) {
 
 export default function IncidentManagement() {
   const { tenantId, name: churchName, userName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const queryClient = useQueryClient();
 
   // UI state
@@ -1400,7 +1405,8 @@ export default function IncidentManagement() {
                 <span className="h-1.5 w-1.5 rounded-full bg-orange-500 ml-0.5" />
               )}
             </Button>
-            <Button
+            <PermissionButton
+              readOnly={readOnly}
               variant="outline"
               size="sm"
               className="border-slate-300 text-slate-600 hover:border-orange-400 hover:text-orange-600 gap-1.5"
@@ -1409,7 +1415,7 @@ export default function IncidentManagement() {
             >
               <Download className="h-4 w-4" />
               {exporting ? "Exporting..." : "Export PDF"}
-            </Button>
+            </PermissionButton>
             <Button
               size="sm"
               className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
@@ -1420,6 +1426,8 @@ export default function IncidentManagement() {
             </Button>
           </div>
         </div>
+
+        {readOnly && <ReadOnlyBanner permission="reports_analytics" />}
 
         {/* ── Stats ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

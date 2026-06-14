@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -65,11 +67,13 @@ function ToggleRow({
   description,
   checked,
   onChange,
+  readOnly,
 }: {
   label: string;
   description: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3 border-t border-slate-100 dark:border-slate-700 first:border-t-0">
@@ -81,6 +85,7 @@ function ToggleRow({
         checked={checked}
         onCheckedChange={onChange}
         className="data-[state=checked]:bg-orange-500 shrink-0"
+        disabled={readOnly}
       />
     </div>
   );
@@ -90,6 +95,8 @@ function ToggleRow({
 export default function Preferences() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   const [earlyRiserTime,       setEarlyRiserTime]       = useState("06:00");
   const [morningServiceTime,   setMorningServiceTime]   = useState("10:00");
@@ -142,6 +149,7 @@ export default function Preferences() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.TENANTS)
         .update({
@@ -179,6 +187,9 @@ export default function Preferences() {
   return (
     <>
       <Helmet><title>Preferences — Vestry</title></Helmet>
+
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Preferences" />}
 
       <div className="max-w-2xl space-y-5 pb-24">
 
@@ -296,6 +307,7 @@ export default function Preferences() {
             description="Automatically generate unique IDs when adding new members"
             checked={autoGenerateIds}
             onChange={setAutoGenerateIds}
+            readOnly={readOnly}
           />
         </Card>
 
@@ -311,12 +323,14 @@ export default function Preferences() {
             description="Allow members to check in to services and events"
             checked={enableCheckin}
             onChange={setEnableCheckin}
+            readOnly={readOnly}
           />
           <ToggleRow
             label="Allow Self Checkout"
             description="Allow members to check themselves out when leaving"
             checked={allowSelfCheckout}
             onChange={setAllowSelfCheckout}
+            readOnly={readOnly}
           />
         </Card>
       </div>
@@ -326,7 +340,7 @@ export default function Preferences() {
         <Button
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
           onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending}
+          disabled={saveMutation.isPending || readOnly}
         >
           <Settings className="h-4 w-4" />
           {saveMutation.isPending ? "Saving..." : "Save Preferences"}

@@ -8,6 +8,8 @@ import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { formatCurrencyFull } from "@/lib/format";
 import { useActivityLog } from "@/hooks/useActivityLog";
+import { usePermissions } from '@/hooks/usePermissions';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import {
   Users, TrendingUp, CalendarDays, Users2, UserPlus, CreditCard,
@@ -15,7 +17,7 @@ import {
   Activity, Sparkles, CheckCircle2, MessageSquare, Send,
 } from "lucide-react";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
 import { format, formatDistanceToNow } from "date-fns";
@@ -123,6 +125,7 @@ const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6", "#6
 const Dashboard = () => {
   const church = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
   const [chartMonths, setChartMonths] = useState(6);
   
   // Check if user has visited dashboard before (using localStorage)
@@ -758,32 +761,39 @@ const Dashboard = () => {
         {/* Quick Actions */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Add Member", icon: UserPlus, color: "#7C3AED", bg: "rgba(124,58,237,0.06)", href: "/members" },
-            { label: "Record Giving", icon: CreditCard, color: "#F97316", bg: "rgba(249,115,22,0.06)", href: "/give-online" },
-            { label: "Create Event", icon: CalendarPlus, color: "#0EA5E9", bg: "rgba(14,165,233,0.06)", href: "/events" },
-            { label: "Announcement", icon: Megaphone, color: "#10B981", bg: "rgba(16,185,129,0.06)", href: "/announcements" },
+            { label: "Add Member", icon: UserPlus, color: "#7C3AED", bg: "rgba(124,58,237,0.06)", href: "/members", disabled: isReadOnly('member_management') },
+            { label: "Record Giving", icon: CreditCard, color: "#F97316", bg: "rgba(249,115,22,0.06)", href: "/give-online", disabled: isReadOnly('financial_records') },
+            { label: "Create Event", icon: CalendarPlus, color: "#0EA5E9", bg: "rgba(14,165,233,0.06)", href: "/events", disabled: isReadOnly('event_management') },
+            { label: "Announcement", icon: Megaphone, color: "#10B981", bg: "rgba(16,185,129,0.06)", href: "/announcements", disabled: isReadOnly('communication_tools') },
           ].map((action, index) => (
-            <motion.button
-              key={action.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 + index * 0.1, duration: 0.4 }}
-              whileHover={{ 
-                y: -3, 
-                boxShadow: `0 8px 25px ${action.color}33` 
-              }}
-              whileTap={{ scale: 0.97 }}
-              className="bg-white border border-slate-100 rounded-xl p-5 flex flex-col items-center gap-3 transition-all"
-              onClick={() => window.location.href = action.href}
-            >
-              <div 
-                className="w-11 h-11 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: action.bg }}
-              >
-                <action.icon className="w-5 h-5" style={{ color: action.color }} />
-              </div>
-              <span className="text-sm font-medium text-slate-700">{action.label}</span>
-            </motion.button>
+            <TooltipProvider key={action.label}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <motion.button
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + index * 0.1, duration: 0.4 }}
+                      whileHover={!action.disabled ? { y: -3, boxShadow: `0 8px 25px ${action.color}33` } : {}}
+                      whileTap={!action.disabled ? { scale: 0.97 } : {}}
+                      className={`bg-white border border-slate-100 rounded-xl p-5 flex flex-col items-center gap-3 transition-all ${action.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={() => { if (!action.disabled) window.location.href = action.href; }}
+                      disabled={action.disabled}
+                    >
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: action.bg }}>
+                        <action.icon className="w-5 h-5" style={{ color: action.color }} />
+                      </div>
+                      <span className="text-sm font-medium text-slate-700">{action.label}</span>
+                    </motion.button>
+                  </span>
+                </TooltipTrigger>
+                {action.disabled && (
+                  <TooltipContent>
+                    <p>Read Only Access — contact your church admin</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           ))}
         </div>
 

@@ -7,6 +7,9 @@ import NumberFlow from "@/components/finance/AnimatedNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useGivingRecordsRealtime } from "@/hooks/useFinanceRealtime";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { TransactionBadge } from "@/components/finance/TransactionBadge";
 import { PaymentMethodIcon } from "@/components/finance/PaymentMethodIcon";
@@ -761,6 +764,8 @@ function AdminGive() {
 const GiveOnline = () => {
   const { tenantId, currency, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [form, setForm] = useState({ member_id: "", amount: "", giving_type: "offering", payment_method: "cash", payment_reference: "", given_at: new Date().toISOString().split("T")[0], notes: "" });
@@ -873,13 +878,15 @@ const GiveOnline = () => {
                 subtitle="Accept digital offerings and tithes from your congregation"
                 action={
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button onClick={() => setSheetOpen(true)} className="bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600 shadow-lg shadow-purple-500/25">
+                    <PermissionButton readOnly={readOnly} onClick={() => setSheetOpen(true)} className="bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600 shadow-lg shadow-purple-500/25">
                       <Plus className="h-4 w-4 mr-2" />Record Giving
-                    </Button>
+                    </PermissionButton>
                   </motion.div>
                 }
               />
             </motion.div>
+
+            {readOnly && <ReadOnlyBanner section="Financial Records" />}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

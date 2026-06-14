@@ -6,6 +6,9 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Plus, Download } from "lucide-react";
 import Papa from "papaparse";
 import { AnimatePresence } from "framer-motion";
@@ -17,6 +20,9 @@ import EmptyFamilyState from "@/components/families/EmptyFamilyState";
 const Families = () => {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
+  const reportsReadOnly = isReadOnly('reports_analytics');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingFamily, setEditingFamily] = useState<any | null>(null);
 
@@ -70,6 +76,7 @@ const Families = () => {
 
   const saveMut = useMutation({
     mutationFn: async (data: { name: string; members: any[] }) => {
+      if (readOnly) return;
       let familyId = editingFamily?.id;
 
       if (editingFamily) {
@@ -122,6 +129,7 @@ const Families = () => {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       await supabase.from("family_members").delete().eq("family_id", id);
       const { error } = await supabase.from("families").delete().eq("id", id);
       if (error) throw error;
@@ -188,19 +196,21 @@ const Families = () => {
       <Helmet><title>Families — Vestry</title></Helmet>
       <div className="font-jakarta">
         <PageHeader title="Families" subtitle="Link members together as family units" />
-        <div className="flex justify-end mb-4 -mt-8 gap-2">
-          <Button variant="outline" size="sm" onClick={exportFamiliesCsv}>
+        {readOnly && <div className="mb-6"><ReadOnlyBanner section="Member Management" /></div>}
+        {reportsReadOnly && <div className="mb-6"><ReadOnlyBanner permission="reports_analytics" /></div>}
+        <div className={`flex justify-end mb-4 gap-2 ${(readOnly || reportsReadOnly) ? '' : '-mt-8'}`}>
+          <PermissionButton readOnly={reportsReadOnly} variant="outline" size="sm" onClick={exportFamiliesCsv}>
             <Download className="h-4 w-4 mr-2" />Export
-          </Button>
-          <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
+          </PermissionButton>
+          <PermissionButton readOnly={readOnly} onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
             <Plus className="h-4 w-4 mr-2" />Create Family
-          </Button>
+          </PermissionButton>
         </div>
 
         {families.length > 0 && <FamiliesStatBar families={families} />}
 
         {families.length === 0 && !isLoading ? (
-          <EmptyFamilyState onCtaClick={openCreate} />
+          <EmptyFamilyState onCtaClick={openCreate} readOnly={readOnly} />
         ) : (
           <FamiliesTable
             families={families}

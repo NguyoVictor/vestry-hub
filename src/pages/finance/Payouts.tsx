@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "motion/react";
 import NumberFlow from "@/components/finance/AnimatedNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PaymentMethodIcon } from "@/components/finance/PaymentMethodIcon";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -65,6 +68,8 @@ const tableRowVariants = {
 const Payouts = () => {
   const { tenantId, currency, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [form, setForm] = useState({ recipient_name: "", amount: "", payment_method: "bank_transfer", payment_status: "pending", reference: "", notes: "", currency: "KES" });
 
@@ -170,17 +175,20 @@ const Payouts = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button 
+                <PermissionButton 
+                  readOnly={readOnly}
                   onClick={() => setSheetOpen(true)}
                   className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 shadow-lg shadow-red-500/25"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Record Payout
-                </Button>
+                </PermissionButton>
               </motion.div>
             } 
           />
         </motion.div>
+
+        {readOnly && <ReadOnlyBanner section="Financial Records" />}
 
         {/* Premium Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -282,13 +290,15 @@ const Payouts = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <Button 
+                    <PermissionButton 
+                      permission="financial_records"
+                      readOnly={readOnly}
                       onClick={() => setSheetOpen(true)}
                       className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 shadow-lg shadow-red-500/25"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Record First Payout
-                    </Button>
+                    </PermissionButton>
                   </motion.div>
                 </motion.div>
               ) : (

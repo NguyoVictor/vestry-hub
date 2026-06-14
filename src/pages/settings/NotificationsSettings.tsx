@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -40,20 +43,20 @@ function CardHeader({ icon: Icon, title, subtitle, action }: {
   );
 }
 
-function ToggleRow({ label, description, checked, onChange, disabled }: {
+function ToggleRow({ label, description, checked, onChange, disabled, readOnly }: {
   label: string; description: string; checked: boolean;
-  onChange: (v: boolean) => void; disabled?: boolean;
+  onChange: (v: boolean) => void; disabled?: boolean; readOnly?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5 border-t border-slate-100 dark:border-slate-700 first:border-t-0">
       <div>
-        <p className={`text-sm font-medium ${disabled ? "text-slate-400" : "text-slate-700 dark:text-slate-200"}`}>{label}</p>
+        <p className={`text-sm font-medium ${disabled || readOnly ? "text-slate-400" : "text-slate-700 dark:text-slate-200"}`}>{label}</p>
         <p className="text-xs text-slate-400 mt-0.5">{description}</p>
       </div>
       <Switch
         checked={checked}
         onCheckedChange={onChange}
-        disabled={disabled}
+        disabled={disabled || readOnly}
         className="data-[state=checked]:bg-orange-500 shrink-0"
       />
     </div>
@@ -110,6 +113,8 @@ const DEFAULT_NOTIFS: NotifState = Object.fromEntries(ALL_NOTIF_KEYS.map(k => [k
 export default function NotificationsSettings() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   // Card 1
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -226,6 +231,7 @@ export default function NotificationsSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload: Record<string, unknown> = {
         push_notifications_enabled: pushEnabled,
         ...notifs,
@@ -264,6 +270,8 @@ export default function NotificationsSettings() {
     <>
       <Helmet><title>Notifications — Vestry</title></Helmet>
 
+      {readOnly && <ReadOnlyBanner section="Notification Settings" />}
+
       <div className="max-w-2xl space-y-5 pb-24">
 
         {/* ── Card 1: Push Notifications ── */}
@@ -278,6 +286,7 @@ export default function NotificationsSettings() {
             description="Get notified about events and tasks"
             checked={pushEnabled}
             onChange={handlePushToggle}
+            readOnly={readOnly}
           />
           {pushBlocked && (
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -295,47 +304,47 @@ export default function NotificationsSettings() {
           />
 
           <GroupLabel label="Events & Services" />
-          <ToggleRow label="Event Cancellation" description="Notify when events are cancelled or changed" checked={notifs.notif_event_cancellation} onChange={v => setNotif("notif_event_cancellation", v)} />
-          <ToggleRow label="Event Reminder (1 day)" description="Notify members 1 day before events" checked={notifs.notif_event_reminder_1d} onChange={v => setNotif("notif_event_reminder_1d", v)} />
-          <ToggleRow label="Event Reminder (3 days)" description="Notify members 3 days before events" checked={notifs.notif_event_reminder_3d} onChange={v => setNotif("notif_event_reminder_3d", v)} />
-          <ToggleRow label="Event Reminder (7 days)" description="Notify members 7 days before events" checked={notifs.notif_event_reminder_7d} onChange={v => setNotif("notif_event_reminder_7d", v)} />
-          <ToggleRow label="Service Reminder" description="Remind members about upcoming services" checked={notifs.notif_service_reminder} onChange={v => setNotif("notif_service_reminder", v)} />
+          <ToggleRow label="Event Cancellation" description="Notify when events are cancelled or changed" checked={notifs.notif_event_cancellation} onChange={v => setNotif("notif_event_cancellation", v)} readOnly={readOnly} />
+          <ToggleRow label="Event Reminder (1 day)" description="Notify members 1 day before events" checked={notifs.notif_event_reminder_1d} onChange={v => setNotif("notif_event_reminder_1d", v)} readOnly={readOnly} />
+          <ToggleRow label="Event Reminder (3 days)" description="Notify members 3 days before events" checked={notifs.notif_event_reminder_3d} onChange={v => setNotif("notif_event_reminder_3d", v)} readOnly={readOnly} />
+          <ToggleRow label="Event Reminder (7 days)" description="Notify members 7 days before events" checked={notifs.notif_event_reminder_7d} onChange={v => setNotif("notif_event_reminder_7d", v)} readOnly={readOnly} />
+          <ToggleRow label="Service Reminder" description="Remind members about upcoming services" checked={notifs.notif_service_reminder} onChange={v => setNotif("notif_service_reminder", v)} readOnly={readOnly} />
 
           <GroupLabel label="Giving & Finance" />
-          <ToggleRow label="Donation Confirmation" description="Confirm successful donations" checked={notifs.notif_donation_confirmation} onChange={v => setNotif("notif_donation_confirmation", v)} />
-          <ToggleRow label="Pledge Payment Reminder" description="Remind about outstanding pledges" checked={notifs.notif_pledge_reminder} onChange={v => setNotif("notif_pledge_reminder", v)} />
-          <ToggleRow label="Recurring Donation Processed" description="Notify when recurring donations are processed" checked={notifs.notif_recurring_donation} onChange={v => setNotif("notif_recurring_donation", v)} />
+          <ToggleRow label="Donation Confirmation" description="Confirm successful donations" checked={notifs.notif_donation_confirmation} onChange={v => setNotif("notif_donation_confirmation", v)} readOnly={readOnly} />
+          <ToggleRow label="Pledge Payment Reminder" description="Remind about outstanding pledges" checked={notifs.notif_pledge_reminder} onChange={v => setNotif("notif_pledge_reminder", v)} readOnly={readOnly} />
+          <ToggleRow label="Recurring Donation Processed" description="Notify when recurring donations are processed" checked={notifs.notif_recurring_donation} onChange={v => setNotif("notif_recurring_donation", v)} readOnly={readOnly} />
 
           <GroupLabel label="Tasks & Assignments" />
-          <ToggleRow label="Task Assigned" description="Notify when a new task is assigned" checked={notifs.notif_task_assigned} onChange={v => setNotif("notif_task_assigned", v)} />
-          <ToggleRow label="Task Due Soon" description="Remind about upcoming task deadlines" checked={notifs.notif_task_due_soon} onChange={v => setNotif("notif_task_due_soon", v)} />
-          <ToggleRow label="Task Overdue" description="Alert about overdue tasks" checked={notifs.notif_task_overdue} onChange={v => setNotif("notif_task_overdue", v)} />
-          <ToggleRow label="Volunteer Assignment" description="Notify about volunteer opportunity assignments" checked={notifs.notif_volunteer_assignment} onChange={v => setNotif("notif_volunteer_assignment", v)} />
+          <ToggleRow label="Task Assigned" description="Notify when a new task is assigned" checked={notifs.notif_task_assigned} onChange={v => setNotif("notif_task_assigned", v)} readOnly={readOnly} />
+          <ToggleRow label="Task Due Soon" description="Remind about upcoming task deadlines" checked={notifs.notif_task_due_soon} onChange={v => setNotif("notif_task_due_soon", v)} readOnly={readOnly} />
+          <ToggleRow label="Task Overdue" description="Alert about overdue tasks" checked={notifs.notif_task_overdue} onChange={v => setNotif("notif_task_overdue", v)} readOnly={readOnly} />
+          <ToggleRow label="Volunteer Assignment" description="Notify about volunteer opportunity assignments" checked={notifs.notif_volunteer_assignment} onChange={v => setNotif("notif_volunteer_assignment", v)} readOnly={readOnly} />
 
           <GroupLabel label="Appointments" />
-          <ToggleRow label="Appointment Confirmation" description="Confirm counselling appointments" checked={notifs.notif_appt_confirmation} onChange={v => setNotif("notif_appt_confirmation", v)} />
-          <ToggleRow label="Appointment Reminder" description="Remind about upcoming appointments" checked={notifs.notif_appt_reminder} onChange={v => setNotif("notif_appt_reminder", v)} />
-          <ToggleRow label="Appointment Status Change" description="Notify when appointment status changes" checked={notifs.notif_appt_status_change} onChange={v => setNotif("notif_appt_status_change", v)} />
+          <ToggleRow label="Appointment Confirmation" description="Confirm counselling appointments" checked={notifs.notif_appt_confirmation} onChange={v => setNotif("notif_appt_confirmation", v)} readOnly={readOnly} />
+          <ToggleRow label="Appointment Reminder" description="Remind about upcoming appointments" checked={notifs.notif_appt_reminder} onChange={v => setNotif("notif_appt_reminder", v)} readOnly={readOnly} />
+          <ToggleRow label="Appointment Status Change" description="Notify when appointment status changes" checked={notifs.notif_appt_status_change} onChange={v => setNotif("notif_appt_status_change", v)} readOnly={readOnly} />
 
           <GroupLabel label="Groups" />
-          <ToggleRow label="Group Announcement" description="Notify about new group announcements" checked={notifs.notif_group_announcement} onChange={v => setNotif("notif_group_announcement", v)} />
-          <ToggleRow label="Group Meeting Reminder" description="Remind about group meetings" checked={notifs.notif_group_meeting_reminder} onChange={v => setNotif("notif_group_meeting_reminder", v)} />
+          <ToggleRow label="Group Announcement" description="Notify about new group announcements" checked={notifs.notif_group_announcement} onChange={v => setNotif("notif_group_announcement", v)} readOnly={readOnly} />
+          <ToggleRow label="Group Meeting Reminder" description="Remind about group meetings" checked={notifs.notif_group_meeting_reminder} onChange={v => setNotif("notif_group_meeting_reminder", v)} readOnly={readOnly} />
 
           <GroupLabel label="Personal" />
-          <ToggleRow label="Anniversary Greeting" description="Send anniversary greetings" checked={notifs.notif_anniversary} onChange={v => setNotif("notif_anniversary", v)} />
-          <ToggleRow label="Birthday Wishes" description="Send birthday greetings" checked={notifs.notif_birthday} onChange={v => setNotif("notif_birthday", v)} />
-          <ToggleRow label="Welcome Message" description="Welcome new members" checked={notifs.notif_welcome} onChange={v => setNotif("notif_welcome", v)} />
+          <ToggleRow label="Anniversary Greeting" description="Send anniversary greetings" checked={notifs.notif_anniversary} onChange={v => setNotif("notif_anniversary", v)} readOnly={readOnly} />
+          <ToggleRow label="Birthday Wishes" description="Send birthday greetings" checked={notifs.notif_birthday} onChange={v => setNotif("notif_birthday", v)} readOnly={readOnly} />
+          <ToggleRow label="Welcome Message" description="Welcome new members" checked={notifs.notif_welcome} onChange={v => setNotif("notif_welcome", v)} readOnly={readOnly} />
 
           <GroupLabel label="Asset Management" />
-          <ToggleRow label="Asset Release Approval" description="Notify about asset release decisions" checked={notifs.notif_asset_approval} onChange={v => setNotif("notif_asset_approval", v)} />
-          <ToggleRow label="Asset Return Reminder" description="Remind about asset return dates" checked={notifs.notif_asset_return} onChange={v => setNotif("notif_asset_return", v)} />
+          <ToggleRow label="Asset Release Approval" description="Notify about asset release decisions" checked={notifs.notif_asset_approval} onChange={v => setNotif("notif_asset_approval", v)} readOnly={readOnly} />
+          <ToggleRow label="Asset Return Reminder" description="Remind about asset return dates" checked={notifs.notif_asset_return} onChange={v => setNotif("notif_asset_return", v)} readOnly={readOnly} />
 
           <GroupLabel label="Service Requests" />
-          <ToggleRow label="Service Request Status" description="Notify about service request updates" checked={notifs.notif_service_request} onChange={v => setNotif("notif_service_request", v)} />
+          <ToggleRow label="Service Request Status" description="Notify about service request updates" checked={notifs.notif_service_request} onChange={v => setNotif("notif_service_request", v)} readOnly={readOnly} />
 
           <GroupLabel label="Discipleship" />
-          <ToggleRow label="Follow-up Assignment" description="Notify about new follow-up assignments" checked={notifs.notif_followup_assignment} onChange={v => setNotif("notif_followup_assignment", v)} />
-          <ToggleRow label="Milestone Completion" description="Celebrate discipleship milestones" checked={notifs.notif_milestone} onChange={v => setNotif("notif_milestone", v)} />
+          <ToggleRow label="Follow-up Assignment" description="Notify about new follow-up assignments" checked={notifs.notif_followup_assignment} onChange={v => setNotif("notif_followup_assignment", v)} readOnly={readOnly} />
+          <ToggleRow label="Milestone Completion" description="Celebrate discipleship milestones" checked={notifs.notif_milestone} onChange={v => setNotif("notif_milestone", v)} readOnly={readOnly} />
         </Card>
 
         {/* ── Card 3: Africa's Talking SMS ── */}
@@ -362,6 +371,7 @@ export default function NotificationsSettings() {
             description="SMS will be sent using your Africa's Talking account (no platform credits used)"
             checked={atEnabled}
             onChange={setAtEnabled}
+            readOnly={readOnly}
           />
 
           <Expandable open={atEnabled}>
@@ -462,6 +472,7 @@ export default function NotificationsSettings() {
                 description="Get an in-app notification when your SMS balance falls below a set amount"
                 checked={atLowBalanceAlert}
                 onChange={setAtLowBalanceAlert}
+                readOnly={readOnly}
               />
               <Expandable open={atLowBalanceAlert}>
                 <div className="space-y-1.5">
@@ -486,14 +497,15 @@ export default function NotificationsSettings() {
 
       {/* Sticky save */}
       <div className="fixed bottom-6 right-6 z-10">
-        <Button
+        <PermissionButton
+          readOnly={readOnly}
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
         >
           <Settings className="h-4 w-4" />
           {saveMutation.isPending ? "Saving..." : "Save Settings"}
-        </Button>
+        </PermissionButton>
       </div>
     </>
   );

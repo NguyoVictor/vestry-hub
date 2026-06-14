@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -76,6 +78,8 @@ function Expandable({ open, children }: { open: boolean; children: React.ReactNo
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function AttendanceSettings() {
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings') || isReadOnly('attendance');
   const qc = useQueryClient();
 
   // Card 1 — Check-in Window
@@ -145,6 +149,7 @@ export default function AttendanceSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.TENANTS)
         .update({
@@ -182,6 +187,9 @@ export default function AttendanceSettings() {
     <>
       <Helmet><title>Attendance Settings — Vestry</title></Helmet>
 
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Attendance Settings" />}
+
       <div className="max-w-2xl space-y-5 pb-24">
 
         {/* ── Card 1: Check-in Window ── */}
@@ -196,6 +204,7 @@ export default function AttendanceSettings() {
             description="Restrict check-ins to a specific time window around service start"
             checked={checkinWindowEnabled}
             onChange={setCheckinWindowEnabled}
+            disabled={readOnly}
           />
           <Expandable open={checkinWindowEnabled}>
             <div className="grid grid-cols-2 gap-4">
@@ -207,6 +216,7 @@ export default function AttendanceSettings() {
                   max="240"
                   value={minutesBefore}
                   onChange={e => setMinutesBefore(e.target.value)}
+                  disabled={readOnly}
                 />
                 <p className="text-xs text-slate-400">Allow check-in this many minutes before service starts</p>
               </div>
@@ -218,6 +228,7 @@ export default function AttendanceSettings() {
                   max="240"
                   value={minutesAfter}
                   onChange={e => setMinutesAfter(e.target.value)}
+                  disabled={readOnly}
                 />
                 <p className="text-xs text-slate-400">Allow check-in this many minutes after service starts</p>
               </div>
@@ -237,6 +248,7 @@ export default function AttendanceSettings() {
             description="Members must be within range of the church to check in"
             checked={locationEnabled}
             onChange={setLocationEnabled}
+            disabled={readOnly}
           />
           <Expandable open={locationEnabled}>
             <div className="space-y-1.5">
@@ -248,6 +260,7 @@ export default function AttendanceSettings() {
                 value={locationRadius}
                 onChange={e => setLocationRadius(e.target.value)}
                 className="max-w-xs"
+                disabled={readOnly}
               />
               <p className="text-xs text-slate-400">
                 Members must be within this distance from the church to check in
@@ -274,6 +287,7 @@ export default function AttendanceSettings() {
             description="Receive notifications when members are absent for multiple weeks"
             checked={absenceAlertsEnabled}
             onChange={setAbsenceAlertsEnabled}
+            disabled={readOnly}
           />
           <Expandable open={absenceAlertsEnabled}>
             <div className="space-y-4">
@@ -286,12 +300,13 @@ export default function AttendanceSettings() {
                   value={absenceThreshold}
                   onChange={e => setAbsenceThreshold(e.target.value)}
                   className="max-w-xs"
+                  disabled={readOnly}
                 />
                 <p className="text-xs text-slate-400">Send alert after this many consecutive missed services</p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Alert Recipients</Label>
-                <Select value={alertRecipients} onValueChange={setAlertRecipients}>
+                <Select value={alertRecipients} onValueChange={setAlertRecipients} disabled={readOnly}>
                   <SelectTrigger className="max-w-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -324,6 +339,7 @@ export default function AttendanceSettings() {
             description="Allow members to check in by scanning a QR code"
             checked={qrCheckinEnabled}
             onChange={setQrCheckinEnabled}
+            disabled={readOnly}
           />
 
           {/* Self Check-in Kiosk — greyed out / coming soon */}
@@ -357,7 +373,7 @@ export default function AttendanceSettings() {
           />
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Default Attendance Status</Label>
-            <Select value={defaultStatus} onValueChange={setDefaultStatus}>
+            <Select value={defaultStatus} onValueChange={setDefaultStatus} disabled={readOnly}>
               <SelectTrigger className="max-w-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -378,7 +394,7 @@ export default function AttendanceSettings() {
         <Button
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
           onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending}
+          disabled={saveMutation.isPending || readOnly}
         >
           <Settings className="h-4 w-4" />
           {saveMutation.isPending ? "Saving..." : "Save Attendance Settings"}

@@ -8,6 +8,9 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
 import { TABLES, COLS } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -96,6 +99,8 @@ interface AddUserModalProps {
 function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserModalProps) {
   const church = useChurch();
   const { canAddStaff, usage, limits } = useSubscription();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<MemberRow | null>(null);
   const [role, setRole] = useState<RoleValue>("member");
@@ -141,6 +146,7 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
   };
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (inviteByEmail) {
       if (!inviteFirstName.trim() || !inviteEmail.trim()) {
         toast.error("First name and email are required.");
@@ -654,6 +660,8 @@ interface EditUserModalProps {
 function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProps) {
   const qc = useQueryClient();
   const church = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [role, setRole] = useState<string>("");
   const [branchId, setBranchId] = useState<string>("");
   const [isActive, setIsActive] = useState(true);
@@ -672,6 +680,7 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
   if (!user) return null;
 
   const handleSave = async () => {
+    if (readOnly) return;
     setSaving(true);
     try {
       const finalRole = role;
@@ -778,14 +787,14 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
 type PermLevel = "default" | "read_only" | "full_access";
 
 const PERM_CATEGORIES = [
-  { key: "member_management",   label: "Member Management",   desc: "View and manage church members" },
-  { key: "financial_records",   label: "Financial Records",   desc: "Access donations, expenses, budgets" },
-  { key: "event_management",    label: "Event Management",    desc: "Create and manage events" },
-  { key: "communication_tools", label: "Communication Tools", desc: "Send emails, SMS, announcements" },
-  { key: "reports_analytics",   label: "Reports & Analytics", desc: "View and generate reports" },
-  { key: "attendance",          label: "Attendance",          desc: "Record and view attendance" },
-  { key: "groups_ministries",   label: "Groups & Ministries", desc: "Manage groups and small groups" },
-  { key: "church_settings",     label: "Church Settings",     desc: "Modify church configuration" },
+  { key: "member_management",   label: "Member Management",   desc: "Controls member profiles, families, visitors, children's ministry and follow-up records. Also applies to Groups & Ministries." },
+  { key: "financial_records",   label: "Financial Records",   desc: "Controls giving records, expenses, budgets, payroll, invoices, fund accounting, general ledger and payouts." },
+  { key: "event_management",    label: "Event Management",    desc: "Controls events, services, volunteering roles, facility bookings, member requests and board meetings." },
+  { key: "communication_tools", label: "Communication Tools", desc: "Controls announcements, email/SMS communications, member messaging, surveys and testimonies." },
+  { key: "reports_analytics",   label: "Reports & Analytics", desc: "Controls report generation and analytics exports." },
+  { key: "attendance",          label: "Attendance",          desc: "Controls attendance recording and attendance settings." },
+  { key: "groups_ministries",   label: "Groups & Ministries", desc: "Controls groups and house fellowships independently. Note: Member Management also restricts these pages." },
+  { key: "church_settings",     label: "Church Settings",     desc: "Controls staff management and all church configuration settings." },
 ] as const;
 
 const PERM_LEVEL_STYLES: Record<PermLevel, string> = {
@@ -1070,6 +1079,8 @@ const UsersPage = () => {
   const church = useChurch();
   const qc = useQueryClient();
   const { canAddStaff, limits } = useSubscription();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
@@ -1174,6 +1185,10 @@ const UsersPage = () => {
 
   const sendInviteMutation = useMutation({
     mutationFn: async (targetUser: UserRow) => {
+      if (!canAddStaff) {
+        toast.error(`Staff limit reached (${limits.staff} max on your plan). Remove an existing admin first.`);
+        throw new Error('Staff limit reached');
+      }
       const { data, error } = await supabase.functions.invoke("send-invitation", {
         body: {
           email: targetUser.email,
@@ -1242,6 +1257,8 @@ const UsersPage = () => {
     <>
       <Helmet><title>Users & Permissions — Vestry</title></Helmet>
 
+      {readOnly && <ReadOnlyBanner section="User Management" />}
+
       <Tabs defaultValue="users" className="w-full">
         {/* Tab nav */}
         <TabsList className="mb-6 bg-slate-100 p-1 rounded-lg w-auto">
@@ -1272,7 +1289,8 @@ const UsersPage = () => {
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                 {users.length}/{limits.staff} Admins
               </span>
-              <Button
+              <PermissionButton
+                readOnly={readOnly}
                 className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
                 size="sm"
                 onClick={() => {
@@ -1285,7 +1303,7 @@ const UsersPage = () => {
               >
                 <Plus className="h-4 w-4" />
                 Add User
-              </Button>
+              </PermissionButton>
             </div>
           </div>
 

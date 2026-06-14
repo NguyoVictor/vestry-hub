@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
 import { BlurFadeIn } from "@/components/ui/BlurFadeIn";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,9 +33,9 @@ function getInitials(name: string) {
 }
 
 // ── Fellowship Card ───────────────────────────────────────────────────────────
-function FellowshipCard({ f, memberCount, index, onEdit, onDelete }: {
+function FellowshipCard({ f, memberCount, index, onEdit, onDelete, readOnly }: {
   f: any; memberCount: number; index: number;
-  onEdit: () => void; onDelete: () => void;
+  onEdit: () => void; onDelete: () => void; readOnly?: boolean;
 }) {
   const navigate = useNavigate();
   const color = f.cover_color || "#f97316";
@@ -68,11 +71,11 @@ function FellowshipCard({ f, memberCount, index, onEdit, onDelete }: {
                 <DropdownMenuItem onClick={() => navigate(`/house-fellowships/${f.id}`)}>
                   <Eye className="h-4 w-4 mr-2" />View
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={e => { e.stopPropagation(); onEdit(); }}>
+                <DropdownMenuItem disabled={readOnly} onClick={e => { e.stopPropagation(); onEdit(); }}>
                   <Pencil className="h-4 w-4 mr-2" />Edit
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); onDelete(); }}>
+                <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={e => { e.stopPropagation(); onDelete(); }}>
                   <Trash2 className="h-4 w-4 mr-2" />Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -122,6 +125,8 @@ const HouseFellowships = () => {
   const { tenantId } = useChurch();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management') || isReadOnly('groups_ministries');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -255,10 +260,11 @@ const HouseFellowships = () => {
                 ))}
               </div>
             </div>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta" onClick={openCreate}>
+            <PermissionButton readOnly={readOnly} className="bg-orange-500 hover:bg-orange-600 text-white shrink-0 font-jakarta" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1.5" />Add Fellowship
-            </Button>
+            </PermissionButton>
           </div>
+          {readOnly && <ReadOnlyBanner section="Groups & Ministries" />}
 
           {/* Toolbar */}
           <BlurFadeIn delay={0.1}>
@@ -291,16 +297,16 @@ const HouseFellowships = () => {
               <p className="text-base font-semibold text-foreground">{search ? "No fellowships match your search" : "No fellowships yet"}</p>
               <p className="text-sm text-muted-foreground max-w-sm">{search ? "Try adjusting your search" : "Create your first house fellowship to organize home cell groups"}</p>
               {!search && (
-                <Button className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={openCreate}>
+                <PermissionButton readOnly={readOnly} className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta" onClick={openCreate}>
                   <Plus className="h-4 w-4 mr-1.5" />Add Fellowship
-                </Button>
+                </PermissionButton>
               )}
             </div>
           ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filtered.map((f: any, i: number) => (
                 <FellowshipCard key={f.id} f={f} memberCount={memberCounts[f.id] || 0} index={i}
-                  onEdit={() => openEdit(f)} onDelete={() => deleteMut.mutate(f.id)} />
+                  readOnly={readOnly} onEdit={() => openEdit(f)} onDelete={() => deleteMut.mutate(f.id)} />
               ))}
             </div>
           ) : (
@@ -354,9 +360,9 @@ const HouseFellowships = () => {
                                 <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEdit(f)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                                <DropdownMenuItem disabled={readOnly} onClick={() => openEdit(f)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive" onClick={() => deleteMut.mutate(f.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                                <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => deleteMut.mutate(f.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>

@@ -1,6 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Baby, CheckSquare, BookOpen, Users, BarChart2, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 
 const NAV = [
   { label: "Overview",         icon: Baby,        path: "/childrens-ministry" },
@@ -12,6 +14,9 @@ const NAV = [
 ];
 
 export default function CMLayout() {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
+  
   return (
     <div className="min-h-screen bg-slate-50 font-jakarta">
       {/* Sub-nav */}
@@ -42,6 +47,7 @@ export default function CMLayout() {
 
       {/* Page content */}
       <div className="max-w-7xl mx-auto px-6 py-6">
+        {readOnly && <ReadOnlyBanner section="Member Management" />}
         <Outlet />
       </div>
     </div>

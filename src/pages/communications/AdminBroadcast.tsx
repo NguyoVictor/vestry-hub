@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -108,6 +110,8 @@ interface BroadcastModalProps {
 
 function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, onSuccess }: BroadcastModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [subject, setSubject]       = useState(prefill?.subject ?? "");
   const [message, setMessage]       = useState(prefill?.message ?? "");
   const [priority, setPriority]     = useState<string>(prefill?.priority ?? "normal");
@@ -198,6 +202,7 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
   });
 
   const sendBroadcast = async () => {
+    if (readOnly) return;
     if (!subject.trim()) { toast.error("Subject is required."); return; }
     if (!message.trim()) { toast.error("Message is required."); return; }
 
@@ -333,6 +338,7 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
   };
 
   const saveDraft = async () => {
+    if (readOnly) return;
     if (!subject.trim()) { toast.error("Subject is required."); return; }
     setSavingDraft(true);
     try {
@@ -687,6 +693,8 @@ function ViewBroadcastModal({ broadcast, onClose }: { broadcast: AdminBroadcast 
 export function AdminBroadcast() {
   const { tenantId, userId, name: churchName } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [activeTab, setActiveTab] = useState("broadcasts");
   const [newBroadcastOpen, setNewBroadcastOpen] = useState(false);
   const [newTemplateOpen, setNewTemplateOpen] = useState(false);
@@ -726,6 +734,7 @@ export function AdminBroadcast() {
 
   const deleteBroadcastMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.ADMIN_BROADCASTS).delete().eq("id", id);
       if (error) throw error;
     },
@@ -735,6 +744,7 @@ export function AdminBroadcast() {
 
   const deleteTemplateMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.BROADCAST_TEMPLATES).delete().eq("id", id);
       if (error) throw error;
     },
@@ -836,9 +846,9 @@ export function AdminBroadcast() {
           <Button variant="outline" size="sm" onClick={() => { refetchBroadcasts(); refetchTemplates(); }} className="gap-1.5">
             <RefreshCw className="h-4 w-4" />Refresh
           </Button>
-          <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5" onClick={() => { setPrefillData(null); setNewBroadcastOpen(true); }}>
+          <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5" onClick={() => { setPrefillData(null); setNewBroadcastOpen(true); }}>
             <Plus className="h-4 w-4" />New Broadcast
-          </Button>
+          </PermissionButton>
         </div>
       </div>
 
@@ -880,13 +890,15 @@ export function AdminBroadcast() {
                       <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full border capitalize", pill)}>{b.status}</span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"><MoreVertical className="h-4 w-4" /></button>
+                          <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" disabled={readOnly}>
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => setViewBroadcast(b)}><Eye className="h-3.5 w-3.5" />View</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleDuplicate(b)}><Copy className="h-3.5 w-3.5" />Duplicate</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleResend(b)}><RotateCcw className="h-3.5 w-3.5" />Resend</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 cursor-pointer text-red-500 focus:text-red-500" onClick={() => setDeleteBroadcast(b)}><Trash2 className="h-3.5 w-3.5" />Delete</DropdownMenuItem>
+                          <DropdownMenuItem disabled={readOnly} className="gap-2 cursor-pointer" onClick={() => handleDuplicate(b)}><Copy className="h-3.5 w-3.5" />Duplicate</DropdownMenuItem>
+                          <DropdownMenuItem disabled={readOnly} className="gap-2 cursor-pointer" onClick={() => handleResend(b)}><RotateCcw className="h-3.5 w-3.5" />Resend</DropdownMenuItem>
+                          <DropdownMenuItem disabled={readOnly} className="gap-2 cursor-pointer text-red-500 focus:text-red-500" onClick={() => setDeleteBroadcast(b)}><Trash2 className="h-3.5 w-3.5" />Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1014,9 +1026,9 @@ export function AdminBroadcast() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50"><FileText className="h-4 w-4 text-orange-500" /></div>
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Broadcast Templates</p>
             </div>
-            <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5" onClick={() => setNewTemplateOpen(true)}>
+            <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5" onClick={() => setNewTemplateOpen(true)}>
               <Plus className="h-4 w-4" />New Template
-            </Button>
+            </PermissionButton>
           </div>
           {templatesLoading ? (
             <div className="p-5 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
@@ -1041,12 +1053,14 @@ export function AdminBroadcast() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"><MoreVertical className="h-4 w-4" /></button>
+                      <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors" disabled={readOnly}>
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {!t.is_system && <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => setEditTemplate(t)}><Copy className="h-3.5 w-3.5" />Edit</DropdownMenuItem>}
-                      <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleUseTemplate(t)}><Copy className="h-3.5 w-3.5" />Use Template</DropdownMenuItem>
-                      {!t.is_system && <DropdownMenuItem className="gap-2 cursor-pointer text-red-500 focus:text-red-500" onClick={() => setDeleteTemplate(t)}><Trash2 className="h-3.5 w-3.5" />Delete</DropdownMenuItem>}
+                      {!t.is_system && <DropdownMenuItem disabled={readOnly} className="gap-2 cursor-pointer" onClick={() => setEditTemplate(t)}><Copy className="h-3.5 w-3.5" />Edit</DropdownMenuItem>}
+                      <DropdownMenuItem disabled={readOnly} className="gap-2 cursor-pointer" onClick={() => handleUseTemplate(t)}><Copy className="h-3.5 w-3.5" />Use Template</DropdownMenuItem>
+                      {!t.is_system && <DropdownMenuItem disabled={readOnly} className="gap-2 cursor-pointer text-red-500 focus:text-red-500" onClick={() => setDeleteTemplate(t)}><Trash2 className="h-3.5 w-3.5" />Delete</DropdownMenuItem>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

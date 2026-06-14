@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
 import { TABLES, COLS } from "@/lib/schema";
 import { BlurFadeIn } from "@/components/ui/BlurFadeIn";
 import { JitsiModal } from "@/components/shared/JitsiModal";
@@ -42,6 +43,8 @@ const GroupDetail = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { tenantId, userName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management') || isReadOnly('groups_ministries');
   const [activeTab, setActiveTab] = useState<"members"|"details">("members");
   const [selectedMember, setSelectedMember] = useState("");
   const [editOpen, setEditOpen] = useState(false);
@@ -109,6 +112,7 @@ const GroupDetail = () => {
 
   const addMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.GROUP_MEMBERS).insert({ group_id: groupId!, member_id: memberId, tenant_id: tenantId } as any);
       if (error) { if (error.code === "23505") throw new Error("Already in group"); throw error; }
     },
@@ -118,6 +122,7 @@ const GroupDetail = () => {
 
   const removeMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.GROUP_MEMBERS).delete().eq("group_id", groupId!).eq("member_id", memberId);
       if (error) throw error;
     },
@@ -126,6 +131,7 @@ const GroupDetail = () => {
 
   const setLeaderMut = useMutation({
     mutationFn: async (memberId: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.GROUPS).update({ leader_id: memberId } as any).eq("id", groupId!);
       if (error) throw error;
     },
@@ -139,6 +145,7 @@ const GroupDetail = () => {
 
   const approveRequestMut = useMutation({
     mutationFn: async (requestId: string) => {
+      if (readOnly) return;
       const req = joinRequests.find((r: any) => r.id === requestId);
       if (!req) throw new Error("Request not found");
       await supabase.from(TABLES.JOIN_REQUESTS).update({ status: "approved" } as any).eq("id", requestId);
@@ -150,6 +157,7 @@ const GroupDetail = () => {
 
   const declineRequestMut = useMutation({
     mutationFn: async (requestId: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.JOIN_REQUESTS).update({ status: "declined" } as any).eq("id", requestId);
       if (error) throw error;
     },

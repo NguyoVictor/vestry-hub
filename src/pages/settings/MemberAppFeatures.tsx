@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -88,6 +90,8 @@ function defaultModules(): Record<string, boolean> {
 export default function MemberAppFeatures() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [modules, setModules] = useState<Record<string, boolean>>(defaultModules());
 
   const { data: tenant, isLoading } = useQuery({
@@ -115,16 +119,18 @@ export default function MemberAppFeatures() {
   }, [tenant]);
 
   function toggle(key: string) {
+    if (readOnly) return;
     setModules(m => ({ ...m, [key]: !m[key] }));
   }
 
-  function enableAll()  { setModules(defaultModules()); }
-  function disableAll() { setModules(Object.fromEntries(ALL_KEYS.map(k => [k, false]))); }
+  function enableAll()  { if (!readOnly) setModules(defaultModules()); }
+  function disableAll() { if (!readOnly) setModules(Object.fromEntries(ALL_KEYS.map(k => [k, false]))); }
 
   const activeCount = ALL_KEYS.filter(k => modules[k]).length;
 
   const save = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.TENANTS)
         .update({ enabled_modules: modules, updated_at: new Date().toISOString() })
@@ -150,6 +156,9 @@ export default function MemberAppFeatures() {
     <>
       <Helmet><title>Member App Features — Vestry</title></Helmet>
 
+      {/* Read-only banner */}
+      {readOnly && <ReadOnlyBanner section="Member App Features" />}
+
       <div className="max-w-3xl pb-24 space-y-0">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
 
@@ -169,8 +178,8 @@ export default function MemberAppFeatures() {
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button variant="outline" size="sm" onClick={enableAll}>Enable All</Button>
-                <Button variant="outline" size="sm" onClick={disableAll}>Disable All</Button>
+                <Button variant="outline" size="sm" onClick={enableAll} disabled={readOnly}>Enable All</Button>
+                <Button variant="outline" size="sm" onClick={disableAll} disabled={readOnly}>Disable All</Button>
               </div>
             </div>
           </div>
@@ -216,6 +225,7 @@ export default function MemberAppFeatures() {
                         checked={!!modules[feature.key]}
                         onCheckedChange={() => toggle(feature.key)}
                         className="shrink-0"
+                        disabled={readOnly}
                       />
                     </div>
                   ))}
@@ -239,7 +249,7 @@ export default function MemberAppFeatures() {
         <Button
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
           onClick={() => save.mutate()}
-          disabled={save.isPending}
+          disabled={save.isPending || readOnly}
         >
           <Save className="h-4 w-4" />
           {save.isPending ? "Saving…" : "Save Changes"}

@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { useBudgetRealtime } from "@/hooks/useFinanceRealtime";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +66,8 @@ const tableRowVariants = {
 const BudgetManagement = () => {
   const { tenantId, currency } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [budgetName, setBudgetName] = useState("");
   const [lines, setLines] = useState<{ category: string; allocated_amount: string }[]>([{ category: "", allocated_amount: "" }]);
@@ -120,6 +125,7 @@ const BudgetManagement = () => {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { data: budget, error } = await supabase.from("budgets").insert({ tenant_id: tenantId, name: budgetName } as any).select().single();
       if (error) throw error;
       const validLines = lines.filter(l => l.category && l.allocated_amount);
@@ -210,10 +216,10 @@ const BudgetManagement = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <Button className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25">
+                    <PermissionButton readOnly={readOnly} className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25">
                       <Plus className="h-4 w-4 mr-2" />
                       Create Budget
-                    </Button>
+                    </PermissionButton>
                   </motion.div>
                 </DialogTrigger>
                 
@@ -368,6 +374,7 @@ const BudgetManagement = () => {
               </Dialog>
             } 
           />
+          {readOnly && <ReadOnlyBanner section="Financial Records" />}
         </motion.div>
 
         {/* Premium Stats Grid */}
@@ -570,13 +577,15 @@ const BudgetManagement = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <Button 
+                    <PermissionButton 
+                      permission="financial_records"
+                      readOnly={readOnly}
                       onClick={() => setDialogOpen(true)}
                       className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Create First Budget
-                    </Button>
+                    </PermissionButton>
                   </motion.div>
                 </motion.div>
               ) : (

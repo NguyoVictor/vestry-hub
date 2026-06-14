@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
+import { usePermissions } from '@/hooks/usePermissions';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +52,8 @@ const AUDIENCE_OPTIONS = ["All Visitors", "New Visitors", "All (Members & Visito
 // ── Create/Edit Custom Modal ──────────────────────────────────────────────────
 function CustomAutomationModal({ open, onClose, tenantId, editData, onSuccess }: { open: boolean; onClose: () => void; tenantId: string; editData?: EmailAutomation | null; onSuccess: () => void }) {
   const isEdit = !!editData;
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [name, setName] = useState(editData?.name ?? "");
   const [description, setDescription] = useState(editData?.description ?? "");
   const [frequency, setFrequency] = useState(editData?.frequency ?? "Daily");
@@ -57,6 +61,7 @@ function CustomAutomationModal({ open, onClose, tenantId, editData, onSuccess }:
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    if (readOnly) return;
     if (!name.trim()) { toast.error("Email name is required."); return; }
     setSubmitting(true);
     try {
@@ -263,6 +268,8 @@ function AutomationCard({ automation, templates, isSystem, onToggle, onConfigCha
 export function EmailAutomation() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [createOpen, setCreateOpen] = useState(false);
   const [editAutomation, setEditAutomation] = useState<EmailAutomation | null>(null);
   const [deleteAutomation, setDeleteAutomation] = useState<EmailAutomation | null>(null);
@@ -330,6 +337,7 @@ export function EmailAutomation() {
   };
 
   const handleSaveChanges = async () => {
+    if (readOnly) return;
     if (pendingChanges.size === 0) { toast.info("No changes to save."); return; }
     setSaving(true);
     try {
@@ -349,6 +357,7 @@ export function EmailAutomation() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.EMAIL_AUTOMATIONS).delete().eq("id", id);
       if (error) throw error;
     },
@@ -392,11 +401,17 @@ export function EmailAutomation() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
+          <PermissionButton 
+            readOnly={readOnly}
+            variant="outline" 
+            size="sm" 
+            onClick={() => setCreateOpen(true)}
+          >
             <Plus className="h-4 w-4 mr-1.5" />
             Create Custom Email
-          </Button>
-          <Button
+          </PermissionButton>
+          <PermissionButton
+            readOnly={readOnly}
             size="sm"
             className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
             onClick={handleSaveChanges}
@@ -404,7 +419,7 @@ export function EmailAutomation() {
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving..." : "💾 Save Changes"}
-          </Button>
+          </PermissionButton>
         </div>
       </div>
 

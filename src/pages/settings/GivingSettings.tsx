@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
@@ -232,6 +235,8 @@ function CategoryModal({ open, onClose, tenantId, editData, existingCodes, onSuc
 export default function GivingSettings() {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [addOpen,    setAddOpen]    = useState(false);
   const [editCat,    setEditCat]    = useState<GivingCategory | null>(null);
   const [deleteCat,  setDeleteCat]  = useState<GivingCategory | null>(null);
@@ -255,6 +260,7 @@ export default function GivingSettings() {
 
   // Seed defaults on first load
   const handleSeedDefaults = async () => {
+    if (readOnly) return;
     setSeeding(true);
     try {
       const rows = SYSTEM_DEFAULTS.map(d => ({
@@ -278,6 +284,7 @@ export default function GivingSettings() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from(TABLES.GIVING_CATEGORIES)
         .delete()
@@ -296,6 +303,8 @@ export default function GivingSettings() {
     <>
       <Helmet><title>Giving Settings — Vestry</title></Helmet>
 
+      {readOnly && <ReadOnlyBanner section="Giving Settings" />}
+
       <div className="max-w-3xl">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
           {/* Card header */}
@@ -304,14 +313,15 @@ export default function GivingSettings() {
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Giving Categories</p>
               <p className="text-xs text-slate-500 mt-0.5">Configure the types of donations your church accepts</p>
             </div>
-            <Button
+            <PermissionButton
+              readOnly={readOnly}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
               size="sm"
               onClick={() => setAddOpen(true)}
             >
               <Plus className="h-4 w-4" />
               Add Category
-            </Button>
+            </PermissionButton>
           </div>
 
           {/* Table */}

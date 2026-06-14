@@ -6,6 +6,9 @@ import NumberFlow from "@/components/finance/AnimatedNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { usePledgeCommitmentsRealtime } from "@/hooks/useFinanceRealtime";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +68,8 @@ const gridVariants = {
 const PledgeCampaigns = () => {
   const { tenantId, currency, userId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", description: "", category: "other", target_amount: "", start_date: new Date().toISOString().split("T")[0], end_date: "", status: "draft" });
@@ -202,17 +207,20 @@ const PledgeCampaigns = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button 
+                <PermissionButton 
+                  readOnly={readOnly}
                   onClick={() => setSheetOpen(true)}
                   className="bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600 shadow-lg shadow-purple-500/25"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Create Campaign
-                </Button>
+                </PermissionButton>
               </motion.div>
             } 
           />
         </motion.div>
+
+        {readOnly && <ReadOnlyBanner section="Financial Records" />}
 
         {/* Premium Content */}
         {isLoading ? (
@@ -263,13 +271,15 @@ const PledgeCampaigns = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Button 
+                  <PermissionButton 
+                    permission="financial_records"
+                    readOnly={readOnly}
                     onClick={() => setSheetOpen(true)}
                     className="bg-gradient-to-r from-purple-600 to-indigo-500 hover:from-purple-700 hover:to-indigo-600 shadow-lg shadow-purple-500/25"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create First Campaign
-                  </Button>
+                  </PermissionButton>
                 </motion.div>
               </CardContent>
             </Card>
@@ -347,10 +357,10 @@ const PledgeCampaigns = () => {
                             </motion.div>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-2xl border-2 border-gray-100 bg-white/95 backdrop-blur-xl">
-                            <DropdownMenuItem onClick={() => openEdit(c)} className="rounded-xl">
+                            <DropdownMenuItem disabled={readOnly} onClick={() => openEdit(c)} className="rounded-xl">
                               <Pencil className="h-4 w-4 mr-2" />Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600 rounded-xl" onClick={() => deleteMutation.mutate(c.id)}>
+                            <DropdownMenuItem disabled={readOnly} className="text-red-600 rounded-xl" onClick={() => deleteMutation.mutate(c.id)}>
                               <Trash2 className="h-4 w-4 mr-2" />Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>

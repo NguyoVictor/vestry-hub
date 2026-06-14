@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 
-export default function EmptyFamilyState({ title = 'No families yet', subtitle = 'Link members together as family units', ctaLabel = 'Create Family', onCtaClick }) {
+export default function EmptyFamilyState({ title = 'No families yet', subtitle = 'Link members together as family units', ctaLabel = 'Create Family', onCtaClick, readOnly = false }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -23,13 +24,15 @@ export default function EmptyFamilyState({ title = 'No families yet', subtitle =
         <p className="text-sm text-muted-foreground mt-1 max-w-xs font-jakarta">{subtitle}</p>
       </div>
       {onCtaClick && (
-        <button
+        <PermissionButton
+          permission="member_management"
+          readOnly={readOnly}
           onClick={onCtaClick}
           className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors font-jakarta"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           {ctaLabel}
-        </button>
+        </PermissionButton>
       )}
     </motion.div>
   );

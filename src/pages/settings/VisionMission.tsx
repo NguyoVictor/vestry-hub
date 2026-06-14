@@ -3,6 +3,9 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { TABLES, COLS } from "@/lib/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +18,8 @@ import { Globe, Plus, X, Save } from "lucide-react";
 export default function VisionMission() {
   const { tenantId } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
 
   const [vision, setVision] = useState("");
   const [mission, setMission] = useState("");
@@ -56,6 +61,7 @@ export default function VisionMission() {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload = {
         vision_statement: vision.trim() || null,
         mission_statement: mission.trim() || null,
@@ -84,6 +90,8 @@ export default function VisionMission() {
   return (
     <>
       <Helmet><title>Vision & Mission — Vestry</title></Helmet>
+
+      {readOnly && <ReadOnlyBanner section="Vision & Mission" />}
 
       <div className="max-w-3xl pb-24">
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-6">
@@ -168,14 +176,15 @@ export default function VisionMission() {
 
       {/* Sticky Save */}
       <div className="fixed bottom-6 right-6 z-10">
-        <Button
+        <PermissionButton
+          readOnly={readOnly}
           className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shadow-lg"
           onClick={() => save.mutate()}
           disabled={save.isPending}
         >
           <Save className="h-4 w-4" />
           {save.isPending ? "Saving…" : "Save Changes"}
-        </Button>
+        </PermissionButton>
       </div>
     </>
   );

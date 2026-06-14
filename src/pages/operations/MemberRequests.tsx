@@ -3,6 +3,9 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
+import { PermissionButton } from '@/components/shared/PermissionButton';
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -177,15 +180,22 @@ function MessageMemberModal({ open, onClose, memberId, memberName, tenantId, use
 }
 
 // ─── Request Card (Kanban) ────────────────────────────────────────────────────
-function RequestCard({ req, getTypeLabel, getMemberInfo, onEdit, onDelete, onStatusChange, onMessage }: any) {
+function RequestCard({ req, getTypeLabel, getMemberInfo, onEdit, onDelete, onStatusChange, onMessage, readOnly }: any) {
   const priority = PRIORITY_CONFIG[req.priority || "medium"];
   const { name, avatarUrl } = getMemberInfo(req.member_id);
 
   return (
     <div
-      draggable
-      onDragStart={e => { e.dataTransfer.setData("id", req.id); e.dataTransfer.effectAllowed = "move"; }}
-      className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing select-none group"
+      draggable={!readOnly}
+      onDragStart={e => { 
+        if (readOnly) return;
+        e.dataTransfer.setData("id", req.id); 
+        e.dataTransfer.effectAllowed = "move"; 
+      }}
+      className={cn(
+        "bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm hover:shadow-md transition-all select-none group",
+        !readOnly && "cursor-grab active:cursor-grabbing"
+      )}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -255,6 +265,8 @@ function RequestCard({ req, getTypeLabel, getMemberInfo, onEdit, onDelete, onSta
 export default function MemberRequestsPage() {
   const { tenantId, userId, userFirstName, userLastName } = useChurch();
   const queryClient = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('event_management');
   const [view, setView] = useState<"kanban" | "table">("kanban");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -385,6 +397,7 @@ export default function MemberRequestsPage() {
   };
 
   const onDrop = (e: React.DragEvent, targetStatus: string) => {
+    if (readOnly) return; // Prevent drag-drop when read-only
     e.preventDefault();
     const id = e.dataTransfer.getData("id");
     const req = requests.find((r: any) => r.id === id);
@@ -414,12 +427,14 @@ export default function MemberRequestsPage() {
                 <List className="h-4 w-4" />
               </button>
             </div>
-            <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
+            <PermissionButton readOnly={readOnly} onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5">
               <Plus className="h-4 w-4" />Create Request
-            </Button>
+            </PermissionButton>
           </div>
         }
       />
+
+      {readOnly && <ReadOnlyBanner section="Event Management" />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -476,6 +491,7 @@ export default function MemberRequestsPage() {
                       onDelete={(id: string) => setDeleteId(id)}
                       onStatusChange={(id: string, status: string) => updateStatus.mutate({ id, status })}
                       onMessage={(id: string, name: string) => setMessagingTarget({ id, name })}
+                      readOnly={readOnly}
                     />
                   ))}
                   {items.length === 0 && (
@@ -547,7 +563,7 @@ export default function MemberRequestsPage() {
                               </DropdownMenuItem>
                             ))}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(req.id)}>
+                            <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => setDeleteId(req.id)}>
                               <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
