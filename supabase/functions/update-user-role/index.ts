@@ -91,11 +91,30 @@ Deno.serve(async (req) => {
         "pastor", "assistant_pastor", "accountant", "leader", "studio_operator",
         "staff_leader", "member", "staff", "volunteer", "guest"
       ];
-      if (!role || !validRoles.includes(role)) {
-        return new Response(JSON.stringify({ error: "Invalid role" }), {
+
+      if (!role) {
+        return new Response(JSON.stringify({ error: "Role is required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      if (!validRoles.includes(role)) {
+        // Check if it's a valid custom role for this tenant
+        const { data: customRole } = await adminClient
+          .from("custom_roles")
+          .select("id")
+          .eq("tenant_id", caller.tenant_id)
+          .eq("name", role)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (!customRole) {
+          return new Response(JSON.stringify({ error: "Invalid role" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
 
       // Protect last super_admin

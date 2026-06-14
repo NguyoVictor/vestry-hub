@@ -17,11 +17,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -103,7 +104,7 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
   const readOnly = isReadOnly('church_settings');
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<MemberRow | null>(null);
-  const [role, setRole] = useState<RoleValue>("member");
+  const [role, setRole] = useState<string>("member");
   const [branchId, setBranchId] = useState<string>("");
   const [sendInvite, setSendInvite] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +130,21 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
     },
     staleTime: 60_000,
     enabled: open,
+  });
+
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ['custom-roles', church.tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('custom_roles')
+        .select('name')
+        .eq('tenant_id', church.tenantId)
+        .eq('is_active', true)
+        .order('name');
+      return data ?? [];
+    },
+    enabled: !!church.tenantId,
+    staleTime: 60_000,
   });
 
   // Client-side filter
@@ -563,7 +579,7 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
             <Label className="text-sm font-medium">
               Role <span className="text-red-500">*</span>
             </Label>
-            <Select value={role} onValueChange={v => setRole(v as RoleValue)}>
+            <Select value={role} onValueChange={v => setRole(v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -571,6 +587,16 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
                 {ROLES.map(r => (
                   <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                 ))}
+                {customRoles.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide border-t border-slate-100 mt-1 pt-2">
+                      Custom
+                    </div>
+                    {customRoles.map(r => (
+                      <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -667,12 +693,27 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const { data: customRolesEdit = [] } = useQuery({
+    queryKey: ['custom-roles', church.tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('custom_roles')
+        .select('name')
+        .eq('tenant_id', church.tenantId)
+        .eq('is_active', true)
+        .order('name');
+      return data ?? [];
+    },
+    enabled: !!church.tenantId,
+    staleTime: 60_000,
+  });
+
   // Sync state when user changes
   useEffect(() => {
     if (user) {
       // Map stored role value to edit role
       const matchedRole = EDIT_ROLES.find(r => r.value === user.role);
-      setRole(matchedRole?.value ?? "member");
+      setRole(matchedRole?.value ?? user.role);
       setIsActive(user.status === "active");
     }
   }, [user]);
@@ -735,6 +776,16 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
               <SelectTrigger className="focus:ring-orange-400"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {EDIT_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                {customRolesEdit.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide border-t border-slate-100 mt-1 pt-2">
+                      Custom
+                    </div>
+                    {customRolesEdit.map(r => (
+                      <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -1007,9 +1058,95 @@ function CapabilityCell({ value }: { value: CellValue }) {
 }
 
 function RolesOverview() {
+  const { tenantId, userRole } = useChurch();
+  const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
+  const isAdmin = userRole === 'church_admin' || userRole === 'super_admin';
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<{ id: string; name: string; description: string } | null>(null);
+  const [roleName, setRoleName] = useState('');
+  const [roleDescription, setRoleDescription] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: customRoles = [] } = useQuery({
+    queryKey: ['custom-roles', tenantId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('custom_roles')
+        .select('id, name, description')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+      return data ?? [];
+    },
+    enabled: !!tenantId,
+    staleTime: 60_000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (readOnly) return;
+      if (!roleName.trim()) throw new Error('Role name is required');
+      if (editingRole) {
+        const { error } = await supabase
+          .from('custom_roles')
+          .update({ name: roleName.trim(), description: roleDescription.trim() })
+          .eq('id', editingRole.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('custom_roles')
+          .insert({ tenant_id: tenantId, name: roleName.trim(), description: roleDescription.trim() });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['custom-roles', tenantId] });
+      toast.success(editingRole ? 'Role updated!' : 'Role created!');
+      setModalOpen(false);
+      setEditingRole(null);
+      setRoleName('');
+      setRoleDescription('');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (readOnly) return;
+      const { error } = await supabase
+        .from('custom_roles')
+        .update({ is_active: false })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['custom-roles', tenantId] });
+      toast.success('Role removed!');
+      setDeleteId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const openCreate = () => {
+    setEditingRole(null);
+    setRoleName('');
+    setRoleDescription('');
+    setModalOpen(true);
+  };
+
+  const openEdit = (r: { id: string; name: string; description: string }) => {
+    setEditingRole(r);
+    setRoleName(r.name);
+    setRoleDescription(r.description ?? '');
+    setModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header — unchanged */}
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
           <Shield className="h-5 w-5 text-orange-500" />
@@ -1020,7 +1157,7 @@ function RolesOverview() {
         </div>
       </div>
 
-      {/* Role cards grid */}
+      {/* Role cards grid — unchanged */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {ROLE_CARDS.map(card => (
           <div
@@ -1035,7 +1172,7 @@ function RolesOverview() {
         ))}
       </div>
 
-      {/* Capabilities comparison table */}
+      {/* Capabilities comparison table — unchanged */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-slate-800">Role Capabilities Comparison</h3>
         <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
@@ -1070,6 +1207,120 @@ function RolesOverview() {
           </Table>
         </div>
       </div>
+
+      {/* Custom Roles Section — NEW */}
+      <div className="border-t border-slate-100 pt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">Custom Roles</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Create roles specific to your church's structure</p>
+          </div>
+          {isAdmin && (
+            <PermissionButton
+              readOnly={readOnly}
+              onClick={openCreate}
+              size="sm"
+              className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Plus className="h-4 w-4" />Add Role
+            </PermissionButton>
+          )}
+        </div>
+
+        {customRoles.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">No custom roles yet.{isAdmin ? ' Add one above.' : ''}</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {customRoles.map(r => (
+              <div key={r.id} className="flex items-start justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{r.name}</p>
+                  {r.description && <p className="text-xs text-slate-400 mt-0.5">{r.description}</p>}
+                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1 ml-2 shrink-0">
+                    <button
+                      onClick={() => openEdit(r)}
+                      className="rounded p-1.5 text-slate-400 hover:bg-purple-50 hover:text-purple-500 transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(r.id)}
+                      className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add / Edit Role Modal */}
+      <Dialog open={modalOpen} onOpenChange={v => { if (!v) setModalOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingRole ? 'Edit Role' : 'Add Custom Role'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">
+                Role Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                placeholder="e.g. Worship Leader"
+                value={roleName}
+                onChange={e => setRoleName(e.target.value)}
+                className="focus:ring-orange-400"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Description</Label>
+              <Textarea
+                placeholder="Brief description of this role's responsibilities..."
+                value={roleDescription}
+                onChange={e => setRoleDescription(e.target.value)}
+                className="focus:ring-orange-400 resize-none"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => saveMutation.mutate()}
+              disabled={!roleName.trim() || saveMutation.isPending}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {saveMutation.isPending ? 'Saving...' : editingRole ? 'Update Role' : 'Create Role'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={v => { if (!v) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this role?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This role will be removed. Users currently assigned this role will keep it until manually reassigned.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

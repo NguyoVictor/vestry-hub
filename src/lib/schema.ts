@@ -242,6 +242,9 @@ export const TABLES = {
   LIVESTREAM_HISTORY: "livestream_history",
   LIVESTREAM_PRAYER_REQUESTS: "livestream_prayer_requests",
   LIVESTREAM_REMINDERS: "livestream_reminders",
+
+  // Custom Roles
+  CUSTOM_ROLES: "custom_roles",
 } as const;
 
 // ─── Column Names ─────────────────────────────────────────────────────────────
