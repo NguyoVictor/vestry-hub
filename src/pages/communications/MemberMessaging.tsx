@@ -615,11 +615,31 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
         last_message_preview: body.slice(0, 100),
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        status: "open",
       }).eq("id", conv.id);
       await (supabase as any).rpc("batch_increment_unread_count", {
         p_conversation_id: conv.id,
         p_excluding_user_id: userId,
       });
+      const recipientIds = (participants as any[])
+        .filter((p: any) => p.user_id !== userId)
+        .map((p: any) => p.user_id);
+      
+      if (recipientIds.length > 0) {
+        const notifTitle = conv.type === "direct"
+          ? "New Message"
+          : `New message in ${conv.name ?? "Group Chat"}`;
+        await (supabase as any).from("notifications").insert(
+          recipientIds.map((rid: string) => ({
+            tenant_id: tenantId,
+            user_id: rid,
+            title: notifTitle,
+            body: body.slice(0, 100),
+            type: "message",
+            is_read: false,
+          }))
+        );
+      }
       return data;
     },
     onMutate: async (body) => {

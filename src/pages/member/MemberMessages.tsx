@@ -341,7 +341,38 @@ export default function MemberMessages() {
         .select("*, conversation_participants(user_id, unread_count)")
         .in("id", convIds)
         .order("updated_at", { ascending: false });
-      return data || [];
+      const convList = data || [];
+      
+      // Fetch admin names for direct message conversations
+      const otherUserIds = convList.flatMap((conv: any) =>
+        (conv.conversation_participants || [])
+          .filter((p: any) => p.user_id !== member.memberId)
+          .map((p: any) => p.user_id)
+      );
+      const uniqueOtherIds = [...new Set(otherUserIds)] as string[];
+      let userMap: Record<string, string> = {};
+      if (uniqueOtherIds.length > 0) {
+        const { data: userProfiles } = await (supabase as any)
+          .from("users")
+          .select("id, first_name, last_name")
+          .in("id", uniqueOtherIds);
+        userMap = Object.fromEntries(
+          (userProfiles || []).map((u: any) => [
+            u.id,
+            `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Staff",
+          ])
+        );
+      }
+      
+      return convList.map((conv: any) => {
+        if (conv.type === "group" || conv.is_forum) return conv;
+        const otherId = (conv.conversation_participants || [])
+          .find((p: any) => p.user_id !== member.memberId)?.user_id;
+        return {
+          ...conv,
+          staff_name: otherId ? userMap[otherId] : undefined,
+        };
+      });
     },
     staleTime: 60_000,
   });
