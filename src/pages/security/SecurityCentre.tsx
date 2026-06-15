@@ -163,7 +163,8 @@ export default function SecurityCentre() {
           ) : !loginEvents?.length ? (
             <p className="text-center text-muted-foreground py-8">No login events recorded yet.</p>
           ) : (
-            <Table>
+            <div className="max-h-[400px] overflow-y-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>User</TableHead>
@@ -204,6 +205,7 @@ export default function SecurityCentre() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
