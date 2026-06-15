@@ -270,10 +270,10 @@ const MessageBubble = React.memo(function MessageBubble({
 
 // ── ConversationItem ──────────────────────────────────────────────────────────
 const ConversationItem = React.memo(function ConversationItem({
-  conv, isSelected, unread, name, lastMsg, lastTime, onClick,
+  conv, isSelected, unread, name, lastMsg, lastTime, onClick, isOnline,
 }: {
   conv: any; isSelected: boolean; unread: number; name: string;
-  lastMsg: string; lastTime: string; onClick: () => void;
+  lastMsg: string; lastTime: string; onClick: () => void; isOnline?: boolean;
 }) {
   return (
     <motion.button layout whileTap={{ scale: 0.99 }} onClick={onClick}
@@ -281,7 +281,16 @@ const ConversationItem = React.memo(function ConversationItem({
         "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-slate-50 dark:border-slate-800",
         isSelected ? "bg-orange-50 dark:bg-orange-900/10 border-l-2 border-l-orange-500" : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
       )}>
-      <Avatar name={name} />
+      <div className="relative shrink-0">
+        <Avatar name={name} />
+        {isOnline && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"
+          />
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
           <p className={cn("text-sm truncate", isSelected ? "font-semibold text-orange-600" : "font-medium text-slate-800 dark:text-white")}>{name}</p>
@@ -798,6 +807,13 @@ export default function MemberMessages() {
                             >
                               <div className="relative shrink-0">
                                 <Avatar name={staffName} size="sm" />
+                                {onlineUsers.has(conv.staff_user_id) && (
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"
+                                  />
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
@@ -838,6 +854,10 @@ export default function MemberMessages() {
                       <ConversationItem
                         key={conv.id} conv={conv}
                         isSelected={selectedConvId === conv.id}
+                        isOnline={onlineUsers.has(
+                          (conv.conversation_participants || [])
+                            .find((p: any) => p.user_id !== member.memberId)?.user_id ?? ""
+                        )}
                         unread={unread} name={name} lastMsg={preview} lastTime={time}
                         onClick={() => selectConversation(conv.id)}
                       />

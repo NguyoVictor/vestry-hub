@@ -1366,12 +1366,12 @@ function CreateGroupModal({ open, onClose, tenantId, userId, onCreated }: { open
   const [creating, setCreating] = useState(false);
   const { data: users = [] } = useQuery({
     queryKey: ["users-for-group", tenantId],
-    queryFn: async () => { const { data } = await supabase.from("users").select("id, first_name, last_name, email, role").eq("tenant_id", tenantId); return data ?? []; },
+    queryFn: async () => { const { data } = await supabase.from("users").select("id, first_name, last_name, email, role").eq("tenant_id", tenantId).eq("status", "active"); return data ?? []; },
     staleTime: 0, enabled: open,
   });
   const { data: membersList = [] } = useQuery({
     queryKey: ["members-for-group", tenantId],
-    queryFn: async () => { const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email").eq("tenant_id", tenantId).order("first_name"); return data ?? []; },
+    queryFn: async () => { const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email").eq("tenant_id", tenantId).eq("status", "active").order("first_name"); return data ?? []; },
     staleTime: 0, enabled: open,
   });
   const allPeople = [...membersList, ...(users as any[]).filter(u => !(membersList as any[]).find((m: any) => m.id === u.id))].filter((p: any) => p.id !== userId);
