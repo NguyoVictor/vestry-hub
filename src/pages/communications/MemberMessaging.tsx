@@ -1432,6 +1432,8 @@ function CreateGroupModal({ open, onClose, tenantId, userId, onCreated }: { open
 // ── GroupChatsTab ─────────────────────────────────────────────────────────────
 function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: string; userId: string; userName: string; onlineUsers: Set<string> }) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const [search, setSearch] = useState("");
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
