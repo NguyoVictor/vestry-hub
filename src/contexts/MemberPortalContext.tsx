@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface MemberPortalData {
@@ -50,7 +51,11 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
 
       const member = memberRes.data;
       const church = churchRes.data;
-      if (!member || !church) { setLoading(false); return; }
+      if (!member || !church) {
+        localStorage.removeItem("member_session");
+        setLoading(false);
+        return;
+      }
 
       const fields = [member.first_name, member.last_name, member.phone, member.date_of_birth, member.gender];
       const filled = fields.filter(Boolean).length;
@@ -85,7 +90,7 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
   }, []);
 
   if (loading) return null;
-  if (!data) return null;
+  if (!data) return <Navigate to="/member/login" replace />;
 
   return <MemberPortalContext.Provider value={data}>{children}</MemberPortalContext.Provider>;
 }
