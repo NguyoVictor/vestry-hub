@@ -955,7 +955,7 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
   const { data: members = [] } = useQuery<Member[]>({
     queryKey: ["members-for-newmsg", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email, status").eq("tenant_id", tenantId).order("first_name");
+      const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email, status").eq("tenant_id", tenantId).eq("status", "active").order("first_name");
       return (data ?? []) as Member[];
     },
     staleTime: 0, enabled: open,
@@ -964,7 +964,7 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
   const { data: users = [] } = useQuery<UserRow[]>({
     queryKey: ["users-for-newmsg", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("users").select("id, first_name, last_name, email, role").eq("tenant_id", tenantId);
+      const { data } = await supabase.from("users").select("id, first_name, last_name, email, role").eq("tenant_id", tenantId).eq("status", "active");
       return (data ?? []) as UserRow[];
     },
     staleTime: 0, enabled: open,
