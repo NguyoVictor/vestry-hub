@@ -48,6 +48,16 @@ export default function InviteCallback() {
             last_name: resolvedLastName,
           }, { onConflict: 'id' });
 
+        // Auto-create staff directory thread for this user
+        await supabase.functions.invoke('create-staff-thread', {
+          body: {
+            userId: data.session.user.id,
+            tenantId: invitedTenantId,
+            firstName: resolvedFirstName,
+            lastName: resolvedLastName,
+          },
+        });
+
         if (upsertError) {
           console.error('InviteCallback upsert failed:', upsertError);
         }

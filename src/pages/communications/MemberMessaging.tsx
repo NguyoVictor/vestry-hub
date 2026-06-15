@@ -1209,9 +1209,16 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
   const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
     queryKey: ["conversations-dm", tenantId],
     queryFn: async () => {
+      const { data: participantRows } = await (supabase as any)
+        .from("conversation_participants")
+        .select("conversation_id")
+        .eq("user_id", userId);
+      const myConvIds = (participantRows || []).map((r: any) => r.conversation_id);
+      if (!myConvIds.length) return [];
       const { data } = await (supabase as any)
         .from("conversations")
         .select("*, conversation_participants(user_id, unread_count, last_read_at)")
+        .in("id", myConvIds)
         .eq("tenant_id", tenantId)
         .eq("type", "direct")
         .order("last_message_at", { ascending: false, nullsFirst: false });

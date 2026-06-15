@@ -340,6 +340,7 @@ export default function MemberMessages() {
         .from("conversations")
         .select("*, conversation_participants(user_id, unread_count)")
         .in("id", convIds)
+        .eq("is_staff_directory", false)
         .order("updated_at", { ascending: false });
       const convList = data || [];
       
@@ -376,6 +377,52 @@ export default function MemberMessages() {
     },
     staleTime: 60_000,
   });
+
+  const { data: staffThreads = [] } = useQuery({
+    queryKey: ["staff-directory", member.tenantId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("conversations")
+        .select("*, conversation_participants(user_id, unread_count)")
+        .eq("tenant_id", member.tenantId)
+        .eq("is_staff_directory", true)
+        .order("updated_at", { ascending: false });
+      const convList = data || [];
+      const staffUserIds = convList.map((c: any) => c.staff_user_id).filter(Boolean);
+      let staffMap: Record<string, any> = {};
+      if (staffUserIds.length > 0) {
+        const { data: staffUsers } = await (supabase as any)
+          .from("users")
+          .select("id, first_name, last_name, role, status")
+          .in("id", staffUserIds);
+        staffMap = Object.fromEntries((staffUsers || []).map((u: any) => [u.id, u]));
+      }
+      return convList.map((conv: any) => ({
+        ...conv,
+        staff_user: staffMap[conv.staff_user_id] || null,
+      }));
+    },
+    staleTime: 60_000,
+  });
+
+  const joinStaffThread = async (convId: string) => {
+    const { data: existing } = await (supabase as any)
+      .from("conversation_participants")
+      .select("id")
+      .eq("conversation_id", convId)
+      .eq("user_id", member.memberId)
+      .maybeSingle();
+    if (!existing) {
+      await (supabase as any).from("conversation_participants").insert({
+        conversation_id: convId,
+        user_id: member.memberId,
+        unread_count: 0,
+        joined_at: new Date().toISOString(),
+      });
+      qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
+    }
+    selectConversation(convId);
+  };
 
   // ── Reactions query ───────────────────────────────────────────────────────
   const { data: allReactions = [] } = useQuery({
@@ -667,8 +714,15 @@ export default function MemberMessages() {
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const selectedConv = conversations.find((c: any) => c.id === selectedConvId);
-  const staffName = selectedConv?.staff_name || selectedConv?.name || selectedConv?.title || "Church Staff";
+  const selectedConv =
+    conversations.find((c: any) => c.id === selectedConvId) ||
+    staffThreads.find((c: any) => c.id === selectedConvId);
+  const staffUser = (selectedConv as any)?.staff_user;
+  const staffName =
+    selectedConv?.staff_name ||
+    (staffUser ? `${staffUser.first_name || ""} ${staffUser.last_name || ""}`.trim() : null) ||
+    selectedConv?.name ||
+    "Church Staff";
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -702,7 +756,7 @@ export default function MemberMessages() {
                 <div className="p-3 space-y-2">
                   {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
                 </div>
-              ) : conversations.length === 0 ? (
+              ) : conversations.length === 0 && staffThreads.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-3">
                   <div className="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                     <MessageCircle className="h-6 w-6 text-slate-300" />
@@ -710,21 +764,87 @@ export default function MemberMessages() {
                   <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No messages yet</p>
                   <p className="text-xs text-slate-400">Church staff will reach out to you here</p>
                 </div>
-              ) : conversations.map((conv: any) => {
-                const myParticipant = (conv.conversation_participants || []).find((p: any) => p.user_id === member.userId);
-                const unread = myParticipant?.unread_count ?? 0;
-                const name = conv.staff_name || conv.name || conv.title || "Church Staff";
-                const preview = conv.last_message_preview ?? "";
-                const time = conv.updated_at ? formatMsgTime(conv.updated_at) : "";
-                return (
-                  <ConversationItem
-                    key={conv.id} conv={conv}
-                    isSelected={selectedConvId === conv.id}
-                    unread={unread} name={name} lastMsg={preview} lastTime={time}
-                    onClick={() => selectConversation(conv.id)}
-                  />
-                );
-              })}
+              ) : (
+                <>
+                  {staffThreads.length > 0 && (
+                    <div className="px-4 pt-3 pb-1">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                        Church Staff
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        {staffThreads.map((conv: any) => {
+                          const staff = conv.staff_user;
+                          const isInactive = staff?.status === "inactive";
+                          const staffName = staff
+                            ? `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "Staff"
+                            : "Staff";
+                          const staffRole = staff?.role
+                            ? staff.role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+                            : "";
+                          const myParticipant = (conv.conversation_participants || [])
+                            .find((p: any) => p.user_id === member.memberId);
+                          const unread = myParticipant?.unread_count ?? 0;
+                          return (
+                            <button
+                              key={conv.id}
+                              onClick={() => joinStaffThread(conv.id)}
+                              className={cn(
+                                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
+                                selectedConvId === conv.id
+                                  ? "bg-orange-50 dark:bg-orange-900/10"
+                                  : "hover:bg-slate-50 dark:hover:bg-slate-700/50",
+                                isInactive && "opacity-50"
+                              )}
+                            >
+                              <div className="relative shrink-0">
+                                <Avatar name={staffName} size="sm" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className={cn(
+                                    "text-sm font-medium truncate",
+                                    isInactive ? "text-slate-400" : "text-slate-800 dark:text-white"
+                                  )}>
+                                    {staffName}
+                                  </p>
+                                  {isInactive && (
+                                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full shrink-0">
+                                      Inactive
+                                    </span>
+                                  )}
+                                </div>
+                                {staffRole && (
+                                  <p className="text-[11px] text-slate-400 truncate">{staffRole}</p>
+                                )}
+                              </div>
+                              {unread > 0 && (
+                                <span className="h-5 min-w-[20px] px-1.5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                  {unread}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {conversations.map((conv: any) => {
+                    const myParticipant = (conv.conversation_participants || []).find((p: any) => p.user_id === member.userId);
+                    const unread = myParticipant?.unread_count ?? 0;
+                    const name = conv.staff_name || conv.name || conv.title || "Church Staff";
+                    const preview = conv.last_message_preview ?? "";
+                    const time = conv.updated_at ? formatMsgTime(conv.updated_at) : "";
+                    return (
+                      <ConversationItem
+                        key={conv.id} conv={conv}
+                        isSelected={selectedConvId === conv.id}
+                        unread={unread} name={name} lastMsg={preview} lastTime={time}
+                        onClick={() => selectConversation(conv.id)}
+                      />
+                    );
+                  })}
+                </>
+              )}
             </div>
           </div>
 

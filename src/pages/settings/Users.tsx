@@ -376,10 +376,11 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
             return;
           }
           // Active + different role → insert with new UUID
+          const newUserId = crypto.randomUUID();
           const { error } = await supabase
             .from('users')
             .insert({
-              id: crypto.randomUUID(),
+              id: newUserId,
               tenant_id: tenantId,
               email: selectedMember.email,
               first_name: selectedMember.first_name,
@@ -388,6 +389,16 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
               status: 'active',
               invitation_sent: true,
             });
+          if (!error) {
+            await supabase.functions.invoke('create-staff-thread', {
+              body: {
+                userId: newUserId,
+                tenantId,
+                firstName: selectedMember.first_name,
+                lastName: selectedMember.last_name,
+              },
+            });
+          }
           if (error) throw error;
           toast.success("User added. Send them an invitation when ready.");
         } else {
@@ -404,6 +415,16 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
               status: 'active',
               invitation_sent: false,
             });
+          if (!error) {
+            await supabase.functions.invoke('create-staff-thread', {
+              body: {
+                userId: selectedMember.id,
+                tenantId,
+                firstName: selectedMember.first_name,
+                lastName: selectedMember.last_name,
+              },
+            });
+          }
           if (error) throw error;
           toast.success("User added. Send them an invitation when ready.");
         }

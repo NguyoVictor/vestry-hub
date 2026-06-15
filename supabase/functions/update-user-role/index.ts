@@ -181,6 +181,57 @@ Deno.serve(async (req) => {
 
       if (updateError) throw updateError;
 
+      const { data: reactivatedUser } = await adminClient
+        .from("users")
+        .select("tenant_id, first_name, last_name")
+        .eq("id", targetUserId)
+        .single();
+
+      if (reactivatedUser) {
+        const { data: existingThread } = await adminClient
+          .from("conversations")
+          .select("id")
+          .eq("staff_user_id", targetUserId)
+          .eq("is_staff_directory", true)
+          .eq("tenant_id", reactivatedUser.tenant_id)
+          .maybeSingle();
+
+        if (!existingThread) {
+          const welcomeName = `${reactivatedUser.first_name || ""} ${reactivatedUser.last_name || ""}`.trim() || "Staff";
+          const welcomeMsg = `Hi! I'm ${welcomeName}. Feel free to reach out with any questions, prayer requests, or concerns. 🙏`;
+          const { data: newConv } = await adminClient
+            .from("conversations")
+            .insert({
+              tenant_id: reactivatedUser.tenant_id,
+              type: "direct",
+              is_staff_directory: true,
+              staff_user_id: targetUserId,
+              created_by: targetUserId,
+              status: "open",
+              last_message_preview: welcomeMsg.slice(0, 100),
+              last_message_at: new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+
+          if (newConv) {
+            await adminClient.from("conversation_participants").insert({
+              conversation_id: newConv.id,
+              user_id: targetUserId,
+              unread_count: 0,
+              joined_at: new Date().toISOString(),
+            });
+            await adminClient.from("messages").insert({
+              tenant_id: reactivatedUser.tenant_id,
+              conversation_id: newConv.id,
+              sender_id: targetUserId,
+              body: welcomeMsg,
+              status: "sent",
+            });
+          }
+        }
+      }
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
