@@ -414,6 +414,39 @@ export default function MemberMessages() {
     staleTime: 60_000,
   });
 
+  const { data: chatUsers = [] } = useQuery({
+    queryKey: ["users-messaging", member.tenantId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("users")
+        .select("id, first_name, last_name")
+        .eq("tenant_id", member.tenantId);
+      return data ?? [];
+    },
+    staleTime: 300_000,
+    enabled: !!member.tenantId,
+  });
+
+  const { data: chatMembers = [] } = useQuery({
+    queryKey: ["members-messaging-dm", member.tenantId],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("members")
+        .select("id, first_name, last_name")
+        .eq("tenant_id", member.tenantId);
+      return data ?? [];
+    },
+    staleTime: 300_000,
+    enabled: !!member.tenantId,
+  });
+
+  const getSenderName = (id: string) => {
+    const m = (chatMembers as any[]).find((m: any) => m.id === id);
+    if (m?.first_name) return `${m.first_name} ${m.last_name ?? ""}`.trim();
+    const u = (chatUsers as any[]).find((u: any) => u.id === id);
+    return u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "Staff" : "Staff";
+  };
+
   const joinStaffThread = async (convId: string) => {
     const { data: existing } = await (supabase as any)
       .from("conversation_participants")
@@ -937,7 +970,13 @@ export default function MemberMessages() {
                           key={msg.id} msg={msg}
                           isOwn={msg.sender_id === member.userId}
                           isGrouped={isGroupedMsg(allMessages, idx)}
-                          senderName={msg.sender_id === member.userId ? (memberName ?? "You") : staffName}
+                          senderName={
+                            msg.sender_id === member.userId
+                              ? (memberName ?? "You")
+                              : (selectedConv?.type === "direct" || (selectedConv as any)?.is_staff_directory)
+                                ? staffName
+                                : getSenderName(msg.sender_id)
+                          }
                           isOnline={onlineUsers.has(msg.sender_id)}
                           showDateLabel={showDateSeparator(allMessages, idx)}
                           dateLabel={getDateLabel(msg.created_at)}

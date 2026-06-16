@@ -235,7 +235,7 @@ const MessageBubble = React.memo(function MessageBubble({
         )}
 
         <div className={cn("flex flex-col max-w-[70%]", isOwn ? "items-end" : "items-start")}>
-          {!isOwn && !isGrouped && (
+          {!isOwn && (
             <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 ml-1">{senderName}</p>
           )}
 
@@ -1374,7 +1374,13 @@ function CreateGroupModal({ open, onClose, tenantId, userId, onCreated }: { open
     queryFn: async () => { const { data } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email").eq("tenant_id", tenantId).eq("status", "active").order("first_name"); return data ?? []; },
     staleTime: 0, enabled: open,
   });
-  const allPeople = [...membersList, ...(users as any[]).filter(u => !(membersList as any[]).find((m: any) => m.id === u.id))].filter((p: any) => p.id !== userId);
+  const allPeople = [
+    ...(users as any[]).filter((u: any) => u.id !== userId),
+    ...(membersList as any[]).filter((m: any) =>
+      !(users as any[]).find((u: any) => u.email?.toLowerCase() === m.email?.toLowerCase()) &&
+      m.id !== userId
+    ),
+  ];
   const filtered = allPeople.filter((u: any) => { const q = memberSearch.toLowerCase(); return `${u.first_name ?? ""} ${u.last_name ?? ""}`.toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q); });
   const toggle = (id: string) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const handleCreate = async () => {

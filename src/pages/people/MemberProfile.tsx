@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TABLES } from "@/lib/schema";
+import { useChurch } from "@/contexts/ChurchContext";
 import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,7 @@ const MEMBERSHIP_STATUSES = [
 ];
 
 const MemberProfile = () => {
+  const { tenantId } = useChurch();
   const { isReadOnly } = usePermissions();
   const readOnly = isReadOnly('member_management');
   const { memberId } = useParams();
@@ -170,6 +172,11 @@ const MemberProfile = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["member", memberId] });
+      queryClient.invalidateQueries({ queryKey: ["members", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["settings-users", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["staff-directory", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["members-messaging-dm", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["member-conversations", memberId] });
       toast.success("Member updated successfully");
       setEditOpen(false);
     },

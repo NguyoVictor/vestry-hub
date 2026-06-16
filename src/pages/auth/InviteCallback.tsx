@@ -48,6 +48,19 @@ export default function InviteCallback() {
             last_name: resolvedLastName,
           }, { onConflict: 'id' });
 
+        // Auto-create member record for invited admin (unified identity)
+        await supabase
+          .from('members')
+          .upsert({
+            id: data.session.user.id,
+            tenant_id: invitedTenantId,
+            first_name: resolvedFirstName,
+            last_name: resolvedLastName,
+            email: data.session.user.email,
+            status: 'active',
+            registration_source: 'admin_invite',
+          }, { onConflict: 'id' });
+
         // Auto-create staff directory thread for this user
         await supabase.functions.invoke('create-staff-thread', {
           body: {
