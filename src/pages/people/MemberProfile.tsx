@@ -39,7 +39,7 @@ const MEMBERSHIP_STATUSES = [
 ];
 
 const MemberProfile = () => {
-  const { tenantId } = useChurch();
+  const { tenantId, userId: currentUserId, updateUserName: updateChurchName } = useChurch();
   const { isReadOnly } = usePermissions();
   const readOnly = isReadOnly('member_management');
   const { memberId } = useParams();
@@ -142,6 +142,15 @@ const MemberProfile = () => {
         throw error;
       }
 
+      // Sync name to users table via edge function (bypasses RLS, allows self-edit)
+      await supabase.functions.invoke("sync-member-profile", {
+        body: {
+          targetUserId: memberId!,
+          first_name: editForm.first_name,
+          last_name: editForm.last_name,
+        },
+      });
+
       // Try to update additional columns separately to avoid breaking the main update
       try {
         const additionalData: any = {};
@@ -171,12 +180,35 @@ const MemberProfile = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["member", memberId] });
-      queryClient.invalidateQueries({ queryKey: ["members", tenantId] });
-      queryClient.invalidateQueries({ queryKey: ["settings-users", tenantId] });
-      queryClient.invalidateQueries({ queryKey: ["staff-directory", tenantId] });
-      queryClient.invalidateQueries({ queryKey: ["members-messaging-dm", tenantId] });
-      queryClient.invalidateQueries({ queryKey: ["member-conversations", memberId] });
+      const opts = { refetchType: 'all' as const };
+      queryClient.invalidateQueries({ queryKey: ["member"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["members"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["settings-users"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["staff-directory"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["users-messaging"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["conversations-dm"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["conversations-group"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["members-for-newmsg"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["users-for-newmsg"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["members-for-group"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["users-for-group"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["all-members-for-user-add"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["member-conversations"], ...opts });
+      queryClient.invalidateQueries({ queryKey: ["members-messaging-dm"], ...opts });
+      // Directly update Users page cache without waiting for refetch
+      queryClient.setQueriesData(
+        { queryKey: ["settings-users"] },
+        (old: any) => Array.isArray(old)
+          ? old.map((u: any) =>
+              u.id === memberId
+                ? { ...u, first_name: editForm.first_name, last_name: editForm.last_name }
+                : u
+            )
+          : old
+      );
+      if (memberId === currentUserId) {
+        updateChurchName?.(editForm.first_name || "", editForm.last_name || "");
+      }
       toast.success("Member updated successfully");
       setEditOpen(false);
     },

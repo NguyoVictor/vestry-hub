@@ -13,6 +13,7 @@ export interface ChurchData {
   userRole: string;
   userFirstName: string;
   userLastName: string;
+  updateUserName?: (firstName: string, lastName: string) => void;
 }
 
 const ChurchContext = createContext<ChurchData | null>(null);

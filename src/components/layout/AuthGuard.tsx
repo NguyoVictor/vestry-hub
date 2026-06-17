@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,6 +13,15 @@ export const AuthGuard = () => {
   const location = useLocation();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const updateUserName = useCallback((firstName: string, lastName: string) => {
+    setChurchData(prev => prev ? {
+      ...prev,
+      userName: `${firstName} ${lastName}`.trim(),
+      userFirstName: firstName,
+      userLastName: lastName,
+    } : null);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -128,6 +137,33 @@ export const AuthGuard = () => {
     };
   }, [state]);
 
+  // Real-time name sync — updates sidebar/topnav instantly when name changes
+  useEffect(() => {
+    if (!churchData?.userId) return;
+    const channel = supabase
+      .channel(`user-name-sync-${churchData.userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "users",
+          filter: `id=eq.${churchData.userId}`,
+        },
+        (payload: any) => {
+          const u = payload.new;
+          setChurchData(prev => prev ? {
+            ...prev,
+            userName: `${u.first_name || ""} ${u.last_name || ""}`.trim(),
+            userFirstName: u.first_name || "",
+            userLastName: u.last_name || "",
+          } : null);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [churchData?.userId]);
+
   if (state === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -140,7 +176,7 @@ export const AuthGuard = () => {
   if (state === "needs-onboarding") return <Navigate to="/onboarding" replace />;
 
   return (
-    <ChurchProvider value={churchData!}>
+    <ChurchProvider value={churchData ? { ...churchData, updateUserName } : null!}>
       <Outlet />
     </ChurchProvider>
   );
