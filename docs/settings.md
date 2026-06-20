@@ -31,7 +31,7 @@ Index redirect: `/settings` → `/settings/general`
 | `/settings/registration` | `RegistrationSettings.tsx` | |
 | `/settings/preferences` | `PreferencesSettings.tsx` | |
 | `/settings/attendance` | `AttendanceSettings.tsx` | |
-| `/settings/notifications` | `NotificationsSettings.tsx` | Invokes **`at-sms`** (deployed only) |
+| `/settings/notifications` | `NotificationsSettings.tsx` | Invokes **`at-sms`** (`action: "check_balance"`) — tenant `at_username` / `at_api_key` |
 | `/settings/service-requests` | `ServiceRequestTypes.tsx` | |
 | `/settings/facility-types` | `FacilityTypesPage.tsx` | |
 | `/settings/website` | `WebsitePromoPage.tsx` | Invokes `website-consultation` |

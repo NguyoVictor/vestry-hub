@@ -1,61 +1,150 @@
 # Member Portal Flows
 
-> Cross-ref: [`00-product-context.md`](./00-product-context.md), [`auth.md`](./auth.md), [`permissions.md`](./permissions.md), [`messaging.md`](./messaging.md), [`payments.md`](./payments.md)
+> Cross-ref: [`auth.md`](./auth.md), [`payments.md`](./payments.md), [`messaging.md`](./messaging.md), [`admin-flows.md`](./admin-flows.md)
 
-Member portal uses **custom session** (`localStorage.member_session`), not Supabase Auth. Guard: `MemberAuthGuard` (`src/components/layout/MemberAuthGuard.tsx`).
+Member portal: **custom session** via `localStorage.member_session` + `member_sessions` table.
+
+```
+MemberAuthGuard.tsx
+├─ Read: localStorage.member_session
+├─ Validate expiresAt > now
+├─ no-session → /member/login
+└─ authed → MemberPortalProvider + MemberPortalLayout routes
+```
+
+Guard: `MemberAuthGuard` (`src/components/layout/MemberAuthGuard.tsx`).
 
 ---
 
-## Entry & onboarding
+## Entry & registration
 
 | Route | File | Auth |
 |---|---|---|
 | `/member/login` | `MemberLogin.tsx` | Public |
-| `/member/join` | `JoinChurch.tsx` | Public — church code + registration |
+| `/member/join` | `JoinChurch.tsx` | Public — QR/code registration |
 | `/member-registration/:orgId` | `MemberRegistration.tsx` | Public |
-| `/member/profile-setup` | `ProfileSetup.tsx` | After login |
+| `/member/profile-setup` | `ProfileSetup.tsx` | Post-login |
 | `/member/welcome` | `MemberWelcome.tsx` | Authed |
 
-### Join / register flow
+### Page structure (scan trees)
 
-1. Member enters **church code** (from QR, invite, or manual entry).
-2. **`member-register`** edge function creates `members` row.
-3. Sets **`membership_status: "Pending Approval"`**.
-4. Member sees success message; **full portal access requires admin approval**.
+#### `MemberLogin.tsx` — `/member/login`
 
-**Admin approval:** [`admin-flows.md`](./admin-flows.md) — `MemberProfile.tsx` → “✓ Approve Member”.
+```
+MemberLogin.tsx
+├─ Fields: email, churchCode (?code= auto-fill + tenant branding lookup)
+├─ Edge: invoke member-login { email, churchCode }
+├─ Errors: invalid_code | member_not_found | pending_approval (toast 6s)
+├─ Success: localStorage.member_session → navigate /member
+└─ See auth.md for server-side pending gate
+```
 
-Until approved, member may be blocked from login or limited depending on `member-login` checks — verify `member-login/index.ts` for `membership_status` gate.
+#### `JoinChurch.tsx` — `/member/join`
 
-### Login
+```
+JoinChurch.tsx
+├─ URL: ?code=, ?type=member|visitor
+├─ memberType picker → member | visitor form branches
+├─ Edge: invoke member-register (registrationSource: qr_scan | form)
+├─ Success screen: church name + code copy; member → pending approval copy
+└─ Does not set member_session — must wait for admin approve + login
+```
 
-**Edge function:** `member-login`  
-**UI:** `MemberLogin.tsx` — email + church code → session in localStorage.
+#### `MemberHome.tsx` — `/member`
+
+```
+MemberHome.tsx
+├─ Context: useMemberPortal() — memberId, churchId, enabledModules, profileComplete
+├─ Filter: ALL_MODULES.filter(m => enabledModules[m.key] !== false)
+├─ Queries: latest sermon, volunteer roles
+├─ UI: profile completion banner → /member/profile
+└─ Grid: service tiles (give, events, messages, …) per enabled_modules.member_portal
+```
+
+#### `MemberGive.tsx` — `/member/give`
+
+```
+MemberGive.tsx
+├─ Fields: amount, category (tithe/offering/…), phoneNumber (prefill from profile), dedication
+├─ invoke process-stk-push { amount, phone, category, memberId, tenantId, … }
+├─ STK modal: 90s countdown; terminal states cancelled | failed | expired
+├─ Confirm: postgres_changes on giving_records.id + 2s polling fallback
+└─ Success: receipt summary; optional jsPDF download client-side
+```
+
+#### `MemberMessages.tsx` — `/member/messages`
+
+```
+MemberMessages.tsx
+├─ Section A — Staff directory (is_staff_directory=true):
+│   ├─ SELECT conversations WHERE is_staff_directory=true
+│   └─ joinStaffThread(staffUserId) → create private DM (is_staff_directory=false)
+├─ Section B — My conversations (is_staff_directory=false, type=direct):
+│   ├─ Realtime: postgres_changes on messages
+│   └─ INSERT messages as anon client (member session, not Supabase Auth)
+└─ UI: thread list → chat view with send, attachments, reply, delete
+```
+
+### Registration → pending approval
+
+1. **`member-register`** creates `members` with **`membership_status: "Pending Approval"`** (also used for QR join in `JoinChurch.tsx`).
+2. Member sees success UI; **cannot log in yet**.
+
+### Login gate (verified in source)
+
+**`member-login/index.ts` lines 54–58:**
+
+```typescript
+if (member.membership_status === "Pending Approval") {
+  return new Response(JSON.stringify({ error: "pending_approval" }), { status: 403, ... });
+}
+```
+
+**`MemberLogin.tsx`** shows a toast: *“Your membership is pending approval…”* when `error === "pending_approval"`.
+
+### Admin approval (required for portal access)
+
+**File:** `src/pages/people/MemberProfile.tsx`
+
+- Button **“✓ Approve Member”** when `membership_status === "Pending Approval"`.
+- Updates `members.membership_status` → `"Member"`, `status` → `"active"`.
+- Gated by `PermissionButton permission="member_management"`.
+
+No bulk approve on `Members.tsx` — filter only via `MemberFilters.tsx`.
+
+---
+
+## Session details
+
+- Token: UUID + timestamp string stored client-side.
+- Server record: `member_sessions` (`member_id`, `tenant_id`, `session_token`, `expires_at`).
+- Expiry: **30 days** from login.
+- Church code lookup: `tenants.church_code` **or** `tenants.invite_code`.
 
 ---
 
 ## Authenticated routes
 
-All under `MemberPortalLayout` (`src/components/layout/MemberPortalLayout.tsx`):
+Under `MemberPortalLayout`:
 
 | Route | File |
 |---|---|
 | `/member` | `MemberHome.tsx` |
-| `/member/give` | `MemberGive.tsx` |
+| `/member/give` | `MemberGive.tsx` → `process-stk-push` |
 | `/member/giving-history` | `MemberGivingHistory.tsx` |
-| `/member/pledge-campaigns` | `MemberPledgeCampaigns.tsx` |
-| `/member/events`, `/member/events/:eventId` | `MemberEventsPage.tsx`, `MemberEventDetailPage.tsx` |
+| `/member/pledge-campaigns` | `MemberPledgeCampaigns.tsx` → `process-stk-push` |
+| `/member/events`, `…/:eventId` | Events pages |
 | `/member/announcements` | `MemberAnnouncements.tsx` |
-| `/member/groups`, `/member/groups/:groupId` | `MemberGroupsPage.tsx`, `MemberGroupDetailPage.tsx` |
+| `/member/groups`, `…/:groupId` | Groups pages |
 | `/member/house-fellowships` | `MemberHouseFellowship.tsx` |
 | `/member/requests` | `MemberRequests.tsx` |
 | `/member/appointments` | `MemberAppointments.tsx` |
 | `/member/testimonies` | `MemberTestimonies.tsx` |
-| `/member/church-media`, `…/albums/:albumId` | `MemberChurchMedia.tsx`, `MemberAlbumDetail.tsx` |
+| `/member/church-media`, `…/albums/:albumId` | Media pages |
 | `/member/profile` | `MemberProfilePage.tsx` |
 | `/member/settings` | `MemberSettingsPage.tsx` |
 | `/member/messages` | `MemberMessages.tsx` |
-| `/member/sermons`, `/member/sermons/:sermonId` | Member sermon pages |
+| `/member/sermons`, `…/:sermonId` | Sermon pages |
 | `/member/bible` | `MemberBiblePage.tsx` |
 | `/member/volunteer` | `MemberVolunteerPage.tsx` |
 | `/member/children` | `MemberChildrenPage.tsx` |
@@ -65,74 +154,51 @@ All under `MemberPortalLayout` (`src/components/layout/MemberPortalLayout.tsx`):
 | `/member/outreach` | `MemberOutreachPage.tsx` |
 | `/member/whatsapp` | `MemberWhatsAppPage.tsx` |
 | `/member/store` | `MemberStore.tsx` |
-| `/member/training/*` | Training course/lesson/certificate pages |
+| `/member/training/*` | Training pages |
 
 ---
 
-## Module visibility (feature toggles)
+## Module visibility
 
-**Source:** `tenants.enabled_modules.member_portal`  
-**Loaded in:** `MemberPortalContext.tsx`  
-**Applied in:** `MemberHome.tsx` — filters service tiles.
+**Read:** `tenants.enabled_modules.member_portal` via `MemberPortalContext.tsx`  
+**Filter:** `MemberHome.tsx` service tiles  
+**Write:** Settings → Member App (`MemberApp.tsx`, `MemberAppFeatures.tsx`)
 
-Configured from admin: **Settings → Member App** (`MemberApp.tsx`, `MemberAppFeatures.tsx`).
+⚠️ **GAP:** Multiple writers use different JSON shapes for `enabled_modules` — see [`settings.md`](./settings.md).
 
-⚠️ **GAP:** Toggle shape in `MemberAppFeatures.tsx` must match read shape in `MemberPortalContext` — historical bug risk if shapes diverge.
-
-**Separate from:** `feature_permissions` (admin dead feature) and `member_permission_overrides` (per-member overrides UI).
+Admin sidebar is **not** filtered by these toggles.
 
 ---
 
-## Messaging (member side)
+## Messaging
 
-**Route:** `/member/messages` — `MemberMessages.tsx`
+**Route:** `/member/messages` — staff directory tiles + private DMs. See [`messaging.md`](./messaging.md).
 
-1. **Staff directory section** — “Message a leader”; lists `conversations` where `is_staff_directory=true`.
-2. **Tap staff tile** → `joinStaffThread()` creates/finds private DM (`is_staff_directory=false`, 2 participants).
-3. Labels from denormalized `conversations.name` + `src/lib/messaging.ts`.
-
-See [`messaging.md`](./messaging.md).
+Member client is **anon** Supabase — staff names denormalized on `conversations.name`.
 
 ---
 
-## Giving (member side)
+## Giving
 
-**Route:** `/member/give` — STK via **`process-stk-push`** (same as admin Give Online).
+**Route:** `/member/give` — Daraja STK via `process-stk-push`; same realtime+polling confirmation as admin Give Online. See [`payments.md`](./payments.md).
 
-Confirmation: realtime + polling on `giving_records` (same pattern as `GiveOnline.tsx`).
-
-See [`payments.md`](./payments.md).
+Legacy Pesapal/IntaSend webhooks do **not** participate in member give UI.
 
 ---
 
-## Public member-adjacent routes (no member session)
+## Public routes (no member session)
 
-| Route | Purpose |
-|---|---|
-| `/church/:slug` | Public church page |
-| `/survey/:surveyId` | Public survey |
-| `/book/:tenantId` | Public facility booking |
-| `/sermons/:tenantId` | Public sermons |
-| `/store/:tenantId` | Public store |
+`/church/:slug`, `/survey/:surveyId`, `/book/:tenantId`, `/sermons/:tenantId`, `/store/:tenantId`, `/visitor-registration/:churchId`
 
 ---
 
-## RLS note
+## RLS
 
-Member portal often uses **anon** Supabase client with policies allowing read/insert scoped by tenant/member identity. Key migrations:
-
-- `20260407091336_member_portal_rls_policies.sql`
-- `20260407091627_member_portal_open_read_policies.sql`
-- `20260422000001_member_portal_events_rls.sql`
+Member portal policies: `20260407091336_member_portal_rls_policies.sql`, `20260407091627_member_portal_open_read_policies.sql`, event/messaging migrations — see structural index.
 
 ---
 
-## Product context alignment
+## Product context gaps
 
-| Product intent | Code status |
-|---|---|
-| Members find church via **church code** | ✅ `tenants.church_code`, join/login flows |
-| Separate Member Portal entry on landing | ✅ `/member/login` |
-| Member Portal not detailed in product doc | Extension documented here |
-
-⚠️ **DISCREPANCY:** Product doc focuses on admin onboarding; member self-registration → **Pending Approval** workflow is implemented in code but not yet in product context §6.
+- Member portal routes not listed in `00-product-context.md` §4.
+- **Pending approval workflow** implemented in code; admin approval on `MemberProfile.tsx` only.

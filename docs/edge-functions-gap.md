@@ -1,61 +1,55 @@
-# Edge Functions — Deployed vs Local Gap
+# Edge Functions — Inventory & Sync Status
 
-> **Source:** `supabase functions list --project-ref crjdsxxkspvdwknrmijs` compared to `supabase/functions/*/index.ts` in this repo (2026-06-15).
+> **Verified:** 2026-06-15 after full download/commit of previously missing functions.
 
 | | Count |
 |---|---|
-| Deployed on Supabase (`churchapp`) | **65** |
-| Present locally (`supabase/functions/`, excl. `_shared`) | **48** |
-| **Missing from local repo** | **17** |
+| Local function directories (`supabase/functions/*/index.ts`, excl. `_shared`) | **64** |
+| Deployed on Supabase (`churchapp` / `crjdsxxkspvdwknrmijs`) | **65** |
+| Missing from local repo | **0** (real functions) |
+| Deploy-only artifact (not a repo folder) | **1** — `_shared-buildBrandedEmail` |
 
-## 17 functions deployed but not in local repo
+## Previously missing — now local (16 functions)
 
-Pull these down before editing or redeploying them:
+These were pulled down and are present under `supabase/functions/`:
 
-| # | Function slug | Notes |
-|---|---|---|
-| 1 | `generate-receipt` | Giving receipt generation |
-| 2 | `on-signup` | Auth signup hook / tenant bootstrap (may overlap with `handle_new_user` DB trigger) |
-| 3 | `pesapal-webhook` | Pesapal payment webhook |
-| 4 | `intasend-webhook` | IntaSend payment webhook |
-| 5 | `check-pledge-overdue` | Scheduled pledge overdue checks |
-| 6 | `check-attendance-risk` | Scheduled attendance risk alerts |
-| 7 | `reset-email-quota` | Cron — reset email sending quota |
-| 8 | `notify-task-deadlines` | Cron — follow-up task deadline notifications |
-| 9 | `notify-meeting-deadlines` | Cron — board meeting deadline notifications |
-| 10 | `at-sms` | **Legacy SMS alias** — `src/pages/settings/NotificationsSettings.tsx` still invokes `at-sms`; local repo has `africastalking-sms` instead |
-| 11 | `website-consultation` | Invoked from `src/pages/settings/WebsitePromo.tsx` |
-| 12 | `invite-user` | Older invite path (superseded locally by `send-invitation`?) |
-| 13 | `build-branded-email` | Standalone branded email builder (local uses `_shared/branded-email.ts`) |
-| 14 | `_shared-buildBrandedEmail` | Accidental deploy of shared module as function — likely safe to ignore or undeploy |
-| 15 | `test-env` | Diagnostic |
-| 16 | `test-resend` | Diagnostic |
-| 17 | `check-auth-format` | Auth format validation utility |
+| Function | Purpose (from source) |
+|---|---|
+| `generate-receipt` | Builds HTML receipt, uploads to `giving-receipts` bucket, sets `giving_records.receipt_url` |
+| `on-signup` | Auth webhook handler: on `auth.users` INSERT, creates `tenants` + `users` (`super_admin`, `onboarding_completed: false`) |
+| `pesapal-webhook` | Pesapal IPN → updates `giving_records` by `pesapal_transaction_id` |
+| `intasend-webhook` | IntaSend webhook → same column, maps invoice state to `payment_status` |
+| `check-pledge-overdue` | Daily cron: flags `pledges` as `overdue` when campaign past 7 days |
+| `check-attendance-risk` | Weekly cron: inserts `notifications` for **`users`** (not `members`) absent 3 consecutive sessions per service type |
+| `reset-email-quota` | Monthly cron: resets `email_quotas.monthly_sent` for non-free plans |
+| `notify-task-deadlines` | Cron: `follow_up_tasks` due in 7d/1d → admin notifications |
+| `notify-meeting-deadlines` | Cron: `board_meetings` 24h/1h reminders → admin notifications |
+| `at-sms` | Tenant-scoped AT SMS (`tenants.at_username/at_api_key`); `check_balance` / `send_sms` actions |
+| `website-consultation` | Inserts `website_consultation_requests`, emails platform admin via Resend |
+| `invite-user` | Legacy staff invite: `createUser` + optional recovery email (not used by current UI) |
+| `build-branded-email` | HTTP wrapper around shared branded email builder |
+| `test-env` | Diagnostic |
+| `test-resend` | Diagnostic |
+| `check-auth-format` | Inspects `PAYHERO_BASIC_AUTH` secret format (diagnostic) |
 
-## Pull commands
+## Shared modules (not deployable functions)
 
-```bash
-# Requires Supabase CLI linked to project crjdsxxkspvdwknrmijs
-supabase functions download generate-receipt --project-ref crjdsxxkspvdwknrmijs
-supabase functions download on-signup --project-ref crjdsxxkspvdwknrmijs
-supabase functions download pesapal-webhook --project-ref crjdsxxkspvdwknrmijs
-supabase functions download intasend-webhook --project-ref crjdsxxkspvdwknrmijs
-supabase functions download check-pledge-overdue --project-ref crjdsxxkspvdwknrmijs
-supabase functions download check-attendance-risk --project-ref crjdsxxkspvdwknrmijs
-supabase functions download reset-email-quota --project-ref crjdsxxkspvdwknrmijs
-supabase functions download notify-task-deadlines --project-ref crjdsxxkspvdwknrmijs
-supabase functions download notify-meeting-deadlines --project-ref crjdsxxkspvdwknrmijs
-supabase functions download at-sms --project-ref crjdsxxkspvdwknrmijs
-supabase functions download website-consultation --project-ref crjdsxxkspvdwknrmijs
-supabase functions download invite-user --project-ref crjdsxxkspvdwknrmijs
-supabase functions download build-branded-email --project-ref crjdsxxkspvdwknrmijs
-supabase functions download test-env --project-ref crjdsxxkspvdwknrmijs
-supabase functions download test-resend --project-ref crjdsxxkspvdwknrmijs
-supabase functions download check-auth-format --project-ref crjdsxxkspvdwknrmijs
-```
+| Path | Used by |
+|---|---|
+| `supabase/functions/_shared/buildBrandedEmail.ts` | `invite-user`, `website-consultation`, `build-branded-email` |
+| `supabase/functions/_shared/branded-email.ts` | `send-invitation`, `send-communication`, etc. |
+| `supabase/functions/_shared/placeholder-replacer.ts` | Email templating |
 
-Or bulk via dashboard: **Supabase → Edge Functions →** select function → download source.
+## Deploy-only ghost function
 
-## 48 functions present locally (all also deployed)
+Supabase still lists **`_shared-buildBrandedEmail`** as a deployed edge function (accidental deploy of shared code). It has **no** local `index.ts` folder and should not be redeployed from this repo. Safe to ignore or undeploy from dashboard.
 
-`africastalking-balance`, `africastalking-delivery-webhook`, `africastalking-sms`, `c2b-webhook`, `canva-callback`, `canva-oauth`, `canva-refresh-token`, `create-admin-broadcasts-table`, `create-staff-thread`, `data-download-request`, `fetch-og-metadata`, `fetch-sentry-issues`, `generate-ai-content`, `generate-ai-email`, `generate-child-qr-codes`, `generate-church-code`, `generate-quiz`, `generate-sermon`, `get-active-sessions`, `get-payhero-banks`, `get-supported-banks`, `initiate-payment`, `legal-signature-notify`, `member-login`, `member-register`, `payment-webhook`, `process-email-automations`, `process-sermon-archive`, `process-stk-push`, `receive-booking-response`, `register-c2b-urls`, `register-credentials`, `register-payment-channel`, `reset-monthly-credits`, `run-payroll`, `send-bible-reminder`, `send-booking-confirmation`, `send-communication`, `send-invitation`, `send-member-welcome`, `send-push-notification`, `send-whatsapp-message`, `sync-member-profile`, `test-payhero-api`, `test-payhero-stk`, `transcribe-audio`, `update-user-role`, `whatsapp-webhook`
+## Full local inventory (64)
+
+`africastalking-balance`, `africastalking-delivery-webhook`, `africastalking-sms`, `at-sms`, `build-branded-email`, `c2b-webhook`, `canva-callback`, `canva-oauth`, `canva-refresh-token`, `check-attendance-risk`, `check-auth-format`, `check-pledge-overdue`, `create-admin-broadcasts-table`, `create-staff-thread`, `data-download-request`, `fetch-og-metadata`, `fetch-sentry-issues`, `generate-ai-content`, `generate-ai-email`, `generate-child-qr-codes`, `generate-church-code`, `generate-quiz`, `generate-receipt`, `generate-sermon`, `get-active-sessions`, `get-payhero-banks`, `get-supported-banks`, `initiate-payment`, `intasend-webhook`, `invite-user`, `legal-signature-notify`, `member-login`, `member-register`, `notify-meeting-deadlines`, `notify-task-deadlines`, `on-signup`, `payment-webhook`, `pesapal-webhook`, `process-email-automations`, `process-sermon-archive`, `process-stk-push`, `receive-booking-response`, `register-c2b-urls`, `register-credentials`, `register-payment-channel`, `reset-email-quota`, `reset-monthly-credits`, `run-payroll`, `send-bible-reminder`, `send-booking-confirmation`, `send-communication`, `send-invitation`, `send-member-welcome`, `send-push-notification`, `send-whatsapp-message`, `sync-member-profile`, `test-env`, `test-payhero-api`, `test-payhero-stk`, `test-resend`, `transcribe-audio`, `update-user-role`, `website-consultation`, `whatsapp-webhook`
+
+## Frontend invoke vs cron/webhook-only
+
+| Invoked from `src/` | Cron / webhook / unused |
+|---|---|
+| See each area doc | `on-signup`, `payment-webhook`, `c2b-webhook`, `pesapal-webhook`, `intasend-webhook`, `africastalking-delivery-webhook`, `whatsapp-webhook`, `receive-booking-response`, cron jobs above, `generate-receipt`, `invite-user`, `initiate-payment`, diagnostics |

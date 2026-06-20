@@ -24,6 +24,23 @@ Full route list: see structural index in [`README.md`](./README.md).
 
 **File:** `src/pages/Dashboard.tsx`
 
+```
+Dashboard.tsx
+├─ Context: useChurch() → tenantId, currency, name
+├─ Permission: usePermissions() (read-only gates on quick actions)
+├─ Stat cards (useQuery "dashboard-stats"):
+│   ├─ Total Members — COUNT members (no status filter)
+│   ├─ Month giving — SUM giving_records confirmed, given_at ≥ 1st of month (badge: "This month")
+│   ├─ Upcoming Events — COUNT events in next 7 days
+│   └─ Active Groups — COUNT groups where is_active=true
+├─ Today's Giving card (separate query "todays-total"):
+│   ├─ SELECT all confirmed giving_records for tenant
+│   └─ Client filter: given_at local date === today (badge: "Today")
+├─ Charts: giving trend (30d), group distribution, upcoming events list
+├─ Activity feed: useActivityLog() — recent tenant actions
+└─ Quick actions: links to /members, /give-online, /events, /communications (PermissionButton gated)
+```
+
 ### Stat cards
 
 | Card label (UI) | Product doc name | Query |
@@ -65,6 +82,19 @@ See [`payments.md`](./payments.md) — realtime + polling on Give Online; dashbo
 
 **Primary UI:** `MemberProfile.tsx` — button **“✓ Approve Member”** when `membership_status === "Pending Approval"`.
 
+```
+MemberProfile.tsx  — /members/:memberId
+├─ Permission: usePermissions('member_management') → readOnly
+├─ Load: member row + groups, giving, attendance tabs
+├─ Pending banner: membership_status === "Pending Approval"
+├─ Approve button (PermissionButton):
+│   ├─ UPDATE members SET membership_status='Member', status='active'
+│   ├─ invalidateQueries ["member", memberId]
+│   └─ toast.success("Member approved")
+├─ Edit dialog: full profile fields incl. membership_status dropdown
+└─ Edge (on save): sync-member-profile — sync name to users table
+```
+
 - Updates `members.membership_status` → `"Member"`, `status` → `"active"`.
 - Gated by `PermissionButton permission="member_management"`.
 
@@ -77,6 +107,21 @@ See [`payments.md`](./payments.md) — realtime + polling on Give Online; dashbo
 ## Staff / user management
 
 **Route:** `/settings/users` — `Users.tsx`
+
+```
+Users.tsx  — AddUserModal.handleSubmit()
+├─ Mode A — inviteByEmail (external email, no member pick):
+│   ├─ Fields: inviteFirstName, inviteLastName, inviteEmail, role
+│   └─ invoke send-invitation → InviteCallback creates staff thread later
+├─ Mode B — pick existing member + sendInvite ON:
+│   ├─ Check active same-role → block
+│   ├─ inactive → invoke update-user-role (reactivate) — thread inline in edge fn
+│   └─ else → invoke send-invitation
+├─ Mode C — pick member + sendInvite OFF (direct insert):
+│   ├─ INSERT users (new UUID if active user different role)
+│   └─ invoke create-staff-thread (if role !== member)
+└─ Staff limit: canAddStaff check (tenant_subscriptions) for non-member roles
+```
 
 ### Add user paths (`AddUserModal`)
 
@@ -108,6 +153,22 @@ Routes: `/communications`, `/announcements`, `/member-messaging`, `/appointments
 Permission: `communication_tools`
 
 See [`messaging.md`](./messaging.md).
+
+---
+
+## Background jobs (cron — no UI)
+
+| Function | Source behavior |
+|---|---|
+| `check-pledge-overdue` | Daily — flags `pledges` overdue when campaign ended &gt;7 days ago |
+| `check-attendance-risk` | Weekly — `notifications` for active **`users`** missing last 3 sessions per service type |
+| `notify-task-deadlines` | `follow_up_tasks` due in 7d/1d |
+| `notify-meeting-deadlines` | `board_meetings` 24h/1h reminders |
+| `reset-email-quota` | Monthly email quota reset |
+| `reset-monthly-credits` | Subscription credit reset |
+| `process-email-automations` | Scheduled email automation runs |
+
+See [`edge-functions-gap.md`](./edge-functions-gap.md) for full inventory.
 
 ---
 
