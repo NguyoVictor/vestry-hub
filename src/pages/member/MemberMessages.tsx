@@ -17,6 +17,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { staffDisplayName, formatStaffRole } from "@/lib/messaging";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface MessageRow {
@@ -324,6 +325,7 @@ export default function MemberMessages() {
   const [hasEarlier, setHasEarlier] = useState(false);
   const [earlierOffset, setEarlierOffset] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [joiningStaffId, setJoiningStaffId] = useState<string | null>(null);
   const [deleteConvConfirm, setDeleteConvConfirm] = useState(false);
   const [closeConvConfirm, setCloseConvConfirm] = useState(false);
   const [deleteMsgConfirm, setDeleteMsgConfirm] = useState<string | null>(null);
@@ -369,7 +371,7 @@ export default function MemberMessages() {
         userMap = Object.fromEntries(
           (userProfiles || []).map((u: any) => [
             u.id,
-            `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Staff",
+            staffDisplayName(u.first_name, u.last_name),
           ])
         );
       }
@@ -380,7 +382,7 @@ export default function MemberMessages() {
           .find((p: any) => p.user_id !== member.memberId)?.user_id;
         return {
           ...conv,
-          staff_name: otherId ? userMap[otherId] : undefined,
+          staff_name: otherId ? (userMap[otherId] || conv.name) : conv.name,
         };
       });
     },
@@ -444,26 +446,81 @@ export default function MemberMessages() {
     const m = (chatMembers as any[]).find((m: any) => m.id === id);
     if (m?.first_name) return `${m.first_name} ${m.last_name ?? ""}`.trim();
     const u = (chatUsers as any[]).find((u: any) => u.id === id);
-    return u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "Staff" : "Staff";
+    return u ? staffDisplayName(u.first_name, u.last_name) : "Team member";
   };
 
-  const joinStaffThread = async (convId: string) => {
-    const { data: existing } = await (supabase as any)
+  const joinStaffThread = async (staffUserId: string) => {
+    if (joiningStaffId === staffUserId) return;
+    setJoiningStaffId(staffUserId);
+    try {
+    const staffTile = staffThreads.find((st: any) => st.staff_user_id === staffUserId);
+    const staffUser = staffTile?.staff_user;
+    const staffLabel = staffDisplayName(
+      staffUser?.first_name,
+      staffUser?.last_name,
+      staffTile?.name,
+    );
+
+    // Check if a private direct thread already exists between this member and this staff member
+    const { data: myConvs } = await (supabase as any)
       .from("conversation_participants")
-      .select("id")
-      .eq("conversation_id", convId)
-      .eq("user_id", member.memberId)
-      .maybeSingle();
-    if (!existing) {
-      await (supabase as any).from("conversation_participants").insert({
-        conversation_id: convId,
-        user_id: member.memberId,
-        unread_count: 0,
-        joined_at: new Date().toISOString(),
-      });
-      qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
+      .select("conversation_id")
+      .eq("user_id", member.memberId);
+    const myConvIds = (myConvs || []).map((r: any) => r.conversation_id);
+
+    let privateConvId: string | null = null;
+
+    if (myConvIds.length > 0) {
+      const { data: staffConvs } = await (supabase as any)
+        .from("conversation_participants")
+        .select("conversation_id")
+        .eq("user_id", staffUserId)
+        .in("conversation_id", myConvIds);
+
+      for (const row of staffConvs || []) {
+        const { data: convCheck } = await (supabase as any)
+          .from("conversations")
+          .select("id, type, is_staff_directory")
+          .eq("id", row.conversation_id)
+          .eq("type", "direct")
+          .eq("is_staff_directory", false)
+          .maybeSingle();
+        if (convCheck) {
+          privateConvId = convCheck.id;
+          break;
+        }
+      }
     }
-    selectConversation(convId);
+
+    if (!privateConvId) {
+      const { data: newConv } = await (supabase as any)
+        .from("conversations")
+        .insert({
+          tenant_id: member.tenantId,
+          type: "direct",
+          is_staff_directory: false,
+          staff_user_id: staffUserId,
+          name: staffLabel,
+          created_by: member.memberId,
+          status: "open",
+        })
+        .select("id")
+        .single();
+
+      if (newConv) {
+        privateConvId = newConv.id;
+        await (supabase as any).from("conversation_participants").insert([
+          { conversation_id: privateConvId, user_id: member.memberId, unread_count: 0, joined_at: new Date().toISOString() },
+          { conversation_id: privateConvId, user_id: staffUserId, unread_count: 0, joined_at: new Date().toISOString() },
+        ]);
+      }
+    }
+
+    qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
+    if (privateConvId) selectConversation(privateConvId);
+    } finally {
+      setJoiningStaffId(null);
+    }
   };
 
   // ── Reactions query ───────────────────────────────────────────────────────
@@ -577,7 +634,7 @@ export default function MemberMessages() {
       })
       .on("broadcast", { event: "typing" }, ({ payload }: any) => {
         if (payload.userId !== member.userId) {
-          setTypingUser(payload.name ?? "Staff");
+          setTypingUser(payload.name ?? "Team member");
           if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
           typingTimerRef.current = setTimeout(() => setTypingUser(null), 2000);
         }
@@ -760,11 +817,12 @@ export default function MemberMessages() {
     conversations.find((c: any) => c.id === selectedConvId) ||
     staffThreads.find((c: any) => c.id === selectedConvId);
   const staffUser = (selectedConv as any)?.staff_user;
+  const staffRole = staffUser?.role ? formatStaffRole(staffUser.role) : "";
   const staffName =
     selectedConv?.staff_name ||
-    (staffUser ? `${staffUser.first_name || ""} ${staffUser.last_name || ""}`.trim() : null) ||
+    staffDisplayName(staffUser?.first_name, staffUser?.last_name, selectedConv?.name) ||
     selectedConv?.name ||
-    "Church Staff";
+    "Team member";
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -779,7 +837,7 @@ export default function MemberMessages() {
           <div>
             <p className="text-xs font-medium text-slate-500">{member.churchName}</p>
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">Messages</h1>
-            <p className="text-xs text-slate-400">Direct messages from church staff</p>
+            <p className="text-xs text-slate-400">Private messages with church leaders</p>
           </div>
         </div>
 
@@ -804,38 +862,39 @@ export default function MemberMessages() {
                     <MessageCircle className="h-6 w-6 text-slate-300" />
                   </div>
                   <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No messages yet</p>
-                  <p className="text-xs text-slate-400">Church staff will reach out to you here</p>
+                  <p className="text-xs text-slate-400">Tap a leader below to start a conversation</p>
                 </div>
               ) : (
                 <>
                   {staffThreads.length > 0 && (
                     <div className="px-4 pt-3 pb-1">
                       <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                        Church Staff
+                        Message a leader
                       </p>
                       <div className="flex flex-col gap-1">
                         {staffThreads.map((conv: any) => {
                           const staff = conv.staff_user;
                           const isInactive = staff?.status === "inactive";
-                          const staffName = staff
-                            ? `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "Staff"
-                            : "Staff";
-                          const staffRole = staff?.role
-                            ? staff.role.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
-                            : "";
+                          const staffName = staffDisplayName(
+                            staff?.first_name,
+                            staff?.last_name,
+                            conv.name,
+                          );
+                          const staffRole = staff?.role ? formatStaffRole(staff.role) : "";
                           const myParticipant = (conv.conversation_participants || [])
                             .find((p: any) => p.user_id === member.memberId);
                           const unread = myParticipant?.unread_count ?? 0;
                           return (
                             <button
                               key={conv.id}
-                              onClick={() => joinStaffThread(conv.id)}
+                              disabled={joiningStaffId === conv.staff_user_id}
+                              onClick={() => joinStaffThread(conv.staff_user_id)}
                               className={cn(
                                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
                                 selectedConvId === conv.id
                                   ? "bg-orange-50 dark:bg-orange-900/10"
                                   : "hover:bg-slate-50 dark:hover:bg-slate-700/50",
-                                isInactive && "opacity-50"
+                                (isInactive || joiningStaffId === conv.staff_user_id) && "opacity-50"
                               )}
                             >
                               <div className="relative shrink-0">
@@ -877,10 +936,15 @@ export default function MemberMessages() {
                       </div>
                     </div>
                   )}
-                  {conversations.map((conv: any) => {
+                  {conversations.filter((conv: any) => {
+                    const otherUserId = (conv.conversation_participants || [])
+                      .find((p: any) => p.user_id !== member.memberId)?.user_id;
+                    const staffUserIds = new Set(staffThreads.map((st: any) => st.staff_user_id).filter(Boolean));
+                    return !(otherUserId && staffUserIds.has(otherUserId));
+                  }).map((conv: any) => {
                     const myParticipant = (conv.conversation_participants || []).find((p: any) => p.user_id === member.userId);
                     const unread = myParticipant?.unread_count ?? 0;
-                    const name = conv.staff_name || conv.name || conv.title || "Church Staff";
+                    const name = conv.staff_name || conv.name || conv.title || "Team member";
                     const preview = conv.last_message_preview ?? "";
                     const time = conv.updated_at ? formatMsgTime(conv.updated_at) : "";
                     return (
@@ -927,7 +991,7 @@ export default function MemberMessages() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-900 dark:text-white">{staffName}</p>
-                    <p className="text-xs text-slate-400">Church Staff</p>
+                    <p className="text-xs text-slate-400">{staffRole || "Private conversation"}</p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

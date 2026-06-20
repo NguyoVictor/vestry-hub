@@ -91,6 +91,50 @@ Deno.serve(async (req: Request) => {
       if (last_name !== undefined && last_name !== null) userRecord.last_name = last_name;
 
       await supabase.from('users').upsert(userRecord, { onConflict: 'id' });
+
+      if (alreadyRegistered) {
+        const { data: existingThread } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('staff_user_id', newUserId)
+          .eq('is_staff_directory', true)
+          .eq('tenant_id', tenant_id)
+          .maybeSingle();
+        if (!existingThread) {
+          const displayName = (first_name || '').trim() || `${first_name || ''} ${last_name || ''}`.trim() || 'Team member';
+          const welcomeMsg = `Hi! I'm ${displayName}. Feel free to reach out with any questions, prayer requests, or concerns. 🙏`;
+          const { data: newConv } = await supabase
+            .from('conversations')
+            .insert({
+              tenant_id,
+              type: 'direct',
+              is_staff_directory: true,
+              staff_user_id: newUserId,
+              name: displayName,
+              created_by: newUserId,
+              status: 'open',
+              last_message_preview: welcomeMsg.slice(0, 100),
+              last_message_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+          if (newConv) {
+            await supabase.from('conversation_participants').insert({
+              conversation_id: newConv.id,
+              user_id: newUserId,
+              unread_count: 0,
+              joined_at: new Date().toISOString(),
+            });
+            await supabase.from('messages').insert({
+              tenant_id,
+              conversation_id: newConv.id,
+              sender_id: newUserId,
+              body: welcomeMsg,
+              status: 'sent',
+            });
+          }
+        }
+      }
     }
 
     return new Response(JSON.stringify({ ok: true, already_registered: alreadyRegistered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

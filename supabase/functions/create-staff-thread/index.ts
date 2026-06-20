@@ -28,9 +28,9 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    const welcomeName = `${firstName || ''} ${lastName || ''}`.trim() || 'Staff';
-    const welcomeMsg = `Hi! I'm ${welcomeName}. Feel free to reach out with any questions, prayer requests, or concerns. 🙏`;
-    // Create staff directory thread
+    const displayName = (firstName || '').trim() || `${firstName || ''} ${lastName || ''}`.trim() || 'Team member';
+    const welcomeMsg = `Hi! I'm ${displayName}. Feel free to reach out with any questions, prayer requests, or concerns. 🙏`;
+    // Create staff directory thread (name is denormalized for member portal — anon cannot read users)
     const { data: newConv, error: convError } = await adminClient
       .from('conversations')
       .insert({
@@ -38,6 +38,7 @@ serve(async (req) => {
         type: 'direct',
         is_staff_directory: true,
         staff_user_id: userId,
+        name: displayName,
         created_by: userId,
         status: 'open',
         last_message_preview: welcomeMsg.slice(0, 100),

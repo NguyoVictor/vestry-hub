@@ -197,8 +197,10 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!existingThread) {
-          const welcomeName = `${reactivatedUser.first_name || ""} ${reactivatedUser.last_name || ""}`.trim() || "Staff";
-          const welcomeMsg = `Hi! I'm ${welcomeName}. Feel free to reach out with any questions, prayer requests, or concerns. 🙏`;
+          const displayName = (reactivatedUser.first_name || "").trim()
+            || `${reactivatedUser.first_name || ""} ${reactivatedUser.last_name || ""}`.trim()
+            || "Team member";
+          const welcomeMsg = `Hi! I'm ${displayName}. Feel free to reach out with any questions, prayer requests, or concerns. 🙏`;
           const { data: newConv } = await adminClient
             .from("conversations")
             .insert({
@@ -206,6 +208,7 @@ Deno.serve(async (req) => {
               type: "direct",
               is_staff_directory: true,
               staff_user_id: targetUserId,
+              name: displayName,
               created_by: targetUserId,
               status: "open",
               last_message_preview: welcomeMsg.slice(0, 100),

@@ -61,15 +61,20 @@ export default function InviteCallback() {
             registration_source: 'admin_invite',
           }, { onConflict: 'id' });
 
-        // Auto-create staff directory thread for this user
-        await supabase.functions.invoke('create-staff-thread', {
-          body: {
-            userId: data.session.user.id,
-            tenantId: invitedTenantId,
-            firstName: resolvedFirstName,
-            lastName: resolvedLastName,
-          },
-        });
+        // Auto-create staff directory thread for this user (staff/admin roles only, never plain members)
+        if (invitedRole !== 'member') {
+          const { error: threadError } = await supabase.functions.invoke('create-staff-thread', {
+            body: {
+              userId: data.session.user.id,
+              tenantId: invitedTenantId,
+              firstName: resolvedFirstName,
+              lastName: resolvedLastName,
+            },
+          });
+          if (threadError) {
+            console.error('Failed to create staff directory thread:', threadError);
+          }
+        }
 
         if (upsertError) {
           console.error('InviteCallback upsert failed:', upsertError);

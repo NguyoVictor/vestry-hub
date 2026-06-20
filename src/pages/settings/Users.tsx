@@ -285,10 +285,11 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
           .limit(1);
 
         if (anyActiveRecords && anyActiveRecords.length > 0) {
+          const newUserId = crypto.randomUUID();
           const { error: insertError } = await supabase
             .from('users')
             .insert({
-              id: crypto.randomUUID(),
+              id: newUserId,
               tenant_id: tenantId,
               email: selectedMember.email,
               first_name: selectedMember.first_name,
@@ -298,6 +299,14 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
               invitation_sent: true,
             });
           if (insertError) throw insertError;
+          await supabase.functions.invoke('create-staff-thread', {
+            body: {
+              userId: newUserId,
+              tenantId,
+              firstName: selectedMember.first_name,
+              lastName: selectedMember.last_name,
+            },
+          });
           toast.success(`${selectedMember.first_name} has been added as ${formatRole(role)}.`);
           onSuccess();
           handleClose();

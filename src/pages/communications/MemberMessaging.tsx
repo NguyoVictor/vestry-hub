@@ -517,8 +517,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
           if (prev.find(m => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
         });
-        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
-        qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
+        qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       })
       .on("postgres_changes" as any, {
         event: "DELETE",
@@ -660,8 +660,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
     },
     onSuccess: (data, _, context) => {
       setAllMessages(prev => prev.map(m => m.id === context?.optimisticId ? { ...data, replyToMessage: m.replyToMessage } : m));
-      qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
-      qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+      qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
+      qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
     },
     onError: (_, __, context) => {
       setAllMessages(prev => prev.filter(m => m.id !== context?.optimisticId));
@@ -714,8 +714,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
       await (supabase as any).from("conversations").update({ last_message_preview: `📎 ${file.name}`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", conv.id);
       await (supabase as any).from(TABLES.TENANT_SUBSCRIPTIONS).update({ storage_used_gb: usage.storage_gb + fileSizeGB }).eq("tenant_id", tenantId);
       await (supabase as any).rpc("batch_increment_unread_count", { p_conversation_id: conv.id, p_excluding_user_id: userId });
-      qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
-      qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+      qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
+      qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       toast.success("File sent");
     } catch (err: any) {
       setAllMessages(prev => prev.filter(m => !m.id.startsWith("temp-file-")));
@@ -750,8 +750,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
           {conv.status === "closed" && (
             <Button variant="outline" size="sm" className="text-xs h-7" onClick={async () => {
               await (supabase as any).from("conversations").update({ status: "open" }).eq("id", conv.id);
-              qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
-              qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+              qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
+              qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
               toast.success("Conversation reopened");
             }}>Reopen</Button>
           )}
@@ -763,8 +763,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
               {isGroup && <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => setEditGroupOpen(true)}>Edit Group</DropdownMenuItem>}
               <DropdownMenuItem className="text-xs cursor-pointer" onClick={async () => {
                 await (supabase as any).from("conversation_participants").update({ unread_count: 1 }).eq("conversation_id", conv.id).eq("user_id", userId);
-                qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
-                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+                qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
+                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
                 toast.success("Marked as unread");
               }}>Mark as Unread</DropdownMenuItem>
               <DropdownMenuItem className="text-xs cursor-pointer text-red-500 focus:text-red-500" onClick={() => setDeleteConfirm(true)}>Delete Conversation</DropdownMenuItem>
@@ -785,8 +785,8 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
                 await (supabase as any).from("messages").delete().eq("conversation_id", conv.id);
                 await (supabase as any).from("conversation_participants").delete().eq("conversation_id", conv.id);
                 await (supabase as any).from("conversations").delete().eq("id", conv.id);
-                qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
-                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+                qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
+                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
                 toast.success("Conversation deleted");
                 onBack();
                 setDeleteConfirm(false);
@@ -836,7 +836,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
               <Button variant="outline" onClick={() => setEditGroupOpen(false)}>Cancel</Button>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={async () => {
                 await (supabase as any).from("conversations").update({ name: editGroupName, description: editGroupDesc || null }).eq("id", conv.id);
-                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+                qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
                 toast.success("Group updated");
                 setEditGroupOpen(false);
               }}>Save Changes</Button>
@@ -1013,8 +1013,8 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
         await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString() }).eq("id", forum.id);
         const notifs = users.filter(u => u.id !== userId).map(u => ({ tenant_id: tenantId, user_id: u.id, type: "broadcast", title: `${userName} posted in Church Forum`, body: message.trim().slice(0, 50), is_read: false }));
         if (notifs.length) await supabase.from(TABLES.NOTIFICATIONS).insert(notifs as any);
-        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
-        qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
+        qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
         toast.success("✅ Posted to Church Forum");
         onConversationCreated(forum.id);
         onClose(); reset();
@@ -1037,7 +1037,7 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
             count++;
           }
         }
-        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
         toast.success(`✅ Message sent to ${count} members`);
         onClose(); reset();
       } else if (sendTo === "specific") {
@@ -1057,7 +1057,7 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
         const { error: msgErr } = await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: convId, sender_id: userId, body: message.trim() } as any);
         if (msgErr) throw msgErr;
         await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", convId);
-        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
         const name = targetUser ? `${(targetUser as any).first_name ?? ""} ${(targetUser as any).last_name ?? ""}`.trim() : "member";
         toast.success(`✅ Message sent to ${name}`);
         onConversationCreated(convId);
@@ -1207,7 +1207,7 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
   const [newMsgOpen, setNewMsgOpen] = useState(false);
 
   const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
-    queryKey: ["conversations-dm", tenantId],
+    queryKey: ["conversations-dm", tenantId, userId],
     queryFn: async () => {
       const { data: participantRows } = await (supabase as any)
         .from("conversation_participants")
@@ -1221,8 +1221,33 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
         .in("id", myConvIds)
         .eq("tenant_id", tenantId)
         .eq("type", "direct")
+        .eq("is_staff_directory", false)
         .order("last_message_at", { ascending: false, nullsFirst: false });
-      return (data ?? []) as unknown as Conversation[];
+      const convList = (data ?? []) as unknown as Conversation[];
+
+      // Only conversations this admin is a participant in (private member threads)
+      const mine = convList.filter((conv) =>
+        conv.conversation_participants?.some((p) => p.user_id === userId)
+      );
+
+      const otherUserIds = mine
+        .map(conv => conv.conversation_participants?.find((p: any) => p.user_id !== userId)?.user_id)
+        .filter(Boolean);
+
+      if (otherUserIds.length === 0) return mine;
+
+      const { data: otherAsStaff } = await (supabase as any)
+        .from("users")
+        .select("id")
+        .in("id", otherUserIds)
+        .eq("status", "active");
+
+      const staffIds = new Set((otherAsStaff || []).map((u: any) => u.id));
+
+      return mine.filter(conv => {
+        const otherId = conv.conversation_participants?.find((p: any) => p.user_id !== userId)?.user_id;
+        return !otherId || !staffIds.has(otherId);
+      });
     },
     staleTime: 60_000,
   });
@@ -1230,13 +1255,13 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
   // Realtime conversation list updates
   useEffect(() => {
     const channel = supabase
-      .channel(`conversations-dm-${tenantId}`)
+      .channel(`conversations-dm-${tenantId}-${userId}`)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "conversations", filter: `tenant_id=eq.${tenantId}` }, () => {
-        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+        qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tenantId, qc]);
+  }, [tenantId, userId, qc]);
 
   const { data: users = [] } = useQuery({
     queryKey: ["users-messaging", tenantId],
@@ -1269,14 +1294,14 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
 
   const closeConversation = async (id: string) => {
     await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", id);
-    qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+    qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
     toast.success("Conversation closed.");
   };
 
   const selectConversation = useCallback(async (convId: string) => {
     setSelectedConvId(convId);
     await (supabase as any).from("conversation_participants").update({ unread_count: 0 }).eq("conversation_id", convId).eq("user_id", userId);
-    qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] });
+    qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
   }, [userId, tenantId, qc]);
 
   const selectedConv = conversations.find(c => c.id === selectedConvId) ?? null;
@@ -1292,7 +1317,7 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50"><MessageCircle className="h-4 w-4 text-orange-500" /></div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Member Messaging</p>
-                  <p className="text-xs text-slate-500">Direct messages with church members</p>
+                  <p className="text-xs text-slate-500">Only conversations sent directly to you</p>
                 </div>
               </div>
               <PermissionButton permission="communication_tools" readOnly={readOnly} size="sm" className="bg-orange-500 hover:bg-orange-600 text-white gap-1" onClick={() => setNewMsgOpen(true)}><Plus className="h-3.5 w-3.5" />New</PermissionButton>
@@ -1351,7 +1376,7 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
           )}
         </div>
       </div>
-      <NewMessageModal open={newMsgOpen} onClose={() => setNewMsgOpen(false)} tenantId={tenantId} userId={userId} userName={userName} onConversationCreated={id => { setSelectedConvId(id); qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId] }); }} />
+      <NewMessageModal open={newMsgOpen} onClose={() => setNewMsgOpen(false)} tenantId={tenantId} userId={userId} userName={userName} onConversationCreated={id => { setSelectedConvId(id); qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] }); }} />
     </div>
   );
 }
@@ -1392,7 +1417,7 @@ function CreateGroupModal({ open, onClose, tenantId, userId, onCreated }: { open
       if (!conv) throw new Error("Failed to create group");
       const participants = [userId, ...Array.from(selectedIds)].map(uid => ({ conversation_id: conv.id, user_id: uid }));
       await supabase.from("conversation_participants").insert(participants);
-      qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+      qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       toast.success("✅ Group created successfully");
       onCreated(conv.id);
       onClose();
@@ -1472,7 +1497,7 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
-    queryKey: ["conversations-group", tenantId],
+    queryKey: ["conversations-group", tenantId, userId],
     queryFn: async () => {
       const { data: myParticipations } = await supabase.from("conversation_participants").select("conversation_id").eq("user_id", userId);
       const myConvIds = (myParticipations || []).map((r: any) => r.conversation_id);
@@ -1490,26 +1515,26 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
   // Realtime updates for group conversations
   useEffect(() => {
     const channel = supabase
-      .channel(`conversations-group-${tenantId}`)
+      .channel(`conversations-group-${tenantId}-${userId}`)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "conversations", filter: `tenant_id=eq.${tenantId}` }, () => {
-        qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+        qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tenantId, qc]);
+  }, [tenantId, userId, qc]);
 
   const filtered = conversations.filter(c => !search || (c.name ?? "").toLowerCase().includes(search.toLowerCase()));
   const selectedConv = conversations.find(c => c.id === selectedConvId) ?? null;
 
   const closeConversation = async (id: string) => {
     await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", id);
-    qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+    qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
   };
 
   const selectGroupConv = useCallback(async (convId: string) => {
     setSelectedConvId(convId);
     await (supabase as any).from("conversation_participants").update({ unread_count: 0 }).eq("conversation_id", convId).eq("user_id", userId);
-    qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] });
+    qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
   }, [userId, tenantId, qc]);
 
   return (
@@ -1584,7 +1609,7 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
           )}
         </div>
       </div>
-      <CreateGroupModal open={createOpen} onClose={() => setCreateOpen(false)} tenantId={tenantId} userId={userId} onCreated={id => { setSelectedConvId(id); qc.invalidateQueries({ queryKey: ["conversations-group", tenantId] }); }} />
+      <CreateGroupModal open={createOpen} onClose={() => setCreateOpen(false)} tenantId={tenantId} userId={userId} onCreated={id => { setSelectedConvId(id); qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] }); }} />
     </div>
   );
 }
