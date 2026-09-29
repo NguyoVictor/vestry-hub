@@ -51,7 +51,7 @@ export default function MemberHouseFellowship() {
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
         .select("fellowship_id, role, house_fellowships(id, name, zone, host_name, host_address, meeting_day, meeting_time, max_capacity, is_active, cover_color, leader_id)")
-        .eq("member_id", member.memberId).limit(1).maybeSingle();
+        .eq("member_id", member.memberId).eq(COLS.TENANT_ID, member.churchId).limit(1).maybeSingle();
       if (!data) return null;
       return { ...data.house_fellowships as any, myRole: data.role };
     },
@@ -63,11 +63,11 @@ export default function MemberHouseFellowship() {
     queryKey: ["fellow-members", myFellowship?.id],
     queryFn: async () => {
       const { data: fm } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
-        .select("member_id, role").eq("fellowship_id", myFellowship!.id);
+        .select("member_id, role").eq("fellowship_id", myFellowship!.id).eq(COLS.TENANT_ID, member.churchId);
       if (!fm?.length) return [];
       const ids = fm.map(r => r.member_id);
       const { data: memberDetails } = await supabase.from(TABLES.MEMBERS)
-        .select("id, first_name, last_name, avatar_url").in("id", ids);
+        .select("id, first_name, last_name, avatar_url").in("id", ids).eq(COLS.TENANT_ID, member.churchId);
       const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
       return fm.map(r => ({ ...r, members: map[r.member_id] || null }));
     },
@@ -93,7 +93,7 @@ export default function MemberHouseFellowship() {
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.FELLOWSHIP_RSVP)
         .select("status").eq("fellowship_id", myFellowship!.id)
-        .eq("member_id", member.memberId).eq("session_date", nextSessionDate!).maybeSingle();
+        .eq("member_id", member.memberId).eq(COLS.TENANT_ID, member.churchId).eq("session_date", nextSessionDate!).maybeSingle();
       return data?.status ?? null;
     },
     enabled: !!myFellowship?.id && !!nextSessionDate, staleTime: 60_000,
@@ -104,7 +104,7 @@ export default function MemberHouseFellowship() {
     queryFn: async () => {
       const { count } = await supabase.from(TABLES.FELLOWSHIP_RSVP)
         .select("*", { count: "exact", head: true })
-        .eq("fellowship_id", myFellowship!.id).eq("session_date", nextSessionDate!).eq("status", "attending");
+        .eq("fellowship_id", myFellowship!.id).eq(COLS.TENANT_ID, member.churchId).eq("session_date", nextSessionDate!).eq("status", "attending");
       return count ?? 0;
     },
     enabled: !!myFellowship?.id && !!nextSessionDate, staleTime: 60_000,
@@ -131,7 +131,7 @@ export default function MemberHouseFellowship() {
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.FELLOWSHIP_ATTENDANCE)
         .select("session_date, status").eq("fellowship_id", myFellowship!.id)
-        .eq("member_id", member.memberId).order("session_date", { ascending: false }).limit(10);
+        .eq("member_id", member.memberId).eq(COLS.TENANT_ID, member.churchId).order("session_date", { ascending: false }).limit(10);
       return data || [];
     },
     enabled: !!myFellowship?.id, staleTime: 300_000,

@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
         status: "active",
         member_type: "member",
         membership_status: "Pending Approval",
-        registration_source: registrationSource === "qr_scan" ? "qr_scan" : "admin",
+        registration_source: registrationSource === "qr_scan" ? "qr_scan" : "form",
         join_date: today,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

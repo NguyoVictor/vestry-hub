@@ -1,0 +1,17 @@
+create index if not exists join_requests_group_tenant_idx on public.join_requests(group_id,tenant_id);
+create index if not exists join_requests_member_tenant_idx on public.join_requests(member_id,tenant_id);
+create index if not exists fellowship_attendance_fellowship_tenant_idx on public.fellowship_attendance(fellowship_id,tenant_id);
+create index if not exists fellowship_attendance_member_tenant_idx on public.fellowship_attendance(member_id,tenant_id);
+create index if not exists fellowship_rsvp_fellowship_tenant_idx on public.fellowship_rsvp(fellowship_id,tenant_id);
+create index if not exists fellowship_rsvp_member_tenant_idx on public.fellowship_rsvp(member_id,tenant_id);
+create index if not exists children_classes_teacher_tenant_idx on public.children_classes(teacher_id,tenant_id) where teacher_id is not null;
+create index if not exists children_family_tenant_idx on public.children(family_id,tenant_id) where family_id is not null;
+create index if not exists children_class_tenant_idx on public.children(class_id,tenant_id) where class_id is not null;
+create index if not exists children_guardian_primary_tenant_fk_idx on public.children(guardian_primary_id,tenant_id) where guardian_primary_id is not null;
+create index if not exists children_guardian_secondary_tenant_fk_idx on public.children(guardian_secondary_id,tenant_id) where guardian_secondary_id is not null;
+create index if not exists children_checkins_child_tenant_idx on public.children_checkins(child_id,tenant_id);
+create index if not exists children_checkins_service_tenant_idx on public.children_checkins(service_id,tenant_id) where service_id is not null;
+create index if not exists children_checkins_checked_in_by_idx on public.children_checkins(checked_in_by) where checked_in_by is not null;
+create index if not exists children_checkins_checked_out_by_idx on public.children_checkins(checked_out_by) where checked_out_by is not null;
+create index if not exists children_qr_codes_child_tenant_idx on public.children_qr_codes(child_id,tenant_id);
+create index if not exists children_qr_codes_service_tenant_idx on public.children_qr_codes(service_id,tenant_id) where service_id is not null;

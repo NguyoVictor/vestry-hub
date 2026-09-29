@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import FamilyMembersTab from '@/components/families/FamilyMembersTab';
 import FamilyNotesTab from '@/components/families/FamilyNotesTab';
 import FamilyActivityTab from '@/components/families/FamilyActivityTab';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type TabType = 'members' | 'notes' | 'activity';
 
@@ -17,6 +18,8 @@ export default function FamilyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { tenantId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const [activeTab, setActiveTab] = useState<TabType>('members');
 
   const { data: family, isLoading } = useQuery({
@@ -129,7 +132,7 @@ export default function FamilyDetailPage() {
             transition={{ duration: 0.2 }}
           >
             {activeTab === 'members' && <FamilyMembersTab family={family} />}
-            {activeTab === 'notes' && <FamilyNotesTab family={family} />}
+            {activeTab === 'notes' && <FamilyNotesTab family={family} tenantId={tenantId!} readOnly={readOnly} />}
             {activeTab === 'activity' && <FamilyActivityTab family={family} />}
           </motion.div>
         </AnimatePresence>

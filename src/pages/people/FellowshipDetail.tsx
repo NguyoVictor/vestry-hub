@@ -147,7 +147,7 @@ const FellowshipDetail = () => {
     queryKey: ["fellowship", fellowshipId],
     queryFn: async () => {
       const { data, error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS)
-        .select("*").eq("id", fellowshipId!).single();
+        .select("*").eq("id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!).single();
       if (error) throw error; return data;
     },
     enabled: !!fellowshipId, staleTime: 300_000,
@@ -158,11 +158,11 @@ const FellowshipDetail = () => {
     queryKey: ["fellowship-members", fellowshipId],
     queryFn: async () => {
       const { data: fm } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
-        .select("member_id, role, joined_at").eq("fellowship_id", fellowshipId!);
+        .select("member_id, role, joined_at").eq("fellowship_id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!);
       if (!fm?.length) return [];
       const ids = fm.map(r => r.member_id);
       const { data: memberDetails } = await supabase.from(TABLES.MEMBERS)
-        .select("id, first_name, last_name, email, avatar_url").in("id", ids);
+        .select("id, first_name, last_name, email, avatar_url").in("id", ids).eq(COLS.TENANT_ID, tenantId!);
       const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
       return fm.map(r => ({ ...r, members: map[r.member_id] || null }));
     },
@@ -198,7 +198,7 @@ const FellowshipDetail = () => {
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.FELLOWSHIP_ATTENDANCE)
         .select("session_date, status, member_id")
-        .eq("fellowship_id", fellowshipId!).order("session_date", { ascending: false });
+        .eq("fellowship_id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!).order("session_date", { ascending: false });
       // Group by session_date
       const sessions: Record<string, { present: number; absent: number }> = {};
       (data || []).forEach((r: any) => {
@@ -227,7 +227,8 @@ const FellowshipDetail = () => {
     mutationFn: async (memberId: string) => {
       if (readOnly) return;
       const { error } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
-        .delete().eq("fellowship_id", fellowshipId!).eq("member_id", memberId);
+        .delete().eq("fellowship_id", fellowshipId!).eq("member_id", memberId)
+        .eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fellowship-members", fellowshipId] }); toast.success("Member removed"); },
@@ -237,7 +238,7 @@ const FellowshipDetail = () => {
     mutationFn: async (memberId: string) => {
       if (readOnly) return;
       const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS)
-        .update({ leader_id: memberId } as any).eq("id", fellowshipId!);
+        .update({ leader_id: memberId } as any).eq("id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fellowship", fellowshipId] }); toast.success("Leader updated"); },
@@ -268,7 +269,7 @@ const FellowshipDetail = () => {
         host_address: eHostAddress.trim() || null, meeting_day: eMeetingDay || null,
         meeting_time: eMeetingTime || null, max_capacity: eMaxCapacity ? parseInt(eMaxCapacity) : null,
         notes: eNotes.trim() || null, is_active: eIsActive, cover_color: eColor,
-      } as any).eq("id", fellowshipId!);
+      } as any).eq("id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
       toast.success("Fellowship updated");
       qc.invalidateQueries({ queryKey: ["fellowship", fellowshipId] });

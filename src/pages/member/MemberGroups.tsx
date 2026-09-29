@@ -118,7 +118,8 @@ export function MemberGroups() {
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.GROUP_MEMBERS)
         .select("group_id, groups(id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, meeting_date, location, is_active, jitsi_room_name, leader_id, type)")
-        .eq("member_id", member.memberId);
+        .eq("member_id", member.memberId)
+        .eq(COLS.TENANT_ID, member.churchId);
       return (data || []).map((gm: any) => gm.groups).filter(Boolean);
     },
     staleTime: 300_000,
@@ -139,7 +140,7 @@ export function MemberGroups() {
     queryKey: ["my-join-requests", member.memberId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.JOIN_REQUESTS)
-        .select("group_id, status").eq("member_id", member.memberId);
+        .select("group_id, status").eq("member_id", member.memberId).eq(COLS.TENANT_ID, member.churchId);
       return data || [];
     },
     staleTime: 300_000,
@@ -169,7 +170,8 @@ export function MemberGroups() {
       const { data: groupMembers, error: gmError } = await supabase
         .from(TABLES.GROUP_MEMBERS)
         .select("group_id, member_id")
-        .in("group_id", groupIds);
+        .in("group_id", groupIds)
+        .eq(COLS.TENANT_ID, member.churchId);
       
       if (gmError) {
         console.error("Error fetching group members:", gmError);
@@ -217,7 +219,7 @@ export function MemberGroups() {
   const requestMut = useMutation({
     mutationFn: async (groupId: string) => {
       const { error } = await supabase.from(TABLES.JOIN_REQUESTS)
-        .insert({ group_id: groupId, member_id: member.memberId, status: "pending" } as never);
+        .insert({ group_id: groupId, member_id: member.memberId, tenant_id: member.churchId, status: "pending" } as never);
       if (error) throw error;
     },
     onMutate: (groupId) => {

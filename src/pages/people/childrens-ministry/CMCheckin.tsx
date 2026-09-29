@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ReadOnlyBanner } from "@/components/shared/ReadOnlyBanner";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,8 @@ import { Html5Qrcode } from "html5-qrcode";
 
 export default function CMCheckin() {
   const { tenantId, userId } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const qc = useQueryClient();
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
@@ -87,6 +91,7 @@ export default function CMCheckin() {
 
   const checkInMutation = useMutation({
     mutationFn: async ({ childId, method = "manual" }: { childId: string; method?: "manual" | "qr" }) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.CHILDREN_CHECKINS).insert({
         tenant_id: tenantId!,
         child_id: childId,
@@ -106,7 +111,8 @@ export default function CMCheckin() {
 
   const checkOutMutation = useMutation({
     mutationFn: async (checkinId: string) => {
-      const { error } = await supabase.from(TABLES.CHILDREN_CHECKINS).update({ checked_out_at: new Date().toISOString(), checked_out_by: userId } as any).eq("id", checkinId);
+      if (readOnly) return;
+      const { error } = await supabase.from(TABLES.CHILDREN_CHECKINS).update({ checked_out_at: new Date().toISOString(), checked_out_by: userId } as any).eq("id", checkinId).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -121,6 +127,7 @@ export default function CMCheckin() {
     <>
       <Helmet><title>Check-in — Children's Ministry</title></Helmet>
       <PageTransition>
+        {readOnly && <div className="mb-4"><ReadOnlyBanner section="Member Management" /></div>}
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
@@ -164,7 +171,7 @@ export default function CMCheckin() {
               </div>
 
               {/* QR scan button */}
-              <Button variant="outline" className="w-full gap-2 border-slate-200 h-10 text-sm" onClick={() => setQrOpen(true)}>
+              <Button variant="outline" className="w-full gap-2 border-slate-200 h-10 text-sm" onClick={() => setQrOpen(true)} disabled={readOnly}>
                 <QrCode className="h-4 w-4" />Scan QR Code
               </Button>
 
@@ -193,10 +200,10 @@ export default function CMCheckin() {
                         {alreadyIn ? (
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />Checked In</span>
-                            <Button size="sm" variant="outline" className="h-7 text-xs border-orange-200 text-orange-600 hover:bg-orange-50" onClick={() => checkOutMutation.mutate(checkinId!)}>Check Out</Button>
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-orange-200 text-orange-600 hover:bg-orange-50" onClick={() => checkOutMutation.mutate(checkinId!)} disabled={readOnly}>Check Out</Button>
                           </div>
                         ) : (
-                          <Button size="sm" className="h-7 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => checkInMutation.mutate({ childId: child.id })}>Check In</Button>
+                          <Button size="sm" className="h-7 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => checkInMutation.mutate({ childId: child.id })} disabled={readOnly}>Check In</Button>
                         )}
                       </div>
                     );
@@ -290,6 +297,7 @@ function QRScanModal({ open, onClose, tenantId, serviceId, userId, onCheckin }: 
   }, [open]);
 
   const handleQRScan = async (qrData: string) => {
+    if (readOnly) return; // QR check-in
     try {
       navigator.vibrate?.(100);
       // Look up QR code

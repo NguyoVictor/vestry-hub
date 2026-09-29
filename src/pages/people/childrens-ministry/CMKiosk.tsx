@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -19,6 +20,8 @@ type ScanResult = { status: "success" | "error" | "already_in"; childName?: stri
 
 export default function CMKiosk() {
   const { tenantId, userId, name: churchName, logoUrl } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('member_management');
   const qc = useQueryClient();
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
@@ -143,6 +146,7 @@ export default function CMKiosk() {
 
   const checkInMutation = useMutation({
     mutationFn: async ({ childId, method }: { childId: string; method: "manual" | "qr" }) => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.CHILDREN_CHECKINS).insert({ tenant_id: tenantId!, child_id: childId, service_id: todayService?.id ?? null, checked_in_by: userId, check_in_method: method } as any);
       if (error) throw error;
     },
@@ -150,6 +154,7 @@ export default function CMKiosk() {
   });
 
   const handleQRScan = async (qrData: string) => {
+    if (readOnly) return;
     navigator.vibrate?.(100);
     const { data: qrRecord } = await supabase.from(TABLES.CHILDREN_QR_CODES).select("*, child:children(first_name, last_name)").eq("qr_data", qrData).eq("tenant_id", tenantId!).gte("expires_at", new Date().toISOString()).maybeSingle();
     if (!qrRecord) { setScanResult({ status: "error", message: "QR code not found or expired" }); setTimeout(() => { setScanResult(null); scannerRef.current?.resume(); }, autoReturn); return; }
@@ -161,6 +166,7 @@ export default function CMKiosk() {
   };
 
   const handleManualCheckin = async (childId: string) => {
+    if (readOnly) return;
     await checkInMutation.mutateAsync({ childId, method: "manual" });
     toast.success("Checked in!");
     qc.invalidateQueries({ queryKey: ["kiosk-checked-in"] });
@@ -241,14 +247,14 @@ export default function CMKiosk() {
           {screen === "home" && (
             <div className="w-full max-w-lg space-y-4">
               <p className="text-center text-white/60 text-sm uppercase tracking-widest mb-8">How would you like to check in?</p>
-              <button onClick={() => setScreen("scan")} className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all rounded-2xl p-8 flex flex-col items-center gap-4 text-white shadow-lg shadow-orange-500/30">
+              <button onClick={() => !readOnly && setScreen("scan")} disabled={readOnly} className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all rounded-2xl p-8 flex flex-col items-center gap-4 text-white shadow-lg shadow-orange-500/30">
                 <QrCode className="h-16 w-16" />
                 <div className="text-center">
                   <p className="text-2xl font-bold">Scan QR Code</p>
                   <p className="text-orange-200 mt-1">Use your child's QR code</p>
                 </div>
               </button>
-              <button onClick={() => setScreen("search")} className="w-full bg-white/10 hover:bg-white/20 active:scale-[0.98] transition-all rounded-2xl p-8 flex flex-col items-center gap-4 text-white border border-white/20">
+              <button onClick={() => !readOnly && setScreen("search")} disabled={readOnly} className="w-full bg-white/10 hover:bg-white/20 active:scale-[0.98] transition-all rounded-2xl p-8 flex flex-col items-center gap-4 text-white border border-white/20">
                 <Search className="h-16 w-16" />
                 <div className="text-center">
                   <p className="text-2xl font-bold">Search by Name</p>

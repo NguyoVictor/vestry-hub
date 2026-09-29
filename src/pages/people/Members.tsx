@@ -168,7 +168,7 @@ const Members = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from("members").update({ status: "inactive" }).eq("id", id);
+      const { error } = await supabase.from("members").update({ status: "inactive" }).eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["members"] }); toast.success("Member removed"); },

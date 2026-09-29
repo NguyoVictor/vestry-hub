@@ -88,6 +88,7 @@ export default function MemberChildren() {
         .from(TABLES.CHILDREN_QR_CODES)
         .select("*, service:services(name, service_date, start_time)")
         .in("child_id", childIds)
+        .eq("tenant_id", member.churchId)
         .gte("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false });
       return data ?? [];

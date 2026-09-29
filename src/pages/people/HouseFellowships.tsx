@@ -195,6 +195,7 @@ const HouseFellowships = () => {
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
     if (!name.trim()) { toast.error("Fellowship name is required"); return; }
     setSaving(true);
     try {
@@ -205,7 +206,7 @@ const HouseFellowships = () => {
         notes: notes.trim() || null, is_active: isActive, cover_color: color,
       };
       if (editingId) {
-        const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS).update(payload).eq("id", editingId);
+        const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS).update(payload).eq("id", editingId).eq(COLS.TENANT_ID, tenantId!);
         if (error) throw error;
         toast.success("Fellowship updated");
       } else {
@@ -224,7 +225,8 @@ const HouseFellowships = () => {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS).delete().eq("id", id);
+      if (readOnly) return;
+      const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS).delete().eq("id", id).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fellowships", tenantId] }); toast.success("Fellowship deleted"); },

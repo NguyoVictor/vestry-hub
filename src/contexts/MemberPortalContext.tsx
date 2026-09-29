@@ -42,16 +42,35 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
       let session: any;
       try { session = JSON.parse(raw); } catch { setLoading(false); return; }
 
-      if (!session.memberId || !session.tenantId) { setLoading(false); return; }
+      if (!session.memberId || !session.tenantId || !session.sessionToken || !session.expiresAt || new Date(session.expiresAt) <= new Date()) {
+        localStorage.removeItem("member_session");
+        setLoading(false);
+        return;
+      }
 
       const [memberRes, churchRes] = await Promise.all([
-        supabase.from("members").select("*").eq("id", session.memberId).single(),
-        supabase.from("tenants").select("id, name, logo, church_code, enabled_modules").eq("id", session.tenantId).single(),
+        supabase
+          .from("members")
+          .select("id, tenant_id, first_name, last_name, email, phone, avatar_url, date_of_birth, gender, created_at, member_type, status, membership_status")
+          .eq("id", session.memberId)
+          .eq("tenant_id", session.tenantId)
+          .single(),
+        supabase
+          .from("tenants")
+          .select("id, name, logo, church_code")
+          .eq("id", session.tenantId)
+          .single(),
       ]);
 
       const member = memberRes.data;
       const church = churchRes.data;
-      if (!member || !church) {
+      if (
+        !member ||
+        !church ||
+        member.tenant_id !== session.tenantId ||
+        member.status?.toLowerCase() === "inactive" ||
+        member.membership_status === "Pending Approval"
+      ) {
         localStorage.removeItem("member_session");
         setLoading(false);
         return;
@@ -61,9 +80,9 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
       const filled = fields.filter(Boolean).length;
       const profileComplete = Math.round((filled / fields.length) * 100);
 
-      // Extract member portal module visibility
-      const rawModules = (church.enabled_modules as any)?.member_portal || {};
-      const enabledModules: Record<string, boolean> = rawModules;
+      // Module configuration is captured by the trusted member-login function.
+      // P0 intentionally keeps tenants.enabled_modules out of anonymous tenant reads.
+      const enabledModules: Record<string, boolean> = session.enabledModules || {};
 
       setData({
         memberId: member.id,

@@ -117,7 +117,8 @@ const FollowUpTasks = () => {
         const { error } = await supabase
           .from("follow_up_tasks")
           .update({ ...values, updated_at: new Date().toISOString() } as any)
-          .eq("id", editingTask.id);
+          .eq("id", editingTask.id)
+          .eq("tenant_id", tenantId!);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("follow_up_tasks").insert({
@@ -147,7 +148,8 @@ const FollowUpTasks = () => {
       const { error } = await supabase
         .from("follow_up_tasks")
         .update({ status, updated_at: new Date().toISOString() } as any)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["follow-up-tasks"] }),
@@ -156,7 +158,7 @@ const FollowUpTasks = () => {
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from("follow_up_tasks").delete().eq("id", id);
+      const { error } = await supabase.from("follow_up_tasks").delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => {

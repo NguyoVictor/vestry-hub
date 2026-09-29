@@ -54,7 +54,7 @@ const GroupDetail = () => {
   const { data: group, isLoading: groupLoading } = useQuery({
     queryKey: ["group", groupId],
     queryFn: async () => {
-      const { data, error } = await supabase.from(TABLES.GROUPS).select("*").eq("id", groupId!).single();
+      const { data, error } = await supabase.from(TABLES.GROUPS).select("*").eq("id", groupId!).eq(COLS.TENANT_ID, tenantId!).single();
       if (error) throw error;
       return data;
     },
@@ -74,10 +74,10 @@ const GroupDetail = () => {
   const { data: groupMembers = [], isLoading: membersLoading } = useQuery({
     queryKey: ["group-members", groupId],
     queryFn: async () => {
-      const { data: gm } = await supabase.from(TABLES.GROUP_MEMBERS).select("member_id, joined_at, role").eq("group_id", groupId!);
+      const { data: gm } = await supabase.from(TABLES.GROUP_MEMBERS).select("member_id, joined_at, role").eq("group_id", groupId!).eq(COLS.TENANT_ID, tenantId!);
       if (!gm?.length) return [];
       const ids = gm.map(r => r.member_id);
-      const { data: memberDetails } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email, avatar_url").in("id", ids);
+      const { data: memberDetails } = await supabase.from(TABLES.MEMBERS).select("id, first_name, last_name, email, avatar_url").in("id", ids).eq(COLS.TENANT_ID, tenantId!);
       const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
       return gm.map(r => ({ ...r, members: map[r.member_id] || null }));
     },
@@ -99,7 +99,7 @@ const GroupDetail = () => {
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.JOIN_REQUESTS)
         .select("*, members(id, first_name, last_name, avatar_url)")
-        .eq("group_id", groupId!).eq("status", "pending");
+        .eq("group_id", groupId!).eq(COLS.TENANT_ID, tenantId!).eq("status", "pending");
       return data || [];
     },
     enabled: !!groupId,
@@ -123,7 +123,7 @@ const GroupDetail = () => {
   const removeMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.GROUP_MEMBERS).delete().eq("group_id", groupId!).eq("member_id", memberId);
+      const { error } = await supabase.from(TABLES.GROUP_MEMBERS).delete().eq("group_id", groupId!).eq("member_id", memberId).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["group-members", groupId] }); toast.success("Member removed"); },
@@ -132,7 +132,7 @@ const GroupDetail = () => {
   const setLeaderMut = useMutation({
     mutationFn: async (memberId: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.GROUPS).update({ leader_id: memberId } as any).eq("id", groupId!);
+      const { error } = await supabase.from(TABLES.GROUPS).update({ leader_id: memberId } as any).eq("id", groupId!).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
     onSuccess: (_, memberId) => {
@@ -148,9 +148,10 @@ const GroupDetail = () => {
       if (readOnly) return;
       const req = joinRequests.find((r: any) => r.id === requestId);
       if (!req) throw new Error("Request not found");
-      await supabase.from(TABLES.JOIN_REQUESTS).update({ status: "approved" } as any).eq("id", requestId);
-      const { error } = await supabase.from(TABLES.GROUP_MEMBERS).insert({ group_id: groupId!, member_id: (req as any).member_id, tenant_id: tenantId } as any);
-      if (error && error.code !== "23505") throw error;
+      const { error: membershipError } = await supabase.from(TABLES.GROUP_MEMBERS).insert({ group_id: groupId!, member_id: (req as any).member_id, tenant_id: tenantId } as any);
+      if (membershipError && membershipError.code !== "23505") throw membershipError;
+      const { error } = await supabase.from(TABLES.JOIN_REQUESTS).update({ status: "approved" } as any).eq("id", requestId).eq(COLS.TENANT_ID, tenantId!);
+      if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["join-requests", groupId] }); qc.invalidateQueries({ queryKey: ["group-members", groupId] }); toast.success("Request approved"); },
   });
@@ -158,7 +159,7 @@ const GroupDetail = () => {
   const declineRequestMut = useMutation({
     mutationFn: async (requestId: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.JOIN_REQUESTS).update({ status: "declined" } as any).eq("id", requestId);
+      const { error } = await supabase.from(TABLES.JOIN_REQUESTS).update({ status: "declined" } as any).eq("id", requestId).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["join-requests", groupId] }); toast.success("Request declined"); },

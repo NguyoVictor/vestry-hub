@@ -19,9 +19,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  readOnly: boolean;
 }
 
-export default function RegisterChildModal({ open, onClose, onSuccess }: Props) {
+export default function RegisterChildModal({ open, onClose, onSuccess, readOnly }: Props) {
   const { tenantId } = useChurch();
   const qc = useQueryClient();
 
@@ -66,6 +67,7 @@ export default function RegisterChildModal({ open, onClose, onSuccess }: Props) 
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const { error } = await supabase.from(TABLES.CHILDREN).insert({
         tenant_id: tenantId!,
         first_name: form.first_name.trim(),
@@ -182,7 +184,7 @@ export default function RegisterChildModal({ open, onClose, onSuccess }: Props) 
 
         <div className="px-6 pb-6 pt-4 border-t border-slate-100 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose} className="border-slate-200">Cancel</Button>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold" disabled={!valid || mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold" disabled={readOnly || !valid || mutation.isPending} onClick={() => mutation.mutate()}>
             {mutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Registering...</> : "Register Child"}
           </Button>
         </div>

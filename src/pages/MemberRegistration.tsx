@@ -12,16 +12,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle, Church } from "lucide-react";
-import { format } from "date-fns";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function generateMembershipNumber(): string {
-  return `MBR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-}
-
-function generateId(): string {
-  return crypto.randomUUID();
-}
 
 // ─── Form state ───────────────────────────────────────────────────────────────
 const EMPTY_FORM = {
@@ -51,11 +41,11 @@ export default function MemberRegistration() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.TENANTS)
-        .select("id, name, logo, registration_enabled")
+        .select("id, name, logo, church_code")
         .eq("id", orgId!)
         .single();
       if (error) throw error;
-      return data as { id: string; name: string; logo: string | null; registration_enabled: boolean };
+      return data as { id: string; name: string; logo: string | null; church_code: string };
     },
     enabled: !!orgId,
     staleTime: 300_000,
@@ -79,28 +69,31 @@ export default function MemberRegistration() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const now = new Date().toISOString();
-      const { error } = await supabase.from(TABLES.MEMBERS).insert({
-        id: generateId(),
-        tenant_id: orgId!,
-        membership_number: generateMembershipNumber(),
-        first_name: form.first_name.trim(),
-        last_name: form.last_name.trim(),
-        gender: form.gender || null,
-        date_of_birth: form.date_of_birth || null,
-        phone: form.phone.trim(),
-        email: form.email.trim(),
-        street: form.street.trim() || null,
-        city: form.city.trim() || null,
-        occupation: form.occupation.trim() || null,
-        marital_status: (form.marital_status as any) || null,
-        status: "Active",
-        registration_source: "Self-Registration",
-        join_date: format(new Date(), "yyyy-MM-dd"),
-        created_at: now,
-        updated_at: now,
-      } as never);
+      if (!tenant?.church_code) throw new Error("Church registration code is unavailable.");
+
+      const { data, error } = await supabase.functions.invoke("member-register", {
+        body: {
+          churchCode: tenant.church_code,
+          memberType: "member",
+          registrationSource: "form",
+          firstName: form.first_name.trim(),
+          lastName: form.last_name.trim(),
+          gender: form.gender || null,
+          dateOfBirth: form.date_of_birth || null,
+          phone: form.phone.trim(),
+          email: form.email.trim().toLowerCase(),
+          address: form.street.trim() || null,
+          city: form.city.trim() || null,
+          occupation: form.occupation.trim() || null,
+          maritalStatus: form.marital_status || null,
+        },
+      });
+
       if (error) throw error;
+      if (data?.error) {
+        if (data.error === "already_registered") throw new Error("A member with this email is already registered.");
+        throw new Error(data.error);
+      }
     },
     onSuccess: () => {
       setSubmitted(true);
@@ -135,24 +128,6 @@ export default function MemberRegistration() {
     );
   }
 
-  // ── Registration closed ──
-  if (!tenant.registration_enabled) {
-    return (
-      <div className="min-h-screen bg-[#fdf0ee] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-10 max-w-sm w-full text-center space-y-3">
-          {tenant.logo
-            ? <img src={tenant.logo} alt="" className="h-14 w-14 rounded-full mx-auto object-cover" />
-            : <div className="h-14 w-14 rounded-full bg-orange-100 flex items-center justify-center mx-auto"><Church className="h-7 w-7 text-orange-500" /></div>
-          }
-          <h1 className="text-lg font-bold text-slate-800">{tenant.name}</h1>
-          <p className="text-sm text-slate-500">
-            Registration is currently closed. Please contact your church admin.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // ── Success screen ──
   if (submitted) {
     return (
@@ -165,10 +140,10 @@ export default function MemberRegistration() {
             Welcome to {tenant.name}!
           </h2>
           <p className="text-sm text-slate-500">
-            Thank you for registering as a member. We're excited to have you join our church family!
+            Thank you for registering. Your membership is now pending church admin approval.
           </p>
           <p className="text-sm font-medium text-orange-500">
-            👤 You're now part of the family!
+            You can sign in after your church admin approves your membership.
           </p>
         </div>
       </div>

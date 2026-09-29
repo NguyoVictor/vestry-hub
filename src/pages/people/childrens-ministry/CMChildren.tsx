@@ -68,7 +68,7 @@ export default function CMChildren() {
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: async (id: string) => { if (readOnly) return; const { error } = await supabase.from(TABLES.CHILDREN).update({ active: false } as any).eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { if (readOnly) return; const { error } = await supabase.from(TABLES.CHILDREN).update({ active: false } as any).eq("id", id).eq("tenant_id", tenantId!); if (error) throw error; },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["children-list"] }); qc.invalidateQueries({ queryKey: ["cm-stats"] }); toast.success("Child deactivated"); setDeleteId(null); },
     onError: (e: any) => toast.error(e.message),
   });
@@ -176,7 +176,7 @@ export default function CMChildren() {
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="font-jakarta text-sm">
-                            <DropdownMenuItem className="text-red-500" onClick={() => setDeleteId(child.id)}><Trash2 className="h-4 w-4 mr-2" />Deactivate</DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-500" disabled={readOnly} onClick={() => setDeleteId(child.id)}><Trash2 className="h-4 w-4 mr-2" />Deactivate</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -190,7 +190,7 @@ export default function CMChildren() {
         )}
       </PageTransition>
 
-      <RegisterChildModal open={registerOpen} onClose={() => setRegisterOpen(false)} onSuccess={() => qc.invalidateQueries({ queryKey: ["children-list"] })} />
+      <RegisterChildModal open={registerOpen} onClose={() => setRegisterOpen(false)} onSuccess={() => qc.invalidateQueries({ queryKey: ["children-list"] })} readOnly={readOnly} />
       <ConfirmDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)} title="Deactivate child?" description="This child will be marked inactive and won't appear in check-in. You can reactivate them later." confirmLabel="Deactivate" destructive onConfirm={() => deleteId && deactivateMutation.mutate(deleteId)} loading={deactivateMutation.isPending} />
     </>
   );

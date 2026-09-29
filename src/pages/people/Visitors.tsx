@@ -149,7 +149,7 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
           visit_date: form.visit_date || null,
           how_heard: form.how_heard || null,
           notes: form.notes.trim() || null,
-        } as any).eq("id", editingVisitor.id);
+        } as any).eq("id", editingVisitor.id).eq("tenant_id", tenantId);
         if (error) throw error;
         toast.success("Visitor updated");
       } else {
@@ -479,7 +479,8 @@ function VisitorDetailsModal({
       const { error } = await supabase
         .from(TABLES.VISITORS)
         .update({ follow_up_status: "contacted" } as any)
-        .eq("id", visitor.id);
+        .eq("id", visitor.id)
+        .eq("tenant_id", tenantId);
       if (error) throw error;
       // Determine channel from visitor's preferred contact method
       const preferred = visitor.how_heard_detail || "phone_call";
@@ -514,25 +515,13 @@ function VisitorDetailsModal({
     mutationFn: async (data: { salvation_date: string; counsellor_name: string; notes: string }) => {
       if (readOnly) return;
       if (!visitor) return;
-      const { error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
-        id: crypto.randomUUID(),
-        tenant_id: tenantId,
-        first_name: visitor.first_name,
-        last_name: visitor.last_name || "",
-        phone: visitor.phone || null,
-        email: visitor.email || null,
-        visitor_id: visitor.id,
-        conversion_date: data.salvation_date,
-        salvation_date: data.salvation_date,
-        notes: data.notes || null,
-        counsellor_name: data.counsellor_name || null,
-        discipleship_stage: "1",
-        baptism_status: "not_baptized",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any);
-      if (ncErr) throw ncErr;
-      await supabase.from(TABLES.VISITORS).update({ follow_up_status: "integrated" } as any).eq("id", visitor.id);
+      const { error } = await (supabase as any).rpc("convert_visitor_to_new_convert", {
+        p_visitor_id: visitor.id,
+        p_conversion_date: data.salvation_date,
+        p_counsellor_name: data.counsellor_name || null,
+        p_notes: data.notes || null,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
@@ -550,31 +539,11 @@ function VisitorDetailsModal({
     mutationFn: async () => {
       if (readOnly) return;
       if (!visitor) return;
-      const newMemberId = crypto.randomUUID();
-      const today = new Date().toISOString().split("T")[0];
-      const membershipNumber = "MEM-" + Date.now().toString(36).toUpperCase();
-      const { error: memberError } = await supabase.from(TABLES.MEMBERS).insert({
-        id: newMemberId,
-        tenant_id: tenantId,
-        first_name: visitor.first_name,
-        last_name: visitor.last_name || "",
-        email: visitor.email || null,
-        phone: visitor.phone || null,
-        status: "active",
-        member_type: "member",
-        membership_status: "Pending Approval",
-        registration_source: "admin",
-        join_date: today,
-        membership_number: membershipNumber,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any);
-      if (memberError) throw memberError;
-      const { error: visitorError } = await supabase
-        .from(TABLES.VISITORS)
-        .update({ follow_up_status: "converted", converted_to_member_id: newMemberId } as any)
-        .eq("id", visitor.id);
-      if (visitorError) throw visitorError;
+      const { data: newMemberId, error } = await (supabase as any).rpc("convert_visitor_to_member", {
+        p_visitor_id: visitor.id,
+      });
+      if (error) throw error;
+      if (!newMemberId) throw new Error("Member conversion did not return a member ID");
       await logActivity({
         churchId: tenantId,
         actionType: "visitor_converted",
@@ -934,24 +903,13 @@ const Visitors = () => {
     mutationFn: async (v: Visitor) => {
       if (readOnly) return;
       const today = new Date().toISOString().split("T")[0];
-      const { error: ncErr } = await supabase.from(TABLES.NEW_CONVERTS).insert({
-        id: crypto.randomUUID(),
-        tenant_id: tenantId!,
-        first_name: v.first_name,
-        last_name: v.last_name || "",
-        phone: v.phone || null,
-        email: v.email || null,
-        visitor_id: v.id,
-        conversion_date: today,
-        salvation_date: today,
-        discipleship_stage: "1",
-        baptism_status: "not_baptized",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any);
-      if (ncErr) throw ncErr;
-      // Same as Record Salvation Decision — status becomes "integrated"
-      await supabase.from(TABLES.VISITORS).update({ follow_up_status: "integrated" } as any).eq("id", v.id);
+      const { error } = await (supabase as any).rpc("convert_visitor_to_new_convert", {
+        p_visitor_id: v.id,
+        p_conversion_date: today,
+        p_counsellor_name: null,
+        p_notes: null,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visitors"] });
@@ -971,18 +929,20 @@ const Visitors = () => {
       const { error: fkErr1 } = await supabase
         .from(TABLES.FOLLOW_UP_TASKS)
         .update({ related_visitor_id: null } as any)
-        .eq("related_visitor_id", id);
+        .eq("related_visitor_id", id)
+        .eq("tenant_id", tenantId!);
       if (fkErr1) throw fkErr1;
 
       // Step 2: nullify visitor_id on any linked new_converts
       const { error: fkErr2 } = await supabase
         .from(TABLES.NEW_CONVERTS)
         .update({ visitor_id: null } as any)
-        .eq("visitor_id", id);
+        .eq("visitor_id", id)
+        .eq("tenant_id", tenantId!);
       if (fkErr2) throw fkErr2;
 
       // Step 3: now safe to delete the visitor
-      const { error } = await supabase.from(TABLES.VISITORS).delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.VISITORS).delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => {
