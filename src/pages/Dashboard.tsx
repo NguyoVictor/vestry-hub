@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
-import { toast } from "sonner";
 import { formatCurrencyFull } from "@/lib/format";
 import { useActivityLog } from "@/hooks/useActivityLog";
 import { usePermissions } from '@/hooks/usePermissions';
@@ -22,6 +21,7 @@ import {
 } from "recharts";
 import { format, formatDistanceToNow } from "date-fns";
 import type { LucideIcon } from "lucide-react";
+import { fetchCanonicalAnalyticsMetrics } from "@/lib/analyticsMetrics";
 
 // ─── CountUp Number Component ─────────────────────────────────────────────────
 function CountUpNumber({ value, prefix = "", duration = 1.5, delay = 0.3 }: {
@@ -122,9 +122,15 @@ function getActivityMeta(actionType: string) {
 
 const CHART_COLORS = ["#f97316", "#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6", "#64748b"];
 
+function getLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 const Dashboard = () => {
   const church = useChurch();
-  const queryClient = useQueryClient();
   const { isReadOnly } = usePermissions();
   const [chartMonths, setChartMonths] = useState(6);
   
@@ -149,123 +155,25 @@ const Dashboard = () => {
     ? `Welcome, ${church.name} 👋` 
     : `Welcome back, ${church.name} 👋`;
 
-  // Single RPC call replaces 4 separate stat queries — per vestry-project.md performance rules
+  const todayStr = getLocalDateString(new Date());
+  const monthStart = `${todayStr.slice(0, 7)}-01`;
+
   const { data: dashStats, isLoading: statsLoading } = useQuery({
-    queryKey: ["dashboard-stats", church.tenantId],
+    queryKey: ["dashboard-stats", church.tenantId, todayStr],
     staleTime: 60_000,
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      // Direct queries for debugging - replace RPC temporarily
-      const [membersResult, givingResult, eventsResult, groupsResult] = await Promise.all([
-        // Count active members (remove status filter to see all members)
-        supabase
-          .from(TABLES.MEMBERS)
-          .select("id, status", { count: "exact", head: true })
-          .eq("tenant_id", church.tenantId),
-        
-        // Sum giving for current month
-        supabase
-          .from(TABLES.GIVING_RECORDS)
-          .select("amount")
-          .eq("tenant_id", church.tenantId)
-          .eq("payment_status", "confirmed")
-          .gte("given_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
-        
-        // Count upcoming events (next 7 days)
-        supabase
-          .from(TABLES.EVENTS)
-          .select("id", { count: "exact", head: true })
-          .eq("tenant_id", church.tenantId)
-          .gte("event_date", new Date().toISOString().split('T')[0])
-          .lte("event_date", new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
-        
-        // Count active groups
-        supabase
-          .from(TABLES.GROUPS)
-          .select("id", { count: "exact", head: true })
-          .eq("tenant_id", church.tenantId)
-          .eq("is_active", true)
-      ]);
-
-      const memberCount = membersResult.count ?? 0;
-      const givingTotal = givingResult.data?.reduce((sum, record) => sum + Number(record.amount || 0), 0) ?? 0;
-      const eventsCount = eventsResult.count ?? 0;
-      const groupCount = groupsResult.count ?? 0;
-
-      console.log("Dashboard Stats Debug:", {
-        memberCount,
-        givingTotal,
-        eventsCount,
-        groupCount,
-        membersError: membersResult.error,
-        givingError: givingResult.error,
-        eventsError: eventsResult.error,
-        groupsError: groupsResult.error,
-        tenantId: church.tenantId,
-        membersData: membersResult.data?.slice(0, 3), // Show first 3 members
-        givingData: givingResult.data?.slice(0, 3), // Show first 3 giving records
-      });
-
-      return {
-        member_count: memberCount,
-        giving_month: givingTotal,
-        events_week: eventsCount,
-        group_count: groupCount
-      };
-    },
+    queryFn: () => fetchCanonicalAnalyticsMetrics(
+      church.tenantId,
+      monthStart,
+      todayStr,
+      todayStr,
+    ),
   });
 
-  const membersLoading = statsLoading;
-  const givingLoading = statsLoading;
-  const eventsLoading = statsLoading;
-  const groupsLoading = statsLoading;
-  const memberCount = dashStats?.member_count ?? 0;
-  const givingTotal = dashStats?.giving_month ?? 0;
-  const eventsCount = dashStats?.events_week ?? 0;
-  const groupCount = dashStats?.group_count ?? 0;
-
-  // Show debug info in development
-  if (process.env.NODE_ENV === 'development' && dashStats) {
-    console.log("Dashboard Stats:", {
-      memberCount,
-      givingTotal,
-      eventsCount,
-      groupCount,
-      tenantId: church.tenantId,
-      churchName: church.name
-    });
-  }
-
-  // Create sample member if none exist (for testing)
-  const createSampleMember = async () => {
-    try {
-      const sampleMember = {
-        id: crypto.randomUUID(),
-        tenant_id: church.tenantId,
-        first_name: "John",
-        last_name: "Doe",
-        email: "john.doe@example.com",
-        phone: "+1234567890",
-        status: "active",
-        member_type: "member",
-        registration_source: "admin",
-        join_date: new Date().toISOString().split('T')[0],
-        membership_number: `MEM-${Date.now().toString(36).toUpperCase()}`,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      const { error } = await supabase.from(TABLES.MEMBERS).insert(sampleMember);
-      if (error) throw error;
-      
-      // Refresh dashboard stats
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      toast.success("Sample member created successfully!");
-    } catch (error) {
-      console.error("Error creating sample member:", error);
-      toast.error("Failed to create sample member");
-    }
-  };
+  const memberCount = dashStats?.snapshot.active_members ?? 0;
+  const eventsCount = dashStats?.dashboard.upcoming_events_7d ?? 0;
+  const groupCount = dashStats?.snapshot.active_groups ?? 0;
+  const todaysTotal = dashStats?.dashboard.giving_today ?? 0;
 
   const { data: givingTrend, isLoading: trendLoading } = useQuery({
     queryKey: ["dashboard", "giving-trend", chartMonths, church.tenantId],
@@ -276,6 +184,7 @@ const Dashboard = () => {
       const { data } = await supabase.from(TABLES.GIVING_RECORDS).select("amount, given_at")
         .eq("tenant_id", church.tenantId)
         .eq("payment_status", "confirmed")
+        .is("voided_at", null)
         .gte("given_at", start.toISOString().split("T")[0]).order("given_at", { ascending: true });
       const monthly: Record<string, number> = {};
       data?.forEach(r => {
@@ -308,151 +217,34 @@ const Dashboard = () => {
     queryKey: ["dashboard", "upcoming-events-list", church.tenantId],
     staleTime: 60_000,
     queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString(new Date());
+      const weekEnd = new Date();
+      weekEnd.setDate(weekEnd.getDate() + 6);
       const { data } = await supabase.from(TABLES.EVENTS).select("id, title, event_date, start_time, location")
         .eq("tenant_id", church.tenantId)
-        .gte("event_date", today).order("event_date", { ascending: true }).limit(5);
+        .eq("is_published", true)
+        .gte("event_date", today)
+        .lte("event_date", getLocalDateString(weekEnd))
+        .order("event_date", { ascending: true }).limit(5);
       return data || [];
     },
   });
 
-  // Debug: Check all giving records to understand the data format
-  const { data: allGivingRecords } = useQuery({
-    queryKey: ["debug", "all-giving", church.tenantId],
-    staleTime: 30_000,
-    queryFn: async () => {
-      const { data } = await supabase.from("giving_records")
-        .select("id, amount, given_at, member_id")
-        .eq("tenant_id", church.tenantId)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      
-      console.log("All Recent Giving Records Debug:", {
-        recordsCount: data?.length || 0,
-        records: data?.map(d => ({
-          id: d.id,
-          amount: d.amount,
-          given_at: d.given_at,
-          given_at_type: typeof d.given_at,
-          given_at_date: new Date(d.given_at).toISOString(),
-          given_at_date_only: new Date(d.given_at).toISOString().split('T')[0],
-          member_id: d.member_id
-        })),
-        tenantId: church.tenantId,
-        todayStr: new Date().toISOString().split('T')[0],
-        nowISO: new Date().toISOString()
-      });
-      
-      return data || [];
-    },
-  });
-
-  // Helper function to get local date string (no timezone conversion)
-  const getLocalDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`; // YYYY-MM-DD in local timezone
-  };
-
-  // Helper function to get local date string from database date
-  const getLocalDateFromRecord = (dateString: string) => {
-    const date = new Date(dateString);
-    return getLocalDateString(date);
-  };
-
-  // Today's total - WORKING LOGIC (shows KSh 99 correctly)
-  const { data: todaysTotal, isLoading: todaysTotalLoading, error: todaysTotalError } = useQuery({
-    queryKey: ["dashboard", "todays-total", church.tenantId, new Date().toDateString()],
-    staleTime: 60_000,
-    queryFn: async () => {
-      // Get ALL records first
-      const { data: allRecords, error } = await supabase.from("giving_records")
-        .select("amount, given_at")
-        .eq("tenant_id", church.tenantId)
-        .eq("payment_status", "confirmed");
-      
-      if (error) {
-        console.error("Today's Total Query Error:", error);
-        throw error;
-      }
-      
-      // Use LOCAL date strings (no UTC conversion)
-      const today = new Date();
-      const todayStr = getLocalDateString(today);
-      
-      const todaysRecords = (allRecords || []).filter(record => {
-        const recordDate = getLocalDateFromRecord(record.given_at);
-        return recordDate === todayStr;
-      });
-      
-      const total = todaysRecords.reduce((sum, record) => sum + Number(record.amount), 0);
-      
-      console.log("Today's Total Debug - LOCAL TIMEZONE:", {
-        "Today String (Local)": todayStr,
-        allRecordsCount: allRecords?.length || 0,
-        todaysRecordsCount: todaysRecords.length,
-        total,
-        "Sample Record Dates (Local)": allRecords?.slice(0, 3).map(r => ({
-          given_at: r.given_at,
-          "Record Date (Local)": getLocalDateFromRecord(r.given_at),
-          matches: getLocalDateFromRecord(r.given_at) === todayStr
-        })),
-        "Total Matches Found": todaysRecords.length,
-        tenantId: church.tenantId
-      });
-      
-      return total;
-    },
-  });
-
-  // Today's donations - REPLICATE EXACT SAME LOGIC AS STAT CARD
+  // Today's confirmed, non-voided donations use the same canonical date semantics.
   const { data: todaysDonations, isLoading: donationsLoading, error: donationsError } = useQuery({
-    queryKey: ["dashboard", "todays-donations", church.tenantId, new Date().toDateString()],
+    queryKey: ["dashboard", "todays-donations", church.tenantId, todayStr],
     staleTime: 60_000,
     queryFn: async () => {
-      // Use IDENTICAL logic to todaysTotal query - ONLY use existing columns
-      const { data: allRecords, error } = await supabase.from("giving_records")
+      const { data, error } = await supabase.from(TABLES.GIVING_RECORDS)
         .select("id, amount, giving_type, payment_method, given_at, created_at, currency, member_id, donor_name, is_anonymous")
         .eq("tenant_id", church.tenantId)
         .eq("payment_status", "confirmed")
-        .order("created_at", { ascending: false });
-      
-      if (error) {
-        console.error("Today's Donations Query Error:", error);
-        throw error;
-      }
-      
-      // Use IDENTICAL filtering logic as todaysTotal
-      const today = new Date();
-      const todayStr = getLocalDateString(today);
-      
-      const todaysRecords = (allRecords || []).filter(record => {
-        const recordDate = getLocalDateFromRecord(record.given_at);
-        return recordDate === todayStr;
-      });
-      
-      console.log("Today's Donations Debug - LOCAL TIMEZONE:", {
-        "Today String (Local)": todayStr,
-        allRecordsCount: allRecords?.length || 0,
-        todaysRecordsCount: todaysRecords.length,
-        "Sample Record Dates (Local)": allRecords?.slice(0, 3).map(r => ({
-          given_at: r.given_at,
-          "Record Date (Local)": getLocalDateFromRecord(r.given_at),
-          matches: getLocalDateFromRecord(r.given_at) === todayStr
-        })),
-        "Total Matches Found": todaysRecords.length,
-        todaysRecords: todaysRecords.map(d => ({
-          id: d.id,
-          member_id: d.member_id,
-          amount: d.amount,
-          given_at: d.given_at,
-          "Record Date (Local)": getLocalDateFromRecord(d.given_at)
-        })),
-        tenantId: church.tenantId
-      });
-      
-      return todaysRecords.slice(0, 8); // Limit to 8 records
+        .is("voided_at", null)
+        .eq("given_at", todayStr)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -465,15 +257,6 @@ const Dashboard = () => {
         .eq("tenant_id", church.tenantId);
       
       // Debug: Log member data
-      console.log("Members for Donations Debug:", {
-        membersCount: data?.length || 0,
-        sampleMembers: data?.slice(0, 3).map(m => ({
-          id: m.id,
-          first_name: m.first_name,
-          last_name: m.last_name
-        })),
-        tenantId: church.tenantId
-      });
       
       return data || [];
     },
@@ -559,7 +342,7 @@ const Dashboard = () => {
                 <Users className="w-5 h-5 text-purple-600" />
               </div>
               <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
-                This month
+                Current
               </span>
             </div>
             <div className="space-y-1">
@@ -568,7 +351,7 @@ const Dashboard = () => {
               ) : (
                 <CountUpNumber value={memberCount} />
               )}
-              <p className="text-sm font-medium text-slate-600">Total Members</p>
+              <p className="text-sm font-medium text-slate-600">Active Members</p>
             </div>
           </motion.div>
 
@@ -592,20 +375,13 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="space-y-1">
-              {todaysTotalLoading ? (
+              {statsLoading ? (
                 <div className="h-8 w-20 bg-slate-200 rounded animate-pulse" />
-              ) : todaysTotalError ? (
-                <span className="text-3xl font-bold text-red-500 tracking-tight">Error</span>
               ) : (
                 <CountUpNumber value={todaysTotal || 0} prefix="KSh " />
               )}
               <p className="text-sm font-medium text-slate-600">
                 Today's Giving
-                {process.env.NODE_ENV === 'development' && (
-                  <span className="text-xs text-slate-400 ml-1">
-                    ({todaysTotal || 0})
-                  </span>
-                )}
               </p>
             </div>
           </motion.div>
@@ -625,7 +401,7 @@ const Dashboard = () => {
                 <Calendar className="w-5 h-5 text-sky-600" />
               </div>
               <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
-                This month
+                Next 7 days
               </span>
             </div>
             <div className="space-y-1">
@@ -653,7 +429,7 @@ const Dashboard = () => {
                 <Users2 className="w-5 h-5 text-emerald-600" />
               </div>
               <span className="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
-                This month
+                Current
               </span>
             </div>
             <div className="space-y-1">
