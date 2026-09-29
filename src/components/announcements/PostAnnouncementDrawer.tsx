@@ -72,6 +72,7 @@ export interface PostAnnouncementDrawerProps {
   tenantId: string;
   userId: string;
   editData?: Announcement | null;
+  readOnly: boolean;
 }
 
 // ─── Audience option ──────────────────────────────────────────────────────────
@@ -102,6 +103,7 @@ export function PostAnnouncementDrawer({
   tenantId,
   userId,
   editData,
+  readOnly,
 }: PostAnnouncementDrawerProps) {
   const qc = useQueryClient();
   const { notify } = useAnnouncementNotifications();
@@ -211,6 +213,7 @@ export function PostAnnouncementDrawer({
   const onSubmit = async (values: AnnouncementFormValues) => {
     setIsSubmitting(true);
     try {
+      if (readOnly) throw new Error("Read-only access");
       const status = isScheduled && values.scheduled_at ? "scheduled" : "active";
 
       const payload = {
@@ -237,7 +240,8 @@ export function PostAnnouncementDrawer({
         const { error } = await supabase
           .from(TABLES.ANNOUNCEMENTS)
           .update({ ...payload, updated_at: new Date().toISOString() } as never)
-          .eq("id", editData.id);
+          .eq("id", editData.id)
+          .eq(COLS.TENANT_ID, tenantId);
         if (error) throw error;
         announcementId = editData.id;
       } else {
@@ -718,7 +722,7 @@ export function PostAnnouncementDrawer({
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                disabled={isSubmitting}
+                disabled={isSubmitting || readOnly}
                 className="border-slate-200 dark:border-slate-700"
               >
                 Cancel
@@ -727,7 +731,7 @@ export function PostAnnouncementDrawer({
               {isEdit ? (
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || readOnly}
                   className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-5"
                 >
                   {isSubmitting ? "Saving…" : "Save Changes"}
@@ -735,7 +739,7 @@ export function PostAnnouncementDrawer({
               ) : isScheduled ? (
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || readOnly}
                   className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-5"
                 >
                   {isSubmitting ? "Scheduling…" : "Schedule Announcement"}
@@ -743,7 +747,7 @@ export function PostAnnouncementDrawer({
               ) : (
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || readOnly}
                   className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-5"
                 >
                   {isSubmitting ? "Posting…" : "Post Now"}

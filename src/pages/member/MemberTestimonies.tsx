@@ -212,11 +212,11 @@ function ShareTestimonyDrawer({ open, onClose, editing, categories, memberId, te
       const payload = {
         title: form.title.trim(), category_id: form.category_id || null, body: form.body.trim(),
         date_of_testimony: form.date_of_testimony || null, is_anonymous: form.is_anonymous,
-        allow_featuring: form.allow_featuring, member_id: memberId, tenant_id: tenantId,
+        allow_featuring: form.allow_featuring, member_id: memberId, submitted_by_member_id: memberId, tenant_id: tenantId,
         status: "pending" as const, author_name: form.is_anonymous ? "Anonymous" : memberName,
       };
       if (editing) {
-        const { error } = await supabase.from(TABLES.TESTIMONIES).update(payload as never).eq(COLS.ID, editing.id);
+        const { error } = await supabase.from(TABLES.TESTIMONIES).update(payload as never).eq(COLS.ID, editing.id).eq(COLS.TENANT_ID, tenantId).eq('member_id', memberId);
         if (error) throw error;
       } else {
         const { data, error } = await supabase.from(TABLES.TESTIMONIES).insert(payload as never).select("id").single();
@@ -301,11 +301,9 @@ export default function MemberTestimonies() {
   const { data: publishedTestimonies = [], isLoading: pubLoading } = useQuery<TestimonyWithRelations[]>({
     queryKey: ["member-testimonies-published", member.churchId],
     queryFn: async () => {
-      const { data, error } = await supabase.from(TABLES.TESTIMONIES)
-        .select("*, testimony_categories(label, color), testimony_reactions(*), members(first_name, last_name, avatar_url)")
-        .eq(COLS.TENANT_ID, member.churchId).eq(COLS.STATUS, "published").order(COLS.CREATED_AT, { ascending: false });
+      const { data, error } = await supabase.rpc('get_member_published_testimonies', { p_tenant_id: member.churchId });
       if (error) throw error;
-      return (data ?? []) as TestimonyWithRelations[];
+      return (Array.isArray(data) ? data : []) as TestimonyWithRelations[];
     },
     staleTime: 300_000,
   });
@@ -315,7 +313,7 @@ export default function MemberTestimonies() {
     queryFn: async () => {
       const { data, error } = await supabase.from(TABLES.TESTIMONIES)
         .select("*, testimony_categories(label, color), testimony_reactions(*), members(first_name, last_name, avatar_url)")
-        .eq("member_id", member.memberId).order(COLS.CREATED_AT, { ascending: false });
+        .eq("member_id", member.memberId).eq(COLS.TENANT_ID, member.churchId).order(COLS.CREATED_AT, { ascending: false });
       if (error) throw error;
       return (data ?? []) as TestimonyWithRelations[];
     },
@@ -336,7 +334,7 @@ export default function MemberTestimonies() {
   const { data: myReactionsData = [] } = useQuery({
     queryKey: ["member-testimony-reactions", member.memberId],
     queryFn: async () => {
-      const { data, error } = await supabase.from(TABLES.TESTIMONY_REACTIONS).select("testimony_id, reaction_type").eq("member_id", member.memberId);
+      const { data, error } = await supabase.from(TABLES.TESTIMONY_REACTIONS).select("testimony_id, reaction_type").eq("member_id", member.memberId).eq("tenant_id", member.tenantId);
       if (error) throw error;
       return data ?? [];
     },
@@ -352,10 +350,10 @@ export default function MemberTestimonies() {
   const reactionMutation = useMutation({
     mutationFn: async ({ testimonyId, type, currentReaction }: { testimonyId: string; type: ReactionType; currentReaction: ReactionType | null }) => {
       if (currentReaction === type) {
-        const { error } = await supabase.from(TABLES.TESTIMONY_REACTIONS).delete().eq("testimony_id", testimonyId).eq("member_id", member.memberId).eq("reaction_type", type);
+        const { error } = await supabase.from(TABLES.TESTIMONY_REACTIONS).delete().eq("testimony_id", testimonyId).eq("member_id", member.memberId).eq("reaction_type", type).eq("tenant_id", member.tenantId);
         if (error) throw error;
       } else {
-        await supabase.from(TABLES.TESTIMONY_REACTIONS).delete().eq("testimony_id", testimonyId).eq("member_id", member.memberId);
+        await supabase.from(TABLES.TESTIMONY_REACTIONS).delete().eq("testimony_id", testimonyId).eq("member_id", member.memberId).eq("tenant_id", member.tenantId);
         const { error } = await supabase.from(TABLES.TESTIMONY_REACTIONS).insert({ tenant_id: member.tenantId, testimony_id: testimonyId, member_id: member.memberId, reaction_type: type } as never);
         if (error) throw error;
       }
@@ -378,7 +376,7 @@ export default function MemberTestimonies() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.TESTIMONIES).delete().eq(COLS.ID, id);
+      const { error } = await supabase.from(TABLES.TESTIMONIES).delete().eq(COLS.ID, id).eq(COLS.TENANT_ID, member.churchId).eq('member_id', member.memberId);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["member-testimonies-mine", member.memberId] }); toast.success("Testimony deleted."); setDeleteTarget(null); },

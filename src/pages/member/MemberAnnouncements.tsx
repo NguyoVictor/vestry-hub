@@ -66,7 +66,8 @@ export default function MemberAnnouncements() {
       const { data } = await supabase
         .from(TABLES.GROUP_MEMBERS)
         .select("group_id")
-        .eq("member_id", member.memberId);
+        .eq("member_id", member.memberId)
+        .eq(COLS.TENANT_ID, member.tenantId);
       return (data ?? []).map((r: { group_id: string }) => r.group_id);
     },
     enabled: !!member.memberId,
@@ -127,6 +128,7 @@ export default function MemberAnnouncements() {
         .select("id")
         .eq("announcement_id", announcementId)
         .eq("member_id", member.memberId)
+        .eq(COLS.TENANT_ID, member.tenantId)
         .eq("emoji", emoji)
         .maybeSingle();
 
@@ -137,6 +139,7 @@ export default function MemberAnnouncements() {
           .delete()
           .eq("announcement_id", announcementId)
           .eq("member_id", member.memberId)
+          .eq(COLS.TENANT_ID, member.tenantId)
           .eq("emoji", emoji);
         if (error) throw error;
       } else {

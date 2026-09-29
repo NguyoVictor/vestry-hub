@@ -171,9 +171,9 @@ function PublishedTestimonyCard({ testimony, index, onEdit, onFeatureToggle, onA
 
 interface TestimonyDrawerProps {
   open: boolean; onClose: () => void; editing: TestimonyWithRelations | null;
-  categories: TestimonyCategory[]; tenantId: string; userId: string; onSuccess: () => void;
+  categories: TestimonyCategory[]; tenantId: string; userId: string; onSuccess: () => void; readOnly: boolean;
 }
-function TestimonyDrawer({ open, onClose, editing, categories, tenantId, userId, onSuccess }: TestimonyDrawerProps) {
+function TestimonyDrawer({ open, onClose, editing, categories, tenantId, userId, onSuccess, readOnly }: TestimonyDrawerProps) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const queryClient = useQueryClient();
 
@@ -193,14 +193,15 @@ function TestimonyDrawer({ open, onClose, editing, categories, tenantId, userId,
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) throw new Error('Read-only access');
       const payload = {
         title: form.title.trim(), category_id: form.category_id || null, body: form.body.trim(),
         is_anonymous: form.is_anonymous, author_name: form.is_anonymous ? "Anonymous" : form.member_name.trim() || null,
         date_of_testimony: form.date_of_testimony || null, tenant_id: tenantId,
-        status: "published" as const, submitted_by_admin_id: userId,
+        status: "published" as const, is_approved: true, approved_by: userId, submitted_by_admin_id: userId,
       };
       if (editing) {
-        const { error } = await supabase.from(TABLES.TESTIMONIES).update(payload as never).eq(COLS.ID, editing.id);
+        const { error } = await supabase.from(TABLES.TESTIMONIES).update(payload as never).eq(COLS.ID, editing.id).eq(COLS.TENANT_ID, tenantId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from(TABLES.TESTIMONIES).insert(payload as never);
@@ -258,7 +259,7 @@ function TestimonyDrawer({ open, onClose, editing, categories, tenantId, userId,
             </div>
             <Switch checked={form.is_anonymous} onCheckedChange={v => setForm(f => ({ ...f, is_anonymous: v }))} />
           </div>
-          <Button onClick={() => saveMutation.mutate()} disabled={!isValid || saveMutation.isPending} className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-jakarta font-semibold">
+          <Button onClick={() => saveMutation.mutate()} disabled={!isValid || saveMutation.isPending || readOnly} className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-jakarta font-semibold">
             {saveMutation.isPending ? "Saving..." : editing ? "Save Changes" : "Add Testimony"}
           </Button>
         </div>
@@ -307,7 +308,9 @@ export default function Testimonies() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "published" | "declined" }) => {
-      const { error } = await supabase.from(TABLES.TESTIMONIES).update({ status } as never).eq(COLS.ID, id);
+      if (readOnly) throw new Error('Read-only access');
+      const moderation = { status, is_approved: status === "published", approved_by: status === "published" ? userId : null };
+      const { error } = await supabase.from(TABLES.TESTIMONIES).update(moderation as never).eq(COLS.ID, id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-testimonies", tenantId] }),
@@ -316,7 +319,8 @@ export default function Testimonies() {
 
   const featureMutation = useMutation({
     mutationFn: async ({ id, is_featured, memberId }: { id: string; is_featured: boolean; memberId: string | null }) => {
-      const { error } = await supabase.from(TABLES.TESTIMONIES).update({ is_featured } as never).eq(COLS.ID, id);
+      if (readOnly) throw new Error('Read-only access');
+      const { error } = await supabase.from(TABLES.TESTIMONIES).update({ is_featured } as never).eq(COLS.ID, id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
       return { is_featured, memberId, id };
     },
@@ -330,7 +334,8 @@ export default function Testimonies() {
 
   const archiveMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.TESTIMONIES).update({ status: "retracted" } as never).eq(COLS.ID, id);
+      if (readOnly) throw new Error('Read-only access');
+      const { error } = await supabase.from(TABLES.TESTIMONIES).update({ status: "retracted", is_approved: false, approved_by: null } as never).eq(COLS.ID, id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-testimonies", tenantId] }); toast.success("Testimony archived."); },
@@ -339,7 +344,8 @@ export default function Testimonies() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.TESTIMONIES).delete().eq(COLS.ID, id);
+      if (readOnly) throw new Error('Read-only access');
+      const { error } = await supabase.from(TABLES.TESTIMONIES).delete().eq(COLS.ID, id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-testimonies", tenantId] }); toast.success("Testimony deleted."); setDeleteTarget(null); },
@@ -466,7 +472,7 @@ export default function Testimonies() {
           </div>
         </BlurFadeIn>
 
-        <TestimonyDrawer open={drawer.open} onClose={() => setDrawer({ open: false, editing: null })} editing={drawer.editing} categories={categories} tenantId={tenantId} userId={userId} onSuccess={() => setDrawer({ open: false, editing: null })} />
+        <TestimonyDrawer open={drawer.open} onClose={() => setDrawer({ open: false, editing: null })} editing={drawer.editing} categories={categories} tenantId={tenantId} userId={userId} onSuccess={() => setDrawer({ open: false, editing: null })} readOnly={readOnly} />
         <ConfirmDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)} title="Delete Testimony?" description="This action cannot be undone. The testimony will be permanently removed." confirmLabel="Delete" destructive onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)} loading={deleteMutation.isPending} />
       </div>
     </PageTransition>

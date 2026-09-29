@@ -78,6 +78,7 @@ export default function Announcements() {
           tenantId={tenantId}
           announcementTypes={announcementTypes}
           onPostNew={handleOpenDrawer}
+          readOnly={readOnly}
         />
 
         {/* ── Post / Edit drawer ── */}
@@ -86,6 +87,7 @@ export default function Announcements() {
           onClose={handleCloseDrawer}
           tenantId={tenantId}
           userId={userId}
+          readOnly={readOnly}
         />
       </div>
     </PageTransition>

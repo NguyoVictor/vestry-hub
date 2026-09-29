@@ -295,7 +295,7 @@ export default function SurveyResponsesPage() {
   const { data: survey, isLoading: surveyLoading } = useQuery({
     queryKey: ["survey", surveyId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.SURVEYS).select("*").eq("id", surveyId!).single();
+      const { data } = await supabase.from(TABLES.SURVEYS).select("*").eq("id", surveyId!).eq("tenant_id", tenantId).single();
       return data;
     },
     staleTime: 300_000,
@@ -308,6 +308,7 @@ export default function SurveyResponsesPage() {
         .from(TABLES.SURVEY_RESPONSES)
         .select("*")
         .eq("survey_id", surveyId!)
+        .eq("tenant_id", tenantId)
         .order("submitted_at", { ascending: false });
       if (error) console.error("Responses fetch error:", error);
       // member_name is stored at submission time — no join needed
@@ -330,6 +331,7 @@ export default function SurveyResponsesPage() {
             .from(TABLES.SURVEY_RESPONSES)
             .select("id")
             .eq("survey_id", surveyId!)
+            .eq("tenant_id", tenantId)
           ).data?.map((r: any) => r.id) || []
         );
       if (error) console.error("Answers fetch error:", error);
