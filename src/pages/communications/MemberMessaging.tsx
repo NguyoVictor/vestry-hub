@@ -257,11 +257,14 @@ const MessageBubble = React.memo(function MessageBubble({
               isGrouped && !isOwn && "rounded-bl-2xl"
             )}>
               {msg.attachment_url ? (
-                <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer"
-                  className={cn("flex items-center gap-2 text-sm underline", isOwn ? "text-orange-100" : "text-orange-600")}>
+                <button type="button" onClick={async () => {
+                  const { data, error } = await supabase.storage.from("message-attachments").createSignedUrl(msg.attachment_url!, 60);
+                  if (error || !data?.signedUrl) { toast.error("Attachment is unavailable"); return; }
+                  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                }} className={cn("flex items-center gap-2 text-sm underline", isOwn ? "text-orange-100" : "text-orange-600")}>
                   <Paperclip className="h-3.5 w-3.5 shrink-0" />
                   {msg.attachment_name || "Attachment"}
-                </a>
+                </button>
               ) : (
                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.body}</p>
               )}
@@ -274,7 +277,7 @@ const MessageBubble = React.memo(function MessageBubble({
             </div>
 
             <AnimatePresence>
-              {showActions && (
+              {showActions && !readOnly && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -313,7 +316,7 @@ const MessageBubble = React.memo(function MessageBubble({
             </AnimatePresence>
           </div>
 
-          <ReactionBubbles reactions={reactions} onToggle={(emoji) => onReact(msg.id, emoji)} />
+          {!readOnly && <ReactionBubbles reactions={reactions} onToggle={(emoji) => onReact(msg.id, emoji)} />}
         </div>
       </motion.div>
     </>
@@ -422,22 +425,18 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
     setEditGroupOpen(false);
   }, [conv.id]);
 
-  // Users/members lookup
-  const { data: users = [] } = useQuery({
-    queryKey: ["users-messaging", tenantId],
+  // Participant-safe sender directory. The RPC returns only actors from conversations
+  // the current messaging actor can view; it does not expose the tenant directory.
+  const { data: actorDirectory = [] } = useQuery({
+    queryKey: ["messaging-actor-directory", tenantId, userId],
     queryFn: async () => {
-      const { data } = await supabase.from("users").select("id, first_name, last_name, role").eq("tenant_id", tenantId);
-      return data ?? [];
+      const { data, error } = await (supabase as any).rpc("get_messaging_actor_directory", {
+        p_tenant_id: tenantId,
+      });
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
     },
-    staleTime: 300_000,
-  });
-  const { data: membersList = [] } = useQuery({
-    queryKey: ["members-messaging-dm", tenantId],
-    queryFn: async () => {
-      const { data } = await supabase.from("members").select("id, first_name, last_name").eq("tenant_id", tenantId);
-      return data ?? [];
-    },
-    staleTime: 300_000,
+    staleTime: 60_000,
   });
   const { data: participants = [] } = useQuery({
     queryKey: ["conv-participants", conv.id],
@@ -449,11 +448,9 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
   });
 
   const getSenderName = useCallback((id: string) => {
-    const m = (membersList as any[]).find(m => m.id === id);
-    if (m?.first_name) return `${m.first_name} ${m.last_name ?? ""}`.trim();
-    const u = (users as any[]).find(u => u.id === id);
-    return u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-  }, [membersList, users]);
+    const actor = (actorDirectory as any[]).find((entry: any) => entry.id === id);
+    return actor?.display_name || "Team member";
+  }, [actorDirectory]);
 
   // Reactions query
   const { data: allReactions = [] } = useQuery({
@@ -536,13 +533,6 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
       }, () => {
         qc.invalidateQueries({ queryKey: ["reactions", conv.id] });
       })
-      .on("broadcast", { event: "typing" }, ({ payload }: any) => {
-        if (payload.userId !== userId) {
-          setTypingUser(payload.name);
-          if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-          typingTimerRef.current = setTimeout(() => setTypingUser(null), 2000);
-        }
-      })
       .subscribe();
     channelRef.current = channel;
     return () => {
@@ -571,13 +561,9 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
     setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 100);
   }, []);
 
-  const sendTyping = useCallback(() => {
-    if (sendTypingTimerRef.current) return;
-    if (channelRef.current) {
-      channelRef.current.send({ type: "broadcast", event: "typing", payload: { userId, name: userName } });
-    }
-    sendTypingTimerRef.current = setTimeout(() => { sendTypingTimerRef.current = null; }, 300);
-  }, [userId, userName]);
+  // Typing broadcast is intentionally disabled until member sessions use an
+  // authenticated private Realtime channel. Postgres Changes remain RLS-filtered.
+  const sendTyping = useCallback(() => {}, []);
 
   const loadEarlierMessages = async () => {
     const newOffset = earlierOffset + PAGE_SIZE;
@@ -611,16 +597,6 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
         ...(replyTo ? { reply_to_id: replyTo.id } : {}),
       }).select().single();
       if (error) throw error;
-      await (supabase as any).from("conversations").update({
-        last_message_preview: body.slice(0, 100),
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        status: "open",
-      }).eq("id", conv.id);
-      await (supabase as any).rpc("batch_increment_unread_count", {
-        p_conversation_id: conv.id,
-        p_excluding_user_id: userId,
-      });
       const recipientIds = (participants as any[])
         .filter((p: any) => p.user_id !== userId)
         .map((p: any) => p.user_id);
@@ -674,7 +650,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
     if (existing) {
       await (supabase as any).from("message_reactions").delete().eq("id", existing.id);
     } else {
-      await (supabase as any).from("message_reactions").insert({ message_id: messageId, user_id: userId, emoji, conversation_id: conv.id });
+      await (supabase as any).from("message_reactions").insert({ message_id: messageId, user_id: userId, tenant_id: tenantId, emoji, conversation_id: conv.id });
     }
     qc.invalidateQueries({ queryKey: ["reactions", conv.id] });
   }, [allReactions, userId, conv.id, qc]);
@@ -687,10 +663,9 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
     if ((usage.storage_gb + fileSizeGB) > limits.storage_gb) { showPaywallToast("storage", "storage"); return; }
     setUploading(true);
     try {
-      const path = `${tenantId}/${conv.id}/${Date.now()}-${file.name}`;
+      const path = `${tenantId}/${conv.id}/${userId}/${crypto.randomUUID()}-${file.name}`;
       const { data, error } = await supabase.storage.from("message-attachments").upload(path, file);
       if (error) throw error;
-      const { data: urlData } = supabase.storage.from("message-attachments").getPublicUrl(data.path);
       const optimistic: MessageRow = {
         id: `temp-file-${Date.now()}`,
         body: `📎 ${file.name}`,
@@ -698,7 +673,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
         created_at: new Date().toISOString(),
         status: "sending",
         conversation_id: conv.id,
-        attachment_url: urlData.publicUrl,
+        attachment_url: data.path,
         attachment_name: file.name,
         attachment_type: file.type,
       };
@@ -706,14 +681,12 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
       const { data: msgData, error: msgErr } = await (supabase as any).from("messages").insert({
         tenant_id: tenantId, conversation_id: conv.id, sender_id: userId,
         body: `📎 ${file.name}`,
-        attachment_url: urlData.publicUrl, attachment_name: file.name, attachment_type: file.type,
+        attachment_url: data.path, attachment_name: file.name, attachment_type: file.type,
         status: "sent",
       }).select().single();
       if (msgErr) throw msgErr;
       setAllMessages(prev => prev.map(m => m.id === optimistic.id ? msgData : m));
-      await (supabase as any).from("conversations").update({ last_message_preview: `📎 ${file.name}`, last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", conv.id);
       await (supabase as any).from(TABLES.TENANT_SUBSCRIPTIONS).update({ storage_used_gb: usage.storage_gb + fileSizeGB }).eq("tenant_id", tenantId);
-      await (supabase as any).rpc("batch_increment_unread_count", { p_conversation_id: conv.id, p_excluding_user_id: userId });
       qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
       qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       toast.success("File sent");
@@ -744,12 +717,12 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {conv.status === "open" && (
+          {!readOnly && conv.status === "open" && (
             <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => { onClose(conv.id); onBack(); }}>Close</Button>
           )}
-          {conv.status === "closed" && (
+          {!readOnly && conv.status === "closed" && (
             <Button variant="outline" size="sm" className="text-xs h-7" onClick={async () => {
-              await (supabase as any).from("conversations").update({ status: "open" }).eq("id", conv.id);
+              await (supabase as any).from("conversations").update({ status: "open" }).eq("id", conv.id).eq("tenant_id", tenantId);
               qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
               qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
               toast.success("Conversation reopened");
@@ -760,14 +733,14 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
               <button className="rounded p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 transition-colors"><MoreVertical className="h-4 w-4" /></button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {isGroup && <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => setEditGroupOpen(true)}>Edit Group</DropdownMenuItem>}
+              {isGroup && !readOnly && <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => setEditGroupOpen(true)}>Edit Group</DropdownMenuItem>}
               <DropdownMenuItem className="text-xs cursor-pointer" onClick={async () => {
-                await (supabase as any).from("conversation_participants").update({ unread_count: 1 }).eq("conversation_id", conv.id).eq("user_id", userId);
+                await (supabase as any).rpc("mark_messaging_conversation_unread", { p_conversation_id: conv.id });
                 qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
                 qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
                 toast.success("Marked as unread");
               }}>Mark as Unread</DropdownMenuItem>
-              <DropdownMenuItem className="text-xs cursor-pointer text-red-500 focus:text-red-500" onClick={() => setDeleteConfirm(true)}>Delete Conversation</DropdownMenuItem>
+              {!readOnly && <DropdownMenuItem className="text-xs cursor-pointer text-red-500 focus:text-red-500" onClick={() => setDeleteConfirm(true)}>Delete Conversation</DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -782,9 +755,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
               <Button className="bg-red-500 hover:bg-red-600 text-white" onClick={async () => {
-                await (supabase as any).from("messages").delete().eq("conversation_id", conv.id);
-                await (supabase as any).from("conversation_participants").delete().eq("conversation_id", conv.id);
-                await (supabase as any).from("conversations").delete().eq("id", conv.id);
+                await (supabase as any).from("conversations").delete().eq("id", conv.id).eq("tenant_id", tenantId);
                 qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
                 qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
                 toast.success("Conversation deleted");
@@ -805,7 +776,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => setDeleteMsgId(null)}>Cancel</Button>
               <Button className="bg-red-500 hover:bg-red-600 text-white" onClick={async () => {
-                await (supabase as any).from("messages").delete().eq("id", deleteMsgId);
+                await (supabase as any).from("messages").delete().eq("id", deleteMsgId).eq("tenant_id", tenantId).eq("conversation_id", conv.id);
                 setAllMessages(prev => prev.filter(m => m.id !== deleteMsgId));
                 toast.success("Message deleted");
                 setDeleteMsgId(null);
@@ -835,7 +806,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
             <div className="flex gap-3 justify-end pt-2">
               <Button variant="outline" onClick={() => setEditGroupOpen(false)}>Cancel</Button>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={async () => {
-                await (supabase as any).from("conversations").update({ name: editGroupName, description: editGroupDesc || null }).eq("id", conv.id);
+                await (supabase as any).from("conversations").update({ name: editGroupName, description: editGroupDesc || null }).eq("id", conv.id).eq("tenant_id", tenantId);
                 qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
                 toast.success("Group updated");
                 setEditGroupOpen(false);
@@ -1009,8 +980,12 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
           forum = newForum;
         }
         if (!forum) throw new Error("Could not create forum");
+        const forumActorIds = Array.from(new Set([userId, ...allUsers.map((u: any) => u.id)]));
+        await (supabase as any).from("conversation_participants").upsert(
+          forumActorIds.map((id: string) => ({ conversation_id: forum.id, user_id: id, unread_count: 0 })),
+          { onConflict: "conversation_id,user_id", ignoreDuplicates: true },
+        );
         await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: forum.id, sender_id: userId, body: message.trim() } as any);
-        await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString() }).eq("id", forum.id);
         const notifs = users.filter(u => u.id !== userId).map(u => ({ tenant_id: tenantId, user_id: u.id, type: "broadcast", title: `${userName} posted in Church Forum`, body: message.trim().slice(0, 50), is_read: false }));
         if (notifs.length) await supabase.from(TABLES.NOTIFICATIONS).insert(notifs as any);
         qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
@@ -1029,11 +1004,10 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
           if (!convId) {
             const { data: newConv } = await supabase.from("conversations").insert({ tenant_id: tenantId, type: "direct", created_by: userId, status: "open" } as any).select("id").single();
             convId = newConv?.id;
-            if (convId) await supabase.from("conversation_participants").insert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: u.id }]);
+            if (convId) await supabase.from("conversation_participants").upsert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: u.id }], { onConflict: "conversation_id,user_id", ignoreDuplicates: true });
           }
           if (convId) {
             await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: convId, sender_id: userId, body: message.trim() } as any);
-            await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", convId);
             count++;
           }
         }
@@ -1051,12 +1025,11 @@ function NewMessageModal({ open, onClose, tenantId, userId, userName, onConversa
         if (!convId) {
           const { data: newConv } = await supabase.from("conversations").insert({ tenant_id: tenantId, type: "direct", created_by: userId, status: "open" } as any).select("id").single();
           convId = newConv?.id;
-          if (convId) await supabase.from("conversation_participants").insert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: selectedMemberId }]);
+          if (convId) await supabase.from("conversation_participants").upsert([{ conversation_id: convId, user_id: userId }, { conversation_id: convId, user_id: selectedMemberId }], { onConflict: "conversation_id,user_id", ignoreDuplicates: true });
         }
         if (!convId) throw new Error("Could not create conversation");
         const { error: msgErr } = await supabase.from("messages").insert({ tenant_id: tenantId, conversation_id: convId, sender_id: userId, body: message.trim() } as any);
         if (msgErr) throw msgErr;
-        await supabase.from("conversations").update({ last_message_preview: message.trim().slice(0, 100), last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", convId);
         qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
         const name = targetUser ? `${(targetUser as any).first_name ?? ""} ${(targetUser as any).last_name ?? ""}`.trim() : "member";
         toast.success(`✅ Message sent to ${name}`);
@@ -1256,7 +1229,7 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
   useEffect(() => {
     const channel = supabase
       .channel(`conversations-dm-${tenantId}-${userId}`)
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "conversations", filter: `tenant_id=eq.${tenantId}` }, () => {
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "conversation_participants", filter: `user_id=eq.${userId}` }, () => {
         qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
       })
       .subscribe();
@@ -1293,14 +1266,14 @@ function DirectMessagesTab({ tenantId, userId, userName, onlineUsers }: { tenant
   });
 
   const closeConversation = async (id: string) => {
-    await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", id);
+    await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", id).eq("tenant_id", tenantId);
     qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
     toast.success("Conversation closed.");
   };
 
   const selectConversation = useCallback(async (convId: string) => {
     setSelectedConvId(convId);
-    await (supabase as any).from("conversation_participants").update({ unread_count: 0 }).eq("conversation_id", convId).eq("user_id", userId);
+    await (supabase as any).rpc('mark_messaging_conversation_read', { p_conversation_id: convId });
     qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
   }, [userId, tenantId, qc]);
 
@@ -1416,7 +1389,7 @@ function CreateGroupModal({ open, onClose, tenantId, userId, onCreated }: { open
       const { data: conv } = await supabase.from("conversations").insert({ tenant_id: tenantId, type: "group", name: name.trim(), description: description.trim() || null, created_by: userId, status: "open" } as any).select("id").single();
       if (!conv) throw new Error("Failed to create group");
       const participants = [userId, ...Array.from(selectedIds)].map(uid => ({ conversation_id: conv.id, user_id: uid }));
-      await supabase.from("conversation_participants").insert(participants);
+      await supabase.from("conversation_participants").upsert(participants, { onConflict: "conversation_id,user_id", ignoreDuplicates: true });
       qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       toast.success("✅ Group created successfully");
       onCreated(conv.id);
@@ -1516,7 +1489,7 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
   useEffect(() => {
     const channel = supabase
       .channel(`conversations-group-${tenantId}-${userId}`)
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "conversations", filter: `tenant_id=eq.${tenantId}` }, () => {
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "conversation_participants", filter: `user_id=eq.${userId}` }, () => {
         qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       })
       .subscribe();
@@ -1527,13 +1500,13 @@ function GroupChatsTab({ tenantId, userId, userName, onlineUsers }: { tenantId: 
   const selectedConv = conversations.find(c => c.id === selectedConvId) ?? null;
 
   const closeConversation = async (id: string) => {
-    await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", id);
+    await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", id).eq("tenant_id", tenantId);
     qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
   };
 
   const selectGroupConv = useCallback(async (convId: string) => {
     setSelectedConvId(convId);
-    await (supabase as any).from("conversation_participants").update({ unread_count: 0 }).eq("conversation_id", convId).eq("user_id", userId);
+    await (supabase as any).rpc('mark_messaging_conversation_read', { p_conversation_id: convId });
     qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
   }, [userId, tenantId, qc]);
 
@@ -1622,24 +1595,8 @@ export default function MemberMessaging() {
   const [activeTab, setActiveTab] = useState<"dm" | "groups">("dm");
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
-  // Realtime presence
-  useEffect(() => {
-    if (!tenantId || !userId) return;
-    const presenceChannel = supabase.channel(`presence:${tenantId}`, {
-      config: { presence: { key: userId } },
-    });
-    presenceChannel
-      .on("presence", { event: "sync" }, () => {
-        const state = presenceChannel.presenceState();
-        setOnlineUsers(new Set(Object.keys(state)));
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await presenceChannel.track({ userId, name: userName, online_at: new Date().toISOString() });
-        }
-      });
-    return () => { supabase.removeChannel(presenceChannel); };
-  }, [tenantId, userId, userName]);
+  // Presence is disabled for A7 until all messaging actors can join private,
+  // authenticated Realtime topics. Core message updates use RLS-filtered Postgres Changes.
 
   const TABS = [
     { id: "dm" as const, icon: "💬", label: "Direct Messages" },
