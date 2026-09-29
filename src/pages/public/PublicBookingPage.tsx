@@ -162,6 +162,7 @@ export default function PublicBookingPage() {
           notes: values.notes || null,
           status: "open",
           source: "external",
+          booker_type: values.external_org?.trim() ? "external_org" : "external_individual",
           external_name: values.external_name,
           external_email: values.external_email || null,
           external_phone: values.external_phone || null,

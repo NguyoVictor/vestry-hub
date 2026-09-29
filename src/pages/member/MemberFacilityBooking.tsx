@@ -134,6 +134,7 @@ function MemberBookingModal({
         booked_by: memberId,
         booker_name: memberName,
         booker_type: "member",
+        source: "member",
         status: "open",
         purpose: values.purpose.trim(),
         booking_date: values.booking_date,
@@ -519,7 +520,9 @@ function MyBookingsSection({
         .from(TABLES.FACILITY_BOOKINGS as any)
         .update({ status: "cancelled", rejection_reason: "booker_withdrew" } as never)
         .eq(COLS.ID, bookingId)
+        .eq(COLS.TENANT_ID, churchId)
         .eq("booked_by", memberId)
+        .eq("source", "member")
         .eq("status", "open");
       if (error) throw error;
     },

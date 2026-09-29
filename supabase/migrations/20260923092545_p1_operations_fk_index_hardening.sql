@@ -1,0 +1,15 @@
+create index if not exists event_rsvps_event_tenant_idx on public.event_rsvps(event_id,tenant_id);
+create index if not exists event_rsvps_member_tenant_idx on public.event_rsvps(member_id,tenant_id) where member_id is not null;
+create index if not exists event_rsvps_tenant_idx on public.event_rsvps(tenant_id);
+create index if not exists service_attendance_service_tenant_idx on public.service_attendance(service_id,tenant_id);
+create index if not exists service_attendance_member_tenant_idx on public.service_attendance(member_id,tenant_id) where member_id is not null;
+create index if not exists volunteers_role_tenant_idx on public.volunteers(role_id,tenant_id);
+create index if not exists volunteers_member_tenant_idx on public.volunteers(member_id,tenant_id) where member_id is not null;
+create index if not exists member_requests_member_tenant_idx on public.member_requests(member_id,tenant_id);
+create index if not exists facility_bookings_facility_tenant_fk_idx on public.facility_bookings(facility_id,tenant_id) where facility_id is not null;
+create index if not exists facility_bookings_booked_by_idx on public.facility_bookings(booked_by) where booked_by is not null;
+create index if not exists facility_booking_responses_booking_idx on public.facility_booking_responses(booking_id);
+create index if not exists facility_images_facility_idx on public.facility_images(facility_id);
+create index if not exists facility_responses_facility_idx on public.facility_responses(facility_id) where facility_id is not null;
+create index if not exists meeting_minutes_meeting_idx on public.meeting_minutes(meeting_id);
+create index if not exists meeting_decisions_meeting_idx on public.meeting_decisions(meeting_id);

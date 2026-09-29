@@ -471,7 +471,8 @@ export default function EventsPage() {
           allow_rsvp: editForm.allow_rsvp,
           status: (editForm as any).status,
         } as any)
-        .eq("id", editingEvent!.id);
+        .eq("id", editingEvent!.id)
+        .eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -486,7 +487,7 @@ export default function EventsPage() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.EVENTS).delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.EVENTS).delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -503,7 +504,8 @@ export default function EventsPage() {
       const { error } = await supabase
         .from(TABLES.EVENTS)
         .update({ status, is_published: status === "published" } as any)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("tenant_id", tenantId!);
       if (error) throw error;
       return { id, status };
     },

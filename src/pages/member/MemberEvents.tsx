@@ -30,6 +30,7 @@ interface FeedItem {
   description: string | null;
   bannerUrl: string | null;
   serviceType: string | null; // for services
+  selfServiceEnabled: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
         .select("id, status")
         .eq("event_id", item.id)
         .eq("member_id", memberId)
+        .eq("tenant_id", churchId)
         .maybeSingle();
       return data;
     },
@@ -79,6 +81,7 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
         .select("id, status")
         .eq("service_id", item.id)
         .eq("member_id", memberId)
+        .eq("tenant_id", churchId)
         .maybeSingle();
       return data;
     },
@@ -88,19 +91,21 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
 
   const toggleRsvp = useMutation({
     mutationFn: async () => {
+      let error;
       if (rsvp?.status === "confirmed") {
-        await supabase.from("event_rsvps").update({ status: "cancelled" }).eq("id", rsvp.id);
+        ({ error } = await supabase.from("event_rsvps").update({ status: "cancelled" }).eq("id", rsvp.id).eq("tenant_id", churchId));
       } else if (rsvp) {
-        await supabase.from("event_rsvps").update({ status: "confirmed" }).eq("id", rsvp.id);
+        ({ error } = await supabase.from("event_rsvps").update({ status: "confirmed" }).eq("id", rsvp.id).eq("tenant_id", churchId));
       } else {
-        await supabase.from(TABLES.EVENT_RSVPS).insert({
+        ({ error } = await supabase.from(TABLES.EVENT_RSVPS).insert({
           event_id: item.id,
           tenant_id: churchId,
           member_id: memberId,
           status: "confirmed",
           rsvp_source: "self",
-        });
+        }));
       }
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event-rsvp", item.id, memberId] });
@@ -112,17 +117,19 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
 
   const toggleAttendance = useMutation({
     mutationFn: async () => {
+      let error;
       if (attendance) {
         const newStatus = attendance.status === "attending" ? "cancelled" : "attending";
-        await supabase.from(TABLES.SERVICE_ATTENDANCE).update({ status: newStatus }).eq("id", attendance.id);
+        ({ error } = await supabase.from(TABLES.SERVICE_ATTENDANCE).update({ status: newStatus }).eq("id", attendance.id).eq("tenant_id", churchId));
       } else {
-        await supabase.from(TABLES.SERVICE_ATTENDANCE).insert({
+        ({ error } = await supabase.from(TABLES.SERVICE_ATTENDANCE).insert({
           tenant_id: churchId,
           service_id: item.id,
           member_id: memberId,
           status: "attending",
-        } as any);
+        } as any));
       }
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-attendance", item.id, memberId] });
@@ -181,7 +188,7 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
         )}
 
         {/* Event RSVP */}
-        {isEvent && (
+        {isEvent && item.selfServiceEnabled && (
           <Button
             size="sm"
             className={cn("w-full rounded-full h-9 mt-1",
@@ -195,7 +202,7 @@ function FeedCard({ item, memberId, churchId }: { item: FeedItem; memberId: stri
         )}
 
         {/* Service attendance */}
-        {!isEvent && (
+        {!isEvent && item.selfServiceEnabled && (
           <Button
             size="sm"
             className={cn("w-full rounded-full h-9 mt-1",
@@ -235,9 +242,10 @@ export function MemberEvents() {
       console.log("[MemberEvents] Fetching events for tenant:", member.churchId);
       const { data, error } = await supabase
         .from(TABLES.EVENTS)
-        .select("id, title, event_date, start_time, end_time, location, description, banner_image_url, status, is_published")
+        .select("id, title, event_date, start_time, end_time, location, description, banner_image_url, status, is_published, allow_rsvp")
         .eq(COLS.TENANT_ID, member.churchId)
         .in("status", ["published", "completed"])
+        .eq("is_published", true)
         .order("event_date", { ascending: false })
         .limit(100);
       console.log("[MemberEvents] Events result:", { count: data?.length, error, tenantId: member.churchId });
@@ -253,6 +261,7 @@ export function MemberEvents() {
         description: e.description,
         bannerUrl: e.banner_image_url,
         serviceType: null,
+        selfServiceEnabled: e.allow_rsvp !== false,
       }));
     },
     staleTime: 0,
@@ -266,9 +275,10 @@ export function MemberEvents() {
       console.log("[MemberEvents] Fetching services for tenant:", member.churchId);
       const { data, error } = await supabase
         .from(TABLES.SERVICES)
-        .select("id, title, name, service_date, start_time, end_time, location, description, service_type, status")
+        .select("id, title, name, service_date, start_time, end_time, location, description, service_type, status, is_published, allow_attendance")
         .eq(COLS.TENANT_ID, member.churchId)
         .eq("status", "published")
+        .eq("is_published", true)
         .order("service_date", { ascending: false })
         .limit(100);
       console.log("[MemberEvents] Services result:", { count: data?.length, error, tenantId: member.churchId });
@@ -284,6 +294,7 @@ export function MemberEvents() {
         description: s.description ?? null,
         bannerUrl: null,
         serviceType: s.service_type,
+        selfServiceEnabled: s.allow_attendance !== false,
       }));
     },
     staleTime: 0,
@@ -428,7 +439,7 @@ export function MemberEventDetail() {
   const { data: event, isLoading } = useQuery({
     queryKey: ["member-event", eventId],
     queryFn: async () => {
-      const { data } = await supabase.from("events").select("*").eq("id", eventId!).single();
+      const { data } = await supabase.from("events").select("*").eq("id", eventId!).eq("tenant_id", member.churchId).eq("is_published", true).in("status", ["published", "completed"]).single();
       return data;
     },
     enabled: !!eventId,
@@ -438,7 +449,7 @@ export function MemberEventDetail() {
   const { data: rsvp } = useQuery({
     queryKey: ["event-rsvp", eventId, member.memberId],
     queryFn: async () => {
-      const { data } = await supabase.from("event_rsvps").select("id, status").eq("event_id", eventId!).eq("member_id", member.memberId).maybeSingle();
+      const { data } = await supabase.from("event_rsvps").select("id, status").eq("event_id", eventId!).eq("member_id", member.memberId).eq("tenant_id", member.churchId).maybeSingle();
       return data;
     },
     enabled: !!eventId,
@@ -447,19 +458,21 @@ export function MemberEventDetail() {
 
   const toggleRsvp = useMutation({
     mutationFn: async () => {
+      let error;
       if (rsvp?.status === "confirmed") {
-        await supabase.from("event_rsvps").update({ status: "cancelled" }).eq("id", rsvp.id);
+        ({ error } = await supabase.from("event_rsvps").update({ status: "cancelled" }).eq("id", rsvp.id).eq("tenant_id", member.churchId));
       } else if (rsvp) {
-        await supabase.from("event_rsvps").update({ status: "confirmed" }).eq("id", rsvp.id);
+        ({ error } = await supabase.from("event_rsvps").update({ status: "confirmed" }).eq("id", rsvp.id).eq("tenant_id", member.churchId));
       } else {
-        await supabase.from(TABLES.EVENT_RSVPS).insert({
+        ({ error } = await supabase.from(TABLES.EVENT_RSVPS).insert({
           event_id: eventId,
           tenant_id: member.churchId,
           member_id: member.memberId,
           status: "confirmed",
           rsvp_source: "self",
-        });
+        }));
       }
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["event-rsvp", eventId, member.memberId] });

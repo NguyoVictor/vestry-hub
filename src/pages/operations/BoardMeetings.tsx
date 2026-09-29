@@ -280,7 +280,8 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
       const { data } = await supabase
         .from("meeting_attendees")
         .select("member_id, attendance_status, members(first_name, last_name)")
-        .eq("meeting_id", meeting.id);
+        .eq("meeting_id", meeting.id)
+        .eq("tenant_id", tenantId);
       return data || [];
     },
     staleTime: 60_000,
@@ -293,6 +294,7 @@ function MeetingViewModal({ meeting, onClose, onEdit }: { meeting: any; onClose:
         .from("meeting_action_items")
         .select("*")
         .eq("meeting_id", meeting.id)
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
       return data || [];
     },
@@ -640,7 +642,7 @@ export default function BoardMeetingsPage() {
   const { data: attendeeCounts = {} } = useQuery({
     queryKey: ["meeting-attendee-counts", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("meeting_attendees").select("meeting_id");
+      const { data } = await supabase.from("meeting_attendees").select("meeting_id").eq("tenant_id", tenantId);
       const counts: Record<string, number> = {};
       (data || []).forEach((a: any) => { counts[a.meeting_id] = (counts[a.meeting_id] || 0) + 1; });
       return counts;
@@ -688,13 +690,15 @@ export default function BoardMeetingsPage() {
     const { data: existing } = await supabase
       .from("meeting_attendees")
       .select("member_id")
-      .eq("meeting_id", m.id);
+      .eq("meeting_id", m.id)
+      .eq("tenant_id", tenantId);
     setSelectedAttendees((existing || []).map((a: any) => a.member_id));
     setSheetOpen(true);
   };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) throw new Error("Read-only access");
       const payload: any = {
         title: formData.title,
         meeting_date: formData.date,
@@ -710,10 +714,10 @@ export default function BoardMeetingsPage() {
       };
       let meetingId = editingId;
       if (editingId) {
-        const { error } = await supabase.from("board_meetings").update(payload).eq("id", editingId);
+        const { error } = await supabase.from("board_meetings").update(payload).eq("id", editingId).eq("tenant_id", tenantId!);
         if (error) throw error;
         // Replace attendees
-        await supabase.from("meeting_attendees").delete().eq("meeting_id", editingId);
+        await supabase.from("meeting_attendees").delete().eq("meeting_id", editingId).eq("tenant_id", tenantId!);
       } else {
         const { data, error } = await supabase.from("board_meetings").insert({
           ...payload, tenant_id: tenantId, created_by: userId,
@@ -728,6 +732,7 @@ export default function BoardMeetingsPage() {
             meeting_id: meetingId,
             member_id: memberId,
             attendance_status: "expected",
+            tenant_id: tenantId,
           }))
         );
       }
@@ -746,9 +751,10 @@ export default function BoardMeetingsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("meeting_attendees").delete().eq("meeting_id", id);
-      await supabase.from("meeting_action_items").delete().eq("meeting_id", id);
-      const { error } = await supabase.from("board_meetings").delete().eq("id", id);
+      if (readOnly) throw new Error("Read-only access");
+      await supabase.from("meeting_attendees").delete().eq("meeting_id", id).eq("tenant_id", tenantId!);
+      await supabase.from("meeting_action_items").delete().eq("meeting_id", id).eq("tenant_id", tenantId!);
+      const { error } = await supabase.from("board_meetings").delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -761,7 +767,8 @@ export default function BoardMeetingsPage() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("board_meetings").update({ status } as any).eq("id", id);
+      if (readOnly) throw new Error("Read-only access");
+      const { error } = await supabase.from("board_meetings").update({ status } as any).eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     // Optimistic update — only the targeted card changes, others stay untouched

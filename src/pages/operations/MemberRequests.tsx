@@ -55,7 +55,17 @@ const TRANSITIONS: Record<string, { label: string; status: string }[]> = {
   completed:   [{ label: "Reopen", status: "open" },       { label: "In Progress", status: "in_progress" }],
 };
 
-const emptyForm = { member_id: "", request_type: "", title: "", description: "", priority: "medium", is_confidential: false, status: "open" };
+const emptyForm = {
+  member_id: "",
+  request_type: "",
+  title: "",
+  description: "",
+  priority: "medium",
+  is_confidential: false,
+  status: "open",
+  assigned_to: "",
+  resolution_notes: "",
+};
 
 // ─── Message Member Modal (inline, uses existing messaging infra) ─────────────
 function MessageMemberModal({ open, onClose, memberId, memberName, tenantId, userId, userName }: {
@@ -210,9 +220,9 @@ function RequestCard({ req, getTypeLabel, getMemberInfo, onEdit, onDelete, onSta
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="text-sm">
-            <DropdownMenuItem onClick={() => onEdit(req)}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
+            <DropdownMenuItem disabled={readOnly} onClick={() => onEdit(req)}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(req.id)}>
+            <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => onDelete(req.id)}>
               <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -247,6 +257,7 @@ function RequestCard({ req, getTypeLabel, getMemberInfo, onEdit, onDelete, onSta
         </Button>
         {(TRANSITIONS[req.status] || []).map(t => (
           <Button key={t.status} size="sm" variant="outline"
+            disabled={readOnly}
             className={cn("h-7 text-xs",
               t.status === "completed" ? "text-emerald-600 border-emerald-200 hover:bg-emerald-50" :
               t.status === "in_progress" ? "text-blue-600 border-blue-200 hover:bg-blue-50" :
@@ -272,6 +283,7 @@ export default function MemberRequestsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [noteText, setNoteText] = useState("");
   const [messagingTarget, setMessagingTarget] = useState<{ id: string; name: string } | null>(null);
   const userName = userFirstName ? `${userFirstName} ${userLastName || ""}`.trim() : "Admin";
 
@@ -317,6 +329,21 @@ export default function MemberRequestsPage() {
     staleTime: 300_000,
   });
 
+  const { data: internalNotes = [] } = useQuery({
+    queryKey: ["member-request-notes", tenantId, editingId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("member_request_notes")
+        .select("*")
+        .eq("request_id", editingId!)
+        .eq("tenant_id", tenantId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId && !!editingId,
+    staleTime: 30_000,
+  });
+
   // ── Helpers ───────────────────────────────────────────────────────────────────
   const getTypeLabel = (value: string) => {
     const found = serviceRequestTypes.find(t => t.internal_name === value);
@@ -339,12 +366,17 @@ export default function MemberRequestsPage() {
   // ── Mutations ─────────────────────────────────────────────────────────────────
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) throw new Error("Read-only access");
       if (editingId) {
         const { error } = await supabase.from("member_requests").update({
           request_type: formData.request_type, title: formData.title,
           description: formData.description, priority: formData.priority,
           is_confidential: formData.is_confidential, status: formData.status,
-        } as any).eq("id", editingId);
+          assigned_to: formData.assigned_to || null,
+          resolution_notes: formData.resolution_notes || null,
+        } as any)
+          .eq("id", editingId)
+          .eq("tenant_id", tenantId!);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("member_requests").insert({
@@ -352,6 +384,8 @@ export default function MemberRequestsPage() {
           request_type: formData.request_type, title: formData.title,
           description: formData.description, priority: formData.priority,
           is_confidential: formData.is_confidential, status: "open",
+          assigned_to: formData.assigned_to || null,
+          resolution_notes: null,
         } as any);
         if (error) throw error;
         logActivity({ churchId: tenantId!, actionType: "new_request", description: `New ${formData.request_type.replace(/_/g, " ")} request created`, entityType: "member_request", entityName: formData.title });
@@ -367,7 +401,11 @@ export default function MemberRequestsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("member_requests").delete().eq("id", id);
+      if (readOnly) throw new Error("Read-only access");
+      const { error } = await supabase.from("member_requests")
+        .delete()
+        .eq("id", id)
+        .eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["member_requests", tenantId] }); setDeleteId(null); toast.success("Request deleted"); },
@@ -376,10 +414,14 @@ export default function MemberRequestsPage() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      if (readOnly) throw new Error("Read-only access");
       const updates: any = { status };
       if (status === "completed") { updates.resolved_at = new Date().toISOString(); updates.resolved_by = userId; }
       else { updates.resolved_at = null; updates.resolved_by = null; }
-      const { error } = await supabase.from("member_requests").update(updates).eq("id", id);
+      const { error } = await supabase.from("member_requests")
+        .update(updates)
+        .eq("id", id)
+        .eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: (_, { status }) => {
@@ -389,10 +431,40 @@ export default function MemberRequestsPage() {
     onError: () => toast.error("Failed to update status"),
   });
 
+  const addNoteMutation = useMutation({
+    mutationFn: async () => {
+      if (readOnly) throw new Error("Read-only access");
+      if (!editingId || !tenantId || !noteText.trim()) return;
+      const { error } = await supabase.from("member_request_notes").insert({
+        request_id: editingId,
+        tenant_id: tenantId,
+        note: noteText.trim(),
+        created_by: userId || null,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["member-request-notes", tenantId, editingId] });
+      setNoteText("");
+      toast.success("Internal note added");
+    },
+    onError: () => toast.error("Failed to add internal note"),
+  });
+
   const openCreate = () => { setEditingId(null); setFormData({ ...emptyForm }); setSheetOpen(true); };
   const openEdit = (req: any) => {
     setEditingId(req.id);
-    setFormData({ member_id: req.member_id || "", request_type: req.request_type || "", title: req.title || "", description: req.description || "", priority: req.priority || "medium", is_confidential: req.is_confidential || false, status: req.status || "open" });
+    setFormData({
+      member_id: req.member_id || "",
+      request_type: req.request_type || "",
+      title: req.title || "",
+      description: req.description || "",
+      priority: req.priority || "medium",
+      is_confidential: req.is_confidential || false,
+      status: req.status || "open",
+      assigned_to: req.assigned_to || "",
+      resolution_notes: req.resolution_notes || "",
+    });
     setSheetOpen(true);
   };
 
@@ -556,9 +628,9 @@ export default function MemberRequestsPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-sm">
-                            <DropdownMenuItem onClick={() => openEdit(req)}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
+                            <DropdownMenuItem disabled={readOnly} onClick={() => openEdit(req)}><Pencil className="h-3.5 w-3.5 mr-2" />Edit</DropdownMenuItem>
                             {(TRANSITIONS[req.status] || []).map(t => (
-                              <DropdownMenuItem key={t.status} onClick={() => updateStatus.mutate({ id: req.id, status: t.status })}>
+                              <DropdownMenuItem disabled={readOnly} key={t.status} onClick={() => updateStatus.mutate({ id: req.id, status: t.status })}>
                                 {t.label}
                               </DropdownMenuItem>
                             ))}
@@ -643,6 +715,27 @@ export default function MemberRequestsPage() {
                 </Select>
               </div>
             )}
+            <div className="space-y-1.5">
+              <Label>Assigned To</Label>
+              <Select value={formData.assigned_to || "unassigned"} onValueChange={v => setFormData(p => ({ ...p, assigned_to: v === "unassigned" ? "" : v }))}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {(userRecords as any[]).map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>{`${u.first_name || ""} ${u.last_name || ""}`.trim() || "Staff member"}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Resolution Notes</Label>
+              <Textarea
+                value={formData.resolution_notes}
+                onChange={e => setFormData(p => ({ ...p, resolution_notes: e.target.value }))}
+                rows={3}
+                placeholder="Record the outcome or next steps..."
+              />
+            </div>
             <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700">
               <div>
                 <p className="text-sm font-medium">Confidential</p>
@@ -654,10 +747,45 @@ export default function MemberRequestsPage() {
               <Button variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>Cancel</Button>
               <Button className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
                 onClick={() => saveMutation.mutate()}
-                disabled={(!editingId && !formData.member_id) || !formData.request_type || saveMutation.isPending}>
+                disabled={readOnly || (!editingId && !formData.member_id) || !formData.request_type || saveMutation.isPending}>
                 {saveMutation.isPending ? "Saving..." : editingId ? "Update Request" : "Create Request"}
               </Button>
             </div>
+            {editingId && (
+              <div className="space-y-3 border-t border-slate-200 dark:border-slate-700 pt-5">
+                <div>
+                  <p className="text-sm font-semibold">Internal Notes</p>
+                  <p className="text-xs text-slate-500">Visible to staff only.</p>
+                </div>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {(internalNotes as any[]).length === 0 ? (
+                    <p className="text-xs text-slate-400">No internal notes yet.</p>
+                  ) : (internalNotes as any[]).map((note: any) => (
+                    <div key={note.id} className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3">
+                      <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{note.note}</p>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        {note.created_at ? format(new Date(note.created_at), "dd MMM yyyy HH:mm") : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <Textarea
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  rows={2}
+                  placeholder="Add an internal note..."
+                  disabled={readOnly}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={readOnly || !noteText.trim() || addNoteMutation.isPending}
+                  onClick={() => addNoteMutation.mutate()}
+                >
+                  {addNoteMutation.isPending ? "Adding..." : "Add Internal Note"}
+                </Button>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>

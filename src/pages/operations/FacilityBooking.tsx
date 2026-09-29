@@ -58,6 +58,9 @@ export function getSourceBadgeProps(source: string): { label: string; className:
   switch (source) {
     case "member":   return { label: "Member Portal", className: "bg-emerald-100 text-emerald-700" };
     case "external": return { label: "External",      className: "bg-amber-100 text-amber-700" };
+    case "email":    return { label: "Email",         className: "bg-blue-100 text-blue-700" };
+    case "sms":      return { label: "SMS",           className: "bg-violet-100 text-violet-700" };
+    case "whatsapp": return { label: "WhatsApp",      className: "bg-green-100 text-green-700" };
     default:         return { label: "In-App",        className: "bg-indigo-100 text-indigo-700" };
   }
 }
@@ -484,10 +487,10 @@ function FacilityDetailModal({
 // ─── AddEditFacilityModal ─────────────────────────────────────────────────────
 
 function AddEditFacilityModal({
-  open, onClose, tenantId, editData, facilityTypes,
+  open, onClose, tenantId, editData, facilityTypes, readOnly,
 }: {
   open: boolean; onClose: () => void; tenantId: string;
-  editData?: any | null; facilityTypes: any[];
+  editData?: any | null; facilityTypes: any[]; readOnly: boolean;
 }) {
   const qc = useQueryClient();
   const { limits, usage } = useSubscription();
@@ -539,7 +542,7 @@ function AddEditFacilityModal({
 
   const saveMutation = useMutation({
     mutationFn: async (values: FacilityFormValues) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("Read-only access");
       // Calculate total size of files to upload
       let totalSizeGB = 0;
       if (thumbFile) totalSizeGB += thumbFile.size / (1024 * 1024 * 1024);
@@ -592,7 +595,7 @@ function AddEditFacilityModal({
 
         let facilityId: string;
         if (isEdit) {
-          const { error } = await supabase.from(TABLES.FACILITIES as any).update(payload).eq(COLS.ID, editData.id);
+          const { error } = await supabase.from(TABLES.FACILITIES as any).update(payload).eq(COLS.ID, editData.id).eq(COLS.TENANT_ID, tenantId);
           if (error) throw error;
           facilityId = editData.id;
         } else {
@@ -610,6 +613,7 @@ function AddEditFacilityModal({
           await supabase.from(TABLES.FACILITY_IMAGES as any)
             .delete()
             .eq("facility_id", facilityId)
+            .eq(COLS.TENANT_ID, tenantId)
             .in("image_path", removedPaths);
         }
         if (newImages.length > 0) {
@@ -846,7 +850,7 @@ function AddEditFacilityModal({
 
             <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={saveMutation.isPending || uploading}>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={readOnly || saveMutation.isPending || uploading}>
                 {saveMutation.isPending || uploading ? "Saving..." : isEdit ? "Update" : "Create"}
               </Button>
             </div>
@@ -860,21 +864,21 @@ function AddEditFacilityModal({
 // ─── BookingDetailDrawer ──────────────────────────────────────────────────────
 
 function BookingDetailDrawer({
-  booking, open, onClose, tenantId, userId, onAccept, onReject,
+  booking, open, onClose, tenantId, userId, onAccept, onReject, readOnly,
 }: {
   booking: any | null; open: boolean; onClose: () => void;
-  tenantId: string; userId: string;
+  tenantId: string; userId: string; readOnly: boolean;
   onAccept?: () => void; onReject?: () => void;
 }) {
   const qc = useQueryClient();
 
   const updateStatus = useMutation({
     mutationFn: async ({ status }: { status: string }) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("Read-only access");
       const updates: any = { status };
       if (status === "in_progress") { updates.approved_at = new Date().toISOString(); updates.approved_by = userId; }
       if (status === "cancelled") { updates.approved_at = null; }
-      const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq(COLS.ID, booking.id);
+      const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq(COLS.ID, booking.id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -935,15 +939,15 @@ function BookingDetailDrawer({
               </div>
             ) : booking.status === "open" ? (
               <>
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { onClose(); onAccept?.(); }}>
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { onClose(); onAccept?.(); }} disabled={readOnly}>
                   Accept
                 </Button>
-                <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => { onClose(); onReject?.(); }}>
+                <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => { onClose(); onReject?.(); }} disabled={readOnly}>
                   Reject
                 </Button>
               </>
             ) : booking.status === "in_progress" ? (
-              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "cancelled" })}>
+              <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => updateStatus.mutate({ status: "cancelled" })} disabled={readOnly}>
                 Revoke Acceptance
               </Button>
             ) : null}
@@ -957,10 +961,10 @@ function BookingDetailDrawer({
 // ─── AcceptRejectModal ────────────────────────────────────────────────────────
 
 function AcceptRejectModal({
-  booking, mode, open, onClose, tenantId, userId, churchName,
+  booking, mode, open, onClose, tenantId, userId, churchName, readOnly,
 }: {
   booking: any | null; mode: "accept" | "reject"; open: boolean; onClose: () => void;
-  tenantId: string; userId: string; churchName: string;
+  tenantId: string; userId: string; churchName: string; readOnly: boolean;
 }) {
   const qc = useQueryClient();
   const contactName = booking?.booker_name || booking?.external_name || "there";
@@ -983,9 +987,10 @@ function AcceptRejectModal({
   const newStatus = mode === "accept" ? "in_progress" : "cancelled";
 
   const updateStatus = async () => {
+    if (readOnly) throw new Error("Read-only access");
     const updates: any = { status: newStatus };
     if (newStatus === "in_progress") { updates.approved_at = new Date().toISOString(); updates.approved_by = userId; }
-    const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq(COLS.ID, booking.id);
+    const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(updates).eq(COLS.ID, booking.id).eq(COLS.TENANT_ID, tenantId);
     if (error) throw error;
 
     // Send in-app notification if member booking
@@ -1123,6 +1128,7 @@ function AcceptRejectModal({
             <Button
               className={mode === "accept" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-500 hover:bg-red-600 text-white"}
               onClick={handleActionOnly}
+              disabled={readOnly}
             >
               {mode === "accept" ? "Accept Only" : "Reject Only"}
             </Button>
@@ -1130,7 +1136,7 @@ function AcceptRejectModal({
               variant="outline"
               className={mode === "accept" ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50" : "border-red-300 text-red-600 hover:bg-red-50"}
               onClick={handleWithEmail}
-              disabled={!contactEmail}
+              disabled={readOnly || !contactEmail}
             >
               {mode === "accept" ? "Accept & Send Email" : "Reject & Send Email"}
               {!contactEmail && <span className="ml-2 text-xs text-slate-400">(no email)</span>}
@@ -1153,7 +1159,7 @@ function AcceptRejectModal({
                   : "border-slate-200 text-slate-400 bg-white cursor-not-allowed opacity-50"
               )}
               onClick={handleInApp}
-              disabled={!booking.booked_by}
+              disabled={readOnly || !booking.booked_by}
             >
               {mode === "accept" ? "Accept & Send In-App" : "Reject & Send In-App"}
               {!booking.booked_by && <span className="ml-2 text-xs">(no member)</span>}
@@ -1168,11 +1174,11 @@ function AcceptRejectModal({
 // ─── NewBookingDrawer ─────────────────────────────────────────────────────────
 
 function NewBookingDrawer({
-  open, onClose, tenantId, userId, facilities, preselectedFacilityId, editData, churchName,
+  open, onClose, tenantId, userId, facilities, preselectedFacilityId, editData, churchName, readOnly,
 }: {
   open: boolean; onClose: () => void; tenantId: string; userId: string;
   facilities: any[]; preselectedFacilityId?: string | null; editData?: any | null;
-  churchName: string;
+  churchName: string; readOnly: boolean;
 }) {
   const qc = useQueryClient();
 
@@ -1190,7 +1196,7 @@ function NewBookingDrawer({
   });
 
   // Sync when drawer opens
-  useState(() => {
+  useEffect(() => {
     if (open) {
       if (editData) {
         form.reset({
@@ -1221,7 +1227,7 @@ function NewBookingDrawer({
         });
       }
     }
-  });
+  }, [open, editData, preselectedFacilityId, form]);
 
   const contactType = form.watch("contact_type");
 
@@ -1235,7 +1241,7 @@ function NewBookingDrawer({
       booking_date: values.booking_date,
       start_time: values.start_time,
       end_time: values.end_time,
-      booked_by: userId,
+      booked_by: editData?.booked_by ?? userId,
       expected_attendees: values.expected_attendees || null,
       setup_required: values.setup_required,
       notes: values.notes || null,
@@ -1244,14 +1250,15 @@ function NewBookingDrawer({
       booker_email: values.external_email || null,
       booker_phone: values.external_phone || null,
       booker_org_name: values.external_org || null,
-      booker_type: values.contact_type,
+      booker_type: editData?.booker_type ?? values.contact_type,
     };
   };
 
   const saveBooking = async (values: BookingFormValues): Promise<string | null> => {
+    if (readOnly) throw new Error("Read-only access");
     try {
       if (editData) {
-        const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(buildPayload(values) as any).eq(COLS.ID, editData.id);
+        const { error } = await supabase.from(TABLES.FACILITY_BOOKINGS).update(buildPayload(values) as any).eq(COLS.ID, editData.id).eq(COLS.TENANT_ID, tenantId);
         if (error) throw error;
         qc.invalidateQueries({ queryKey: ["facility-bookings", tenantId] });
         return editData.id;
@@ -1436,13 +1443,13 @@ function NewBookingDrawer({
             )} />
 
             <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
-              <Button type="button" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={form.handleSubmit(handleSave)}>
+              <Button type="button" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={form.handleSubmit(handleSave)} disabled={readOnly}>
                 Save Booking
               </Button>
-              <Button type="button" variant="outline" onClick={form.handleSubmit(handleEmailConfirm)}>
+              <Button type="button" variant="outline" onClick={form.handleSubmit(handleEmailConfirm)} disabled={readOnly}>
                 Save &amp; Email Confirmation
               </Button>
-              <Button type="button" variant="outline" onClick={form.handleSubmit(handleSmsConfirm)}>
+              <Button type="button" variant="outline" onClick={form.handleSubmit(handleSmsConfirm)} disabled={readOnly}>
                 Save &amp; SMS Confirmation
               </Button>
             </div>
@@ -1456,38 +1463,37 @@ function NewBookingDrawer({
 // ─── ResponseDetailModal ──────────────────────────────────────────────────────
 
 function ResponseDetailModal({
-  response, open, onClose, onCreateBooking,
+  response, booking, open, onClose,
 }: {
-  response: any | null; open: boolean; onClose: () => void; onCreateBooking: (r: any) => void;
+  response: any | null; booking?: any | null; open: boolean; onClose: () => void;
 }) {
   if (!response) return null;
-  const { label, className } = getSourceBadgeProps(response.source);
+  const { label, className } = getSourceBadgeProps(response.channel ?? "in_app");
+  const message = response.body ?? response.message ?? "";
+  const respondent = response.from_address ?? booking?.booker_email ?? booking?.external_email ?? booking?.booker_name ?? booking?.external_name ?? "Unknown booker";
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Response Details</DialogTitle>
+          <DialogTitle>Booking Response</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>{label}</span>
+            {!response.is_read && <Badge variant="secondary">Unread</Badge>}
             <span className="text-xs text-slate-500">{response.created_at ? format(new Date(response.created_at), "PPp") : ""}</span>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><p className="text-xs text-slate-500 mb-0.5">Name</p><p className="font-medium">{response.respondent_name}</p></div>
-            {response.respondent_email && <div><p className="text-xs text-slate-500 mb-0.5">Email</p><p>{response.respondent_email}</p></div>}
-            {response.respondent_phone && <div><p className="text-xs text-slate-500 mb-0.5">Phone</p><p>{response.respondent_phone}</p></div>}
-            {response.respondent_org && <div><p className="text-xs text-slate-500 mb-0.5">Organisation</p><p>{response.respondent_org}</p></div>}
+            <div><p className="text-xs text-slate-500 mb-0.5">From</p><p className="font-medium break-all">{respondent}</p></div>
+            <div><p className="text-xs text-slate-500 mb-0.5">Booking</p><p className="font-medium">{booking?.booking_number || response.booking_id || "—"}</p></div>
+            <div className="col-span-2"><p className="text-xs text-slate-500 mb-0.5">Facility</p><p className="font-medium">{response.facility_name || booking?.facility_name || "—"}</p></div>
           </div>
           <div>
             <p className="text-xs text-slate-500 mb-1">Message</p>
-            <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg p-3">{response.message}</p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg p-3 whitespace-pre-wrap">{message || "—"}</p>
           </div>
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+          <div className="flex justify-end pt-2 border-t border-slate-100">
             <Button variant="outline" onClick={onClose}>Close</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => { onCreateBooking(response); onClose(); }}>
-              Create Booking from Response
-            </Button>
           </div>
         </div>
       </DialogContent>
@@ -1523,6 +1529,10 @@ export default function FacilityBookingPage() {
   const [editBooking, setEditBooking] = useState<any | null>(null);
   const [preselectedFacilityId, setPreselectedFacilityId] = useState<string | null>(null);
   const [deleteBooking, setDeleteBooking] = useState<string | null>(null);
+
+  // Response state
+  const [responseChannelFilter, setResponseChannelFilter] = useState("all");
+  const [viewResponse, setViewResponse] = useState<any | null>(null);
 
   // Accept/Reject modal state
   const [acceptBooking, setAcceptBooking] = useState<any | null>(null);
@@ -1594,10 +1604,46 @@ export default function FacilityBookingPage() {
     staleTime: 300000,
   });
 
+
+  const { data: responses = [], isLoading: responsesLoading } = useQuery({
+    queryKey: ["facility-booking-responses", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(TABLES.FACILITY_BOOKING_RESPONSES as any)
+        .select("*")
+        .eq(COLS.TENANT_ID, tenantId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    staleTime: 60000,
+  });
+
+  useEffect(() => {
+    if (activeTab !== "responses" || readOnly || !tenantId) return;
+    const unreadIds = responses.filter((response: any) => !response.is_read).map((response: any) => response.id);
+    if (!unreadIds.length) return;
+
+    let cancelled = false;
+    const markRead = async () => {
+      const { error } = await supabase
+        .from(TABLES.FACILITY_BOOKING_RESPONSES as any)
+        .update({ is_read: true } as any)
+        .in(COLS.ID, unreadIds)
+        .eq(COLS.TENANT_ID, tenantId);
+      if (!error && !cancelled) {
+        qc.invalidateQueries({ queryKey: ["facility-booking-responses", tenantId] });
+      }
+    };
+    void markRead();
+    return () => { cancelled = true; };
+  }, [activeTab, readOnly, responses, tenantId, qc]);
+
   const deleteFacilityMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (readOnly) return;
-      const { error } = await supabase.from(TABLES.FACILITIES as any).delete().eq(COLS.ID, id);
+      if (readOnly) throw new Error("Read-only access");
+      const { error } = await supabase.from(TABLES.FACILITIES as any).delete().eq(COLS.ID, id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1610,12 +1656,13 @@ export default function FacilityBookingPage() {
 
   const deleteBookingMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("Read-only access");
       // Soft delete — set admin_deleted_at so the record stays visible to the member
       const { error } = await supabase
         .from(TABLES.FACILITY_BOOKINGS)
         .update({ admin_deleted_at: new Date().toISOString() } as never)
-        .eq(COLS.ID, id);
+        .eq(COLS.ID, id)
+        .eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1661,6 +1708,10 @@ export default function FacilityBookingPage() {
 
   const viewFacilityImages = viewFacility?.facility_images ?? [];
   const viewFacilityBookings = bookings.filter(b => b.facility_id === viewFacility?.id && new Date(b.booking_date) >= new Date());
+  const unreadResponseCount = responses.filter((response: any) => !response.is_read).length;
+  const filteredResponses = responses.filter((response: any) => responseChannelFilter === "all" || response.channel === responseChannelFilter);
+  const responseBooking = viewResponse ? bookings.find((booking: any) => booking.id === viewResponse.booking_id) : null;
+  const bookingForResponse = (response: any) => bookings.find((booking: any) => booking.id === response.booking_id);
 
   return (
     <>
@@ -1693,6 +1744,10 @@ export default function FacilityBookingPage() {
         <TabsList className="mb-4">
           <TabsTrigger value="facilities">Facilities</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="responses" className="gap-2">
+            Responses
+            {unreadResponseCount > 0 && <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">{unreadResponseCount}</Badge>}
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Facilities Tab ── */}
@@ -1869,18 +1924,82 @@ export default function FacilityBookingPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setViewBooking(b)}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setEditBooking(b); setPreselectedFacilityId(null); setNewBookingOpen(true); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                            <DropdownMenuItem disabled={readOnly} onClick={() => { setEditBooking(b); setPreselectedFacilityId(null); setNewBookingOpen(true); }}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
                             {b.status === "open" && b.rejection_reason !== "booker_withdrew" && (
                               <>
-                                <DropdownMenuItem className="text-emerald-600 focus:text-emerald-700" onClick={() => setAcceptBooking(b)}>Accept</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600 focus:text-red-700" onClick={() => setRejectBooking(b)}>Reject</DropdownMenuItem>
+                                <DropdownMenuItem disabled={readOnly} className="text-emerald-600 focus:text-emerald-700" onClick={() => setAcceptBooking(b)}>Accept</DropdownMenuItem>
+                                <DropdownMenuItem disabled={readOnly} className="text-red-600 focus:text-red-700" onClick={() => setRejectBooking(b)}>Reject</DropdownMenuItem>
                               </>
                             )}
-                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteBooking(b.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                            <DropdownMenuItem disabled={readOnly} className="text-destructive focus:text-destructive" onClick={() => setDeleteBooking(b.id)}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Responses Tab ── */}
+        <TabsContent value="responses">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {["all", "in_app", "email", "sms", "whatsapp"].map(channel => (
+              <Button
+                key={channel}
+                type="button"
+                size="sm"
+                variant={responseChannelFilter === channel ? "default" : "outline"}
+                onClick={() => setResponseChannelFilter(channel)}
+              >
+                {channel === "all" ? "All" : getSourceBadgeProps(channel).label}
+              </Button>
+            ))}
+          </div>
+
+          {responsesLoading ? (
+            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
+          ) : filteredResponses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+              <MessageSquare className="h-12 w-12 text-slate-300" />
+              <p className="text-base font-semibold text-slate-600">No booking responses found</p>
+              <p className="text-sm text-slate-400">Replies from bookers will appear here.</p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 dark:bg-slate-900">
+                    <TableHead>Booker</TableHead>
+                    <TableHead>Booking</TableHead>
+                    <TableHead>Channel</TableHead>
+                    <TableHead className="hidden md:table-cell">Message</TableHead>
+                    <TableHead className="hidden lg:table-cell">Received</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredResponses.map((response: any) => {
+                    const booking = bookingForResponse(response);
+                    const { label, className } = getSourceBadgeProps(response.channel ?? "in_app");
+                    const respondent = response.from_address || booking?.booker_email || booking?.external_email || booking?.booker_name || booking?.external_name || "Unknown";
+                    const message = response.body ?? response.message ?? "";
+                    return (
+                      <TableRow key={response.id} className="cursor-pointer" onClick={() => setViewResponse(response)}>
+                        <TableCell className="text-sm font-medium max-w-[180px] truncate">{respondent}</TableCell>
+                        <TableCell className="text-sm">{booking?.booking_number || response.booking_id || "—"}</TableCell>
+                        <TableCell><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}>{label}</span></TableCell>
+                        <TableCell className="hidden md:table-cell max-w-[280px] truncate text-sm text-slate-600">{message || "—"}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-xs text-slate-500">{response.created_at ? format(new Date(response.created_at), "PPp") : "—"}</TableCell>
+                        <TableCell>{response.is_read ? <Badge variant="outline">Read</Badge> : <Badge variant="secondary">Unread</Badge>}</TableCell>
+                        <TableCell onClick={event => event.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewResponse(response)}><Eye className="h-4 w-4" /></Button>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
                 </TableBody>
@@ -1908,6 +2027,7 @@ export default function FacilityBookingPage() {
         tenantId={tenantId}
         editData={editFacility}
         facilityTypes={facilityTypes}
+        readOnly={readOnly}
       />
 
       <NewBookingDrawer
@@ -1919,6 +2039,7 @@ export default function FacilityBookingPage() {
         preselectedFacilityId={preselectedFacilityId}
         editData={editBooking}
         churchName={churchName}
+        readOnly={readOnly}
       />
 
       <BookingDetailDrawer
@@ -1929,6 +2050,7 @@ export default function FacilityBookingPage() {
         userId={userId}
         onAccept={() => { setAcceptBooking(viewBooking); setViewBooking(null); }}
         onReject={() => { setRejectBooking(viewBooking); setViewBooking(null); }}
+        readOnly={readOnly}
       />
 
       {/* Delete facility confirm */}
@@ -1972,6 +2094,7 @@ export default function FacilityBookingPage() {
         tenantId={tenantId}
         userId={userId}
         churchName={churchName}
+        readOnly={readOnly}
       />
       <AcceptRejectModal
         booking={rejectBooking}
@@ -1981,6 +2104,14 @@ export default function FacilityBookingPage() {
         tenantId={tenantId}
         userId={userId}
         churchName={churchName}
+        readOnly={readOnly}
+      />
+
+      <ResponseDetailModal
+        response={viewResponse}
+        booking={responseBooking}
+        open={!!viewResponse}
+        onClose={() => setViewResponse(null)}
       />
     </>
   );
