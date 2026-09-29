@@ -81,7 +81,8 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
         const { error } = await supabase
           .from(TABLES.TESTIMONY_CATEGORIES)
           .update({ label: label.trim(), description: description.trim() || null, color, is_active: isActive, updated_at: new Date().toISOString() } as never)
-          .eq("id", editData.id);
+          .eq("id", editData.id)
+          .eq(COLS.TENANT_ID, tenantId);
         if (error) throw error;
         toast.success("Category updated.");
       } else {
@@ -213,7 +214,8 @@ export default function TestimonyCategories() {
       const { error } = await supabase
         .from(TABLES.TESTIMONY_CATEGORIES)
         .update({ is_active, updated_at: new Date().toISOString() } as never)
-        .eq("id", id);
+        .eq("id", id)
+        .eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["testimony-categories", tenantId] }),
@@ -223,7 +225,7 @@ export default function TestimonyCategories() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.TESTIMONY_CATEGORIES).delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.TESTIMONY_CATEGORIES).delete().eq("id", id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -12,7 +12,7 @@ export function MemberAuthGuard() {
 
     try {
       const session = JSON.parse(raw);
-      if (!session.expiresAt || new Date(session.expiresAt) < new Date()) {
+      if (!session.memberId || !session.tenantId || !session.sessionToken || !session.expiresAt || new Date(session.expiresAt) < new Date()) {
         localStorage.removeItem("member_session");
         setStatus("no-session");
         return;

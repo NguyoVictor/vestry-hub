@@ -15,15 +15,15 @@
 
 ## 🔴 P0 — Verify Urgently
 
-### 1. Legacy member registration may bypass approval entirely
+### 1. Legacy member registration approval bypass — RESOLVED (2026-09-23)
 
 **Where:** `src/pages/MemberRegistration.tsx` (`/member-registration/:orgId`)
 
-This form does a **direct** `INSERT` **into** `members` with `registration_source: "Self-Registration"`, `status: "Active"` — it does **not** call the `member-register` edge function, and does not appear to set `membership_status: "Pending Approval"` the way the QR/`JoinChurch.tsx` flow does.
+The earlier risk description is no longer current. The legacy route has been moved onto the same canonical member-registration path used by the supported Member Portal flow. It no longer performs a direct browser `INSERT` into `members`, and pending-approval/session rules are enforced by the canonical registration/login path.
 
-**Why this matters:** If `membership_status` defaults to something other than `"Pending Approval"` on direct insert, anyone using this specific registration link could log in **immediately, with zero admin approval** — completely bypassing the gate that's central to your product design (and that you specifically called out as important in your original product notes).
+Production also now has the P1 member-session/RLS reconciliation required by the canonical flow. Regression coverage exists in `src/test/p1/people/memberRegistration.test.tsx` and `e2e/platform/people/member-registration.spec.ts`.
 
-**Action:** Check the actual `membership_status` value on a row created through this exact route. If it's not `"Pending Approval"`, this is an active security/business-logic bug, not just a documentation inconsistency. Either fix the insert to match `member-register`'s behavior, or retire this route if it's legacy and unused.
+**Current disposition:** Closed as a P0. The browser E2E remains to be executed in normal local/CI Chromium because the current managed execution environment blocks localhost navigation.
 
 ---
 
@@ -197,7 +197,7 @@ Already flagged in `permissions.md` — church admins can configure a role × fe
 
 ## Suggested order of attack
 
-1. **Verify #1 today** — confirm whether the legacy registration route is actually a live security/approval bypass.
+1. **#1 is closed** — keep the canonical member-registration regression tests in the release suite.
 2. **Decide on #2 (tier/onboarding enforcement) and #7 (missing permission gating)** — these are the two biggest structural/architectural decisions in this list, and they likely share a solution. Worth scoping together rather than separately.
 3. **Quick wins:** #14 (church-studio route), #3 (settings persistence) — both are likely small, contained fixes.
 4. **Batch the rest** into a normal backlog, prioritized P1 → P2 → P3.
@@ -236,7 +236,7 @@ Already flagged in `permissions.md` — church admins can configure a role × fe
 ### D. Member Registration & Approval — ⚠️ Priority area (finding #1)
 
 - [ ] Register a member via the **QR code /** `/member/join` **flow** — confirm `membership_status` is set to `"Pending Approval"` and login is blocked with the correct message
-- [ ] Register a member via the **legacy** `/member-registration/:orgId` **form** (if still reachable) — check `membership_status` on the resulting row. **Does it allow immediate login?** This is the suspected bypass — confirm directly.
+- [ ] Register a member via the legacy `/member-registration/:orgId` compatibility form — confirm it follows the same pending-approval path and cannot establish a member session before approval. (P1 implementation complete; browser release verification remains.)
 - [ ] As admin, approve a pending member — confirm they can then log in successfully
 - [ ] Confirm there is genuinely no way to bulk-approve from the Members list (only via individual profile)
 
