@@ -10,8 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
-
-const BASE_URL = import.meta.env.VITE_BASE_URL || window.location.origin;
+import { buildTenantUrl } from "@/lib/tenantHost";
 
 interface ChurchQRModalProps {
   open: boolean;
@@ -45,7 +44,7 @@ export function ChurchQRModal({ open, onClose }: ChurchQRModalProps) {
     {
       id: "member_registration",
       label: "Member QR",
-      url: `${BASE_URL}/member/join?code=${churchCode}&type=member`,
+      url: buildTenantUrl(churchSlug, `/member/join?code=${encodeURIComponent(churchCode)}&type=member`),
       description: "Scan to register as a member",
       howTo: [
         "Display at church entrances",
@@ -58,7 +57,7 @@ export function ChurchQRModal({ open, onClose }: ChurchQRModalProps) {
     {
       id: "visitor_registration",
       label: "Visitor QR",
-      url: `${BASE_URL}/member/join?code=${churchCode}&type=visitor`,
+      url: buildTenantUrl(churchSlug, `/member/join?code=${encodeURIComponent(churchCode)}&type=visitor`),
       description: "Scan to register as a visitor",
       howTo: [
         "Display at church entrances for first-time visitors",
@@ -70,7 +69,7 @@ export function ChurchQRModal({ open, onClose }: ChurchQRModalProps) {
     {
       id: "member_login",
       label: "Login QR",
-      url: `${BASE_URL}/member/login?code=${churchCode}`,
+      url: buildTenantUrl(churchSlug, `/member/login?code=${encodeURIComponent(churchCode)}`),
       description: "Scan to sign in to the member portal",
       howTo: [
         "Share with existing members",
@@ -81,7 +80,7 @@ export function ChurchQRModal({ open, onClose }: ChurchQRModalProps) {
     {
       id: "giving",
       label: "Giving QR",
-      url: `${BASE_URL}/give/${churchSlug}`,
+      url: buildTenantUrl(churchSlug, `/give/${churchSlug}`),
       description: "Scan to give online",
       howTo: [
         "Display during offering time",

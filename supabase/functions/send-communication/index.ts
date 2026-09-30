@@ -1,12 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { buildBrandedEmail } from "../_shared/branded-email.ts";
-import { replacePlaceholders, getMemberPlaceholderData, type PlaceholderData } from "../_shared/placeholder-replacer.ts";
+import { authorizeTenantActor } from "../_shared/authorize-tenant-actor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...corsHeaders, "Content-Type": "application/json" },
+});
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -15,31 +19,21 @@ Deno.serve(async (req: Request) => {
     const payload = await req.json();
     const {
       tenant_id,
-      channel,
+      channel = "email",
       subject,
       body,
-      recipients,          // [{ email, name, first_name, last_name }]
-      attachments,         // [{ name, url }] - optional
-      is_test,             // boolean — if true, send a branded test email
-      admin_email,         // required when is_test = true
-      admin_first_name,    // optional, for personalisation
-      schedule_at,         // ISO string — if set, save as scheduled (not sent immediately)
-      event_data,          // optional event data for event-specific emails
-      giving_data,         // optional giving data for giving-specific emails
+      recipients,
+      attachments = [],
+      is_test = false,
+      admin_email,
+      admin_first_name,
+      schedule_at,
+      event_data,
+      giving_data,
     } = payload;
 
-    if (!tenant_id) {
-      return new Response(JSON.stringify({ error: "tenant_id is required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    if (!RESEND_API_KEY) {
-      return new Response(JSON.stringify({ error: "RESEND_API_KEY not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!tenant_id) return json({ error: "tenant_id is required" }, 400);
+    if (channel !== "email") return json({ error: "send-communication only accepts email jobs" }, 400);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -47,239 +41,64 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    // Check email usage limits for bulk emails (not test emails)
-    if (!is_test && recipients && Array.isArray(recipients) && recipients.length > 0) {
-      const { data: subscription } = await supabase
-        .from("tenant_subscriptions")
-        .select("email_credits, email_addons, email_used")
-        .eq("tenant_id", tenant_id)
-        .maybeSingle();
-
-      if (subscription) {
-        const emailLimit = (subscription.email_credits || 0) + (subscription.email_addons || 0);
-        const emailUsed = subscription.email_used || 0;
-        
-        if (emailUsed + recipients.length > emailLimit) {
-          return new Response(JSON.stringify({ 
-            error: "Email credit limit reached. Top up to continue.",
-            limit_reached: true 
-          }), {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
+    try {
+      await authorizeTenantActor(req, supabase, tenant_id);
+    } catch (error) {
+      return json({ error: String(error).includes("forbidden") ? "forbidden" : "unauthorized" }, String(error).includes("forbidden") ? 403 : 401);
     }
 
-    // Fetch tenant name
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("name")
-      .eq("id", tenant_id)
-      .maybeSingle();
-    const churchName: string = tenant?.name ?? "Your Church";
+    const normalizedRecipients = is_test
+      ? (admin_email ? [{ email: String(admin_email).trim().toLowerCase(), first_name: admin_first_name || "Admin", name: admin_first_name || "Admin" }] : [])
+      : (Array.isArray(recipients) ? recipients : [])
+          .filter((recipient) => recipient?.email)
+          .map((recipient) => ({ ...recipient, email: String(recipient.email).trim().toLowerCase() }));
 
-    // ── TEST EMAIL ────────────────────────────────────────────────────────────
-    if (is_test) {
-      if (!admin_email) {
-        return new Response(JSON.stringify({ error: "admin_email is required for test emails" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (normalizedRecipients.length === 0) return json({ error: is_test ? "admin_email is required" : "recipients array is required" }, 400);
+    if (!is_test && (!subject || !body)) return json({ error: "subject and body are required" }, 400);
 
-      const firstName = admin_first_name ?? "Admin";
-      const testSubject = "✏ Test Email - Vestry Hub";
-      const bodyHtml = `
-        <p>Hello ${firstName},</p>
-        <p>This is a test email from <strong>Vestry Hub</strong> to verify your email configuration is working correctly.</p>
-        <p>If you received this email, your communication system is properly configured!</p>
-        <p>Best regards,<br/><strong>${churchName}</strong></p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
-        <p style="font-size:12px;color:#94a3b8;">Sent from ${churchName} via Vestry Hub</p>
-      `;
-
-      const html = await buildBrandedEmail({
-        tenantId: tenant_id,
-        churchName,
-        subject: testSubject,
-        bodyHtml,
-        supabaseClient: supabase,
-      });
-
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: `${churchName} <support@vestryhub.com>`,
-          to: [admin_email],
-          subject: testSubject,
-          html,
-          ...(attachments && attachments.length > 0 && {
-            attachments: attachments.map(att => ({
-              filename: att.name,
-              path: att.url
-            }))
-          })
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`Resend error: ${err}`);
-      }
-
-      // Log to communications table
-      await supabase.from("communications").insert({
-        tenant_id,
-        channel: "email",
-        subject: testSubject,
-        body: `Hello ${firstName}, This is a test email from Vestry Hub...`,
-        recipient_count: 1,
-        status: "sent",
-        sent_at: new Date().toISOString(),
-        is_test: true,
-      }).select().maybeSingle();
-
-      return new Response(JSON.stringify({ ok: true, sent_to: admin_email }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ── BULK EMAIL ────────────────────────────────────────────────────────────
-    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
-      return new Response(JSON.stringify({ error: "recipients array is required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!subject || !body) {
-      return new Response(JSON.stringify({ error: "subject and body are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // If scheduled, save to communications table and return
-    if (schedule_at) {
-      await supabase.from("communications").insert({
-        tenant_id,
-        channel: channel ?? "email",
-        subject,
-        body,
-        recipient_count: recipients.length,
-        status: "scheduled",
-        scheduled_at: schedule_at,
-        is_test: false,
-      });
-      return new Response(JSON.stringify({ ok: true, scheduled: true, recipient_count: recipients.length }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Get church details for placeholders
-    const { data: churchDetails } = await supabase
-      .from("tenants")
-      .select("name, contact_email, church_code, logo")
-      .eq("id", tenant_id)
-      .maybeSingle();
-
-    // Send immediately — personalise per recipient
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const recipient of recipients) {
-      if (!recipient.email) { failCount++; continue; }
-
-      // Get comprehensive placeholder data for this member
-      const memberPlaceholderData = await getMemberPlaceholderData(supabase, tenant_id, recipient.email);
-      
-      // Add any event-specific data
-      const placeholderData: PlaceholderData = {
-        ...memberPlaceholderData,
-        ...(event_data && {
-          event_name: event_data.name,
-          event_date: event_data.date,
-          event_time: event_data.time,
-          event_location: event_data.location,
-        }),
-        ...(giving_data && {
-          amount: giving_data.amount,
-          giving_type: giving_data.type,
-          receipt_number: giving_data.receipt_number,
-          giving_date: giving_data.date,
-        }),
-      };
-
-      // Replace all placeholders in subject and body
-      const personalizedSubject = replacePlaceholders(subject, placeholderData);
-      const personalizedBody = replacePlaceholders(body, placeholderData).replace(/\n/g, "<br/>");
-
-      const html = await buildBrandedEmail({
-        tenantId: tenant_id,
-        churchName,
-        subject: personalizedSubject,
-        bodyHtml: `<p>${personalizedBody}</p>`,
-        supabaseClient: supabase,
-      });
-
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: `${churchName} <support@vestryhub.com>`,
-          to: [recipient.email],
-          subject: personalizedSubject,
-          html,
-          ...(attachments && attachments.length > 0 && {
-            attachments: attachments.map(att => ({
-              filename: att.name,
-              path: att.url
-            }))
-          })
-        }),
-      });
-
-      if (res.ok) successCount++;
-      else failCount++;
-    }
-
-    // Log to communications table
-    await supabase.from("communications").insert({
+    const queuedPayload = {
       tenant_id,
-      channel: channel ?? "email",
-      subject,
-      body,
-      recipient_count: recipients.length,
-      status: failCount === recipients.length ? "failed" : "sent",
-      sent_at: new Date().toISOString(),
-      is_test: false,
+      channel: "email",
+      subject: is_test ? "Test Email - Vestry Hub" : subject,
+      body: is_test ? null : body,
+      recipients: normalizedRecipients,
+      attachments,
+      is_test: Boolean(is_test),
+      admin_first_name: admin_first_name || null,
+      event_data: event_data || null,
+      giving_data: giving_data || null,
+    };
+
+    const credits = is_test ? 0 : normalizedRecipients.length;
+    const { data: jobId, error: reserveError } = await supabase.rpc("reserve_communication_credits", {
+      p_tenant_id: tenant_id,
+      p_channel: "email",
+      p_credits: credits,
+      p_payload: queuedPayload,
+      p_scheduled_at: schedule_at || null,
     });
 
-    // Increment email usage after successful sends
-    if (successCount > 0) {
-      const { data: subscription } = await supabase
-        .from("tenant_subscriptions")
-        .select("email_used")
-        .eq("tenant_id", tenant_id)
-        .maybeSingle();
-
-      if (subscription) {
-        await supabase
-          .from("tenant_subscriptions")
-          .update({ 
-            email_used: (subscription.email_used || 0) + successCount,
-            updated_at: new Date().toISOString()
-          })
-          .eq("tenant_id", tenant_id);
-      }
+    if (reserveError || !jobId) {
+      const message = reserveError?.message || "Unable to queue email";
+      const limitReached = /credit limit/i.test(message);
+      return json({ error: limitReached ? "Email credit limit reached. Top up to continue." : message, limit_reached: limitReached }, limitReached ? 402 : 500);
     }
 
-    return new Response(JSON.stringify({ ok: true, sent: successCount, failed: failCount }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const recipientRows = normalizedRecipients.map((recipient) => ({
+      job_id: jobId,
+      tenant_id,
+      destination: recipient.email,
+      display_name: recipient.name || [recipient.first_name, recipient.last_name].filter(Boolean).join(" ") || null,
+      payload: recipient,
+    }));
+    const { error: recipientsError } = await supabase.from("communication_job_recipients").insert(recipientRows);
+    if (recipientsError) {
+      await supabase.rpc("release_communication_job", { p_job_id: jobId, p_reason: `recipient_setup_failed:${recipientsError.message}` });
+      return json({ error: "Unable to queue recipients" }, 500);
+    }
 
-  } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ ok: true, queued: true, job_id: jobId, recipient_count: normalizedRecipients.length, scheduled: Boolean(schedule_at) }, 202);
+  } catch (error) {
+    return json({ error: String(error) }, 500);
   }
 });

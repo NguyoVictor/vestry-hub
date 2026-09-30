@@ -1,5 +1,7 @@
+// Presentation metadata and fallback display prices only. Payment amounts are authoritative in public.subscription_catalog.
 export const PLANS = {
   free: {
+    productCode: 'plan_free',
     name: 'Free',
     price: 0,
     priceLabel: 'Free forever',
@@ -16,6 +18,7 @@ export const PLANS = {
     features: ['100 members', '3 staff accounts', '1 branch', '2GB storage', '100 emails lifetime', 'Member portal', 'Manual giving only'],
   },
   basic: {
+    productCode: 'plan_basic',
     name: 'Basic',
     price: 2499,
     priceLabel: 'KSh 2,499/mo',
@@ -32,6 +35,7 @@ export const PLANS = {
     features: ['200 members', '7 staff accounts', '3 branches', '10GB storage', '100 SMS/month', '500 emails/month', 'M-Pesa giving', 'Member portal'],
   },
   growth: {
+    productCode: 'plan_growth',
     name: 'Growth',
     price: 8999,
     priceLabel: 'KSh 8,999/mo',
@@ -48,6 +52,7 @@ export const PLANS = {
     features: ['500 members', '15 staff accounts', '10 branches', '20GB storage', '500 SMS/month', '2,000 emails/month', '50 AI credits/month', 'M-Pesa giving', 'Sermon AI', 'Priority support'],
   },
   pro: {
+    productCode: 'plan_pro',
     name: 'Pro',
     price: 12499,
     priceLabel: 'KSh 12,499/mo',
@@ -66,9 +71,9 @@ export const PLANS = {
 } as const;
 
 export const ADD_ONS = [
-  { key: 'member_addons', label: 'Extra Members', unit: '100 members', price: 500, amount: 100, icon: '👥' },
-  { key: 'sms_addons', label: 'Extra SMS', unit: '100 SMS credits', price: 100, amount: 100, icon: '📱' },
-  { key: 'email_addons', label: 'Extra Emails', unit: '500 emails', price: 100, amount: 500, icon: '📧' },
-  { key: 'ai_addons', label: 'Extra AI Credits', unit: '20 AI credits', price: 300, amount: 20, icon: '🤖' },
-  { key: 'storage_addons_gb', label: 'Extra Storage', unit: '5GB storage', price: 200, amount: 5, icon: '🗄' },
+  { key: 'member_addons', productCode: 'addon_members_100', label: 'Extra Members', unit: '100 members', price: 500, amount: 100, icon: '👥' },
+  { key: 'sms_addons', productCode: 'addon_sms_100', label: 'Extra SMS', unit: '100 SMS credits', price: 100, amount: 100, icon: '📱' },
+  { key: 'email_addons', productCode: 'addon_email_500', label: 'Extra Emails', unit: '500 emails', price: 100, amount: 500, icon: '📧' },
+  { key: 'ai_addons', productCode: 'addon_ai_20', label: 'Extra AI Credits', unit: '20 AI credits', price: 300, amount: 20, icon: '🤖' },
+  { key: 'storage_addons_gb', productCode: 'addon_storage_5gb', label: 'Extra Storage', unit: '5GB storage', price: 200, amount: 5, icon: '🗄' },
 ] as const;

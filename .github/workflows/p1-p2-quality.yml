@@ -1,0 +1,73 @@
+name: P1 P2 Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main, p1-stabilization-hardening, b-batch-infrastructure-qa]
+
+permissions:
+  contents: read
+
+jobs:
+  source-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: P2 dependency-free contracts
+        run: npm run test:p2:contracts
+      - name: P1 focused contracts
+        run: |
+          npm run test:p1:people
+          npm run test:p1:operations
+          npm run test:p1:engagement
+          npm run test:p1:analytics
+          npm run test:p1:analytics:contract
+      - name: Production build
+        run: npm run build
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+
+  platform-e2e:
+    if: ${{ secrets.PW_PLATFORM_TEST_ENV == 'disposable' }}
+    runs-on: ubuntu-latest
+    env:
+      PW_PLATFORM_TEST_ENV: ${{ secrets.PW_PLATFORM_TEST_ENV }}
+      PW_TENANT_A_ID: ${{ secrets.PW_TENANT_A_ID }}
+      PW_TENANT_B_ID: ${{ secrets.PW_TENANT_B_ID }}
+      PW_TENANT_A_SLUG: ${{ secrets.PW_TENANT_A_SLUG }}
+      PW_TENANT_B_SLUG: ${{ secrets.PW_TENANT_B_SLUG }}
+      PW_BASE_URL: ${{ secrets.PW_BASE_URL }}
+      PW_SUPABASE_URL: ${{ secrets.PW_SUPABASE_URL }}
+      PW_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PW_SUPABASE_SERVICE_ROLE_KEY }}
+      PW_SUPABASE_ANON_KEY: ${{ secrets.PW_SUPABASE_ANON_KEY }}
+      PW_TENANT_A_ADMIN_ACCESS_TOKEN: ${{ secrets.PW_TENANT_A_ADMIN_ACCESS_TOKEN }}
+      PW_TENANT_B_ADMIN_ACCESS_TOKEN: ${{ secrets.PW_TENANT_B_ADMIN_ACCESS_TOKEN }}
+      PW_MEMBER_A_ACCESS_TOKEN: ${{ secrets.PW_MEMBER_A_ACCESS_TOKEN }}
+      PW_MEMBER_B_ACCESS_TOKEN: ${{ secrets.PW_MEMBER_B_ACCESS_TOKEN }}
+      PW_FULL_ADMIN_STORAGE_STATE: ${{ secrets.PW_FULL_ADMIN_STORAGE_STATE }}
+      PW_READ_ONLY_ADMIN_STORAGE_STATE: ${{ secrets.PW_READ_ONLY_ADMIN_STORAGE_STATE }}
+      PW_NO_PERMISSION_ADMIN_STORAGE_STATE: ${{ secrets.PW_NO_PERMISSION_ADMIN_STORAGE_STATE }}
+      PW_MEMBER_A_STORAGE_STATE: ${{ secrets.PW_MEMBER_A_STORAGE_STATE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:platform

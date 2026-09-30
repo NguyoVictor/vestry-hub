@@ -150,3 +150,21 @@ These functions exist locally and on Supabase. **No `supabase.functions.invoke()
 `confirmed`, `failed`, `cancelled`, `pending`, `voided` (Pesapal REVERSED maps to `voided`).
 
 Give Online / Member Give: `confirmed` = success; `cancelled` / `failed` = terminal modal states.
+
+---
+
+## P2 B-batch payment hardening
+
+### Vestry subscription billing
+
+Subscription M-Pesa is now a separate platform-owned payment flow. Product prices and entitlements come from `subscription_catalog`; the browser sends only a `product_code` and phone number. `initiate-subscription-stk` creates a server-side payment attempt and uses only `PLATFORM_DARAJA_*` Edge Function secrets. Successful callbacks are applied transactionally through `apply_subscription_payment_callback` and are idempotent.
+
+Required platform secrets include `PLATFORM_DARAJA_CONSUMER_KEY`, `PLATFORM_DARAJA_CONSUMER_SECRET`, `PLATFORM_DARAJA_SHORTCODE`, `PLATFORM_DARAJA_PASSKEY`, `PLATFORM_DARAJA_CALLBACK_URL`, and `PLATFORM_DARAJA_WEBHOOK_SECRET`. The webhook secret is appended to the Daraja callback URL by the server and is never returned to the browser.
+
+### Church-giving M-Pesa
+
+Church-owned Daraja secrets are authoritative only in `tenant_payment_credentials`; active B-batch Edge Functions no longer read secret `tenants.daraja_*` fields. `process-stk-push` and C2B registration use protected credentials, while `payment-webhook` and `c2b-webhook` delegate authoritative database changes to the hardened P0 RPCs.
+
+Church callback endpoints require `CHURCH_DARAJA_WEBHOOK_SECRET`. `process-stk-push` and `register-c2b-urls` append that secret to the registered callback URLs server-side. Secret-bearing callback URLs are not returned to the browser.
+
+Deployment order matters: deploy the updated payment Edge Functions and configure callback secrets before removing any legacy Daraja columns. The legacy secret columns remain a deferred cleanup until the new functions are live and verified.

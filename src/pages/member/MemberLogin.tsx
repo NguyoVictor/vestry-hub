@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Loader2, Church } from "lucide-react";
 import Threads from "@/components/Threads";
 import logo from "@/assets/logo.png";
+import { currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
 
 // Brand primary: #3D1C8E  →  normalized [0.239, 0.110, 0.557]
 const THREADS_COLOR: [number, number, number] = [0.239, 0.110, 0.557];
@@ -76,10 +77,18 @@ export default function MemberLoginPage() {
         return;
       }
 
+      const tenantSlug = String(fnData.tenant.slug || "").toLowerCase();
+      if (!tenantSlug || !tenantSlugMatchesHostname(window.location.hostname, tenantSlug, currentTenantBaseDomain())) {
+        toast.error("This church account belongs to a different VestryHub workspace.");
+        setLoading(false);
+        return;
+      }
+
       // Store session in localStorage
       const session = {
         memberId: fnData.member.id,
         tenantId: fnData.tenant.id,
+        tenantSlug: fnData.tenant.slug,
         memberName: `${fnData.member.first_name} ${fnData.member.last_name}`,
         memberType: fnData.member.member_type || "member",
         enabledModules: fnData.tenant.enabled_modules?.member_portal || {},

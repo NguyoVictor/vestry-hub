@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Download, Copy, ArrowLeft, QrCode, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-const BASE_URL = import.meta.env.VITE_BASE_URL || "https://www.churchcentralcloud.com";
+import { buildTenantUrl } from "@/lib/tenantHost";
 
 // ─── QR Card ──────────────────────────────────────────────────────────────────
 function QRCard({ id, title, description, url }: { id: string; title: string; description: string; url: string | null }) {
@@ -153,45 +152,45 @@ export default function QRCodes() {
       title: "General Access",
       subtitle: "Publicly-facing pages for visitors and members",
       items: [
-        { id: "church-page",    title: "Church Page",          description: "Main public page with church information",  url: `${BASE_URL}/church/${slug}` },
-        { id: "member-reg",     title: "Member Registration",  description: "Allow visitors to sign up as new members",   url: `${BASE_URL}/member/join?code=${churchCode}` },
-        { id: "member-app",     title: "Member App",           description: "Direct link to the member app",             url: `${BASE_URL}/app/${appSlug}` },
+        { id: "church-page",    title: "Church Page",          description: "Main public page with church information",  url: buildTenantUrl(slug, `/church/${slug}`) },
+        { id: "member-reg",     title: "Member Registration",  description: "Allow visitors to sign up as new members",   url: buildTenantUrl(slug, `/member/join?code=${encodeURIComponent(churchCode)}`) },
+        { id: "member-app",     title: "Member App",           description: "Direct link to the member app",             url: buildTenantUrl(slug, `/app/${appSlug}`) },
       ],
     },
     {
       title: "Giving & Finance",
       subtitle: "Donation and giving links",
       items: [
-        { id: "online-giving",  title: "Online Giving",        description: "Allow members to give tithes and offerings", url: `${BASE_URL}/give/${slug}` },
-        { id: "record-giving",  title: "Record Giving",        description: "Record cash, cheque, and manual giving entries", url: `${BASE_URL}/member/giving?code=${churchCode}` },
-        { id: "expense-req",    title: "Expense Requisition",  description: "Members can submit expense requests for approval", url: `${BASE_URL}/member/expenses?code=${churchCode}` },
+        { id: "online-giving",  title: "Online Giving",        description: "Allow members to give tithes and offerings", url: buildTenantUrl(slug, `/give/${slug}`) },
+        { id: "record-giving",  title: "Record Giving",        description: "Record cash, cheque, and manual giving entries", url: buildTenantUrl(slug, `/member/giving?code=${encodeURIComponent(churchCode)}`) },
+        { id: "expense-req",    title: "Expense Requisition",  description: "Members can submit expense requests for approval", url: buildTenantUrl(slug, `/member/expenses?code=${encodeURIComponent(churchCode)}`) },
       ],
     },
     {
       title: "Events & Services",
       subtitle: "Event registration and service information",
       items: [
-        { id: "events-page",    title: "Events Page",          description: "View and register for upcoming events",      url: `${BASE_URL}/member/events?code=${churchCode}` },
-        { id: "live-stream",    title: "Live Stream",          description: "Watch live church services",                 url: `${BASE_URL}/member/live?code=${churchCode}` },
-        { id: "sermons",        title: "Sermons",              description: "Access sermon library and recordings",       url: `${BASE_URL}/member/sermons?code=${churchCode}` },
+        { id: "events-page",    title: "Events Page",          description: "View and register for upcoming events",      url: buildTenantUrl(slug, `/member/events?code=${encodeURIComponent(churchCode)}`) },
+        { id: "live-stream",    title: "Live Stream",          description: "Watch live church services",                 url: buildTenantUrl(slug, `/member/live?code=${encodeURIComponent(churchCode)}`) },
+        { id: "sermons",        title: "Sermons",              description: "Access sermon library and recordings",       url: buildTenantUrl(slug, `/member/sermons?code=${encodeURIComponent(churchCode)}`) },
       ],
     },
     {
       title: "Ministry & Volunteering",
       subtitle: "Volunteer and ministry sign-ups",
       items: [
-        { id: "volunteer",      title: "Volunteer Sign-up",    description: "Register to serve in church ministries",    url: `${BASE_URL}/member/volunteer?code=${churchCode}` },
-        { id: "training",       title: "Training Enrollment",  description: "Enrol in church training programs",         url: `${BASE_URL}/member/training?code=${churchCode}` },
-        { id: "children",       title: "Children's Church",    description: "Children's ministry check-in",              url: `${BASE_URL}/member/children?code=${churchCode}` },
+        { id: "volunteer",      title: "Volunteer Sign-up",    description: "Register to serve in church ministries",    url: buildTenantUrl(slug, `/member/volunteer?code=${encodeURIComponent(churchCode)}`) },
+        { id: "training",       title: "Training Enrollment",  description: "Enrol in church training programs",         url: buildTenantUrl(slug, `/member/training?code=${encodeURIComponent(churchCode)}`) },
+        { id: "children",       title: "Children's Church",    description: "Children's ministry check-in",              url: buildTenantUrl(slug, `/member/children?code=${encodeURIComponent(churchCode)}`) },
       ],
     },
     {
       title: "Support & Resources",
       subtitle: "Counselling, bookings, and resources",
       items: [
-        { id: "counselling",    title: "Counselling Booking",  description: "Book pastoral counselling sessions",        url: `${BASE_URL}/member/counselling?code=${churchCode}` },
-        { id: "facility",       title: "Facility Booking",     description: "Reserve church facilities and rooms",       url: `${BASE_URL}/member/facility?code=${churchCode}` },
-        { id: "store",          title: "Resource Store",       description: "Access church resources and materials",     url: `${BASE_URL}/store/${slug}` },
+        { id: "counselling",    title: "Counselling Booking",  description: "Book pastoral counselling sessions",        url: buildTenantUrl(slug, `/member/counselling?code=${encodeURIComponent(churchCode)}`) },
+        { id: "facility",       title: "Facility Booking",     description: "Reserve church facilities and rooms",       url: buildTenantUrl(slug, `/member/facility?code=${encodeURIComponent(churchCode)}`) },
+        { id: "store",          title: "Resource Store",       description: "Access church resources and materials",     url: buildTenantUrl(slug, `/store/${slug}`) },
         { id: "testimony",      title: "Testimony Submission", description: "Submit testimonies and prayer requests",    url: `${BASE_URL}/member/testimony?code=${churchCode}` },
         { id: "website",        title: "Church Website",       description: "Church's external website",                 url: websiteUrl || null },
       ],

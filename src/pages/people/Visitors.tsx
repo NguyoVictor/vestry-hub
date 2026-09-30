@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { buildTenantUrl } from "@/lib/tenantHost";
 import { TABLES } from "@/lib/schema";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -846,7 +847,7 @@ function VisitorDetailsModal({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const Visitors = () => {
-  const { tenantId, userId, userName } = useChurch();
+  const { tenantId, slug: tenantSlug, userId, userName } = useChurch();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { isReadOnly } = usePermissions();
@@ -874,11 +875,10 @@ const Visitors = () => {
     staleTime: 60_000,
   });
 
-  const BASE_URL = import.meta.env.VITE_BASE_URL || window.location.origin;
-  // Visitor QR links to /member/join with type=visitor pre-selected
+  // Visitor QR links to the canonical tenant host with type=visitor pre-selected
   const registrationUrl = tenantCode
-    ? `${BASE_URL}/member/join?code=${tenantCode}&type=visitor`
-    : `${BASE_URL}/member/join`;
+    ? buildTenantUrl(tenantSlug, `/member/join?code=${encodeURIComponent(tenantCode)}&type=visitor`)
+    : buildTenantUrl(tenantSlug, "/member/join");
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
