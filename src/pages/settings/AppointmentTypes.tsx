@@ -49,7 +49,8 @@ function TypeDrawer({ open, onClose, tenantId, editData, nextOrder }: DrawerProp
       if (isEdit && editData) {
         const { error } = await supabase.from(TABLES.APPOINTMENT_TYPES)
           .update({ label: label.trim(), description: description.trim() || null, is_active: isActive } as never)
-          .eq('id', editData.id);
+          .eq('id', editData.id)
+          .eq(COLS.TENANT_ID, tenantId);
         if (error) throw error;
         toast.success('Type updated');
       } else {
@@ -116,7 +117,7 @@ export default function AppointmentTypes() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.APPOINTMENT_TYPES).delete().eq('id', id);
+      const { error } = await supabase.from(TABLES.APPOINTMENT_TYPES).delete().eq('id', id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['appointment-types', tenantId] }); toast.success('Type deleted'); setDeleteTarget(null); },
@@ -126,7 +127,7 @@ export default function AppointmentTypes() {
   const toggleMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.APPOINTMENT_TYPES).update({ is_active } as never).eq('id', id);
+      const { error } = await supabase.from(TABLES.APPOINTMENT_TYPES).update({ is_active } as never).eq('id', id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['appointment-types', tenantId] }),

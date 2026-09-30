@@ -5,6 +5,38 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://crjdsxxkspvdwknrmijs.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyamRzeHhrc3B2ZHdrbnJtaWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDUwOTUsImV4cCI6MjA4NjkyMTA5NX0.V2QDuq--RX9bekwjQV_4aD7MlQ90hKqqf1C-UFqiYCQ";
 
+function currentMemberSessionToken(): string | null {
+  try {
+    const raw = localStorage.getItem("member_session");
+    if (!raw) return null;
+    const session = JSON.parse(raw) as { sessionToken?: string; expiresAt?: string };
+    if (!session.sessionToken || !session.expiresAt) return null;
+    if (new Date(session.expiresAt).getTime() <= Date.now()) return null;
+    return session.sessionToken;
+  } catch {
+    return null;
+  }
+}
+
+const memberSessionFetch: typeof fetch = (input, init = {}) => {
+  const headers = new Headers(
+    typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
+  );
+  new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+
+  const requestUrl = typeof input === "string"
+    ? input
+    : input instanceof URL
+      ? input.toString()
+      : input.url;
+  const sessionToken = currentMemberSessionToken();
+  if (sessionToken && (requestUrl.includes("/rest/v1/") || requestUrl.includes("/storage/v1/"))) {
+    headers.set("x-member-session", sessionToken);
+  }
+
+  return fetch(input, { ...init, headers });
+};
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -13,5 +45,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: {
+    fetch: memberSessionFetch,
+  },
 });

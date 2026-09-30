@@ -35,12 +35,13 @@ import {
   Download, Play, Save, Trash2, Edit2, AlertTriangle, BarChart2,
   MessageSquare, Globe, BookOpen, Heart,
 } from "lucide-react";
-import { format, subMonths, startOfMonth, startOfYear } from "date-fns";
+import { format, subMonths, startOfMonth, startOfYear, addMonths } from "date-fns";
 import Papa from "papaparse";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { formatCurrencyFull, formatCurrencyShort } from "@/lib/format";
 import { toast } from "sonner";
+import { fetchCanonicalAnalyticsMetrics } from "@/lib/analyticsMetrics";
 
 // ─── Colour palettes ────────────────────────────────────────────────────────
 const COLORS = {
@@ -81,11 +82,16 @@ async function exportPagePDF(ref: React.RefObject<HTMLDivElement>, filename = "r
   }
 }
 
-function monthsBack(n: number) {
-  return Array.from({ length: n }, (_, i) => {
-    const d = subMonths(new Date(), n - 1 - i);
-    return format(startOfMonth(d), "yyyy-MM-dd");
-  });
+function monthBuckets(fromStr: string, toStr: string) {
+  const start = startOfMonth(new Date(`${fromStr}T00:00:00`));
+  const end = startOfMonth(new Date(`${toStr}T00:00:00`));
+  const months: string[] = [];
+  let cursor = start;
+  while (cursor <= end && months.length < 36) {
+    months.push(format(cursor, "yyyy-MM-dd"));
+    cursor = addMonths(cursor, 1);
+  }
+  return months;
 }
 
 function fmtMonth(iso: string) {
@@ -134,7 +140,7 @@ function DonutLabel({ cx, cy, value, label }: { cx: number; cy: number; value: s
 function MembershipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
   const { isReadOnly } = usePermissions();
   const readOnly = isReadOnly('reports_analytics');
-  
+
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["rpt-members", tenantId, fromStr, toStr],
     queryFn: async () => {
@@ -147,9 +153,9 @@ function MembershipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
   });
 
   // Growth by month (cumulative)
-  const months = monthsBack(12);
+  const months = monthBuckets(fromStr, toStr);
   const growthData = months.map(m => {
-    const total = members.filter(mb => mb.created_at && mb.created_at.slice(0, 7) <= m.slice(0, 7)).length;
+    const total = members.filter(mb => mb.status === "active" && mb.created_at && mb.created_at.slice(0, 7) <= m.slice(0, 7)).length;
     const newM = members.filter(mb => mb.created_at && mb.created_at.slice(0, 7) === m.slice(0, 7)).length;
     return { month: fmtMonth(m), total, new: newM };
   });
@@ -299,13 +305,14 @@ function MembershipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
 // TAB 2 — ATTENDANCE
 // ═══════════════════════════════════════════════════════════════════════════
 const SERVICE_TYPES = [
-  { key: "sunday_service", label: "Sunday Service", color: COLORS.indigo },
+  { key: "sunday", label: "Sunday Service", color: COLORS.indigo },
   { key: "midweek", label: "Midweek", color: COLORS.emerald },
-  { key: "youth", label: "Youth", color: COLORS.violet },
-  { key: "prayer", label: "Prayer", color: COLORS.amber },
+  { key: "special", label: "Special", color: COLORS.violet },
 ];
 
 function AttendanceTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const [visibleLines, setVisibleLines] = useState<Record<string, boolean>>(
     Object.fromEntries(SERVICE_TYPES.map(s => [s.key, true]))
   );
@@ -313,18 +320,37 @@ function AttendanceTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["rpt-attendance", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from(TABLES.EVENTS)
-        .select("id, title, event_type, event_date, attendance_count, rsvp_count, is_published")
+      const { data: services, error: servicesError } = await (supabase as any).from(TABLES.SERVICES)
+        .select("id, title, service_type, service_date, is_published")
         .eq(COLS.TENANT_ID, tenantId)
-        .gte(COLS.EVENT_DATE, fromStr)
-        .lte(COLS.EVENT_DATE, toStr)
-        .eq(COLS.EVENT_IS_PUBLISHED, true);
-      return data || [];
+        .gte("service_date", fromStr)
+        .lte("service_date", toStr)
+        .eq("is_published", true);
+      if (servicesError) throw servicesError;
+      const ids = (services || []).map((service: any) => service.id);
+      let attendance: any[] = [];
+      if (ids.length) {
+        const { data, error } = await (supabase as any).from(TABLES.SERVICE_ATTENDANCE)
+          .select("service_id, status")
+          .eq(COLS.TENANT_ID, tenantId)
+          .in("service_id", ids);
+        if (error) throw error;
+        attendance = data || [];
+      }
+      return (services || []).map((service: any) => ({
+        id: service.id,
+        title: service.title,
+        event_type: service.service_type,
+        event_date: service.service_date,
+        attendance_count: attendance.filter((row: any) => row.service_id === service.id && ["present", "attending", "late"].includes(String(row.status).toLowerCase())).length,
+        rsvp_count: 0,
+        is_published: service.is_published,
+      }));
     },
     enabled: !!tenantId,
   });
 
-  const months = monthsBack(12);
+  const months = monthBuckets(fromStr, toStr);
   const trendData = months.map(m => {
     const row: any = { month: fmtMonth(m) };
     SERVICE_TYPES.forEach(st => {
@@ -436,12 +462,16 @@ const PAYMENT_METHODS = ["Cash","M-Pesa","Bank Transfer","Cheque","Other"];
 const EXPENSE_CATEGORIES = ["Salaries","Utilities","Maintenance","Events","Outreach","Admin","Other"];
 
 function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId: string; fromStr: string; toStr: string; currency: string; userRole: string }) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const { data: donations = [], isLoading: loadDon } = useQuery({
     queryKey: ["rpt-donations", tenantId, fromStr, toStr],
     queryFn: async () => {
       const { data } = await (supabase as any).from(TABLES.GIVING_RECORDS)
         .select("id, amount, giving_type, payment_method, given_at, member_id")
         .eq(COLS.TENANT_ID, tenantId)
+        .eq("payment_status", "confirmed")
+        .is("voided_at", null)
         .gte(COLS.GIVING_DATE, fromStr)
         .lte(COLS.GIVING_DATE, toStr);
       return data || [];
@@ -453,9 +483,8 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
     queryKey: ["rpt-expenses", tenantId, fromStr, toStr],
     queryFn: async () => {
       const { data } = await (supabase as any).from(TABLES.EXPENSES)
-        .select("id, amount, category, expense_date, approval_status, description")
+        .select("id, amount, category, expense_date, description")
         .eq(COLS.TENANT_ID, tenantId)
-        .eq("approval_status", "approved")
         .gte("expense_date", fromStr)
         .lte("expense_date", toStr);
       return data || [];
@@ -464,7 +493,7 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
   });
 
   const isLoading = loadDon || loadExp;
-  const months = monthsBack(12);
+  const months = monthBuckets(fromStr, toStr);
 
   const incomeExpData = months.map(m => {
     const income = donations.filter(d => d.given_at?.slice(0, 7) === m.slice(0, 7)).reduce((s: number, d: any) => s + (d.amount || 0), 0);
@@ -479,7 +508,7 @@ function FinanceTab({ tenantId, fromStr, toStr, currency, userRole }: { tenantId
 
   const givingByMethod = PAYMENT_METHODS.map(m => ({
     name: m,
-    value: donations.filter((d: any) => d.payment_method === m).reduce((s: number, d: any) => s + (d.amount || 0), 0),
+    value: donations.filter((d: any) => d.payment_method === m.toLowerCase().replace(/[- ]/g, "_")).reduce((s: number, d: any) => s + (d.amount || 0), 0),
   })).filter(d => d.value > 0);
 
   const totalGiving = donations.reduce((s: number, d: any) => s + (d.amount || 0), 0);
@@ -631,24 +660,42 @@ const EVENT_COLORS: Record<string, string> = {
 };
 
 function EventsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const [typeFilter, setTypeFilter] = useState("all");
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ["rpt-events", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from(TABLES.EVENTS)
-        .select("id, title, event_type, event_date, attendance_count, rsvp_count, is_published")
+      const { data: rows, error } = await (supabase as any).from(TABLES.EVENTS)
+        .select("id, title, type, event_date, is_published")
         .eq(COLS.TENANT_ID, tenantId)
         .gte(COLS.EVENT_DATE, fromStr)
         .lte(COLS.EVENT_DATE, toStr)
         .eq(COLS.EVENT_IS_PUBLISHED, true)
         .order(COLS.EVENT_DATE, { ascending: false });
-      return data || [];
+      if (error) throw error;
+      const ids = (rows || []).map((event: any) => event.id);
+      let rsvps: any[] = [];
+      if (ids.length) {
+        const { data, error: rsvpError } = await (supabase as any).from(TABLES.EVENT_RSVPS)
+          .select("event_id, status")
+          .eq(COLS.TENANT_ID, tenantId)
+          .in("event_id", ids);
+        if (rsvpError) throw rsvpError;
+        rsvps = data || [];
+      }
+      return (rows || []).map((event: any) => ({
+        ...event,
+        event_type: event.type || "other",
+        rsvp_count: rsvps.filter((r: any) => r.event_id === event.id && r.status === "confirmed").length,
+        attendance_count: 0,
+      }));
     },
     enabled: !!tenantId,
   });
 
-  const months = monthsBack(12);
+  const months = monthBuckets(fromStr, toStr);
   const stackedData = months.map(m => {
     const row: any = { month: fmtMonth(m) };
     EVENT_TYPES.forEach(t => {
@@ -748,13 +795,28 @@ function EventsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
 // ═══════════════════════════════════════════════════════════════════════════
 function GroupsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
   const { data: groups = [], isLoading } = useQuery({
-    queryKey: ["rpt-groups", tenantId],
+    queryKey: ["rpt-groups", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from(TABLES.GROUPS)
-        .select("id, name, group_type, leader_id, member_count, status, created_at")
-        .eq(COLS.TENANT_ID, tenantId)
-        .order("member_count", { ascending: false });
-      return data || [];
+      const { data: rows, error } = await (supabase as any).from(TABLES.GROUPS)
+        .select("id, name, type, leader_id, is_active, created_at")
+        .eq(COLS.TENANT_ID, tenantId);
+      if (error) throw error;
+      const ids = (rows || []).map((group: any) => group.id);
+      let memberships: any[] = [];
+      if (ids.length) {
+        const { data, error: memberError } = await (supabase as any).from(TABLES.GROUP_MEMBERS)
+          .select("group_id, member_id")
+          .eq(COLS.TENANT_ID, tenantId)
+          .in("group_id", ids);
+        if (memberError) throw memberError;
+        memberships = data || [];
+      }
+      return (rows || []).map((group: any) => ({
+        ...group,
+        group_type: group.type,
+        member_count: memberships.filter((membership: any) => membership.group_id === group.id).length,
+        status: group.is_active ? "active" : "inactive",
+      })).sort((a: any, b: any) => b.member_count - a.member_count);
     },
     enabled: !!tenantId,
   });
@@ -773,7 +835,7 @@ function GroupsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
   const top10 = groups.slice(0, 10).map((g: any) => ({ name: g.name, members: g.member_count || 0 }));
 
   const groupTypes = [...new Set(groups.map((g: any) => g.group_type).filter(Boolean))];
-  const months = monthsBack(12);
+  const months = monthBuckets(fromStr, toStr);
   const growthData = months.map(m => {
     const row: any = { month: fmtMonth(m) };
     groupTypes.forEach(t => {
@@ -853,6 +915,8 @@ function GroupsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: st
 // TAB 6 — DISCIPLESHIP & OUTREACH
 // ═══════════════════════════════════════════════════════════════════════════
 function DiscipleshipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const { data: converts = [], isLoading: loadConv } = useQuery({
     queryKey: ["rpt-converts", tenantId, fromStr, toStr],
     queryFn: async () => {
@@ -901,7 +965,7 @@ function DiscipleshipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
     { name: "Graduated", count: graduated, rate: totalVisitors > 0 ? `${Math.round((graduated/totalVisitors)*100)}%` : "0%" },
   ];
 
-  const months = monthsBack(12);
+  const months = monthBuckets(fromStr, toStr);
   const outreachTrend = months.map(m => {
     const acts = outreach.filter((o: any) => o.activity_date?.slice(0, 7) === m.slice(0, 7));
     return {
@@ -999,11 +1063,13 @@ function DiscipleshipTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
 // TAB 7 — COMMUNICATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 function CommunicationsTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const { data: broadcasts = [], isLoading: loadBc } = useQuery({
     queryKey: ["rpt-broadcasts", tenantId, fromStr, toStr],
     queryFn: async () => {
       const { data } = await (supabase as any).from(TABLES.ANNOUNCEMENTS)
-        .select("id, title, category, created_at, status, is_pinned, view_count")
+        .select("id, title, category_id, created_at, status, is_pinned, view_count")
         .eq(COLS.TENANT_ID, tenantId)
         .gte("created_at", fromStr)
         .lte("created_at", toStr)
@@ -1014,18 +1080,36 @@ function CommunicationsTab({ tenantId, fromStr, toStr }: { tenantId: string; fro
   });
 
   const { data: surveys = [], isLoading: loadSurveys } = useQuery({
-    queryKey: ["rpt-surveys", tenantId],
+    queryKey: ["rpt-surveys", tenantId, fromStr, toStr],
     queryFn: async () => {
-      const { data } = await (supabase as any).from(TABLES.SURVEYS)
-        .select("id, title, response_count, target_count, status, created_at")
-        .eq(COLS.TENANT_ID, tenantId);
-      return data || [];
+      const { data: rows, error } = await (supabase as any).from(TABLES.SURVEYS)
+        .select("id, title, is_published, view_count, created_at")
+        .eq(COLS.TENANT_ID, tenantId)
+        .gte("created_at", fromStr)
+        .lte("created_at", `${toStr}T23:59:59`);
+      if (error) throw error;
+      const ids = (rows || []).map((survey: any) => survey.id);
+      let responses: any[] = [];
+      if (ids.length) {
+        const { data, error: responseError } = await (supabase as any).from(TABLES.SURVEY_RESPONSES)
+          .select("survey_id, is_complete")
+          .eq(COLS.TENANT_ID, tenantId)
+          .in("survey_id", ids);
+        if (responseError) throw responseError;
+        responses = data || [];
+      }
+      return (rows || []).map((survey: any) => ({
+        ...survey,
+        response_count: responses.filter((response: any) => response.survey_id === survey.id && response.is_complete).length,
+        target_count: Number(survey.view_count || 0),
+        status: survey.is_published ? "published" : "draft",
+      }));
     },
     enabled: !!tenantId,
   });
 
   const isLoading = loadBc || loadSurveys;
-  const months = monthsBack(12);
+  const months = monthBuckets(fromStr, toStr);
 
   // Simulated message channel data (in real app would come from messages table)
   const msgData = months.map(m => {
@@ -1040,7 +1124,7 @@ function CommunicationsTab({ tenantId, fromStr, toStr }: { tenantId: string; fro
 
   const broadcastCols: Column<any>[] = [
     { key: "title", header: "Title" },
-    { key: "category", header: "Category", render: r => <Badge variant="outline" className="capitalize text-xs">{r.category || "—"}</Badge> },
+    { key: "category_id", header: "Category", render: r => <Badge variant="outline" className="capitalize text-xs">{r.category_id || "—"}</Badge> },
     { key: "created_at", header: "Date", render: r => r.created_at ? format(new Date(r.created_at), "dd MMM yyyy") : "—" },
     { key: "view_count", header: "Views" },
     { key: "is_pinned", header: "Pinned", render: r => r.is_pinned ? <Badge className="text-xs bg-amber-100 text-amber-700">Pinned</Badge> : "—" },
@@ -1154,6 +1238,8 @@ const TABLE_MAP: Record<DataSource, string> = {
 const UNTYPED_SOURCES: DataSource[] = ["Donations","Expenses","Outreach","Volunteers"];
 
 function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromStr: string; toStr: string }) {
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('reports_analytics');
   const [reportName, setReportName] = useState("My Report");
   const [dataSource, setDataSource] = useState<DataSource>("Members");
   const [selectedCols, setSelectedCols] = useState<string[]>(SOURCE_COLUMNS["Members"].slice(0, 5));
@@ -1475,26 +1561,10 @@ export default function Reports() {
   });
   const hasBranches = branches.length > 0;
 
-  // Overview metrics
+  // Canonical overview metrics shared with Dashboard
   const { data: overviewData, isLoading: loadOverview } = useQuery({
     queryKey: ["rpt-overview", tenantId, fromStr, toStr],
-    queryFn: async () => {
-      const [membersRes, newMembersRes, donationsRes, expensesRes, eventsRes] = await Promise.all([
-        (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq("status", "active"),
-        (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).gte("created_at", fromStr).lte("created_at", toStr),
-        (supabase as any).from(TABLES.GIVING_RECORDS).select("amount").eq(COLS.TENANT_ID, tenantId).gte(COLS.GIVING_DATE, fromStr).lte(COLS.GIVING_DATE, toStr),
-        (supabase as any).from(TABLES.EXPENSES).select("amount").eq(COLS.TENANT_ID, tenantId).eq("approval_status", "approved").gte("expense_date", fromStr).lte("expense_date", toStr),
-        (supabase as any).from(TABLES.EVENTS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, tenantId).eq(COLS.EVENT_IS_PUBLISHED, true).gte(COLS.EVENT_DATE, fromStr).lte(COLS.EVENT_DATE, toStr),
-      ]);
-
-      const totalMembers = membersRes.count || 0;
-      const newMembers = newMembersRes.count || 0;
-      const totalGiving = (donationsRes.data || []).reduce((s: number, d: any) => s + (d.amount || 0), 0);
-      const totalExpenses = (expensesRes.data || []).reduce((s: number, e: any) => s + (e.amount || 0), 0);
-      const eventsHeld = eventsRes.count || 0;
-
-      return { totalMembers, newMembers, totalGiving, totalExpenses, netSurplus: totalGiving - totalExpenses, eventsHeld };
-    },
+    queryFn: () => fetchCanonicalAnalyticsMetrics(tenantId, fromStr, toStr, toStr),
     enabled: !!tenantId,
   });
 
@@ -1528,53 +1598,81 @@ export default function Reports() {
         {readOnly && <ReadOnlyBanner section="Reports & Analytics" />}
 
         {/* Overview Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
           {loadOverview ? (
-            Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)
+            Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)
           ) : (
             <>
               <AnalyticsCard
                 title="Total Members"
-                value={ov?.totalMembers.toLocaleString() ?? "—"}
+                value={ov?.snapshot.active_members.toLocaleString() ?? "—"}
                 subtitle="Active members"
                 icon={Users}
                 color="indigo"
               />
               <AnalyticsCard
                 title="New Members"
-                value={ov?.newMembers.toLocaleString() ?? "—"}
+                value={ov?.range.new_members.toLocaleString() ?? "—"}
                 subtitle="In date range"
                 icon={UserPlus}
                 color="emerald"
               />
               <AnalyticsCard
                 title="Total Giving"
-                value={ov ? formatCurrencyShort(ov.totalGiving, currency) : "—"}
+                value={ov ? formatCurrencyShort(ov.range.confirmed_giving, currency) : "—"}
                 subtitle="Donations received"
                 icon={DollarSign}
                 color="violet"
               />
               <AnalyticsCard
                 title="Total Expenses"
-                value={ov ? formatCurrencyShort(ov.totalExpenses, currency) : "—"}
-                subtitle="Approved expenses"
+                value={ov ? formatCurrencyShort(ov.range.approved_expenses, currency) : "—"}
+                subtitle="Recorded expenses"
                 icon={TrendingDown}
                 color="red"
               />
               <AnalyticsCard
                 title="Net Surplus"
-                value={ov ? formatCurrencyShort(Math.abs(ov.netSurplus), currency) : "—"}
-                subtitle={ov && ov.netSurplus < 0 ? "Deficit" : "Surplus"}
+                value={ov ? formatCurrencyShort(Math.abs(ov.range.net_surplus), currency) : "—"}
+                subtitle={ov && ov.range.net_surplus < 0 ? "Deficit" : "Surplus"}
                 icon={TrendingUp}
                 color="cyan"
-                valueClassName={ov && ov.netSurplus < 0 ? "text-red-500" : "text-emerald-600"}
+                valueClassName={ov && ov.range.net_surplus < 0 ? "text-red-500" : "text-emerald-600"}
               />
               <AnalyticsCard
                 title="Events Held"
-                value={ov?.eventsHeld.toLocaleString() ?? "—"}
+                value={ov?.range.published_events.toLocaleString() ?? "—"}
                 subtitle="Published events"
                 icon={CalendarDays}
                 color="amber"
+              />
+              <AnalyticsCard
+                title="Attendance"
+                value={ov?.range.attendance_total.toLocaleString() ?? "—"}
+                subtitle="Recorded attendance"
+                icon={BarChart2}
+                color="cyan"
+              />
+              <AnalyticsCard
+                title="Visitor Conversion"
+                value={ov ? `${ov.range.visitor_conversion_rate}%` : "—"}
+                subtitle={ov ? `${ov.range.converted_visitors}/${ov.range.visitors} visitors` : "In date range"}
+                icon={UserPlus}
+                color="emerald"
+              />
+              <AnalyticsCard
+                title="Volunteer Hours"
+                value={ov?.range.volunteer_hours.toLocaleString() ?? "—"}
+                subtitle={`${ov?.range.volunteer_assignments ?? 0} assignments`}
+                icon={Heart}
+                color="violet"
+              />
+              <AnalyticsCard
+                title="Engagement"
+                value={ov?.range.engagement_actions.toLocaleString() ?? "—"}
+                subtitle="Actions in date range"
+                icon={MessageSquare}
+                color="indigo"
               />
             </>
           )}

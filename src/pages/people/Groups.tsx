@@ -204,7 +204,7 @@ const Groups = () => {
       if (!gm?.length) return [];
       const ids = [...new Set(gm.map(r => r.member_id))];
       const { data: memberDetails } = await supabase.from(TABLES.MEMBERS)
-        .select("id, first_name, last_name").in("id", ids);
+        .select("id, first_name, last_name").in("id", ids).eq(COLS.TENANT_ID, tenantId);
       const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
       return gm.map(r => ({ ...r, members: map[r.member_id] || null }));
     },
@@ -287,7 +287,8 @@ const Groups = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.GROUPS).delete().eq("id", id);
+      if (readOnly) return;
+      const { error } = await supabase.from(TABLES.GROUPS).delete().eq("id", id).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["groups", tenantId] }); toast.success("Group deleted"); },

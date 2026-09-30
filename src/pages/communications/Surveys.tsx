@@ -513,6 +513,7 @@ export default function Surveys() {
   // ── Mutations ─────────────────────────────────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: async ({ form, questions }: { form: any; questions: Question[] }) => {
+      if (readOnly) throw new Error("Read-only access");
       const { error } = await supabase.from(TABLES.SURVEYS).insert({
         tenant_id: tenantId,
         title: form.title,
@@ -533,6 +534,7 @@ export default function Surveys() {
 
   const editMutation = useMutation({
     mutationFn: async ({ form, questions }: { form: any; questions: Question[] }) => {
+      if (readOnly) throw new Error("Read-only access");
       const { error } = await supabase.from(TABLES.SURVEYS).update({
         title: form.title,
         description: form.description || null,
@@ -542,7 +544,7 @@ export default function Surveys() {
         closing_date: form.closing_date || null,
         target_audience: form.target_audience,
         target_group_id: form.target_group_id || null,
-      } as any).eq("id", editingSurvey.id);
+      } as any).eq("id", editingSurvey.id).eq("tenant_id", tenantId);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success("Survey updated"); setEditingSurvey(null); },
@@ -551,7 +553,8 @@ export default function Surveys() {
 
   const togglePublish = useMutation({
     mutationFn: async ({ id, published }: { id: string; published: boolean }) => {
-      const { error } = await supabase.from(TABLES.SURVEYS).update({ is_published: published } as any).eq("id", id);
+      if (readOnly) throw new Error("Read-only access");
+      const { error } = await supabase.from(TABLES.SURVEYS).update({ is_published: published } as any).eq("id", id).eq("tenant_id", tenantId);
       if (error) throw error;
     },
     onSuccess: (_, { published }) => { invalidate(); toast.success(published ? "Survey published" : "Survey unpublished"); },
@@ -560,7 +563,8 @@ export default function Surveys() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.SURVEYS).delete().eq("id", id);
+      if (readOnly) throw new Error("Read-only access");
+      const { error } = await supabase.from(TABLES.SURVEYS).delete().eq("id", id).eq("tenant_id", tenantId);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success("Survey deleted"); setDeletingId(null); },

@@ -207,11 +207,14 @@ const MessageBubble = React.memo(function MessageBubble({
               isGrouped && !isOwn && "rounded-bl-2xl"
             )}>
               {msg.attachment_url ? (
-                <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer"
-                  className={cn("flex items-center gap-2 text-sm underline", isOwn ? "text-orange-100" : "text-orange-600")}>
+                <button type="button" onClick={async () => {
+                  const { data, error } = await supabase.storage.from("message-attachments").createSignedUrl(msg.attachment_url!, 60);
+                  if (error || !data?.signedUrl) { toast.error("Attachment is unavailable"); return; }
+                  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                }} className={cn("flex items-center gap-2 text-sm underline", isOwn ? "text-orange-100" : "text-orange-600")}>
                   <Paperclip className="h-3.5 w-3.5 shrink-0" />
                   {msg.attachment_name || "Attachment"}
-                </a>
+                </button>
               ) : (
                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.body}</p>
               )}
@@ -355,98 +358,59 @@ export default function MemberMessages() {
         .order("updated_at", { ascending: false });
       const convList = data || [];
       
-      // Fetch admin names for direct message conversations
-      const otherUserIds = convList.flatMap((conv: any) =>
-        (conv.conversation_participants || [])
-          .filter((p: any) => p.user_id !== member.memberId)
-          .map((p: any) => p.user_id)
+      // Resolve only identities visible through the participant-scoped messaging directory.
+      const { data: visibleActors } = await (supabase as any).rpc("get_messaging_actor_directory", {
+        p_tenant_id: member.tenantId,
+      });
+      const actorMap = Object.fromEntries(
+        (Array.isArray(visibleActors) ? visibleActors : []).map((actor: any) => [
+          actor.id,
+          actor.display_name || "Team member",
+        ])
       );
-      const uniqueOtherIds = [...new Set(otherUserIds)] as string[];
-      let userMap: Record<string, string> = {};
-      if (uniqueOtherIds.length > 0) {
-        const { data: userProfiles } = await (supabase as any)
-          .from("users")
-          .select("id, first_name, last_name")
-          .in("id", uniqueOtherIds);
-        userMap = Object.fromEntries(
-          (userProfiles || []).map((u: any) => [
-            u.id,
-            staffDisplayName(u.first_name, u.last_name),
-          ])
-        );
-      }
-      
+
       return convList.map((conv: any) => {
         if (conv.type === "group" || conv.is_forum) return conv;
         const otherId = (conv.conversation_participants || [])
           .find((p: any) => p.user_id !== member.memberId)?.user_id;
         return {
           ...conv,
-          staff_name: otherId ? (userMap[otherId] || conv.name) : conv.name,
+          staff_name: otherId ? (actorMap[otherId] || conv.name) : conv.name,
         };
       });
     },
-    staleTime: 60_000,
+    staleTime: 10_000,
+    refetchInterval: 5_000,
   });
 
   const { data: staffThreads = [] } = useQuery({
     queryKey: ["staff-directory", member.tenantId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("conversations")
-        .select("*, conversation_participants(user_id, unread_count)")
-        .eq("tenant_id", member.tenantId)
-        .eq("is_staff_directory", true)
-        .order("updated_at", { ascending: false });
-      const convList = data || [];
-      const staffUserIds = convList.map((c: any) => c.staff_user_id).filter(Boolean);
-      let staffMap: Record<string, any> = {};
-      if (staffUserIds.length > 0) {
-        const { data: staffUsers } = await (supabase as any)
-          .from("users")
-          .select("id, first_name, last_name, role, status")
-          .in("id", staffUserIds);
-        staffMap = Object.fromEntries((staffUsers || []).map((u: any) => [u.id, u]));
-      }
-      return convList.map((conv: any) => ({
-        ...conv,
-        staff_user: staffMap[conv.staff_user_id] || null,
-      }));
+      const { data, error } = await (supabase as any).rpc('get_messaging_staff_directory', {
+        p_tenant_id: member.tenantId,
+      });
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
     },
     staleTime: 60_000,
   });
 
-  const { data: chatUsers = [] } = useQuery({
-    queryKey: ["users-messaging", member.tenantId],
+  const { data: actorDirectory = [] } = useQuery({
+    queryKey: ["member-messaging-actor-directory", member.tenantId, member.memberId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("users")
-        .select("id, first_name, last_name")
-        .eq("tenant_id", member.tenantId);
-      return data ?? [];
+      const { data, error } = await (supabase as any).rpc("get_messaging_actor_directory", {
+        p_tenant_id: member.tenantId,
+      });
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
     },
-    staleTime: 300_000,
-    enabled: !!member.tenantId,
-  });
-
-  const { data: chatMembers = [] } = useQuery({
-    queryKey: ["members-messaging-dm", member.tenantId],
-    queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("members")
-        .select("id, first_name, last_name")
-        .eq("tenant_id", member.tenantId);
-      return data ?? [];
-    },
-    staleTime: 300_000,
+    staleTime: 60_000,
     enabled: !!member.tenantId,
   });
 
   const getSenderName = (id: string) => {
-    const m = (chatMembers as any[]).find((m: any) => m.id === id);
-    if (m?.first_name) return `${m.first_name} ${m.last_name ?? ""}`.trim();
-    const u = (chatUsers as any[]).find((u: any) => u.id === id);
-    return u ? staffDisplayName(u.first_name, u.last_name) : "Team member";
+    const actor = (actorDirectory as any[]).find((entry: any) => entry.id === id);
+    return actor?.display_name || "Team member";
   };
 
   const joinStaffThread = async (staffUserId: string) => {
@@ -509,10 +473,6 @@ export default function MemberMessages() {
 
       if (newConv) {
         privateConvId = newConv.id;
-        await (supabase as any).from("conversation_participants").insert([
-          { conversation_id: privateConvId, user_id: member.memberId, unread_count: 0, joined_at: new Date().toISOString() },
-          { conversation_id: privateConvId, user_id: staffUserId, unread_count: 0, joined_at: new Date().toISOString() },
-        ]);
       }
     }
 
@@ -531,7 +491,8 @@ export default function MemberMessages() {
       return data ?? [];
     },
     enabled: !!selectedConvId,
-    staleTime: 30_000,
+    staleTime: 2_000,
+    refetchInterval: selectedConvId ? 5_000 : false,
   });
   const reactionMap = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -566,27 +527,12 @@ export default function MemberMessages() {
       return msgs;
     },
     enabled: !!selectedConvId,
-    staleTime: Infinity,
+    staleTime: 2_000,
+    refetchInterval: selectedConvId ? 4_000 : false,
   });
 
-  // ── Presence tracking ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!member.churchId || !member.userId) return;
-    const presenceChannel = supabase.channel(`presence:${member.churchId}`, {
-      config: { presence: { key: member.userId } },
-    });
-    presenceChannel
-      .on("presence", { event: "sync" }, () => {
-        const state = presenceChannel.presenceState();
-        setOnlineUsers(new Set(Object.keys(state)));
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await presenceChannel.track({ userId: member.userId, name: memberName, online_at: new Date().toISOString() });
-        }
-      });
-    return () => { supabase.removeChannel(presenceChannel); };
-  }, [member.churchId, member.userId, memberName]);
+  // Member sessions authenticate REST/Storage with x-member-session. Until those
+  // sessions mint a Realtime JWT, the member portal uses short polling for live updates.
 
   // ── Realtime: conversation list updates ───────────────────────────────────
   useEffect(() => {
@@ -594,8 +540,8 @@ export default function MemberMessages() {
     const channel = supabase
       .channel(`member-convs:${member.memberId}`)
       .on("postgres_changes" as any, {
-        event: "*", schema: "public", table: "conversations",
-        filter: `tenant_id=eq.${member.churchId}`,
+        event: "*", schema: "public", table: "conversation_participants",
+        filter: `user_id=eq.${member.userId}`,
       }, () => {
         qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
       })
@@ -632,13 +578,6 @@ export default function MemberMessages() {
       }, () => {
         qc.invalidateQueries({ queryKey: ["member-reactions", selectedConvId] });
       })
-      .on("broadcast", { event: "typing" }, ({ payload }: any) => {
-        if (payload.userId !== member.userId) {
-          setTypingUser(payload.name ?? "Team member");
-          if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-          typingTimerRef.current = setTimeout(() => setTypingUser(null), 2000);
-        }
-      })
       .subscribe();
     channelRef.current = channel;
     return () => {
@@ -668,10 +607,7 @@ export default function MemberMessages() {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const markAsRead = useCallback(async (convId: string) => {
-    await (supabase as any).from("conversation_participants")
-      .update({ unread_count: 0 }).eq("conversation_id", convId).eq("user_id", member.userId);
-    await (supabase as any).from("messages").update({ is_read: true })
-      .eq("conversation_id", convId).eq("is_read", false).neq("sender_id", member.userId);
+    await (supabase as any).rpc('mark_messaging_conversation_read', { p_conversation_id: convId });
     qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
   }, [member.userId, member.memberId, qc]);
 
@@ -685,13 +621,7 @@ export default function MemberMessages() {
     setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 100);
   }, []);
 
-  const sendTyping = useCallback(() => {
-    if (sendTypingTimerRef.current) return;
-    if (channelRef.current) {
-      channelRef.current.send({ type: "broadcast", event: "typing", payload: { userId: member.userId, name: memberName } });
-    }
-    sendTypingTimerRef.current = setTimeout(() => { sendTypingTimerRef.current = null; }, 300);
-  }, [member.userId, memberName]);
+  const sendTyping = useCallback(() => {}, []);
 
   const loadEarlierMessages = async () => {
     if (!selectedConvId) return;
@@ -718,14 +648,6 @@ export default function MemberMessages() {
         ...(replyTo ? { reply_to_id: replyTo.id } : {}),
       }).select().single();
       if (error) throw error;
-      await (supabase as any).from("conversations").update({
-        updated_at: new Date().toISOString(),
-        last_message_preview: body.slice(0, 100),
-      }).eq("id", selectedConvId);
-      await (supabase as any).rpc("batch_increment_unread_count", {
-        p_conversation_id: selectedConvId,
-        p_excluding_user_id: member.userId,
-      });
       return data;
     },
     onMutate: async (body) => {
@@ -760,14 +682,14 @@ export default function MemberMessages() {
     if (existing) {
       await (supabase as any).from("message_reactions").delete().eq("id", existing.id);
     } else {
-      await (supabase as any).from("message_reactions").insert({ message_id: messageId, user_id: member.userId, emoji, conversation_id: selectedConvId });
+      await (supabase as any).from("message_reactions").insert({ message_id: messageId, user_id: member.userId, tenant_id: member.churchId, emoji, conversation_id: selectedConvId });
     }
     qc.invalidateQueries({ queryKey: ["member-reactions", selectedConvId] });
   }, [allReactions, member.userId, selectedConvId, qc]);
 
   // ── Delete message (actual DB delete, not local hide) ─────────────────────
   const handleDeleteMsg = useCallback(async (msgId: string) => {
-    await (supabase as any).from("messages").delete().eq("id", msgId).eq("sender_id", member.userId);
+    await (supabase as any).from("messages").delete().eq("id", msgId).eq("sender_id", member.userId).eq("tenant_id", member.churchId).eq("conversation_id", selectedConvId);
     setAllMessages(prev => prev.filter(m => m.id !== msgId));
     setDeleteMsgConfirm(null);
   }, [member.userId]);
@@ -778,10 +700,9 @@ export default function MemberMessages() {
     if (file.size > 50 * 1024 * 1024) { toast.error("File must be under 50MB"); return; }
     setUploading(true);
     try {
-      const path = `${member.churchId}/${selectedConvId}/${Date.now()}-${file.name}`;
+      const path = `${member.churchId}/${selectedConvId}/${member.userId}/${crypto.randomUUID()}-${file.name}`;
       const { data, error } = await supabase.storage.from("message-attachments").upload(path, file);
       if (error) throw error;
-      const { data: urlData } = supabase.storage.from("message-attachments").getPublicUrl(data.path);
       const optimistic: MessageRow = {
         id: `temp-file-${Date.now()}`,
         body: `📎 ${file.name}`,
@@ -789,7 +710,7 @@ export default function MemberMessages() {
         created_at: new Date().toISOString(),
         status: "sending",
         conversation_id: selectedConvId,
-        attachment_url: urlData.publicUrl,
+        attachment_url: data.path,
         attachment_name: file.name,
         attachment_type: file.type,
       };
@@ -797,13 +718,11 @@ export default function MemberMessages() {
       const { data: msgData, error: msgErr } = await (supabase as any).from("messages").insert({
         tenant_id: member.churchId, conversation_id: selectedConvId, sender_id: member.userId,
         body: `📎 ${file.name}`,
-        attachment_url: urlData.publicUrl, attachment_name: file.name, attachment_type: file.type,
+        attachment_url: data.path, attachment_name: file.name, attachment_type: file.type,
         status: "sent",
       }).select().single();
       if (msgErr) throw msgErr;
       setAllMessages(prev => prev.map(m => m.id === optimistic.id ? msgData : m));
-      await (supabase as any).from("conversations").update({ updated_at: new Date().toISOString(), last_message_preview: `📎 ${file.name}` }).eq("id", selectedConvId);
-      await (supabase as any).rpc("batch_increment_unread_count", { p_conversation_id: selectedConvId, p_excluding_user_id: member.userId });
       qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
       toast.success("File sent");
     } catch (err: any) {
@@ -993,17 +912,6 @@ export default function MemberMessages() {
                     <p className="text-sm font-semibold text-slate-900 dark:text-white">{staffName}</p>
                     <p className="text-xs text-slate-400">{staffRole || "Private conversation"}</p>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="text-sm">
-                      <DropdownMenuItem onClick={() => setCloseConvConfirm(true)}>Close Conversation</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-500 focus:text-red-500" onClick={() => setDeleteConvConfirm(true)}>Delete Conversation</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
 
                 {/* Messages area */}
@@ -1136,50 +1044,6 @@ export default function MemberMessages() {
               onClick={() => deleteMsgConfirm && handleDeleteMsg(deleteMsgConfirm)}>
               Delete
             </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Close conversation confirm */}
-      <AlertDialog open={closeConvConfirm} onOpenChange={setCloseConvConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Close this conversation?</AlertDialogTitle>
-            <AlertDialogDescription>The conversation will be marked as closed. You can still view the messages.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={async () => {
-              if (!selectedConvId) return;
-              await (supabase as any).from("conversations").update({ status: "closed" }).eq("id", selectedConvId);
-              qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
-              setCloseConvConfirm(false);
-              setSelectedConvId(null);
-              toast.success("Conversation closed");
-            }}>Close</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete conversation confirm */}
-      <AlertDialog open={deleteConvConfirm} onOpenChange={setDeleteConvConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this conversation?</AlertDialogTitle>
-            <AlertDialogDescription>All messages will be permanently deleted and cannot be recovered.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={async () => {
-              if (!selectedConvId) return;
-              await (supabase as any).from("messages").delete().eq("conversation_id", selectedConvId);
-              await (supabase as any).from("conversation_participants").delete().eq("conversation_id", selectedConvId);
-              await (supabase as any).from("conversations").delete().eq("id", selectedConvId);
-              qc.invalidateQueries({ queryKey: ["member-conversations", member.memberId] });
-              setDeleteConvConfirm(false);
-              setSelectedConvId(null);
-              toast.success("Conversation deleted");
-            }}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

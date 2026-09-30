@@ -34,7 +34,8 @@ export default function MemberSurveys() {
       const { data } = await supabase
         .from(TABLES.SURVEY_RESPONSES)
         .select("survey_id")
-        .eq("member_id", member.memberId);
+        .eq("member_id", member.memberId)
+        .eq("tenant_id", member.churchId);
       return (data || []).map((r: any) => r.survey_id);
     },
     staleTime: 60_000,

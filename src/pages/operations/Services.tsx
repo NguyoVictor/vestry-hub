@@ -342,6 +342,7 @@ export default function ServicesPage() {
           is_recurring: formData.is_recurring,
           recurrence_rule: formData.is_recurring ? formData.recurrence_rule : null,
           status: formData.status,
+          is_published: formData.status === "published",
           allow_attendance: formData.allow_attendance,
         } as any);
         if (error) throw error;
@@ -363,6 +364,7 @@ export default function ServicesPage() {
             is_recurring: formData.is_recurring,
             recurrence_rule: formData.is_recurring ? formData.recurrence_rule : null,
             status: formData.status,
+            is_published: formData.status === "published",
           } as any);
           if (retryError) throw retryError;
         } else {
@@ -404,8 +406,9 @@ export default function ServicesPage() {
           is_recurring: editForm.is_recurring,
           recurrence_rule: editForm.is_recurring ? (editForm as any).recurrence_rule : null,
           status: editForm.status,
+          is_published: editForm.status === "published",
           allow_attendance: (editForm as any).allow_attendance ?? true,
-        } as any).eq("id", editingService!.id);
+        } as any).eq("id", editingService!.id).eq("tenant_id", tenantId!);
         if (error) throw error;
       } catch (error: any) {
         // If allow_attendance column doesn't exist, try without it
@@ -424,7 +427,8 @@ export default function ServicesPage() {
             is_recurring: editForm.is_recurring,
             recurrence_rule: editForm.is_recurring ? (editForm as any).recurrence_rule : null,
             status: editForm.status,
-          } as any).eq("id", editingService!.id);
+            is_published: editForm.status === "published",
+          } as any).eq("id", editingService!.id).eq("tenant_id", tenantId!);
           if (retryError) throw retryError;
         } else {
           throw error;
@@ -449,7 +453,7 @@ export default function ServicesPage() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.SERVICES).delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.SERVICES).delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success("Service deleted"); setDeleteServiceId(null); },
@@ -459,7 +463,7 @@ export default function ServicesPage() {
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.SERVICES).update({ status } as any).eq("id", id);
+      const { error } = await supabase.from(TABLES.SERVICES).update({ status, is_published: status === "published" } as any).eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success("Status updated"); },

@@ -52,11 +52,12 @@ export default function MemberVolunteer() {
   const { data: mySignups = [] } = useQuery({
     queryKey: ["member-my-signups", member.memberId, member.churchId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from(TABLES.VOLUNTEERS)
         .select("id, role_id, hours_served")
         .eq("member_id", member.memberId)
         .eq(COLS.TENANT_ID, member.churchId);
+      if (error) throw error;
       return data || [];
     },
     staleTime: 60_000,
@@ -65,11 +66,12 @@ export default function MemberVolunteer() {
   const { data: volunteerCounts = {} } = useQuery({
     queryKey: ["member-volunteer-counts", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from(TABLES.VOLUNTEERS)
         .select("role_id")
         .eq(COLS.TENANT_ID, member.churchId)
         .eq("status", "confirmed");
+      if (error) throw error;
       const counts: Record<string, number> = {};
       (data || []).forEach((v: any) => { counts[v.role_id] = (counts[v.role_id] || 0) + 1; });
       return counts;
@@ -84,6 +86,9 @@ export default function MemberVolunteer() {
 
   const signupMut = useMutation({
     mutationFn: async (role: any) => {
+      if (role.tenant_id !== member.churchId) {
+        throw new Error("Volunteer role is not available for this church");
+      }
       const { error } = await supabase.from(TABLES.VOLUNTEERS).insert({
         tenant_id: member.churchId,
         member_id: member.memberId,

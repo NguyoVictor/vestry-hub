@@ -9,18 +9,22 @@ import { Save } from 'lucide-react';
 
 interface FamilyNotesTabProps {
   family: any;
+  tenantId: string;
+  readOnly: boolean;
 }
 
-export default function FamilyNotesTab({ family }: FamilyNotesTabProps) {
+export default function FamilyNotesTab({ family, tenantId, readOnly }: FamilyNotesTabProps) {
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState(family.notes || '');
 
   const saveMutation = useMutation({
     mutationFn: async (newNotes: string) => {
+      if (readOnly) return;
       const { error } = await supabase
         .from('families')
         .update({ notes: newNotes, updated_at: new Date().toISOString() } as any)
-        .eq('id', family.id);
+        .eq('id', family.id)
+        .eq('tenant_id', tenantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -33,6 +37,7 @@ export default function FamilyNotesTab({ family }: FamilyNotesTabProps) {
   });
 
   const handleSave = () => {
+    if (readOnly) return;
     saveMutation.mutate(notes);
   };
 
@@ -64,7 +69,7 @@ export default function FamilyNotesTab({ family }: FamilyNotesTabProps) {
         </p>
         <Button
           onClick={handleSave}
-          disabled={saveMutation.isPending}
+          disabled={readOnly || saveMutation.isPending}
           className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta"
         >
           <Save className="h-4 w-4 mr-2" />

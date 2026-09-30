@@ -26,6 +26,7 @@ interface AnnouncementFeedAdminProps {
   tenantId: string;
   announcementTypes: AnnouncementType[];
   onPostNew: () => void;
+  readOnly: boolean;
 }
 
 type AnnouncementWithRelations = Announcement & {
@@ -73,6 +74,7 @@ export function AnnouncementFeedAdmin({
   tenantId,
   announcementTypes,
   onPostNew,
+  readOnly,
 }: AnnouncementFeedAdminProps) {
   const qc = useQueryClient();
   const { userId } = useChurch();
@@ -123,10 +125,12 @@ export function AnnouncementFeedAdmin({
 
   const archiveMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) throw new Error("Read-only access");
       const { error } = await supabase
         .from(TABLES.ANNOUNCEMENTS)
         .update({ status: "archived" } as never)
-        .eq("id", id);
+        .eq("id", id)
+        .eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -140,10 +144,12 @@ export function AnnouncementFeedAdmin({
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (readOnly) throw new Error("Read-only access");
       const { error } = await supabase
         .from(TABLES.ANNOUNCEMENTS)
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -157,10 +163,12 @@ export function AnnouncementFeedAdmin({
 
   const togglePinMutation = useMutation({
     mutationFn: async ({ id, pinned }: { id: string; pinned: boolean }) => {
+      if (readOnly) throw new Error("Read-only access");
       const { error } = await supabase
         .from(TABLES.ANNOUNCEMENTS)
         .update({ is_pinned: pinned } as never)
-        .eq("id", id);
+        .eq("id", id)
+        .eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -173,10 +181,12 @@ export function AnnouncementFeedAdmin({
 
   const duplicateMutation = useMutation({
     mutationFn: async (ann: Announcement) => {
+      if (readOnly) throw new Error("Read-only access");
+      if (ann.tenant_id !== tenantId) throw new Error("Tenant mismatch");
       const { error } = await supabase
         .from(TABLES.ANNOUNCEMENTS)
         .insert({
-          tenant_id: ann.tenant_id,
+          tenant_id: tenantId,
           title: `Copy of ${ann.title}`,
           body: ann.body,
           rich_body: ann.rich_body,
@@ -297,6 +307,7 @@ export function AnnouncementFeedAdmin({
               size="sm"
               className="bg-orange-500 hover:bg-orange-600 text-white"
               onClick={onPostNew}
+              disabled={readOnly}
             >
               <Megaphone className="h-4 w-4 mr-1.5" />
               Post Announcement
@@ -324,6 +335,7 @@ export function AnnouncementFeedAdmin({
                 onDelete={handleDelete}
                 onViewReceipts={handleViewReceipts}
                 onTogglePin={handleTogglePin}
+                readOnly={readOnly}
               />
             </motion.div>
           ))}
@@ -337,6 +349,7 @@ export function AnnouncementFeedAdmin({
         tenantId={tenantId}
         userId={userId}
         editData={editData}
+        readOnly={readOnly}
       />
     </div>
   );

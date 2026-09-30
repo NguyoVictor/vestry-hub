@@ -82,6 +82,7 @@ export default function MemberLoginPage() {
         tenantId: fnData.tenant.id,
         memberName: `${fnData.member.first_name} ${fnData.member.last_name}`,
         memberType: fnData.member.member_type || "member",
+        enabledModules: fnData.tenant.enabled_modules?.member_portal || {},
         sessionToken: fnData.sessionToken,
         expiresAt: fnData.expiresAt,
       };

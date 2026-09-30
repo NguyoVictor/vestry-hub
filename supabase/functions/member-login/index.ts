@@ -26,7 +26,7 @@ Deno.serve(async (req: Request) => {
     // 1. Look up tenant by church_code OR invite_code (both are the same access code)
     const { data: tenant } = await supabase
       .from("tenants")
-      .select("id, name, logo, church_code, slug")
+      .select("id, name, logo, church_code, slug, enabled_modules")
       .or(`church_code.eq.${churchCode.trim().toUpperCase()},invite_code.eq.${churchCode.trim().toUpperCase()}`)
       .single();
 

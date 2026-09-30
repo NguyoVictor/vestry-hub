@@ -52,6 +52,7 @@ interface AnnouncementCardAdminProps {
   onDelete: (id: string) => void;
   onViewReceipts: (id: string) => void;
   onTogglePin: (id: string, pinned: boolean) => void;
+  readOnly: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ export function AnnouncementCardAdmin({
   onDelete,
   onViewReceipts,
   onTogglePin,
+  readOnly,
 }: AnnouncementCardAdminProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [receiptsOpen, setReceiptsOpen] = useState(false);
@@ -201,6 +203,7 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
+                disabled={readOnly}
                 onClick={(e) => { e.stopPropagation(); onEdit(announcement); }}
               >
                 <Pencil className="h-4 w-4 text-slate-400" />
@@ -209,6 +212,7 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
+                disabled={readOnly}
                 onClick={(e) => { e.stopPropagation(); onTogglePin(announcement.id, !isPinned); }}
               >
                 {isPinned ? (
@@ -220,6 +224,7 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
+                disabled={readOnly}
                 onClick={(e) => { e.stopPropagation(); onDuplicate(announcement); }}
               >
                 <Copy className="h-4 w-4 text-slate-400" />
@@ -230,6 +235,7 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer"
+                disabled={readOnly}
                 onClick={(e) => { e.stopPropagation(); onArchive(announcement.id); }}
               >
                 <Archive className="h-4 w-4 text-slate-400" />
@@ -252,6 +258,7 @@ export function AnnouncementCardAdmin({
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+                disabled={readOnly}
                 onClick={(e) => { e.stopPropagation(); setDeleteOpen(true); }}
               >
                 <Trash2 className="h-4 w-4" />

@@ -37,7 +37,7 @@ export default function CMClasses() {
     queryFn: async () => {
       // Seed defaults if none exist
       const { data, count } = await supabase.from(TABLES.CHILDREN_CLASSES).select("*, teacher:members!children_classes_teacher_id_fkey(first_name, last_name)", { count: "exact" }).eq("tenant_id", tenantId!).order("min_age");
-      if (count === 0) {
+      if (count === 0 && !readOnly) {
         await supabase.from(TABLES.CHILDREN_CLASSES).insert(
           DEFAULT_CLASSES.map(c => ({ ...c, tenant_id: tenantId! })) as any
         );
@@ -65,7 +65,8 @@ export default function CMClasses() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(TABLES.CHILDREN_CLASSES).delete().eq("id", id);
+      if (readOnly) return;
+      const { error } = await supabase.from(TABLES.CHILDREN_CLASSES).delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["children-classes"] }); toast.success("Class deleted"); setDeleteId(null); },
@@ -159,13 +160,13 @@ export default function CMClasses() {
         )}
       </PageTransition>
 
-      <ClassModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} tenantId={tenantId!} />
+      <ClassModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} tenantId={tenantId!} readOnly={readOnly} />
       <ConfirmDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)} title="Delete class?" description="This will remove the class. Children in this class will be unassigned." confirmLabel="Delete" destructive onConfirm={() => deleteId && deleteMutation.mutate(deleteId)} loading={deleteMutation.isPending} />
     </>
   );
 }
 
-function ClassModal({ open, onClose, editing, tenantId }: { open: boolean; onClose: () => void; editing: ChildClass | null; tenantId: string }) {
+function ClassModal({ open, onClose, editing, tenantId, readOnly }: { open: boolean; onClose: () => void; editing: ChildClass | null; tenantId: string; readOnly: boolean }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({ name: "", min_age: 0, max_age: 12, teacher_id: "", capacity: "", active: true });
 
@@ -183,9 +184,10 @@ function ClassModal({ open, onClose, editing, tenantId }: { open: boolean; onClo
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (readOnly) return;
       const payload = { name: form.name, min_age: form.min_age, max_age: form.max_age, teacher_id: form.teacher_id || null, capacity: form.capacity ? Number(form.capacity) : null, active: form.active };
       if (editing) {
-        const { error } = await supabase.from(TABLES.CHILDREN_CLASSES).update(payload as any).eq("id", editing.id);
+        const { error } = await supabase.from(TABLES.CHILDREN_CLASSES).update(payload as any).eq("id", editing.id).eq("tenant_id", tenantId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from(TABLES.CHILDREN_CLASSES).insert({ ...payload, tenant_id: tenantId } as any);
@@ -220,7 +222,7 @@ function ClassModal({ open, onClose, editing, tenantId }: { open: boolean; onClo
         </div>
         <div className="px-6 pb-6 pt-4 border-t border-slate-100 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose} className="border-slate-200">Cancel</Button>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold" disabled={!form.name || mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-semibold" disabled={readOnly || !form.name || mutation.isPending} onClick={() => mutation.mutate()}>
             {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? "Save Changes" : "Add Class"}
           </Button>
         </div>

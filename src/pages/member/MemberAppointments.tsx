@@ -55,13 +55,12 @@ function RequestDrawer({ open, onClose, types, memberId, tenantId, memberName, o
   const submit = async () => {
     setSubmitting(true);
     try {
-      const jitsiRoom = form.mode === 'online' ? `vestryhub-apt-${crypto.randomUUID()}` : null;
       const { error } = await supabase.from(TABLES.APPOINTMENTS).insert({
         tenant_id: tenantId, member_id: memberId,
         appointment_type_id: form.typeId || null,
         mode: form.mode, preferred_date: form.date,
         preferred_time: form.time, notes: form.notes || null,
-        status: 'pending', jitsi_room_name: jitsiRoom,
+        status: 'pending',
       } as never);
       if (error) throw error;
       // Notify admins
@@ -225,8 +224,9 @@ export default function MemberAppointments() {
     queryKey: ['member-appointments', member.memberId],
     queryFn: async () => {
       const { data, error } = await supabase.from(TABLES.APPOINTMENTS)
-        .select('*, appointment_types(id,label,description), members(first_name,last_name,avatar_url)')
+        .select('id,tenant_id,member_id,appointment_type_id,mode,preferred_date,preferred_time,notes,status,assigned_staff_id,location,physical_notes,jitsi_room_name,rescheduled_date,rescheduled_time,decline_reason,created_at,updated_at, appointment_types(id,label,description), members(first_name,last_name,avatar_url)')
         .eq('member_id', member.memberId)
+        .eq(COLS.TENANT_ID, member.churchId)
         .order('preferred_date', { ascending: false });
       if (error) throw error;
       return (data ?? []) as Appointment[];
@@ -301,7 +301,7 @@ export default function MemberAppointments() {
                 </p>
                 <div className="space-y-3">
                   {apts.map((apt, i) => {
-                    const jitsiRoom = apt.jitsi_room_name ?? `vestryhub-apt-${apt.id}`;
+                    const jitsiRoom = apt.jitsi_room_name;
                     const effectiveDate = apt.rescheduled_date ?? apt.preferred_date;
                     const effectiveTime = apt.rescheduled_time ?? apt.preferred_time;
                     return (
@@ -342,7 +342,7 @@ export default function MemberAppointments() {
                           </div>
                         )}
 
-                        {apt.status === 'confirmed' && apt.mode === 'online' && (
+                        {apt.mode === 'online' && apt.jitsi_room_name && (apt.status === 'confirmed' || apt.status === 'rescheduled') && (
                           <div className="mt-2">
                             <JoinMeetingButton
                               meetingDate={effectiveDate}

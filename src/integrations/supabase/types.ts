@@ -6940,6 +6940,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_member_published_testimonies: { Args: { p_tenant_id: string }; Returns: Json }
       get_my_tenant_id: { Args: never; Returns: string }
       get_my_tenant_id_safe: { Args: never; Returns: string }
       post_auto_journal_entry: {

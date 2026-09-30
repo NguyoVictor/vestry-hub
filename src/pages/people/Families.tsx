@@ -41,7 +41,7 @@ const Families = () => {
       const headIds = [...new Set(data.map((f: any) => f.head_of_household_id).filter(Boolean))];
       let headMap: Record<string, any> = {};
       if (headIds.length) {
-        const { data: heads } = await supabase.from("members").select("id, first_name, last_name, avatar_url").in("id", headIds as string[]);
+        const { data: heads } = await supabase.from("members").select("id, first_name, last_name, avatar_url").in("id", headIds as string[]).eq("tenant_id", tenantId!);
         headMap = Object.fromEntries((heads || []).map(h => [h.id, h]));
       }
       return data.map((f: any) => ({ ...f, head: headMap[f.head_of_household_id] || null, memberCount: counts[f.id] || 0 }));
@@ -81,7 +81,7 @@ const Families = () => {
 
       if (editingFamily) {
         // Update family name
-        const { error } = await supabase.from("families").update({ name: data.name, updated_at: new Date().toISOString() } as any).eq("id", editingFamily.id);
+        const { error } = await supabase.from("families").update({ name: data.name, updated_at: new Date().toISOString() } as any).eq("id", editingFamily.id).eq("tenant_id", tenantId!);
         if (error) throw error;
         // Delete existing members and re-insert
         await supabase.from("family_members").delete().eq("family_id", editingFamily.id);
@@ -131,7 +131,7 @@ const Families = () => {
     mutationFn: async (id: string) => {
       if (readOnly) return;
       await supabase.from("family_members").delete().eq("family_id", id);
-      const { error } = await supabase.from("families").delete().eq("id", id);
+      const { error } = await supabase.from("families").delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["families"] }); toast.success("Family deleted"); },

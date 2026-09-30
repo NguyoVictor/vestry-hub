@@ -266,47 +266,21 @@ export default function SurveyTakePage() {
       const memberId = (!survey.is_anonymous && memberSession?.memberId) ? memberSession.memberId : null;
       const memberName = (!survey.is_anonymous && memberSession?.memberName) ? memberSession.memberName : null;
 
-      // Insert response
-      const { data: resp, error: respErr } = await supabase
-        .from(TABLES.SURVEY_RESPONSES)
-        .insert({
-          survey_id: surveyId!,
-          tenant_id: survey.tenant_id,
-          member_id: memberId,
-          member_name: memberName,
-          started_at: startedAt.current.toISOString(),
-          completed_at: completedAt.toISOString(),
-          time_taken_seconds: timeTaken,
-          is_complete: true,
-          responses: answers as any,
-        } as any)
-        .select("id")
-        .single();
+      // Submit the response atomically. The database derives per-question answer rows
+      // from the survey's canonical JSON question model and enforces audience/tenant rules.
+      const { error: respErr } = await supabase.rpc("submit_survey_response" as any, {
+        p_survey_id: surveyId!,
+        p_tenant_id: survey.tenant_id,
+        p_member_id: memberId,
+        p_member_name: memberName,
+        p_started_at: startedAt.current.toISOString(),
+        p_completed_at: completedAt.toISOString(),
+        p_time_taken_seconds: timeTaken,
+        p_responses: answers as any,
+      } as any);
       if (respErr) throw respErr;
 
-      // Insert answers
-      const questions: Question[] = Array.isArray(survey.questions) ? survey.questions : [];
-      const answerRows = questions.map((q, i) => {
-        const val = answers[i];
-        return {
-          response_id: resp.id,
-          question_index: i,
-          question_type: q.type,
-          question_text: q.text,
-          answer_value: val !== undefined ? val : null,
-          answer_text: typeof val === "string" ? val : null,
-          answer_options: Array.isArray(val) ? val : null,
-          answer_rating: q.type === "rating" ? Number(val) || null : null,
-          answer_boolean: q.type === "yes_no" ? (val === true || val === false ? val : null) : null,
-        };
-      });
-
-      if (answerRows.length) {
-        const { error: ansErr } = await supabase.from(TABLES.SURVEY_ANSWERS).insert(answerRows as any);
-        if (ansErr) throw ansErr;
-      }
-
-      // Increment view_count
+      // Increment view_count through the audience-aware counter RPC.
       await supabase.rpc("increment_survey_view_count" as any, { survey_id: surveyId });
     },
     onSuccess: () => setSubmitted(true),

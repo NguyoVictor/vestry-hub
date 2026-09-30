@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useChurch } from '@/contexts/ChurchContext';
+import { usePermissions } from '@/hooks/usePermissions';
+import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
 import { TABLES, COLS } from '@/lib/schema';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -139,6 +141,8 @@ function AppointmentsCalendar({ appointments, onSelect }: { appointments: Appoin
 
 export default function Appointments() {
   const { tenantId, userId, userName } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('communication_tools');
   const qc = useQueryClient();
   const [view, setView] = useState<'list' | 'calendar'>('list');
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
@@ -164,8 +168,8 @@ export default function Appointments() {
   const { data: staffList = [] } = useQuery({
     queryKey: ['staff-list', tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.USERS).select('id, first_name, last_name, email').eq(COLS.TENANT_ID, tenantId);
-      return data ?? [];
+      const { data } = await supabase.from(TABLES.USERS).select('id, first_name, last_name, email, role, status').eq(COLS.TENANT_ID, tenantId).eq('status', 'active');
+      return (data ?? []).filter((staff: any) => !['member', 'guest'].includes(String(staff.role ?? '').toLowerCase()));
     },
     staleTime: 300_000,
   });
@@ -201,6 +205,7 @@ export default function Appointments() {
 
   return (
     <PageTransition>
+      {readOnly && <ReadOnlyBanner section="Communication Tools" />}
       <Helmet><title>Appointments — Vestry</title></Helmet>
       <div className="font-jakarta space-y-6">
         {/* Header */}
@@ -347,6 +352,7 @@ export default function Appointments() {
         tenantId={tenantId}
         adminName={userName}
         onUpdated={() => qc.invalidateQueries({ queryKey: ['admin-appointments', tenantId] })}
+        readOnly={readOnly}
       />
     </PageTransition>
   );
@@ -360,9 +366,10 @@ interface DrawerProps {
   tenantId: string;
   adminName: string;
   onUpdated: () => void;
+  readOnly: boolean;
 }
 
-function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName, onUpdated }: DrawerProps) {
+function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName, onUpdated, readOnly }: DrawerProps) {
   const [staffId, setStaffId] = useState('');
   const [location, setLocation] = useState('');
   const [physicalNotes, setPhysicalNotes] = useState('');
@@ -373,7 +380,7 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
   const [saving, setSaving] = useState(false);
 
   // Sync fields when apt changes
-  useState(() => {
+  useEffect(() => {
     if (apt) {
       setStaffId(apt.assigned_staff_id ?? 'unassigned');
       setLocation(apt.location ?? '');
@@ -383,7 +390,7 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
       setReschedDate(apt.rescheduled_date ?? '');
       setReschedTime(apt.rescheduled_time ?? '');
     }
-  });
+  }, [apt]);
 
   const notify = async (memberId: string, title: string, body: string) => {
     await supabase.from(TABLES.NOTIFICATIONS).insert({
@@ -404,6 +411,7 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
 
   const updateStatus = async (status: AppointmentStatus, extra: Record<string, any> = {}) => {
     if (!apt) return;
+    if (readOnly) throw new Error('Read-only access');
     setSaving(true);
     try {
       const jitsiRoom = apt.mode === 'online' ? `vestryhub-apt-${apt.id}` : null;
@@ -413,11 +421,11 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
         location: location || null,
         physical_notes: physicalNotes || null,
         admin_notes: adminNotes || null,
-        jitsi_room_name: status === 'confirmed' && apt.mode === 'online' ? jitsiRoom : apt.jitsi_room_name,
+        jitsi_room_name: (status === 'confirmed' || status === 'rescheduled') && apt.mode === 'online' ? jitsiRoom : apt.jitsi_room_name,
         updated_at: new Date().toISOString(),
         ...extra,
       };
-      const { error } = await supabase.from(TABLES.APPOINTMENTS).update(payload).eq('id', apt.id);
+      const { error } = await supabase.from(TABLES.APPOINTMENTS).update(payload).eq('id', apt.id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
 
       const member = apt.members;
@@ -451,9 +459,11 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
   if (!apt) return null;
   const member = apt.members;
   const name = member ? `${member.first_name} ${member.last_name}` : 'Unknown';
-  const date = format(parseISO(apt.preferred_date), 'EEEE, dd MMMM yyyy');
-  const time = apt.preferred_time.slice(0, 5);
-  const jitsiRoom = `vestryhub-apt-${apt.id}`;
+  const effectiveDate = apt.rescheduled_date ?? apt.preferred_date;
+  const effectiveTime = apt.rescheduled_time ?? apt.preferred_time;
+  const date = format(parseISO(effectiveDate), 'EEEE, dd MMMM yyyy');
+  const time = effectiveTime.slice(0, 5);
+  const jitsiRoom = apt.jitsi_room_name ?? `vestryhub-apt-${apt.id}`;
 
   return (
     <Sheet open={!!apt} onOpenChange={v => !v && onClose()}>
@@ -494,8 +504,8 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
 
           <div className="flex items-center justify-between">
             <StatusBadge status={apt.status} />
-            {apt.mode === 'online' && apt.status === 'confirmed' && (
-              <JoinMeetingButton meetingDate={apt.preferred_date} meetingTime={apt.preferred_time} roomName={jitsiRoom} displayName={adminName} title={apt.appointment_types?.label} size="sm" />
+            {apt.mode === 'online' && (apt.status === 'confirmed' || apt.status === 'rescheduled') && (
+              <JoinMeetingButton meetingDate={effectiveDate} meetingTime={effectiveTime} roomName={jitsiRoom} displayName={adminName} title={apt.appointment_types?.label} size="sm" />
             )}
           </div>
 
@@ -509,7 +519,7 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
           {/* Staff assignment */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-slate-600">Assign Staff Member</Label>
-            <Select value={staffId} onValueChange={setStaffId}>
+            <Select value={staffId} onValueChange={setStaffId} disabled={readOnly}>
               <SelectTrigger className="h-10 border-slate-200 text-sm"><SelectValue placeholder="Select staff..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
@@ -524,16 +534,16 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
             <>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Location</Label>
-                <Input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Church Office, Room 2" className="h-10 border-slate-200 text-sm" />
+                <Input value={location} onChange={e => setLocation(e.target.value)} disabled={readOnly} placeholder="e.g. Church Office, Room 2" className="h-10 border-slate-200 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Location Notes</Label>
-                <Textarea value={physicalNotes} onChange={e => setPhysicalNotes(e.target.value)} rows={2} placeholder="Directions or additional info..." className="border-slate-200 text-sm resize-none" />
+                <Textarea value={physicalNotes} onChange={e => setPhysicalNotes(e.target.value)} disabled={readOnly} rows={2} placeholder="Directions or additional info..." className="border-slate-200 text-sm resize-none" />
               </div>
             </>
           )}
 
-          {apt.mode === 'online' && apt.status === 'confirmed' && (
+          {apt.mode === 'online' && (apt.status === 'confirmed' || apt.status === 'rescheduled') && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
               <p className="text-xs text-blue-600 font-medium mb-1">Jitsi Room</p>
               <p className="text-xs font-mono text-blue-700">{jitsiRoom}</p>
@@ -542,14 +552,14 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
 
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-slate-600">Admin Notes (private)</Label>
-            <Textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} rows={2} placeholder="Internal notes..." className="border-slate-200 text-sm resize-none" />
+            <Textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} disabled={readOnly} rows={2} placeholder="Internal notes..." className="border-slate-200 text-sm resize-none" />
           </div>
 
           {/* Decline reason */}
           {apt.status === 'pending' && (
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-slate-600">Decline Reason (if declining)</Label>
-              <Input value={declineReason} onChange={e => setDeclineReason(e.target.value)} placeholder="Optional reason..." className="h-10 border-slate-200 text-sm" />
+              <Input value={declineReason} onChange={e => setDeclineReason(e.target.value)} disabled={readOnly} placeholder="Optional reason..." className="h-10 border-slate-200 text-sm" />
             </div>
           )}
 
@@ -558,11 +568,11 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Reschedule Date</Label>
-                <Input type="date" value={reschedDate} onChange={e => setReschedDate(e.target.value)} className="h-10 border-slate-200 text-sm" />
+                <Input type="date" value={reschedDate} onChange={e => setReschedDate(e.target.value)} disabled={readOnly} className="h-10 border-slate-200 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Reschedule Time</Label>
-                <Input type="time" value={reschedTime} onChange={e => setReschedTime(e.target.value)} className="h-10 border-slate-200 text-sm" />
+                <Input type="time" value={reschedTime} onChange={e => setReschedTime(e.target.value)} disabled={readOnly} className="h-10 border-slate-200 text-sm" />
               </div>
             </div>
           )}
@@ -571,26 +581,26 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
           <div className="grid grid-cols-2 gap-2 pt-2">
             {apt.status === 'pending' && (
               <>
-                <Button className="bg-green-500 hover:bg-green-600 text-white gap-1.5" disabled={saving} onClick={() => updateStatus('confirmed')}>
+                <Button className="bg-green-500 hover:bg-green-600 text-white gap-1.5" disabled={saving || readOnly} onClick={() => updateStatus('confirmed')}>
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}Confirm
                 </Button>
-                <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 gap-1.5" disabled={saving} onClick={() => updateStatus('declined', { decline_reason: declineReason || null })}>
+                <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 gap-1.5" disabled={saving || readOnly} onClick={() => updateStatus('declined', { decline_reason: declineReason || null })}>
                   <XCircle className="h-4 w-4" />Decline
                 </Button>
               </>
             )}
-            {(apt.status === 'pending' || apt.status === 'confirmed') && reschedDate && (
-              <Button variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50 gap-1.5 col-span-2" disabled={saving} onClick={() => updateStatus('rescheduled', { rescheduled_date: reschedDate, rescheduled_time: reschedTime || apt.preferred_time })}>
+            {(apt.status === 'pending' || apt.status === 'confirmed' || apt.status === 'rescheduled') && reschedDate && (
+              <Button variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50 gap-1.5 col-span-2" disabled={saving || readOnly} onClick={() => updateStatus('rescheduled', { rescheduled_date: reschedDate, rescheduled_time: reschedTime || apt.preferred_time })}>
                 <RotateCcw className="h-4 w-4" />Reschedule
               </Button>
             )}
-            {apt.status === 'confirmed' && (
-              <Button className="bg-slate-700 hover:bg-slate-800 text-white gap-1.5" disabled={saving} onClick={() => updateStatus('completed')}>
+            {(apt.status === 'confirmed' || apt.status === 'rescheduled') && (
+              <Button className="bg-slate-700 hover:bg-slate-800 text-white gap-1.5" disabled={saving || readOnly} onClick={() => updateStatus('completed')}>
                 <CheckCircle2 className="h-4 w-4" />Mark Complete
               </Button>
             )}
             {apt.status !== 'cancelled' && apt.status !== 'completed' && (
-              <Button variant="outline" className="border-slate-200 text-slate-500 hover:bg-slate-50 gap-1.5" disabled={saving} onClick={() => updateStatus('cancelled')}>
+              <Button variant="outline" className="border-slate-200 text-slate-500 hover:bg-slate-50 gap-1.5" disabled={saving || readOnly} onClick={() => updateStatus('cancelled')}>
                 <X className="h-4 w-4" />Cancel
               </Button>
             )}

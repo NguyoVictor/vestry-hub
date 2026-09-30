@@ -128,7 +128,8 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
       const { data, error } = await supabase
         .from(TABLES.MEETING_ATTENDEES)
         .select("id, member_id, attendance_status, is_present")
-        .eq("meeting_id", meetingId!);
+        .eq("meeting_id", meetingId!)
+        .eq("tenant_id", tenantId);
       if (error) throw error;
       const rows = data ?? [];
 
@@ -193,6 +194,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
         .from(TABLES.MEETING_ACTION_ITEMS)
         .select("*")
         .eq("meeting_id", meetingId!)
+        .eq("tenant_id", tenantId)
         .order("created_at");
       if (error) throw error;
       return data ?? [];
@@ -258,6 +260,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
           .from(TABLES.MEETING_ATTENDEES)
           .update({ is_present: attendance[a.id] ?? true })
           .eq("id", a.id)
+          .eq("tenant_id", tenantId)
       );
       await Promise.all(attendanceUpdates);
 
@@ -266,7 +269,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
       const currentDecisionIds = decisions.filter(d => !d.isNew).map(d => d.id);
       const deletedDecisionIds = existingDecisionIds.filter((id: string) => !currentDecisionIds.includes(id));
       if (deletedDecisionIds.length) {
-        await supabase.from(TABLES.MEETING_DECISIONS).delete().in("id", deletedDecisionIds);
+        await supabase.from(TABLES.MEETING_DECISIONS).delete().in("id", deletedDecisionIds).eq("tenant_id", tenantId);
       }
       const newDecisions = decisions.filter(d => d.isNew && d.decision_text.trim());
       if (newDecisions.length) {
@@ -284,7 +287,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
       const currentActionIds = actionItems.filter(a => !a.isNew).map(a => a.id);
       const deletedActionIds = existingActionIds.filter((id: string) => !currentActionIds.includes(id));
       if (deletedActionIds.length) {
-        await supabase.from(TABLES.MEETING_ACTION_ITEMS).delete().in("id", deletedActionIds);
+        await supabase.from(TABLES.MEETING_ACTION_ITEMS).delete().in("id", deletedActionIds).eq("tenant_id", tenantId);
       }
       const newActions = actionItems.filter(a => a.isNew && a.task_description.trim());
       if (newActions.length) {
@@ -295,6 +298,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
             assigned_to: a.assigned_to,
             due_date: a.due_date || null,
             status: a.status,
+            tenant_id: tenantId,
           }))
         );
       }
@@ -306,7 +310,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
             assigned_to: a.assigned_to,
             due_date: a.due_date || null,
             status: a.status,
-          }).eq("id", a.id)
+          }).eq("id", a.id).eq("tenant_id", tenantId)
         )
       );
 

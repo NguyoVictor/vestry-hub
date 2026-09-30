@@ -283,7 +283,7 @@ const NewConverts = () => {
           baptism_status: values.baptism_status,
           baptism_date: values.baptism_date || null,
           updated_at: new Date().toISOString(),
-        } as any).eq("id", editingConvert.id);
+        } as any).eq("id", editingConvert.id).eq("tenant_id", tenantId!);
         if (error) throw error;
       } else {
         const { error } = await supabase.from(TABLES.NEW_CONVERTS).insert({
@@ -325,7 +325,7 @@ const NewConverts = () => {
       if (newStage < 2) updates.baptism_status = "not_baptized";
       if (isGraduating) updates.graduated_at = new Date().toISOString();
       if (isUndoingGraduation) updates.graduated_at = null;
-      const { error } = await supabase.from(TABLES.NEW_CONVERTS).update(updates as any).eq("id", id);
+      const { error } = await supabase.from(TABLES.NEW_CONVERTS).update(updates as any).eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
       return { isGraduating, newStage };
     },
@@ -375,7 +375,7 @@ const NewConverts = () => {
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.NEW_CONVERTS).delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.NEW_CONVERTS).delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
     onSuccess: () => {

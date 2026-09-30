@@ -55,12 +55,14 @@ const MemberProfile = () => {
         .from("members")
         .select("*")
         .eq("id", memberId!)
+        .eq("tenant_id", tenantId!)
         .maybeSingle();
       if (memberData) return memberData;
       const { data, error } = await supabase
         .from("users")
         .select("id, tenant_id, email, role, first_name, last_name, phone, date_of_birth, join_date, status, gender, avatar_url, created_at, updated_at")
         .eq("id", memberId!)
+        .eq("tenant_id", tenantId!)
         .single();
       if (error) throw error;
       return data;
@@ -72,7 +74,7 @@ const MemberProfile = () => {
   const { data: groups = [] } = useQuery({
     queryKey: ["member-groups", memberId],
     queryFn: async () => {
-      const { data } = await supabase.from("group_members").select("*, groups(name, type)").eq("member_id", memberId!) as any;
+      const { data } = await supabase.from("group_members").select("*, groups(name, type)").eq("member_id", memberId!).eq("tenant_id", tenantId!) as any;
       return data || [];
     },
     enabled: !!memberId,
@@ -135,7 +137,8 @@ const MemberProfile = () => {
       const { error } = await supabase
         .from(TABLES.MEMBERS)
         .update(updateData)
-        .eq("id", memberId!);
+        .eq("id", memberId!)
+        .eq("tenant_id", tenantId!);
         
       if (error) {
         console.error("Member update error:", error);
@@ -167,7 +170,8 @@ const MemberProfile = () => {
           const { error: additionalError } = await supabase
             .from(TABLES.MEMBERS)
             .update(additionalData)
-            .eq("id", memberId!);
+            .eq("id", memberId!)
+            .eq("tenant_id", tenantId!);
           
           if (additionalError) {
             console.warn("Additional columns update failed (non-critical):", additionalError);
@@ -281,7 +285,8 @@ const MemberProfile = () => {
                     const { error } = await supabase
                       .from(TABLES.MEMBERS)
                       .update({ membership_status: "Member", status: "active" } as any)
-                      .eq("id", memberId!);
+                      .eq("id", memberId!)
+                      .eq("tenant_id", tenantId!);
                     
                     if (error) throw error;
                     

@@ -214,7 +214,7 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
         name: form.name, department: form.department || null, description: form.description || null,
         min_volunteers: form.min_volunteers, max_volunteers: form.max_volunteers,
         requirements: form.requirements || null, time_commitment: form.time_commitment || null,
-      } as any).eq("id", editRole.id);
+      } as any).eq("id", editRole.id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [TABLES.VOLUNTEER_ROLES, tenantId] }); toast.success("Role updated"); setEditRole(null); },
@@ -224,7 +224,7 @@ function RolesTab({ roles, assignments, memberRecords, tenantId, queryClient, on
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.VOLUNTEER_ROLES).delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.VOLUNTEER_ROLES).delete().eq("id", id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [TABLES.VOLUNTEER_ROLES, tenantId] }); toast.success("Role deleted"); setDeleteId(null); },
@@ -424,10 +424,6 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
         logged_by: userId || null,
       });
       if (error) throw error;
-      // Update hours_served on the assignment
-      await supabase.from(TABLES.VOLUNTEERS).update({
-        hours_served: (data.volunteer.hours_served || 0) + Number(data.hours),
-      } as any).eq("id", data.volunteer.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [TABLES.VOLUNTEERS, tenantId] });
@@ -440,7 +436,7 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
   const markInactiveMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.VOLUNTEERS).update({ status: "inactive" } as any).eq("id", id);
+      const { error } = await supabase.from(TABLES.VOLUNTEERS).update({ status: "inactive" } as any).eq("id", id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [TABLES.VOLUNTEERS, tenantId] }); toast.success("Marked inactive"); },
@@ -450,7 +446,7 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
   const removeMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) return;
-      const { error } = await supabase.from(TABLES.VOLUNTEERS).delete().eq("id", id);
+      const { error } = await supabase.from(TABLES.VOLUNTEERS).delete().eq("id", id).eq(COLS.TENANT_ID, tenantId);
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: [TABLES.VOLUNTEERS, tenantId] }); toast.success("Volunteer removed"); setDeleteId(null); },
@@ -580,7 +576,7 @@ function VolunteersTab({ assignments, roles, memberRecords, tenantId, queryClien
 }
 
 // ─── Reports Tab ──────────────────────────────────────────────────────────────
-function ReportsTab({ assignments, roles, memberRecords }: any) {
+function ReportsTab({ assignments, roles, memberRecords, tenantId }: any) {
   const { isReadOnly } = usePermissions();
   const reportsReadOnly = isReadOnly('reports_analytics');
   const [period, setPeriod] = useState<"month" | "3months" | "year">("month");
@@ -634,7 +630,8 @@ function ReportsTab({ assignments, roles, memberRecords }: any) {
     : "0";
 
   const exportCSV = () => {
-    const rows = (assignments || []).map((a: any) => {
+    const tenantAssignments = (assignments || []).filter((a: any) => a.tenant_id === tenantId);
+    const rows = tenantAssignments.map((a: any) => {
       const role = roles?.find((r: any) => r.id === a.role_id);
       return [getMemberName(a.member_id), role?.name || "", role?.department || "", a.status || "", a.hours_served || 0, a.created_at ? format(new Date(a.created_at), "yyyy-MM-dd") : ""];
     });
@@ -927,7 +924,7 @@ export default function VolunteeringPage() {
               initialRoleFilter={volunteerRoleFilter} />
           )}
           {activeTab === "reports" && (
-            <ReportsTab roles={roles} assignments={assignments} memberRecords={memberRecords} />
+            <ReportsTab roles={roles} assignments={assignments} memberRecords={memberRecords} tenantId={tenantId} />
           )}
         </>
       )}

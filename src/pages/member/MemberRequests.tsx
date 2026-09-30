@@ -49,6 +49,7 @@ export default function MemberRequests() {
     queryFn: async () => {
       const { data } = await supabase.from("member_requests")
         .select("*").eq("member_id", member.memberId)
+        .eq("tenant_id", member.churchId)
         .order("created_at", { ascending: false });
       return data || [];
     },
@@ -75,7 +76,11 @@ export default function MemberRequests() {
         const { error } = await supabase.from("member_requests").update({
           request_type: form.request_type, title: form.title,
           description: form.description, priority: form.priority, is_confidential: form.is_confidential,
-        }).eq("id", editingId);
+        })
+          .eq("id", editingId)
+          .eq("member_id", member.memberId)
+          .eq("tenant_id", member.churchId)
+          .eq("status", "open");
         if (error) throw error;
       } else {
         const { error } = await supabase.from("member_requests").insert({
@@ -96,7 +101,12 @@ export default function MemberRequests() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("member_requests").delete().eq("id", id);
+      const { error } = await supabase.from("member_requests")
+        .delete()
+        .eq("id", id)
+        .eq("member_id", member.memberId)
+        .eq("tenant_id", member.churchId)
+        .eq("status", "open");
       if (error) throw error;
     },
     onSuccess: () => {
