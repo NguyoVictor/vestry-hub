@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
 
 export interface MemberPortalData {
   memberId: string;
   userId: string; // alias for memberId — same value
   tenantId: string;
   churchId: string; // alias for tenantId
+  churchSlug: string;
   churchName: string;
   churchLogoUrl: string | null;
   churchCode: string;
@@ -57,7 +59,7 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
           .single(),
         supabase
           .from("tenants")
-          .select("id, name, logo, church_code")
+          .select("id, name, logo, church_code, slug")
           .eq("id", session.tenantId)
           .single(),
       ]);
@@ -69,7 +71,9 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
         !church ||
         member.tenant_id !== session.tenantId ||
         member.status?.toLowerCase() === "inactive" ||
-        member.membership_status === "Pending Approval"
+        member.membership_status === "Pending Approval" ||
+        !church.slug ||
+        !tenantSlugMatchesHostname(window.location.hostname, church.slug, currentTenantBaseDomain())
       ) {
         localStorage.removeItem("member_session");
         setLoading(false);
@@ -83,12 +87,14 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
       // Module configuration is captured by the trusted member-login function.
       // P0 intentionally keeps tenants.enabled_modules out of anonymous tenant reads.
       const enabledModules: Record<string, boolean> = session.enabledModules || {};
+      localStorage.setItem("member_session", JSON.stringify({ ...session, tenantSlug: church.slug }));
 
       setData({
         memberId: member.id,
         userId: member.id, // alias
         tenantId: church.id, // Fixed: use church.id instead of church.tenantId
         churchId: church.id, // Fixed: use church.id instead of church.tenantId
+        churchSlug: church.slug,
         churchName: church.name,
         churchLogoUrl: church.logo,
         churchCode: church.church_code || "",

@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ChurchProvider, type ChurchData } from "@/contexts/ChurchContext";
 import { Loader2 } from "lucide-react";
+import { buildTenantUrl, currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
 
-type AuthState = "loading" | "unauthenticated" | "needs-onboarding" | "ready";
+type AuthState = "loading" | "unauthenticated" | "needs-onboarding" | "tenant-mismatch" | "ready";
 
 export const AuthGuard = () => {
   const [state, setState] = useState<AuthState>("loading");
@@ -65,14 +66,38 @@ export const AuthGuard = () => {
         return;
       }
 
+      const tenantSlug = String((tenant as any)?.slug || "").toLowerCase();
+      if (!tenantSlug || !tenantSlugMatchesHostname(window.location.hostname, tenantSlug, currentTenantBaseDomain())) {
+        if (mounted) {
+          setChurchData({
+            tenantId: user.tenant_id,
+            slug: tenantSlug,
+            name: (tenant as any)?.name || "",
+            currency: (tenant as any)?.currency || "KES",
+            city: (tenant as any)?.city || null,
+            country: (tenant as any)?.country || null,
+            logoUrl: (tenant as any)?.logo || null,
+            userId: session.user.id,
+            userName: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+            userEmail: user.email || session.user.email || "",
+            userRole: user.role || "member",
+            userFirstName: user.first_name || "",
+            userLastName: user.last_name || "",
+          });
+          setState("tenant-mismatch");
+        }
+        return;
+      }
+
       if (mounted) {
         setChurchData({
           tenantId: user.tenant_id,
+          slug: tenantSlug,
           name: (tenant as any)?.name || "",
           currency: (tenant as any)?.currency || "KES",
           city: (tenant as any)?.city || null,
           country: (tenant as any)?.country || null,
-          logoUrl: (tenant as any)?.logo_url || null,
+          logoUrl: (tenant as any)?.logo || null,
           userId: session.user.id,
           userName: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
           userEmail: user.email || session.user.email || "",
@@ -174,6 +199,18 @@ export const AuthGuard = () => {
 
   if (state === "unauthenticated") return <Navigate to="/auth/signin" state={{ from: location }} replace />;
   if (state === "needs-onboarding") return <Navigate to="/onboarding" replace />;
+  if (state === "tenant-mismatch" && churchData?.slug) {
+    const canonicalUrl = buildTenantUrl(churchData.slug, `${location.pathname}${location.search}${location.hash}`, { baseDomain: currentTenantBaseDomain() });
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
+          <h1 className="text-lg font-semibold">This session belongs to another church workspace</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Open the church's verified VestryHub address to continue.</p>
+          <a className="mt-4 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground" href={canonicalUrl}>Open {churchData.name || "church workspace"}</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ChurchProvider value={churchData ? { ...churchData, updateUserName } : null!}>

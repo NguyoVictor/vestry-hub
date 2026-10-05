@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
+import { buildTenantUrl } from "@/lib/tenantHost";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
 import { usePermissions } from '@/hooks/usePermissions';
@@ -1506,7 +1507,7 @@ function ResponseDetailModal({
 export default function FacilityBookingPage() {
   const { isReadOnly } = usePermissions();
   const readOnly = isReadOnly('event_management');
-  const { tenantId, userId, currency, name: churchName } = useChurch();
+  const { tenantId, slug: tenantSlug, userId, currency, name: churchName } = useChurch();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "facilities";
@@ -1674,9 +1675,9 @@ export default function FacilityBookingPage() {
   });
 
   const handleShare = useCallback((facility: any) => {
-    const url = `${window.location.origin}/book/${tenantId}/${facility.id}`;
+    const url = buildTenantUrl(tenantSlug, `/book/${tenantId}/${facility.id}`);
     navigator.clipboard.writeText(url).then(() => toast.success("Booking link copied!"));
-  }, [tenantId]);
+  }, [tenantId, tenantSlug]);
 
   // ── Filtered data ─────────────────────────────────────────────────────────────
 

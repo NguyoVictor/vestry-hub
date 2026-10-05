@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { MemberPortalProvider } from "@/contexts/MemberPortalContext";
+import { currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
 
 export function MemberAuthGuard() {
   const [status, setStatus] = useState<"loading" | "authed" | "no-session">("loading");
@@ -12,7 +13,8 @@ export function MemberAuthGuard() {
 
     try {
       const session = JSON.parse(raw);
-      if (!session.memberId || !session.tenantId || !session.sessionToken || !session.expiresAt || new Date(session.expiresAt) < new Date()) {
+      if (!session.memberId || !session.tenantId || !session.sessionToken || !session.expiresAt || new Date(session.expiresAt) < new Date() ||
+          (session.tenantSlug && !tenantSlugMatchesHostname(window.location.hostname, session.tenantSlug, currentTenantBaseDomain()))) {
         localStorage.removeItem("member_session");
         setStatus("no-session");
         return;

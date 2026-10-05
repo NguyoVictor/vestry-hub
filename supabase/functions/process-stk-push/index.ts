@@ -11,137 +11,111 @@ serve(async (req) => {
 
   try {
     const { amount, phone_number, tenant_id, member_id, donor_name, giving_type, notes } = await req.json()
+    const numericAmount = Number(amount)
 
-    if (!amount || !phone_number || !tenant_id) {
+    if (!tenant_id || !phone_number || !Number.isFinite(numericAmount) || numericAmount <= 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields', required: ['amount', 'phone_number', 'tenant_id'] }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing or invalid required fields', required: ['amount', 'phone_number', 'tenant_id'] }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Fetch tenant's Daraja credentials
-    const { data: tenant, error: tenantError } = await supabase
-      .from('tenants')
-      .select('daraja_consumer_key, daraja_consumer_secret, daraja_passkey, daraja_transaction_type, payhero_channel_number, payhero_connected, name')
-      .eq('id', tenant_id)
-      .single()
+    const [{ data: tenant, error: tenantError }, { data: credentials, error: credentialsError }] = await Promise.all([
+      supabase.from('tenants').select('id, name, payhero_connected').eq('id', tenant_id).single(),
+      supabase
+        .from('tenant_payment_credentials')
+        .select('daraja_consumer_key, daraja_consumer_secret, daraja_passkey, daraja_transaction_type, daraja_shortcode')
+        .eq('tenant_id', tenant_id)
+        .single(),
+    ])
 
     if (tenantError || !tenant) {
       return new Response(
         JSON.stringify({ error: 'Church not found', details: tenantError?.message }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    if (!tenant.payhero_connected) {
-      return new Response(
-        JSON.stringify({ error: 'Payments not configured', details: 'Church admin needs to set up M-Pesa payments in Settings → Payments.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (!tenant.daraja_consumer_key) {
+    if (credentialsError || !credentials?.daraja_consumer_key || !credentials.daraja_consumer_secret || !credentials.daraja_passkey || !credentials.daraja_shortcode) {
       return new Response(
         JSON.stringify({ error: 'Daraja credentials not configured', details: 'Contact church admin to complete M-Pesa setup.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    console.log('=== Daraja STK Push Processing ===')
-    console.log('Church:', tenant.name, '| Transaction Type:', tenant.daraja_transaction_type)
+    if (tenant.payhero_connected === false) {
+      return new Response(
+        JSON.stringify({ error: 'Payments not configured', details: 'Church admin needs to set up M-Pesa payments in Settings -> Payments.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
 
-    // Dynamic Daraja base URL
-    const DARAJA_BASE_URL = Deno.env.get('DARAJA_ENV') === 'production'
+    const webhookSecret = Deno.env.get('CHURCH_DARAJA_WEBHOOK_SECRET')
+    if (!webhookSecret) {
+      return new Response(
+        JSON.stringify({ error: 'Church payment callbacks are not configured' }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+    const callbackUrl = new URL(`${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-webhook`)
+    callbackUrl.searchParams.set('token', webhookSecret)
+
+    const darajaBaseUrl = Deno.env.get('DARAJA_ENV') === 'production'
       ? 'https://api.safaricom.co.ke'
       : 'https://sandbox.safaricom.co.ke'
 
-    // Generate access token
-    const auth = btoa(`${tenant.daraja_consumer_key}:${tenant.daraja_consumer_secret}`)
-    const tokenResponse = await fetch(`${DARAJA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials`, {
-      headers: { 'Authorization': `Basic ${auth}` }
+    const auth = btoa(`${credentials.daraja_consumer_key}:${credentials.daraja_consumer_secret}`)
+    const tokenResponse = await fetch(`${darajaBaseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+      headers: { Authorization: `Basic ${auth}` },
     })
-
-    if (!tokenResponse.ok) {
-      throw new Error('Failed to get Daraja access token')
-    }
-
+    if (!tokenResponse.ok) throw new Error('Failed to get Daraja access token')
     const { access_token } = await tokenResponse.json()
 
-    // Format phone number
-    const cleanPhone = phone_number.replace(/\D/g, '')
-    const formattedPhone = cleanPhone.startsWith('254') ? cleanPhone : `254${cleanPhone.substring(1)}`
-
-    // Generate unique transaction reference
+    const cleanPhone = String(phone_number).replace(/\D/g, '')
+    const formattedPhone = cleanPhone.startsWith('254') ? cleanPhone : `254${cleanPhone.replace(/^0/, '')}`
     const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').substring(0, 14)
-    const externalReference = `VH${tenant_id.substring(0, 4)}${timestamp}`
+    const shortcode = credentials.daraja_shortcode
+    const transactionType = credentials.daraja_transaction_type || 'CustomerPayBillOnline'
 
-    // Create giving record data but don't insert yet
-    const givingRecord = {
-      tenant_id,
-      member_id: member_id || null,
-      amount: parseFloat(amount),
-      donor_name: donor_name || 'Anonymous',
-      giving_type: giving_type || 'offering',
-      payment_method: 'mpesa',
-      payment_status: 'pending',
-      external_reference: externalReference,
-      notes: notes || null,
-      given_at: new Date().toISOString().split('T')[0],
-      currency: 'KES'
-    }
-
-    // STK Push request
     const stkPayload = {
-      BusinessShortCode: tenant.payhero_channel_number,
-      Password: btoa(`${tenant.payhero_channel_number}${tenant.daraja_passkey}${timestamp}`),
+      BusinessShortCode: shortcode,
+      Password: btoa(`${shortcode}${credentials.daraja_passkey}${timestamp}`),
       Timestamp: timestamp,
-      TransactionType: tenant.daraja_transaction_type,
-      Amount: Math.round(parseFloat(amount)),
+      TransactionType: transactionType,
+      Amount: Math.round(numericAmount),
       PartyA: formattedPhone,
-      PartyB: tenant.payhero_channel_number,
+      PartyB: shortcode,
       PhoneNumber: formattedPhone,
-      CallBackURL: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-webhook`,
+      CallBackURL: callbackUrl.toString(),
       AccountReference: `Donation-${tenant.name}`,
-      TransactionDesc: `Donation to ${tenant.name}`
+      TransactionDesc: `Donation to ${tenant.name}`,
     }
 
-    console.log('STK Push payload:', { ...stkPayload, Password: '[HIDDEN]' })
-
-    const stkResponse = await fetch(`${DARAJA_BASE_URL}/mpesa/stkpush/v1/processrequest`, {
+    const stkResponse = await fetch(`${darajaBaseUrl}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(stkPayload)
+      headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(stkPayload),
     })
-
     const stkData = await stkResponse.json()
-    console.log('STK Push response:', stkData)
 
-    if (!stkResponse.ok || stkData.errorCode) {
-      // STK Push failed - do NOT create giving record
+    if (!stkResponse.ok || stkData.errorCode || !stkData.CheckoutRequestID) {
       return new Response(
-        JSON.stringify({ 
-          error: 'STK Push failed',
-          details: stkData.errorMessage || stkData.ResponseDescription || 'Unknown error'
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'STK Push failed', details: stkData.errorMessage || stkData.ResponseDescription || 'Unknown error' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    // STK Push successful - NOW create the giving record
     const { data: createdRecord, error: recordError } = await supabase
       .from('giving_records')
       .insert({
         tenant_id,
         member_id: member_id || null,
-        amount: parseFloat(amount),
+        amount: numericAmount,
         donor_name: donor_name || 'Anonymous',
         giving_type: giving_type || 'offering',
         payment_method: 'mpesa',
@@ -150,17 +124,12 @@ serve(async (req) => {
         checkout_request_id: stkData.CheckoutRequestID,
         notes: notes || null,
         given_at: new Date().toISOString().split('T')[0],
-        currency: 'KES'
+        currency: 'KES',
       })
-      .select()
+      .select('id')
       .single()
 
-    if (recordError) {
-      console.error('Insert error:', JSON.stringify(recordError))
-      throw new Error(`Failed to create record: ${recordError.message}`)
-    }
-
-    console.log('Record created:', createdRecord?.id, 'external_reference:', createdRecord?.external_reference)
+    if (recordError || !createdRecord) throw new Error(`Failed to create record: ${recordError?.message || 'unknown error'}`)
 
     return new Response(
       JSON.stringify({
@@ -170,16 +139,15 @@ serve(async (req) => {
         checkout_request_id: stkData.CheckoutRequestID,
         external_reference: stkData.CheckoutRequestID,
         giving_record_id: createdRecord.id,
-        instructions: 'Please check your phone for M-Pesa prompt and enter your PIN to complete the donation.'
+        instructions: 'Please check your phone for M-Pesa prompt and enter your PIN to complete the donation.',
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
-
   } catch (error) {
-    console.error('Error in process-stk-push:', error)
+    console.error('Error in process-stk-push:', error instanceof Error ? error.message : error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })

@@ -123,6 +123,7 @@ export const TABLES = {
   ANNOUNCEMENT_READ_RECEIPTS: "announcement_read_receipts",
   BROADCASTS: "broadcasts",
   COMMUNICATIONS: "communications",
+  COMMUNICATION_JOBS: "communication_jobs",
   CONVERSATIONS: "conversations",
   CONVERSATION_PARTICIPANTS: "conversation_participants",
   MESSAGES: "messages",
@@ -208,6 +209,8 @@ export const TABLES = {
 
   // Subscription & Billing
   TENANT_SUBSCRIPTIONS: "tenant_subscriptions",
+  SUBSCRIPTION_CATALOG: "subscription_catalog",
+  SUBSCRIPTION_PAYMENT_ATTEMPTS: "subscription_payment_attempts",
   BILLING_HISTORY: "billing_history",
 
   // Bible Explorer (Member Side)

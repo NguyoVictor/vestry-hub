@@ -9,19 +9,24 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Check, Crown, Zap, Users, HardDrive, Mail, MessageSquare, Bot, ExternalLink } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
+import { Check, Crown, Zap, Users, HardDrive, Mail, MessageSquare, Bot, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Billing() {
-  const { subscription, plan, limits, usage, isLoading } = useSubscription();
+  const { subscription, plan, limits, usage, isLoading, catalogByCode } = useSubscription();
   const { tenantId } = useChurch();
   const [activeTab, setActiveTab] = useState('subscription');
   const [paymentModal, setPaymentModal] = useState<{ 
     show: boolean; 
     type: 'plan' | 'addon'; 
     item?: any; 
-    price?: number; 
+    price?: number;
+    productCode?: string;
   }>({ show: false, type: 'plan' });
+  const [paymentPhone, setPaymentPhone] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   if (isLoading) {
     return (
@@ -39,8 +44,34 @@ export default function Billing() {
     );
   }
 
-  const openPaymentModal = (type: 'plan' | 'addon', item: any, price: number) => {
-    setPaymentModal({ show: true, type, item, price });
+  const openPaymentModal = (type: 'plan' | 'addon', item: any, fallbackPrice: number) => {
+    const productCode = item.productCode;
+    const canonicalAmount = Number(catalogByCode?.[productCode]?.amount_kes ?? fallbackPrice);
+    setPaymentModal({ show: true, type, item, price: canonicalAmount, productCode });
+  };
+
+  const initiatePayment = async () => {
+    if (!paymentModal.productCode) return;
+    if (!paymentPhone.trim()) { toast.error('Enter the M-Pesa phone number to continue.'); return; }
+    setPaymentLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('initiate-subscription-stk', {
+        body: { product_code: paymentModal.productCode, phone: paymentPhone.trim() },
+      });
+      if (error) throw error;
+      if (data?.scheduled_downgrade) {
+        toast.success(`Downgrade scheduled for ${new Date(data.effective_at).toLocaleDateString()}.`);
+        setPaymentModal(prev => ({ ...prev, show: false }));
+      } else if (data?.unchanged) {
+        toast.info('You are already on this plan.');
+      } else {
+        toast.success(data?.customer_message || 'STK prompt sent. Complete the payment on your phone.');
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Unable to start M-Pesa payment.');
+    } finally {
+      setPaymentLoading(false);
+    }
   };
 
   const getUsageColor = (percent: number) => {
@@ -393,31 +424,23 @@ export default function Billing() {
               </div>
 
               <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-                <h4 className="font-semibold text-slate-900">Payment Instructions</h4>
-                <div className="space-y-2 text-sm text-slate-600">
-                  <p>1. Go to M-Pesa on your phone</p>
-                  <p>2. Select "Lipa na M-Pesa" → "Pay Bill"</p>
-                  <p>3. Enter Business Number: <span className="font-mono font-semibold">000000</span></p>
-                  <p>4. Enter Account Number: <span className="font-mono font-semibold">{tenantId?.slice(0, 8).toUpperCase()}</span></p>
-                  <p>5. Enter Amount: <span className="font-semibold">KSh {paymentModal.price?.toLocaleString()}</span></p>
-                  <p>6. Complete the transaction</p>
-                </div>
-                <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                  <p className="text-xs text-blue-700">
-                    Your plan will be activated within 24 hours after payment confirmation.
-                  </p>
-                </div>
+                <h4 className="font-semibold text-slate-900">Pay with M-Pesa</h4>
+                <p className="text-sm text-slate-600">The amount is loaded from VestryHub's server-side subscription catalog. Enter the phone that should receive the STK prompt.</p>
+                <Input
+                  value={paymentPhone}
+                  onChange={(e) => setPaymentPhone(e.target.value)}
+                  placeholder="07XXXXXXXX or 2547XXXXXXXX"
+                  inputMode="tel"
+                />
               </div>
 
-              <Button 
+              <Button
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => {
-                  const message = `I've paid for the ${paymentModal.type === 'plan' ? paymentModal.item?.name + ' plan' : paymentModal.item?.label}. Reference: ${tenantId?.slice(0, 8).toUpperCase()}`;
-                  window.open(`https://wa.me/254XXXXXXXXX?text=${encodeURIComponent(message)}`, '_blank');
-                }}
+                onClick={initiatePayment}
+                disabled={paymentLoading}
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Confirm Payment via WhatsApp
+                {paymentLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {paymentLoading ? 'Sending STK Prompt…' : 'Pay with M-Pesa'}
               </Button>
             </div>
           </motion.div>

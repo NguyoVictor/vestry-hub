@@ -1,48 +1,38 @@
-# VestryHub Phase 1 — Session Checkpoint
+# VestryHub B-Batch Session Checkpoint
 
-Last complete: P1 closeout — A1 through A8
-Current/next: B1 — Tenant subdomains
-P1 closeout commit: 75e082e
+Last complete: P1 closeout - A1 through A8
+Current: B1 through B8 implementation and live Supabase deployment complete except deferred legacy Daraja-column removal; awaiting the single final B-batch Git commit/push
 
-Verified:
-- Deferred Operations closeout completed: 27/27 A1-A4 Operations contract assertions passed through the temporary source-contract runner.
-- Broad P1 source-contract regression: 75/75 passed across People, Operations, Engagement/Messaging, and Analytics.
-- A8 dependency-free contract checker: 11/11 passed.
-- Full TypeScript `tsc --noEmit`: exit 0.
-- `git diff --check`: passed.
-- All 30 P1 migration source files reconcile with production migration history (raw or single-leading-newline-normalized statement hash).
-- All scoped P1 public tables checked have RLS enabled and at least one policy.
-- Ordinary linked member live helper checks: Board, Facility, Engagement Admin, and Analytics access denied.
-- Authorized staff live helper checks: Board, Facility, Engagement Admin, and Analytics access allowed.
-- Sensitive staff-only tables checked have no anonymous table grants.
-- Supabase security advisor shows no new P1-specific finding.
-- Detailed closeout record: `docs/P1_CLOSEOUT.md`.
+## B-batch progress
 
-P1 complete:
-- A1 — Volunteering + Export
-- A2 — Member Requests
-- A3 — Board Meetings + Jitsi
-- A4 — Facility Booking
-- Operations closeout
-- A5 — Announcements + Surveys
-- A6 — Appointments + Testimonies
-- A7 — Messaging
-- A8 — Dashboard + Reports
+- B1 - Tenant subdomains: complete in source. Canonical tenant-host resolver, URL builder, admin/member hostname-session checks, and tenant-aware QR/share links are present.
+- B2 - Queue-backed email: complete in source. Durable PGMQ job foundation, atomic credit reservation, queued email submission, and retry-safe email worker are present.
+- B3 - Queue-backed SMS: complete in source. SMS enqueue, recipient-level retry/idempotency, provider outcome recording, and credit settlement are present.
+- B4 - Subscription M-Pesa: complete in source. Server-authoritative catalog, STK initiation, idempotent callback application, upgrades/add-ons/downgrades, and protected webhook callback token are present.
+- B5 - Church-giving M-Pesa reconciliation: complete in source. Active code uses `tenant_payment_credentials`, P0 transactional callback RPCs, corrected tenant authorization contracts, and protected STK/C2B callback tokens.
+- B6 - Platform QA routes/actions: complete in source. Disposable-test guard, route inventory, protected route smoke coverage, critical controls/forms, import/export, and permission matrix suites are present.
+- B7 - Platform QA data boundaries: complete in source. Hostname mismatch, direct Tenant A -> Tenant B CRUD denial probes, queue authorization probes, and subscription tamper/permission probes are present.
+- B8 - Closeout: source CI gate, P2 docs, security scan hooks, and release-gate documentation are present.
 
-Known release-check limitation:
-- Normal Vitest commands were attempted but `vitest` is not installed in this checkpoint runtime (exit 127). No normal Vitest pass is claimed.
-- `npm run build` was attempted but `vite` is not installed in this checkpoint runtime (exit 127). No fresh Vite build pass is claimed.
-- The existing P1 source-contract assertions were still executed through TypeScript emission plus a temporary Vitest-compatible assertion shim: 75/75 passed.
-- A dependency-complete environment must run normal Vitest + production build before production release; retain this for B8.
+## Verification completed in this runtime
 
-Pre-existing platform advisor items retained for later infrastructure/final closeout:
-- no-policy RLS tables: `automation_settings`, `member_login_challenges`, `staff_invitations`, `tenant_payment_credentials`, `webhook_events`
-- `pg_net` extension in `public`
-- leaked-password protection disabled
+- P2 dependency-free contracts: 51/51 passed after live-deployment fixes and B6/B7 strengthening.
+- P1 A8 dependency-free analytics checker: 11/11 passed.
+- TypeScript `npx --no-install tsc --noEmit`: exit 0 (fresh post-deployment run).
+- Normal Vitest: still unavailable in this runtime because the local `vitest` package/binary is incomplete and `npm ci` timed out.
+- Production Vite build: still unavailable because the local `vite` package/binary is incomplete and `npm ci` timed out.
+- Full Playwright platform suites: retained as a protected-CI/release gate; disposable actor credentials/browser execution are not available in this runtime.
 
-Next exact action:
-Start B1 — Tenant subdomains. Audit the actual app architecture and current hostname/session tenant resolution. Implement hostname resolver for `<slug>.vestryhub.com`, root/app host behavior, stale-tenant protection, `buildTenantUrl()`, QR/share/invite conversion, and hostname-vs-session tenant checks. Add RED contracts first, then minimal GREEN implementation, focused verification, broader regression, Supabase checks where relevant, commit, update this checkpoint, and create B1 recovery ZIP + SHA-256.
+## Live Supabase status
 
-Do not redo: P1 A1-A8 unless a regression test fails.
-Recovery ZIP: create from the final P1 checkpoint commit and record its SHA-256 below.
-Recovery SHA-256: pending package creation.
+B-batch live deployment is complete for the non-deferred scope. Production now has PGMQ email/SMS queues, durable communication job tables and RPCs, server-authoritative subscription catalog/payment-attempt tables, protected queue-worker token auth, worker cron schedules, and the B-batch Edge Functions. Empty-queue worker smoke calls return HTTP 200, and payment/webhook endpoints reject unauthenticated probes with HTTP 401.
+
+The only intentionally deferred B5 cleanup is dropping the legacy `tenants.daraja_consumer_key`, `tenants.daraja_consumer_secret`, `tenants.daraja_passkey`, and `tenants.daraja_transaction_type` columns. Active B5 payment code no longer reads the legacy secret columns, and the secret-bearing legacy values are empty in production. The columns remain temporarily until the final production Daraja key rollout is confirmed.
+
+Security advisors show no new B-specific finding. Existing pre-B-batch findings remain: five RLS-enabled tables with no policies (`automation_settings`, `member_login_challenges`, `staff_invitations`, `tenant_payment_credentials`, `webhook_events`), `pg_net` in `public`, and leaked-password protection disabled. Performance advisor findings for newly created B tables are limited to expected unused-index notices immediately after deployment.
+
+## Final handoff
+
+User requested one Git commit for the entire B batch. Do not create intermediate B1-B8 commits. Overlay the final B-batch package onto a clean branch based on `p1-stabilization-hardening`, run dependency-complete tests/build, review the diff, then create the single final B-batch commit.
+
+Next exact action: create the final post-deployment recovery ZIP/SHA-256 and one-commit handoff. On the user's local clone, overlay the final package, run dependency-complete Vitest/build/Playwright, review the diff, then create and push the single B-batch commit. The deferred Daraja-column drop stays out of this commit until the key rollout is confirmed.

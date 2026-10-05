@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
 import SermonDrawer from '@/components/sermons/SermonDrawer';
+import { buildTenantUrl } from '@/lib/tenantHost';
 
 export default function SermonsRevamped() {
   const church = useChurch();
@@ -41,7 +42,7 @@ export default function SermonsRevamped() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedSermons, setSelectedSermons] = useState<string[]>([]);
 
-  const publicSermonUrl = `${window.location.origin}/sermons/${church.tenantId}`;
+  const publicSermonUrl = buildTenantUrl(church.slug, `/sermons/${church.tenantId}`);
 
   // Fetch sermons with reaction counts
   const { data: sermons = [], isLoading } = useQuery({
@@ -53,15 +54,15 @@ export default function SermonsRevamped() {
         .select('*')
         .eq('tenant_id', church.tenantId!)
         .order('sermon_date', { ascending: false });
-      
+
       if (sermonsError) throw sermonsError;
-      
+
       // Fetch reaction counts for all sermons
       const { data: reactionsData } = await supabase
         .from('sermon_reactions')
         .select('sermon_id, reaction_type, member_id')
         .eq('tenant_id', church.tenantId!);
-      
+
       // Aggregate reactions by sermon
       const reactionsBySermon = (reactionsData || []).reduce((acc: any, r: any) => {
         if (!acc[r.sermon_id]) {
@@ -71,7 +72,7 @@ export default function SermonsRevamped() {
         acc[r.sermon_id].total++;
         return acc;
       }, {});
-      
+
       // Merge reactions into sermons
       return (sermonsData || []).map((s: any) => ({
         ...s,
@@ -116,7 +117,7 @@ export default function SermonsRevamped() {
         .from('sermons')
         .update({ is_featured: false })
         .eq('tenant_id', church.tenantId!);
-      
+
       // Then feature this one
       const { error } = await supabase
         .from('sermons')

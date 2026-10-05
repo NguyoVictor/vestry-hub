@@ -22,6 +22,22 @@ export function useSubscription() {
 
   const plan = PLANS[subscription?.plan as keyof typeof PLANS ?? 'free'];
 
+  const { data: catalog = [] } = useQuery({
+    queryKey: ['subscription-catalog'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('subscription_catalog')
+        .select('product_code, product_type, plan_key, addon_key, name, amount_kes, billing_period, entitlements, sort_order')
+        .eq('active', true)
+        .order('sort_order');
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const catalogByCode = Object.fromEntries(catalog.map((item: any) => [item.product_code, item]));
+
   // Get real member count
   const { data: memberCount = 0 } = useQuery({
     queryKey: ['member-count', tenantId],
@@ -83,6 +99,8 @@ export function useSubscription() {
   return {
     subscription,
     plan,
+    catalog,
+    catalogByCode,
     limits,
     usage,
     isLoading,

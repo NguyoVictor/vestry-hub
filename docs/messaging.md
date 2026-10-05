@@ -107,3 +107,15 @@ Two conversation types in **`conversations`** + **`conversation_participants`** 
 1. `InviteCallback` does not check `create-staff-thread` errors before navigating away.
 2. Founding admin may lack staff tile if never through invite/add paths.
 3. `invite-user` legacy function does **not** create staff threads and is unused by UI.
+
+---
+
+## P2 B-batch durable communications
+
+Outbound email and SMS now share a durable server-only queue foundation. `communication_jobs` and `communication_job_recipients` track job and recipient state, while Supabase Queues/PGMQ stores the delivery work in `outbound_email` and `outbound_sms`.
+
+`send-communication` and `africastalking-sms` authorize the tenant actor, reserve credits atomically, create recipient rows, and enqueue work. They no longer call the external provider synchronously. `process-email-queue` and `process-sms-queue` are service-role-only workers that claim messages, deliver recipient-by-recipient, retry transient failures, settle used/reserved credits, and acknowledge completed queue messages.
+
+Queue tables/RPCs remain unavailable to `anon` and `authenticated`; tenant clients cannot reserve credits, claim jobs, or finalize delivery directly. Scheduled email automation continues through `send-communication`, so automated email uses the same durable queue path rather than a separate provider-send path.
+
+Production activation requires the P2 communication migration, the worker Edge Functions, provider secrets, and a protected cron/scheduler invocation for both workers.

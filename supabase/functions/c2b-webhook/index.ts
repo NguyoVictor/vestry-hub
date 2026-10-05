@@ -1,110 +1,74 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+async function sha256Json(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+const accepted = () => new Response(
+  JSON.stringify({ ResultCode: 0, ResultDesc: 'Accepted' }),
+  { status: 200, headers: { 'Content-Type': 'application/json' } },
+)
+
 serve(async (req) => {
-  // Allow Safaricom callbacks without authentication
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: { 'Access-Control-Allow-Origin': '*' }
-    })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*' } })
+
+  const webhookSecret = Deno.env.get('CHURCH_DARAJA_WEBHOOK_SECRET') || ''
+  const callbackToken = new URL(req.url).searchParams.get('token') || ''
+  if (!webhookSecret || callbackToken !== webhookSecret) return new Response(JSON.stringify({ ResultCode: 1, ResultDesc: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } })
 
   try {
     const body = await req.json()
-    console.log('C2B Webhook received:', JSON.stringify(body))
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
-    // Extract C2B payment data
     const {
-      TransactionType,
       TransID,
-      TransTime,
       TransAmount,
       BusinessShortCode,
       BillRefNumber,
       MSISDN,
       FirstName,
       MiddleName,
-      LastName
+      LastName,
     } = body
 
-    console.log(`C2B Payment: TransID=${TransID}, Amount=${TransAmount}, ShortCode=${BusinessShortCode}, Phone=${MSISDN}`)
+    const amount = Number(TransAmount)
+    if (!TransID || !BusinessShortCode || !Number.isFinite(amount) || amount <= 0) return accepted()
 
-    // Find tenant by BusinessShortCode matching payhero_channel_number
-    const { data: tenant, error: tenantError } = await supabase
-      .from('tenants')
-      .select('id, name')
-      .eq('payhero_channel_number', BusinessShortCode)
-      .single()
-
-    if (tenantError || !tenant) {
-      console.error('Tenant not found for BusinessShortCode:', BusinessShortCode, tenantError)
-      // Still return success to Safaricom to avoid retries
-      return new Response(
-        JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log('Found tenant:', tenant.name, 'for payment')
-
-    // Build donor name from provided names
-    const donorNameParts = [FirstName, MiddleName, LastName].filter(Boolean)
-    const donorName = donorNameParts.length > 0 ? donorNameParts.join(' ') : 'Anonymous'
-
-    // Insert giving record
-    const givingRecord = {
-      tenant_id: tenant.id,
-      member_id: null, // No member account needed for C2B
-      donor_name: donorName,
-      phone_number: MSISDN || null,
-      amount: parseFloat(TransAmount) || 0,
-      currency: 'KES',
-      payment_method: 'mpesa',
-      payment_status: 'confirmed',
-      giving_type: 'offering', // Default type
-      mpesa_receipt: TransID,
-      external_reference: TransID,
-      notes: BillRefNumber || null,
-      given_at: new Date().toISOString().split('T')[0],
-      created_at: new Date().toISOString()
-    }
-
-    console.log('Creating giving record:', givingRecord)
-
-    const { data: createdRecord, error: recordError } = await supabase
-      .from('giving_records')
-      .insert(givingRecord)
-      .select()
-      .single()
-
-    if (recordError) {
-      console.error('Failed to create giving record:', recordError)
-      // Still return success to avoid Safaricom retries
-      return new Response(
-        JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log('C2B giving record created successfully:', createdRecord.id)
-
-    // Always return success response to Safaricom
-    return new Response(
-      JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
+    const { data: credentials, error: credentialError } = await supabase
+      .from('tenant_payment_credentials')
+      .select('tenant_id')
+      .eq('daraja_shortcode', String(BusinessShortCode))
+      .single()
+
+    if (credentialError || !credentials?.tenant_id) {
+      console.error('No protected tenant payment credential matches BusinessShortCode')
+      return accepted()
+    }
+
+    const donorName = [FirstName, MiddleName, LastName].filter(Boolean).join(' ') || 'Anonymous'
+    const payloadHash = await sha256Json(body)
+
+    const { error: recordError } = await supabase.rpc('record_mpesa_c2b_payment', {
+      p_tenant_id: credentials.tenant_id,
+      p_trans_id: String(TransID),
+      p_business_shortcode: String(BusinessShortCode),
+      p_amount: amount,
+      p_phone: MSISDN ? String(MSISDN) : null,
+      p_donor_name: donorName,
+      p_bill_ref: BillRefNumber ? String(BillRefNumber) : null,
+      p_payload_hash: payloadHash,
+    })
+
+    if (recordError) console.error('record_mpesa_c2b_payment failed:', recordError.message)
+    return accepted()
   } catch (error) {
-    console.error('C2B Webhook error:', error)
-    // Always return success to prevent Safaricom retries
-    return new Response(
-      JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
+    console.error('C2B webhook error:', error instanceof Error ? error.message : error)
+    return accepted()
   }
 })

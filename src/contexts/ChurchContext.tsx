@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 export interface ChurchData {
   tenantId: string;
+  slug: string;
   name: string;
   currency: string;
   city: string | null;
