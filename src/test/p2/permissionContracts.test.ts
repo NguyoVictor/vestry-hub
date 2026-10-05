@@ -22,7 +22,7 @@ describe('P2 permission contracts', () => {
   it('allows catalog reads without exposing payment-attempt mutation', () => {
     expect(billingMigration).toMatch(/subscription_catalog/i);
     expect(billingMigration).toMatch(/subscription_payment_attempts/i);
-    expect(billingMigration).toMatch(/grant select on (?:table\s+)?public\.subscription_catalog to anon, authenticated/i);
-    expect(billingMigration).toMatch(/revoke all on (?:table\s+)?public\.subscription_payment_attempts from (?:public,\s*)?anon,\s*authenticated/i);
+    expect(billingMigration).toMatch(/grant select on(?: table)? public\.subscription_catalog to anon, authenticated/i);
+    expect(billingMigration).toMatch(/revoke all on(?: table)? public\.subscription_payment_attempts from anon, authenticated/i);
   });
 });

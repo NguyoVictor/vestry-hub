@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, NavLink, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useChurch } from "@/contexts/ChurchContext";
 import { navigationGroups } from "@/config/navigation";
+import { filterAdminNavigation, isAdminPathEnabled } from "@/config/modules";
 import { supabase } from "@/integrations/supabase/client";
 import { TopNavbar } from "./TopNavbar";
 import { useFcmToken } from "@/hooks/useFcmToken";
@@ -122,18 +123,24 @@ export const AppLayout = () => {
 
   const initials = church.name.slice(0, 2).toUpperCase();
   const userInitials = `${church.userFirstName?.[0] || ""}${church.userLastName?.[0] || ""}`;
+  const visibleNavigationGroups = navigationGroups
+    .map(group => ({ ...group, items: filterAdminNavigation(group.items, church.enabledModules) }))
+    .filter(group => group.items.length > 0);
+  const routeEnabled = isAdminPathEnabled(location.pathname, church.enabledModules);
+
+  if (!routeEnabled) return <Navigate to="/dashboard" replace state={{ disabledModulePath: location.pathname }} />;
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => {
     const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
       const currentPath = window.location.pathname;
-      const activeGroup = navigationGroups.find(group =>
+      const activeGroup = visibleNavigationGroups.find(group =>
         group.items.some(item => currentPath.startsWith(item.path))
       );
-      return activeGroup ? [activeGroup.label] : [navigationGroups[0]?.label ?? ''];
+      return activeGroup ? [activeGroup.label] : [visibleNavigationGroups[0]?.label ?? ''];
     });
 
     useEffect(() => {
-      const activeGroup = navigationGroups.find(group =>
+      const activeGroup = visibleNavigationGroups.find(group =>
         group.items.some(item => location.pathname.startsWith(item.path))
       );
       if (activeGroup) {
@@ -174,7 +181,7 @@ export const AppLayout = () => {
           onWheel={(e) => e.stopPropagation()}
           className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400"
         >
-          {navigationGroups.map(group => (
+          {visibleNavigationGroups.map(group => (
             <div key={group.label} className="mb-1">
               {(mobile || !collapsed) && (
                 <>

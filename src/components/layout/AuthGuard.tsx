@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ChurchProvider, type ChurchData } from "@/contexts/ChurchContext";
 import { Loader2 } from "lucide-react";
 import { buildTenantUrl, currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
+import { normalizeModuleConfig } from "@/config/modules";
 
 type AuthState = "loading" | "unauthenticated" | "needs-onboarding" | "tenant-mismatch" | "ready";
 
@@ -22,6 +23,10 @@ export const AuthGuard = () => {
       userFirstName: firstName,
       userLastName: lastName,
     } : null);
+  }, []);
+
+  const updateEnabledModules = useCallback((enabledModules: ChurchData["enabledModules"]) => {
+    setChurchData(prev => prev ? { ...prev, enabledModules } : null);
   }, []);
 
   useEffect(() => {
@@ -83,6 +88,7 @@ export const AuthGuard = () => {
             userRole: user.role || "member",
             userFirstName: user.first_name || "",
             userLastName: user.last_name || "",
+            enabledModules: normalizeModuleConfig((tenant as any)?.enabled_modules),
           });
           setState("tenant-mismatch");
         }
@@ -104,6 +110,7 @@ export const AuthGuard = () => {
           userRole: user.role || "member",
           userFirstName: user.first_name || "",
           userLastName: user.last_name || "",
+          enabledModules: normalizeModuleConfig((tenant as any)?.enabled_modules),
         });
         setState("ready");
       }
@@ -213,7 +220,7 @@ export const AuthGuard = () => {
   }
 
   return (
-    <ChurchProvider value={churchData ? { ...churchData, updateUserName } : null!}>
+    <ChurchProvider value={churchData ? { ...churchData, updateUserName, updateEnabledModules } : null!}>
       <Outlet />
     </ChurchProvider>
   );

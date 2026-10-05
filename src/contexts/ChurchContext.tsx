@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
+import type { CanonicalModuleConfig } from "@/config/modules";
 
 export interface ChurchData {
   tenantId: string;
@@ -14,6 +15,8 @@ export interface ChurchData {
   userRole: string;
   userFirstName: string;
   userLastName: string;
+  enabledModules: CanonicalModuleConfig;
+  updateEnabledModules?: (config: CanonicalModuleConfig) => void;
   updateUserName?: (firstName: string, lastName: string) => void;
 }
 

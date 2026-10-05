@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
 import { AgeAwareProvider } from "@/contexts/AgeAwareContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/ui/notifications-1";
 import { useNotificationBell } from "@/hooks/useNotificationBell";
 import type { MemberNotification } from "@/components/ui/notifications-1";
+import { isMemberPathEnabled } from "@/config/modules";
 
 const BOTTOM_NAV = [
   { path: "/member", label: "Home", icon: Home, exact: true },
@@ -47,6 +48,7 @@ const SIDEBAR_NAV = [
 export function MemberPortalLayout() {
   const member = useMemberPortal();
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
 
   // Register FCM token for push notifications
@@ -59,6 +61,9 @@ export function MemberPortalLayout() {
 
   // ── Notification bell via hook ──
   const { notifications, markAllRead, markOneRead } = useNotificationBell();
+  const visibleSidebarNav = SIDEBAR_NAV.filter(item => isMemberPathEnabled(item.path, member.enabledModules));
+  const visibleBottomNav = BOTTOM_NAV.filter(item => isMemberPathEnabled(item.path, member.enabledModules));
+  const routeEnabled = isMemberPathEnabled(location.pathname, member.enabledModules);
 
   // ── Realtime subscription: invalidate on new notification ──
   useEffect(() => {
@@ -94,6 +99,8 @@ export function MemberPortalLayout() {
     navigate(dest);
   };
 
+  if (!routeEnabled) return <Navigate to="/member" replace state={{ disabledModulePath: location.pathname }} />;
+
   return (
     <AgeAwareProvider>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex">
@@ -110,7 +117,7 @@ export function MemberPortalLayout() {
           <p className="font-semibold text-sm truncate">{member.churchName}</p>
         </div>
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {SIDEBAR_NAV.map(item => (
+          {visibleSidebarNav.map(item => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -175,7 +182,7 @@ export function MemberPortalLayout() {
 
         {/* Mobile Bottom Navigation */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex">
-          {BOTTOM_NAV.map(item => (
+          {visibleBottomNav.map(item => (
             <NavLink
               key={item.path}
               to={item.path}

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, Church, Phone, Target, ArrowRight, Loader2 } from "lucide-react";
 import { countries, getCurrencyByCountry } from "@/lib/country-currency";
+import { moduleConfigFromOnboarding } from "@/config/modules";
 import {
   Select,
   SelectContent,
@@ -149,6 +150,7 @@ const Onboarding = () => {
         onboarding_completed: true,
         onboarding_step: 1,
         tenant_metadata: { priority_needs: selectedNeeds },
+        enabled_modules: moduleConfigFromOnboarding(selectedNeeds),
         created_at: now,
         updated_at: now,
       });
@@ -212,6 +214,7 @@ const Onboarding = () => {
           onboarding_completed: true,
           onboarding_step: 1,
           tenant_metadata: { priority_needs: selectedNeeds },
+          enabled_modules: moduleConfigFromOnboarding(selectedNeeds),
         })
         .eq("id", resolvedTenantId);
 

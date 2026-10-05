@@ -1,10 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { buildTenantUrl, resolveTenantSlug, tenantSlugMatchesHostname } from "@/lib/tenantHost";
+import {
+  buildTenantUrl,
+  classifyPlatformHost,
+  resolveTenantSlug,
+  tenantSlugMatchesHostname,
+} from "@/lib/tenantHost";
+
+describe("platform hostname classification", () => {
+  it("separates marketing, application, tenant and reserved hosts", () => {
+    expect(classifyPlatformHost("vestryhub.com", "vestryhub.com")).toBe("marketing");
+    expect(classifyPlatformHost("www.vestryhub.com", "vestryhub.com")).toBe("marketing");
+    expect(classifyPlatformHost("app.vestryhub.com", "vestryhub.com")).toBe("application");
+    expect(classifyPlatformHost("hope-church.vestryhub.com", "vestryhub.com")).toBe("tenant");
+    expect(classifyPlatformHost("join.vestryhub.com", "vestryhub.com")).toBe("reserved");
+  });
+});
 
 describe("tenant hostname resolution", () => {
-  it("treats the root and app hosts as non-tenant hosts", () => {
-    expect(resolveTenantSlug("vestryhub.com", "vestryhub.com")).toBeNull();
-    expect(resolveTenantSlug("app.vestryhub.com", "vestryhub.com")).toBeNull();
+  it("never treats root, www, app or reserved platform hosts as tenant hosts", () => {
+    for (const host of ["vestryhub.com", "www.vestryhub.com", "app.vestryhub.com", "join.vestryhub.com"]) {
+      expect(resolveTenantSlug(host, "vestryhub.com")).toBeNull();
+    }
   });
 
   it("extracts a normalized tenant slug from a tenant host", () => {
@@ -23,12 +39,15 @@ describe("tenant hostname resolution", () => {
 });
 
 describe("hostname/session agreement", () => {
-  it("allows root/app/local hosts but requires exact tenant host agreement", () => {
+  it("allows intended unbound hosts but requires exact tenant-host agreement", () => {
     expect(tenantSlugMatchesHostname("vestryhub.com", "hope-church", "vestryhub.com")).toBe(true);
+    expect(tenantSlugMatchesHostname("www.vestryhub.com", "hope-church", "vestryhub.com")).toBe(true);
     expect(tenantSlugMatchesHostname("app.vestryhub.com", "hope-church", "vestryhub.com")).toBe(true);
     expect(tenantSlugMatchesHostname("localhost:5173", "hope-church", "vestryhub.com")).toBe(true);
+    expect(tenantSlugMatchesHostname("feature-123.vercel.app", "hope-church", "vestryhub.com")).toBe(true);
     expect(tenantSlugMatchesHostname("hope-church.vestryhub.com", "hope-church", "vestryhub.com")).toBe(true);
     expect(tenantSlugMatchesHostname("other.vestryhub.com", "hope-church", "vestryhub.com")).toBe(false);
+    expect(tenantSlugMatchesHostname("join.vestryhub.com", "hope-church", "vestryhub.com")).toBe(false);
   });
 });
 
@@ -43,7 +62,10 @@ describe("tenant URL builder", () => {
       .toBe("https://hope-church.vestryhub.com/give/hope-church");
   });
 
-  it("rejects malformed tenant slugs", () => {
+  it("rejects malformed and reserved tenant slugs", () => {
     expect(() => buildTenantUrl("bad_slug", "/member/login", { baseDomain: "vestryhub.com" })).toThrow();
+    expect(() => buildTenantUrl("app", "/member/login", { baseDomain: "vestryhub.com" })).toThrow();
+    expect(() => buildTenantUrl("www", "/member/login", { baseDomain: "vestryhub.com" })).toThrow();
+    expect(() => buildTenantUrl("join", "/member/login", { baseDomain: "vestryhub.com" })).toThrow();
   });
 });
