@@ -91,7 +91,7 @@ export default function MemberLoginPage() {
         tenantSlug: fnData.tenant.slug,
         memberName: `${fnData.member.first_name} ${fnData.member.last_name}`,
         memberType: fnData.member.member_type || "member",
-        enabledModules: fnData.tenant.enabled_modules?.member_portal || {},
+        enabledModules: fnData.tenant.enabled_modules || null,
         sessionToken: fnData.sessionToken,
         expiresAt: fnData.expiresAt,
       };

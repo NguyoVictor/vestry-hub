@@ -28,7 +28,17 @@
     "test:e2e:tenant-boundary": "playwright test e2e/platform/tenant-boundary.spec.ts",
     "test:e2e:p1-p2": "playwright test e2e/platform e2e/song-library",
     "test:p2:contracts": "node --experimental-strip-types --test src/test/p2/*.node.test.mjs",
-    "test:p2:vitest": "vitest run src/test/p2/tenantHost.test.ts src/test/p2/permissionContracts.test.ts src/test/p2/tenantBoundaryContracts.test.ts"
+    "test:p2:vitest": "vitest run src/test/p2/tenantHost.test.ts src/test/p2/permissionContracts.test.ts src/test/p2/tenantBoundaryContracts.test.ts",
+    "test:security:secrets": "node scripts/check-repository-secrets.mjs",
+    "test:p1:modules": "vitest run src/test/p1/modules",
+    "test:p1:modules:contract": "node scripts/check-module-config-contract.mjs",
+    "test:p1:modules:qa-contract": "node scripts/check-module-enforcement-qa.mjs",
+    "test:e2e:modules": "playwright test e2e/platform/modules/module-enforcement.spec.ts",
+    "test:p1:performance:contract": "node scripts/check-performance-indexes.mjs",
+    "test:p1:domains:contract": "node --experimental-strip-types scripts/check-domain-separation.mjs",
+    "test:p1:actions:contract": "node --experimental-strip-types scripts/check-platform-actions.mjs",
+    "test:p1:stage7:contract": "node --experimental-strip-types scripts/check-stage7-e2e.mjs",
+    "test:e2e:stage7": "playwright test e2e/platform/stage7 e2e/platform/tenant-boundary.spec.ts e2e/platform/infrastructure/tenant-domain.spec.ts e2e/platform/permissions.spec.ts e2e/platform/import-export.spec.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

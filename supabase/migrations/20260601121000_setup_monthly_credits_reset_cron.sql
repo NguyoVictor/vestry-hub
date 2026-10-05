@@ -16,7 +16,7 @@ SELECT cron.schedule(
   $$
   SELECT net.http_post(
     url := 'https://crjdsxxkspvdwknrmijs.supabase.co/functions/v1/reset-monthly-credits',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyamRzeHhrc3B2ZHdrbnJtaWpzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTM0NTA5NSwiZXhwIjoyMDg2OTIxMDk1fQ.Ej5ApBSPWhuFYJhGJOJOtJhSVNlNNpJE-Ej5ApBSPWhuFYJhGJOJOtJhSVNlNNpJE"}'::jsonb,
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer REDACTED_LEGACY_SERVICE_ROLE_KEY_ROTATE_REQUIRED"}'::jsonb,
     body := '{}'::jsonb
   );
   $$

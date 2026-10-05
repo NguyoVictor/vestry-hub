@@ -303,7 +303,7 @@ VITE_SUPABASE_ANON_KEY=      # Public anon key
 VITE_FIREBASE_VAPID_KEY=     # FCM VAPID key
 
 # AI Services
-VITE_OPENAI_API_KEY=         # OpenAI for AI-powered features
+OPENAI_API_KEY=         # OpenAI for AI-powered features
 
 # Integrations
 VITE_CANVA_CLIENT_ID=        # Canva integration

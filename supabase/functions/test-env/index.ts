@@ -13,8 +13,6 @@ Deno.serve(async (req: Request) => {
       SUPABASE_URL: !!Deno.env.get("SUPABASE_URL"),
       SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
       RESEND_API_KEY: !!Deno.env.get("RESEND_API_KEY"),
-      RESEND_API_KEY_LENGTH: Deno.env.get("RESEND_API_KEY")?.length || 0,
-      RESEND_API_KEY_PREFIX: Deno.env.get("RESEND_API_KEY")?.substring(0, 10) || "none",
     };
     
     console.log("Environment variables check:", envVars);

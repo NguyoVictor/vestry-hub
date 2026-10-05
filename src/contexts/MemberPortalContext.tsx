@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
+import { normalizeModuleConfig, type CanonicalModuleConfig } from "@/config/modules";
 
 export interface MemberPortalData {
   memberId: string;
@@ -21,7 +22,7 @@ export interface MemberPortalData {
   memberSince: string;
   profileComplete: number;
   memberType: string;
-  enabledModules: Record<string, boolean>;
+  enabledModules: CanonicalModuleConfig;
 }
 
 const MemberPortalContext = createContext<MemberPortalData | null>(null);
@@ -50,28 +51,22 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const [memberRes, churchRes] = await Promise.all([
-        supabase
-          .from("members")
-          .select("id, tenant_id, first_name, last_name, email, phone, avatar_url, date_of_birth, gender, created_at, member_type, status, membership_status")
-          .eq("id", session.memberId)
-          .eq("tenant_id", session.tenantId)
-          .single(),
-        supabase
-          .from("tenants")
-          .select("id, name, logo, church_code, slug")
-          .eq("id", session.tenantId)
-          .single(),
-      ]);
+      const { data: context, error } = await supabase.functions.invoke("member-session-context", {
+        body: {
+          memberId: session.memberId,
+          tenantId: session.tenantId,
+          sessionToken: session.sessionToken,
+        },
+      });
 
-      const member = memberRes.data;
-      const church = churchRes.data;
+      const member = context?.member;
+      const church = context?.tenant;
       if (
+        error ||
+        context?.error ||
         !member ||
         !church ||
         member.tenant_id !== session.tenantId ||
-        member.status?.toLowerCase() === "inactive" ||
-        member.membership_status === "Pending Approval" ||
         !church.slug ||
         !tenantSlugMatchesHostname(window.location.hostname, church.slug, currentTenantBaseDomain())
       ) {
@@ -83,17 +78,20 @@ export function MemberPortalProvider({ children }: { children: ReactNode }) {
       const fields = [member.first_name, member.last_name, member.phone, member.date_of_birth, member.gender];
       const filled = fields.filter(Boolean).length;
       const profileComplete = Math.round((filled / fields.length) * 100);
+      const enabledModules = normalizeModuleConfig(church.enabled_modules);
 
-      // Module configuration is captured by the trusted member-login function.
-      // P0 intentionally keeps tenants.enabled_modules out of anonymous tenant reads.
-      const enabledModules: Record<string, boolean> = session.enabledModules || {};
-      localStorage.setItem("member_session", JSON.stringify({ ...session, tenantSlug: church.slug }));
+      localStorage.setItem("member_session", JSON.stringify({
+        ...session,
+        tenantSlug: church.slug,
+        enabledModules,
+        expiresAt: context.expiresAt || session.expiresAt,
+      }));
 
       setData({
         memberId: member.id,
-        userId: member.id, // alias
-        tenantId: church.id, // Fixed: use church.id instead of church.tenantId
-        churchId: church.id, // Fixed: use church.id instead of church.tenantId
+        userId: member.id,
+        tenantId: church.id,
+        churchId: church.id,
         churchSlug: church.slug,
         churchName: church.name,
         churchLogoUrl: church.logo,

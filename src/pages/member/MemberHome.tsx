@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
 import { TABLES, COLS } from "@/lib/schema";
+import { isMemberPathEnabled } from "@/config/modules";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,8 +106,8 @@ export default function MemberHome() {
     else { navigator.clipboard.writeText(text); toast.success("Verse copied to clipboard"); }
   };
 
-  // Filter modules by enabled_modules.member_portal
-  const visibleModules = ALL_MODULES.filter(m => member.enabledModules[m.key] !== false);
+  // Filter cards using the same canonical configuration as member navigation and route guards.
+  const visibleModules = ALL_MODULES.filter(m => m.path !== "#" && isMemberPathEnabled(m.path, member.enabledModules));
 
   return (
     <>

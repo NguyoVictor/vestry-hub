@@ -563,9 +563,8 @@ function ReadingsTab({ allBooks, onNavigate }: { allBooks: string[]; onNavigate:
 
 // ── Statistics Tab ────────────────────────────────────────────────────────────
 
-const GROQ_API_KEY_STATS = import.meta.env.VITE_GROQ_API_KEY as string;
-
 function StatisticsTab() {
+  const church = useChurch();
   // Re-read all data from localStorage on every render (reactive)
   const rawChapters: (string | { key: string; readAt: string })[] = lsGet("bible_chapters_read", []);
   // Normalise — handle old string format gracefully
@@ -645,14 +644,15 @@ Provide:
 
 Keep it conversational, warm, and under 150 words.`;
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_API_KEY_STATS}` },
-        body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }] }),
+      const { data, error } = await supabase.functions.invoke("generate-ai-content", {
+        body: {
+          prompt,
+          model: "llama-3.3-70b-versatile",
+          tenant_id: church.tenantId || undefined,
+        },
       });
-      if (!res.ok) throw new Error(`Groq error: ${res.status}`);
-      const data = await res.json();
-      setInsight(data.choices?.[0]?.message?.content || "");
+      if (error) throw error;
+      setInsight(data?.content || "");
     } catch { toast.error("Could not generate insights. Try again."); }
     finally { setInsightLoading(false); }
   };

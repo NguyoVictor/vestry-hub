@@ -11,6 +11,7 @@ import { useLenis } from "./hooks/useLenis";
 import { Loader2, Settings } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import Index from "./pages/Index";
+import { classifyPlatformHost, currentTenantBaseDomain } from "./lib/tenantHost";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
@@ -124,7 +125,6 @@ const TrainingCourseBuilder = lazy(() => import("./pages/growth/TrainingCourseBu
 const GeneralSettings = lazy(() => import("./pages/settings/GeneralSettings"));
 const VisionMission = lazy(() => import("./pages/settings/VisionMission"));
 const ContactSocial = lazy(() => import("./pages/settings/ContactSocial"));
-const MemberAppFeatures = lazy(() => import("./pages/settings/MemberAppFeatures"));
 const BranchCredentials = lazy(() => import("./pages/settings/BranchCredentials"));
 const ModulesSettings = lazy(() => import("./pages/settings/Modules"));
 const QRCodesPage = lazy(() => import("./pages/settings/QRCodes"));
@@ -239,6 +239,18 @@ const queryClient = new QueryClient({
 
 const Fallback = () => <div className="flex items-center justify-center p-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
+function RootHostRoute() {
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const surface = classifyPlatformHost(hostname, currentTenantBaseDomain());
+
+  if (surface === "application") return <Navigate to="/dashboard" replace />;
+  if (surface === "tenant") return <Navigate to="/member/login" replace />;
+
+  // Marketing, previews and local development retain the public landing page.
+  // Reserved/malformed platform hosts also fail closed to a non-tenant surface.
+  return <Index />;
+}
+
 // Track page views on every route change
 function PageViewTracker() {
   const location = useLocation();
@@ -285,7 +297,7 @@ const App = () => {
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <PageViewTracker />
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<RootHostRoute />} />
             <Route path="/auth/signin" element={<SignIn />} />
             <Route path="/auth/signup" element={<SignUp />} />
             <Route path="/auth/forgot-password" element={<Suspense fallback={<Fallback />}><ForgotPassword /></Suspense>} />
@@ -418,14 +430,13 @@ const App = () => {
                   <Route path="qr-codes" element={<Suspense fallback={<Fallback />}><QRCodesPage /></Suspense>} />
                   <Route path="profile" element={<Suspense fallback={<Fallback />}><ChurchProfile /></Suspense>} />
                   <Route path="services" element={<Suspense fallback={<Fallback />}><ServicesModules /></Suspense>} />
-                  <Route path="modules" element={<Suspense fallback={<Fallback />}><ServicesModules /></Suspense>} />
                   <Route path="roles" element={<Suspense fallback={<Fallback />}><RolesPermissions /></Suspense>} />
                   <Route path="access-control" element={<Suspense fallback={<Fallback />}><RolesPermissions /></Suspense>} />
                   <Route path="billing" element={<Suspense fallback={<Fallback />}><Billing /></Suspense>} />
                   <Route path="security" element={<Suspense fallback={<Fallback />}><Security /></Suspense>} />
                   <Route path="integrations" element={<Suspense fallback={<Fallback />}><Integrations /></Suspense>} />
                   <Route path="seo" element={<Suspense fallback={<Fallback />}><WebsitePromoPage /></Suspense>} />
-                  <Route path="member-app" element={<Suspense fallback={<Fallback />}><MemberAppFeatures /></Suspense>} />
+                  <Route path="member-app" element={<Suspense fallback={<Fallback />}><MemberAppSettings /></Suspense>} />
                   <Route path="branches" element={<Suspense fallback={<Fallback />}><BranchCredentials /></Suspense>} />
                   <Route path="modules" element={<Suspense fallback={<Fallback />}><ModulesSettings /></Suspense>} />
                   <Route path="users" element={<Suspense fallback={<Fallback />}><UsersPage /></Suspense>} />

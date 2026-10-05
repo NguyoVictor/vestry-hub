@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { normalizeModuleConfig, type CanonicalModuleConfig, type MemberModuleKey } from "@/config/modules";
 import {
   Heart, Target, Receipt, Megaphone, MessageCircle, MessageSquare,
   Quote, Share2, Wrench, DollarSign, Lightbulb, Stethoscope, Clock,
@@ -18,7 +19,7 @@ import {
   Building2, ShoppingBag,
 } from "lucide-react";
 
-const MODULES = [
+const MODULES: Array<{ key: MemberModuleKey; label: string; desc: string; icon: React.ElementType; defaultOn: boolean }> = [
   { key: "give_online", label: "Give Online", desc: "Tithes, offerings, and donations", icon: Heart, defaultOn: true },
   { key: "pledge_campaigns", label: "Pledge Campaigns", desc: "View and commit to pledges", icon: Target, defaultOn: true },
   { key: "my_giving_history", label: "My Giving History", desc: "View complete giving records and tax receipts", icon: Receipt, defaultOn: true },
@@ -27,7 +28,7 @@ const MODULES = [
   { key: "chat_on_whatsapp", label: "Chat on WhatsApp", desc: "WhatsApp Business API integration", icon: MessageSquare, defaultOn: false },
   { key: "testimonies", label: "Testimonies", desc: "Read inspiring testimonies from members", icon: Quote, defaultOn: true },
   { key: "share_your_testimony", label: "Share Your Testimony", desc: "Members can submit their own testimonies", icon: Share2, defaultOn: true },
-  { key: "service_request", label: "Service Request", desc: "Submit a request to the church", icon: Wrench, defaultOn: true },
+  { key: "member_request", label: "Service Request", desc: "Submit a request to the church", icon: Wrench, defaultOn: true },
   { key: "expense_request", label: "Expense Request", desc: "Submit an expense requisition for approval", icon: DollarSign, defaultOn: true },
   { key: "opinion_box", label: "Opinion Box", desc: "Give suggestions and church awareness", icon: Lightbulb, defaultOn: true },
   { key: "counselling", label: "Counselling", desc: "Request a pastoral session", icon: Stethoscope, defaultOn: true },
@@ -54,7 +55,7 @@ export default function MemberApp() {
   const queryClient = useQueryClient();
   const { isReadOnly } = usePermissions();
   const readOnly = isReadOnly('church_settings');
-  const [modules, setModules] = useState<Record<string, boolean>>({});
+  const [config, setConfig] = useState<CanonicalModuleConfig | null>(null);
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["tenant-modules", tenantId],
@@ -68,21 +69,14 @@ export default function MemberApp() {
 
   useEffect(() => {
     if (!tenant) return;
-    const saved = (tenant.enabled_modules as any)?.member_portal || {};
-    // Merge with defaults — if key not in saved, use defaultOn
-    const merged: Record<string, boolean> = {};
-    MODULES.forEach(m => {
-      merged[m.key] = saved[m.key] !== undefined ? saved[m.key] : m.defaultOn;
-    });
-    setModules(merged);
+    setConfig(normalizeModuleConfig(tenant.enabled_modules));
   }, [tenant]);
 
   const save = useMutation({
-    mutationFn: async (updated: Record<string, boolean>) => {
+    mutationFn: async (updated: CanonicalModuleConfig) => {
       if (readOnly) return;
-      const current = (tenant?.enabled_modules as any) || {};
       const { error } = await supabase.from("tenants").update({
-        enabled_modules: { ...current, member_portal: updated },
+        enabled_modules: updated,
       }).eq("id", tenantId);
       if (error) throw error;
     },
@@ -93,9 +87,13 @@ export default function MemberApp() {
     onError: () => toast.error("Failed to update"),
   });
 
-  const toggle = (key: string) => {
-    const updated = { ...modules, [key]: !modules[key] };
-    setModules(updated);
+  const toggle = (key: MemberModuleKey) => {
+    if (!config) return;
+    const updated: CanonicalModuleConfig = {
+      ...config,
+      member_portal: { ...config.member_portal, [key]: !config.member_portal[key] },
+    };
+    setConfig(updated);
     save.mutate(updated);
   };
 
@@ -114,10 +112,12 @@ export default function MemberApp() {
         <CardContent className="divide-y divide-slate-100 dark:divide-slate-800">
           {isLoading ? (
             Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-14 w-full my-2" />)
+          ) : !config ? (
+            <Skeleton className="h-14 w-full my-2" />
           ) : (
             MODULES.map(mod => {
               const Icon = mod.icon;
-              const enabled = modules[mod.key] !== false;
+              const enabled = config?.member_portal[mod.key] !== false;
               return (
                 <div key={mod.key} className="flex items-center gap-4 py-3">
                   <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${enabled ? "bg-indigo-100 dark:bg-indigo-900/30" : "bg-slate-100 dark:bg-slate-800"}`}>

@@ -13,7 +13,7 @@ Deno.serve(async (req: Request) => {
     const testEmail = email || "test@example.com";
     
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    console.log("Testing Resend API with key:", RESEND_API_KEY?.substring(0, 10));
+    console.log("Testing Resend API configuration:", { configured: !!RESEND_API_KEY });
     
     const payload = {
       from: "Test Church <support@vestryhub.com>",
