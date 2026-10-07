@@ -20,6 +20,7 @@ import { childGradient, calcAge } from "./types";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Html5Qrcode } from "html5-qrcode";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export default function CMCheckin() {
   const { tenantId, userId } = useChurch();
@@ -106,7 +107,7 @@ export default function CMCheckin() {
       qc.invalidateQueries({ queryKey: ["cm-stats"] });
       toast.success("Child checked in");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const checkOutMutation = useMutation({
@@ -120,7 +121,7 @@ export default function CMCheckin() {
       qc.invalidateQueries({ queryKey: ["cm-stats"] });
       toast.success("Child checked out");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   return (

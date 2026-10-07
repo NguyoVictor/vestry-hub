@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   ArrowLeft, Video, Pencil, Users, Clock, Activity, Crown,
   UserPlus, Trash2, MoreHorizontal, ChevronDown, Globe, MapPin, GitMerge,
@@ -117,7 +118,7 @@ const GroupDetail = () => {
       if (error) { if (error.code === "23505") throw new Error("Already in group"); throw error; }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["group-members", groupId] }); toast.success("Member added"); setSelectedMember(""); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const removeMemberMut = useMutation({

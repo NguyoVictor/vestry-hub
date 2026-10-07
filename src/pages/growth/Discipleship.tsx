@@ -86,6 +86,16 @@ export default function Discipleship() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
+  const { data: pathways = [], isLoading: pathwaysLoading } = useQuery({
+    queryKey: ["discipleship-pathways", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("discipleship_pathways").select("id, name, stages, created_at").eq(COLS.TENANT_ID, tenantId!).order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // ── Overview stats ─────────────────────────────────────────────────────────
   const { data: overviewStats, isLoading: statsLoading } = useQuery({
     queryKey: ["discipleship-overview-stats", tenantId],
@@ -333,16 +343,14 @@ export default function Discipleship() {
 
         {/* ── 28-Day Journey Tab ── */}
         <TabsContent value="journey">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <GraduationCap className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="font-medium text-muted-foreground">28-Day Journey</p>
-              <p className="text-sm text-muted-foreground mt-1">Structured discipleship pathway coming soon.</p>
-              <Button className="mt-4" asChild>
-                <Link to="/new-converts">View New Converts</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            {pathwaysLoading ? <Skeleton className="h-32 w-full" /> : pathways.length === 0 ? (
+              <Card><CardContent className="p-8 text-center"><GraduationCap className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" /><p className="font-medium">No discipleship pathways configured</p><p className="text-sm text-muted-foreground mt-1">Create a pathway to structure the church's discipleship journey.</p></CardContent></Card>
+            ) : pathways.map((pathway: any) => {
+              const stages = Array.isArray(pathway.stages) ? pathway.stages : [];
+              return <Card key={pathway.id}><CardHeader><CardTitle>{pathway.name}</CardTitle></CardHeader><CardContent><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{stages.map((stage: any, index: number) => <div key={`${pathway.id}-${index}`} className="rounded-lg border p-3"><p className="text-xs font-semibold text-muted-foreground">STEP {index + 1}</p><p className="font-medium mt-1">{typeof stage === 'string' ? stage : stage?.name || stage?.title || `Stage ${index + 1}`}</p>{typeof stage === 'object' && stage?.description ? <p className="text-xs text-muted-foreground mt-1">{stage.description}</p> : null}</div>)}</div></CardContent></Card>;
+            })}
+          </div>
         </TabsContent>
       </Tabs>
     </>

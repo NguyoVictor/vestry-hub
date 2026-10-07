@@ -12,6 +12,7 @@ import { TABLES, COLS } from "@/lib/schema";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCallback, useEffect } from "react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -205,7 +206,7 @@ export function useCreateMember() {
     },
     onError: (error: Error) => {
       console.error('Failed to create member:', error);
-      toast.error(error.message || 'Failed to create member');
+      toast.error(toUserFacingError(error, 'Failed to create member'));
     }
   });
 }
@@ -260,7 +261,7 @@ export function useUpdateMember() {
     },
     onError: (error: Error) => {
       console.error('Failed to update member:', error);
-      toast.error(error.message || 'Failed to update member');
+      toast.error(toUserFacingError(error, 'Failed to update member'));
     }
   });
 }
@@ -304,7 +305,7 @@ export function useDeleteMember() {
     },
     onError: (error: Error) => {
       console.error('Failed to delete member:', error);
-      toast.error(error.message || 'Failed to delete member');
+      toast.error(toUserFacingError(error, 'Failed to delete member'));
     }
   });
 }

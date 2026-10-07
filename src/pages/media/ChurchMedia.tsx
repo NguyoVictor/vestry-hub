@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { TABLES } from "@/lib/schema";
 import type { StorageStats, StoragePlan } from "@/types/media";
 import { useMediaNotifications } from "@/hooks/useMediaNotifications";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const BUCKET_MAP: Record<string, string> = { image: "church-media", audio: "church-audio", video: "church-video" };
 const ACCEPT_MAP: Record<string, string> = {
@@ -115,7 +116,7 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
       setUploadProgress(100);
       toast.success(filesToUpload.length > 1 ? `${filesToUpload.length} files uploaded!` : "Uploaded successfully");
       onSuccess(); handleClose();
-    } catch (err: any) { toast.error(err.message || "Upload failed"); } finally { setUploading(false); }
+    } catch (err: any) { toast.error(toUserFacingError(err, "Upload failed")); } finally { setUploading(false); }
   };
   const typeLabel = mediaType === "image" ? "Image" : mediaType === "audio" ? "Audio" : "Video";
   const TypeIcon = mediaType === "image" ? ImageIcon : mediaType === "audio" ? Music : Video;
@@ -228,7 +229,7 @@ function EditDialog({ item, onClose, onSuccess, categories }: EditDialogProps) {
       const { error } = await supabase.from(TABLES.CHURCH_MEDIA_ITEMS).update({ title: title || null, description: description || null, category, updated_at: new Date().toISOString() }).eq("id", item.id);
       if (error) throw error;
       toast.success("Updated successfully"); onSuccess(); onClose();
-    } catch (err: any) { toast.error(err.message || "Update failed"); } finally { setSaving(false); }
+    } catch (err: any) { toast.error(toUserFacingError(err, "Update failed")); } finally { setSaving(false); }
   };
   const categoryOptions = categories.length > 0 ? categories : [{ id: "general", name: "General", color: "#6366f1" }];
   return (
@@ -396,7 +397,7 @@ const ChurchMedia = () => {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["church_media_items"] }); qc.invalidateQueries({ queryKey: ["storage-stats", church.tenantId] }); toast.success("Deleted successfully"); setLightbox(null); setDeleteItem(null); },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const featureMutation = useMutation({

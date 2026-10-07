@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Settings, Plus, Save, UserPlus, Bell, Gift, Calendar, Heart, Clock, User, MoreVertical, Pencil, Trash2, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface EmailAutomation {
@@ -366,7 +367,7 @@ export function EmailAutomation() {
       setDeleteAutomation(null);
       toast.success("Custom email type deleted.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const systemAutomations = automations.filter(a => a.is_system);

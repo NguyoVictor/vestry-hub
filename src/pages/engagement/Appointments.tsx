@@ -28,6 +28,7 @@ import { PageTransition } from '@/components/ui/PageTransition';
 import { MemberAvatar } from '@/components/shared/MemberAvatar';
 import { JoinMeetingButton } from '@/components/shared/JoinMeetingButton';
 import type { Appointment, AppointmentStatus } from '@/types/appointments';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string; dot: string }> = {
   pending:     { label: 'Pending',     color: 'text-amber-700',  bg: 'bg-amber-100',  dot: 'bg-amber-400' },
@@ -450,7 +451,7 @@ function AppointmentDetailDrawer({ apt, onClose, staffList, tenantId, adminName,
       onUpdated();
       onClose();
     } catch (err: any) {
-      toast.error(err.message ?? 'Failed to update');
+      toast.error(toUserFacingError(err, 'Failed to update'));
     } finally {
       setSaving(false);
     }

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export default function MemberSettings() {
   const member = useMemberPortal();
@@ -59,7 +60,7 @@ export default function MemberSettings() {
       toast.success('Confirmation sent to both your old and new email. Check both inboxes.');
       setNewEmail('');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update email');
+      toast.error(toUserFacingError(error, 'Failed to update email'));
     } finally {
       setSavingEmail(false);
     }

@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORIES = ["Electronics", "Furniture", "Vehicles", "Musical Instruments", "Buildings", "Other"];
@@ -73,8 +74,6 @@ function ExportMenu({ onCSV, readOnly = false }: { onCSV: () => void; readOnly?:
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={onCSV} disabled={readOnly}>Export CSV</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("PDF export coming soon")} disabled={readOnly}>Export PDF</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("Word export coming soon")} disabled={readOnly}>Export Word</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -177,7 +176,7 @@ function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
       
       toast.success(editing?.id ? "Asset updated" : "Asset added");
       onSuccess(); onClose();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) { toast.error(toUserFacingError(err)); }
     finally { setSaving(false); }
   };
 
@@ -320,7 +319,7 @@ function ReleaseRequestDialog({ open, onClose, tenantId, assets, editing, onSucc
         toast.success("Release request submitted");
       }
       onSuccess(); onClose();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) { toast.error(toUserFacingError(err)); }
     finally { setSaving(false); }
   };
 
@@ -415,7 +414,7 @@ function MaintenanceDialog({ open, onClose, tenantId, assets, onSuccess }: any) 
       if (error) throw error;
       toast.success("Maintenance logged");
       onSuccess(); onClose();
-    } catch (err: any) { toast.error(err.message); }
+    } catch (err: any) { toast.error(toUserFacingError(err)); }
     finally { setSaving(false); }
   };
 
@@ -553,7 +552,7 @@ export default function AssetManagement() {
       toast.success("Asset deleted");
       setDeleteTarget(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   // ── Update request status ─────────────────────────────────────────────────
@@ -569,7 +568,7 @@ export default function AssetManagement() {
       queryClient.invalidateQueries({ queryKey: ["asset-release-requests", tenantId] });
       toast.success("Request updated");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   // ── Delete release request ────────────────────────────────────────────────
@@ -583,7 +582,7 @@ export default function AssetManagement() {
       toast.success("Request deleted");
       setDeleteRequestTarget(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   // ── Compute effective status (auto-overdue) ───────────────────────────────

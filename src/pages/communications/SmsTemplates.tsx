@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Send, Pencil, Trash2, Copy, Info } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 interface SmsTemplate { id: string; tenant_id: string; name: string; category_id: string | null; body: string; is_active: boolean; is_system: boolean; created_at: string; email_categories?: { name: string } | null; }
 interface EmailCategory { id: string; name: string; is_active: boolean; }
@@ -271,13 +272,13 @@ export function SmsTemplates() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["sms-templates", tenantId] }); setDeleteTemplate(null); toast.success("Template deleted."); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const handleDuplicate = async (lib: typeof LIBRARY_TEMPLATES[number]) => {
     const cat = categories.find(c => c.name === lib.category);
     const { error } = await supabase.from(TABLES.SMS_TEMPLATES).insert({ tenant_id: tenantId, name: lib.name, category_id: cat?.id ?? null, body: lib.body, is_active: true, is_system: false } as any);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(toUserFacingError(error)); return; }
     qc.invalidateQueries({ queryKey: ["sms-templates", tenantId] });
     toast.success("✅ Template duplicated to My Templates.");
   };

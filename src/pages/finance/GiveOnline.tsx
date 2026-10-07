@@ -32,6 +32,7 @@ import {
   AlertCircle, Download, Heart, Zap
 } from "lucide-react";
 import { format, startOfMonth, startOfYear } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const GIVING_CATEGORIES = ["tithe", "offering", "pledge_payment", "special_donation"] as const;
 const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "cheque", "other"] as const;
@@ -253,7 +254,7 @@ function AdminGive() {
       setStkPushState({ isActive: true, checkoutRequestId: checkoutId, givingRecordId: recordId, countdown: 90, terminalState: null });
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to process payment", {
+      toast.error(toUserFacingError(error, "Failed to process payment"), {
         duration: 6000,
         style: { background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", color: "white", borderRadius: "12px", padding: "16px", fontWeight: "600" },
       });
@@ -841,7 +842,7 @@ const GiveOnline = () => {
       setForm({ member_id: "", amount: "", giving_type: "offering", payment_method: "cash", payment_reference: "", given_at: new Date().toISOString().split("T")[0], notes: "" });
     },
     onError: (error: any) => {
-      toast.error(`Failed to record giving: ${error.message || error.details || "Unknown error"}`, { duration: 6000, style: { background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", color: "white", borderRadius: "12px", padding: "16px", fontWeight: "600" } });
+      toast.error(`Failed to record giving: ${toUserFacingError(error) || error.details || "Unknown error"}`, { duration: 6000, style: { background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", color: "white", borderRadius: "12px", padding: "16px", fontWeight: "600" } });
     },
   });
 

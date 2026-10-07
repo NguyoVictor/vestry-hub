@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { Save } from 'lucide-react';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 interface FamilyNotesTabProps {
   family: any;
@@ -32,7 +33,7 @@ export default function FamilyNotesTab({ family, tenantId, readOnly }: FamilyNot
       toast.success('Notes saved');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to save notes');
+      toast.error(toUserFacingError(err, 'Failed to save notes'));
     },
   });
 

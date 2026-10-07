@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { KeyRound, Building2, Link, Copy, Eye, EyeOff, X } from "lucide-react";
 import { format } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL || "https://www.churchcentralcloud.com";
 const BRANCH_LOGIN_URL = `${BASE_URL}/branch-login`;
@@ -79,7 +80,7 @@ function SetUpModal({ branch, onClose, onSaved }: SetUpModalProps) {
       onSaved();
     },
     onError: (e: Error) => {
-      if (e.message !== "Validation failed") toast.error(e.message || "Failed to save credentials");
+      if (toUserFacingError(e) !== "Validation failed") toast.error(toUserFacingError(e, "Failed to save credentials"));
     },
   });
 

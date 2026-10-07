@@ -16,6 +16,7 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { AnnouncementTypeDrawer } from "@/components/announcements/AnnouncementTypeDrawer";
 import { Plus, GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { AnnouncementType } from "@/types/announcements";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Default seed data ────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export default function AnnouncementTypesPage() {
       .update({ is_active: newVal } as never)
       .eq("id", type.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
       // Revert on error
       setRows((prev) =>
         prev.map((r) => (r.id === type.id ? { ...r, is_active: !newVal } : r))

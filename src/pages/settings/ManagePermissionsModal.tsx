@@ -9,6 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { ChevronDown } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Feature list (shared with FeaturePermissions) ────────────────────────────
 export const FEATURES: { key: string; label: string }[] = [
@@ -267,7 +268,7 @@ export function ManagePermissionsModal({ open, onClose, tenantId, target, onSave
       onSaved();
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save permissions."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save permissions.")),
   });
 
   if (!target) return null;

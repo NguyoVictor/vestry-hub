@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/lib/userFacingError";
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,16 +21,16 @@ export function PayHeroBanksAPITest() {
       console.log('Banks API response:', { data, error })
       
       if (error) {
-        toast.error(`API test failed: ${error.message}`)
-        setResult({ error: error.message })
+        toast.error(`API test failed: ${toUserFacingError(error)}`)
+        setResult({ error: toUserFacingError(error, "The API test failed. Please try again.") })
       } else {
         toast.success(`✅ Banks API test successful! Found ${data.count} banks from ${data.source}`)
         setResult(data)
       }
     } catch (error: any) {
       console.error('Banks API test error:', error)
-      toast.error(`Test failed: ${error.message}`)
-      setResult({ error: error.message })
+      toast.error(`Test failed: ${toUserFacingError(error)}`)
+      setResult({ error: toUserFacingError(error, "The API test failed. Please try again.") })
     } finally {
       setIsLoading(false)
     }

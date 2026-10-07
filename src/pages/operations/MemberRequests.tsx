@@ -27,6 +27,7 @@ import {
   List, LayoutGrid, MoreHorizontal, Pencil, Trash2, InboxIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 const PRIORITY_CONFIG: Record<string, { label: string; className: string; dot: string }> = {
@@ -152,7 +153,7 @@ function MessageMemberModal({ open, onClose, memberId, memberName, tenantId, use
       onClose();
     } catch (err: any) {
       console.error("Message send error:", err);
-      toast.error(err.message || "Failed to send message");
+      toast.error(toUserFacingError(err, "Failed to send message"));
     } finally {
       setSending(false);
     }

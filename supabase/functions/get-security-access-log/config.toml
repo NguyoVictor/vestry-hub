@@ -1,0 +1,2 @@
+[functions.get-security-access-log]
+verify_jwt = true

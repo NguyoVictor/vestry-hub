@@ -26,6 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ClipboardList, Plus, Pencil, Trash2 } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -337,7 +338,7 @@ export function TasksTab() {
       qc.invalidateQueries({ queryKey: ["staff-tasks", tenantId] });
       toast.success("Task deleted successfully!");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   // Client-side filtering

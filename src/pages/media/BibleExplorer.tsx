@@ -25,6 +25,7 @@ import { format } from "date-fns";
 // ── Local Bible Service (replaces api.bible) ─────────────────────────────────
 
 import { getVerse, getChapterVerses, searchVerses, stripHtml as stripHtmlUtil } from "@/lib/bibleService";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const VERSIONS = [
   { id: "de4e12af7f28f599-02", label: "King James Version (KJV)" },
@@ -1537,7 +1538,7 @@ function RemindersTab({ tenantId, userId }: { tenantId: string; userId: string |
       setGroupName(""); setGroupDesc("");
       setCreateGroupOpen(false);
     } catch (err: any) {
-      toast.error(err.message || "Failed to create group");
+      toast.error(toUserFacingError(err, "Failed to create group"));
     } finally { setCreatingGroup(false); }
   };
 
@@ -2003,7 +2004,7 @@ const BibleExplorer = () => {
       const newCount = versesLooked + 1;
       setVersesLooked(newCount);
       lsSet("bible_verses_looked", newCount);
-    } catch (err: any) { toast.error(err.message || "Lookup failed"); }
+    } catch (err: any) { toast.error(toUserFacingError(err, "Lookup failed")); }
     finally { setLooking(false); }
   };
 

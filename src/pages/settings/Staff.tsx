@@ -39,6 +39,7 @@ import {
 import { LeaveTab } from "./LeaveTab";
 import { PositionsTab } from "./PositionsTab";
 import { TasksTab } from "./TasksTab";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const WORK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -687,7 +688,7 @@ function StaffTab() {
       qc.invalidateQueries({ queryKey: ["settings-staff", church.tenantId] });
       toast.success("Staff member removed.");
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to delete."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to delete.")),
   });
 
   const getStaffName = (s: StaffRow) =>
@@ -1151,14 +1152,14 @@ function PayrollTab({ staffList }: { staffList: StaffRow[] }) {
       qc.invalidateQueries({ queryKey: ["staff-payroll", church.tenantId] });
       toast.success("Record deleted.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const updateStatus = async (id: string, status: string) => {
     if (readOnly) return;
     
     const { error } = await supabase.from("staff_payroll").update({ status, payment_date: status === "paid" ? new Date().toISOString().split("T")[0] : null } as never).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(toUserFacingError(error)); return; }
     qc.invalidateQueries({ queryKey: ["staff-payroll", church.tenantId] });
     toast.success(`Marked as ${status}.`);
   };

@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/form";
 import { Plus, Pencil, GripVertical, Building2 } from "lucide-react";
 import { PageTransition } from "@/components/ui/PageTransition";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FacilityType {
@@ -118,7 +119,7 @@ function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, on
       onClose();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to create facility type.");
+      toast.error(toUserFacingError(err, "Failed to create facility type."));
     },
   });
 
@@ -142,7 +143,7 @@ function FacilityTypeModal({ open, onClose, editing, existingCount, tenantId, on
       onClose();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to update facility type.");
+      toast.error(toUserFacingError(err, "Failed to update facility type."));
     },
   });
 
@@ -310,7 +311,7 @@ export default function FacilityTypesPage() {
       toast.success("Default types added");
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to seed defaults.");
+      toast.error(toUserFacingError(err, "Failed to seed defaults."));
     },
   });
 
@@ -324,7 +325,7 @@ export default function FacilityTypesPage() {
       .update({ is_active: newVal } as never)
       .eq("id", type.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
       setRows(prev => prev.map(r => r.id === type.id ? { ...r, is_active: !newVal } : r));
     } else {
       qc.invalidateQueries({ queryKey: ["facility-types", tenantId] });

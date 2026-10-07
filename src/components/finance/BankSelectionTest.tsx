@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/lib/userFacingError";
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
@@ -49,7 +50,7 @@ export function BankSelectionTest() {
               <AlertCircle className="w-4 h-4" />
               <span className="font-medium">Error</span>
             </div>
-            <p className="text-sm text-red-600">{error.message}</p>
+            <p className="text-sm text-red-600">{toUserFacingError(error, "Unable to load bank information. Please try again.")}</p>
           </div>
         )}
 

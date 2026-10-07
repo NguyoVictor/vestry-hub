@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -589,7 +590,7 @@ function LeaveRequestsTab({ tenantId, staffList }: { tenantId: string; staffList
       .from(TABLES.STAFF_LEAVE_REQUESTS)
       .update({ status } as never)
       .eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(toUserFacingError(error)); return; }
     qc.invalidateQueries({ queryKey: ["leave-requests", tenantId] });
     toast.success(`Request ${status}.`);
   };
@@ -604,7 +605,7 @@ function LeaveRequestsTab({ tenantId, staffList }: { tenantId: string; staffList
       qc.invalidateQueries({ queryKey: ["leave-requests", tenantId] });
       toast.success("Leave request deleted.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return (
@@ -1072,7 +1073,7 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
       qc.invalidateQueries({ queryKey: ["staff-absences", tenantId] });
       toast.success("Absence deleted.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return (

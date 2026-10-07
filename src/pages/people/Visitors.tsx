@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { logActivity } from "@/lib/activityLogger";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,7 +186,7 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
       onOpenChange(false);
       onSuccess();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(toUserFacingError(err));
     } finally {
       setSaving(false);
     }
@@ -469,7 +470,7 @@ function VisitorDetailsModal({
       setFollowUpModalOpen(false);
       toast.success("Follow-up task created");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const markContactedMut = useMutation({
@@ -509,7 +510,7 @@ function VisitorDetailsModal({
       toast.success("Visitor marked as contacted — draft message created in Communications");
       onMutationSuccess();
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const recordSalvationMut = useMutation({
@@ -533,7 +534,7 @@ function VisitorDetailsModal({
       onMutationSuccess();
       navigate("/new-converts");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const createMemberMut = useMutation({
@@ -564,7 +565,7 @@ function VisitorDetailsModal({
       onMutationSuccess();
       navigate("/members");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   if (!visitor) return null;
@@ -917,7 +918,7 @@ const Visitors = () => {
       toast.success("Visitor recorded as New Convert");
       navigate("/new-converts");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   // ── Delete visitor mutation ───────────────────────────────────────────────
@@ -950,7 +951,7 @@ const Visitors = () => {
       toast.success("Visitor deleted");
       setDeleteVisitorId(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   // ── Computed stats ────────────────────────────────────────────────────────

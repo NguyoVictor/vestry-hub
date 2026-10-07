@@ -9,6 +9,7 @@ import { Eye, EyeOff, ArrowRight, CheckCircle, ArrowLeft } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import PasswordStrength from "@/components/auth/PasswordStrength";
 import { motion } from "motion/react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ const ResetPassword = () => {
     setLoading(false);
     
     if (error) {
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
     } else {
       setResetComplete(true);
       toast.success("Password updated successfully!");

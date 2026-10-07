@@ -22,6 +22,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, GripVertical } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SRType {
@@ -317,7 +318,7 @@ export default function ServiceRequestTypesPage() {
       .update({ is_active: newVal } as never)
       .eq("id", type.id);
     if (error) {
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
       setRows(prev => prev.map(r => r.id === type.id ? { ...r, is_active: !newVal } : r)); // revert
     } else {
       qc.invalidateQueries({ queryKey: ["service-request-types", tenantId] });

@@ -35,6 +35,7 @@ import { MemberUsageBanner } from "@/components/members/MemberStats";
 import { ChurchQRModal } from "@/components/shared/ChurchQRModal";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const addMemberSchema = z.object({
   first_name: z.string().min(2, "Min 2 chars"),
@@ -162,7 +163,7 @@ const Members = () => {
         setWelcomeDialog({ open: true, memberId, memberName: `${values.first_name} ${values.last_name}`, email: values.email, tenantId: tenantId! });
       }
     },
-    onError: (err: any) => toast.error(err.message || "Failed to add member"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to add member")),
   });
 
   const deleteMutation = useMutation({

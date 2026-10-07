@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserCircle, Copy, Link } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const APP_BASE_URL = window.location.origin;
 
@@ -48,7 +49,7 @@ export default function RegistrationSettings() {
       qc.invalidateQueries({ queryKey: ["tenant-registration", tenantId] });
       toast.success(enabled ? "Registration enabled." : "Registration disabled.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const registrationUrl = `${APP_BASE_URL}/member-registration/${tenantId}`;

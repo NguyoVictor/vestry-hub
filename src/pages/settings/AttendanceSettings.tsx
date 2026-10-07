@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -172,7 +173,7 @@ export default function AttendanceSettings() {
       qc.invalidateQueries({ queryKey: ["tenant-attendance", tenantId] });
       toast.success("Attendance settings saved");
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save.")),
   });
 
   if (isLoading) {

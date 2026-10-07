@@ -21,6 +21,7 @@ import { Loader2, Eye, EyeOff, Shield, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
 import { TABLES } from "@/lib/schema";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const pwSchema = z.object({
   currentPassword: z.string().min(1, "Required"),
@@ -64,7 +65,7 @@ const Security = () => {
     setSaving(true);
     const { error } = await supabase.auth.updateUser({ password: values.newPassword });
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(toUserFacingError(error)); return; }
     toast.success("Password updated successfully");
     form.reset();
   };
@@ -98,7 +99,7 @@ const Security = () => {
       toast.success('Confirmation sent to both your old and new email. Check both inboxes.');
       setNewEmail('');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to update email');
+      toast.error(toUserFacingError(error, 'Failed to update email'));
     } finally {
       setSavingEmail(false);
     }

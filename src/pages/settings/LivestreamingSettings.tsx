@@ -18,6 +18,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { detectPlatform } from "@/utils/streamPlatform";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Form Schema ──────────────────────────────────────────────────────────────
 const platformSchema = z.object({
@@ -144,7 +145,7 @@ export default function LivestreamingSettings() {
       handleDialogChange(false);
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to save platform");
+      toast.error(toUserFacingError(error, "Failed to save platform"));
     },
   });
 
@@ -162,7 +163,7 @@ export default function LivestreamingSettings() {
       toast.success("Platform deleted successfully");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to delete platform");
+      toast.error(toUserFacingError(error, "Failed to delete platform"));
     },
   });
 

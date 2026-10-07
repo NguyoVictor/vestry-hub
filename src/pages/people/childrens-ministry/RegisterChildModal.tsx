@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { calcAge, suggestClass } from "./types";
 import type { ChildClass } from "./types";
 import { Loader2, Baby } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 interface Props {
   open: boolean;
@@ -90,7 +91,7 @@ export default function RegisterChildModal({ open, onClose, onSuccess, readOnly 
       onSuccess?.();
       onClose();
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const valid = form.first_name && form.last_name && form.date_of_birth;

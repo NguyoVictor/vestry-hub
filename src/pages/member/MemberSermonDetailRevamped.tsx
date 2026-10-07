@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export default function MemberSermonDetailRevamped() {
   const { sermonId } = useParams<{ sermonId: string }>();
@@ -178,7 +179,7 @@ export default function MemberSermonDetailRevamped() {
     },
     onError: (error: any) => {
       console.error('Reaction error:', error);
-      toast.error(error.message || 'Failed to update reaction');
+      toast.error(toUserFacingError(error, 'Failed to update reaction'));
     },
   });
 

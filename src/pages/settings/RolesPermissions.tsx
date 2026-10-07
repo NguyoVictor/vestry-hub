@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { FeaturePermissions } from "./FeaturePermissions";
 import { UserOverrides } from "./UserOverrides";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function randomCode(len = 8): string {
@@ -247,7 +248,7 @@ const RolesPermissions = () => {
       qc.invalidateQueries({ queryKey: ["tenant-church-code", tenantId] });
       toast.success("New access code generated!");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const handleCopy = () => {

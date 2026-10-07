@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Eye, EyeOff, ArrowRight, LinkIcon } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { captureEvent, identifyUser } from "@/lib/monitoring";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -87,7 +88,7 @@ const SignIn = () => {
 
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
       captureEvent("login_failed", { reason: error.message });
     } else {
       toast.success("Signed in successfully!");
@@ -141,7 +142,7 @@ const SignIn = () => {
       } catch (trackingError) {
         console.error('Failed to track OAuth login event:', trackingError);
       }
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
     }
   };
 

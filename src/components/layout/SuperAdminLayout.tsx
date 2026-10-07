@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { path: "/superadmin",                label: "Dashboard",         icon: BarChart2 },
   { path: "/superadmin/churches",       label: "Churches",          icon: Building2 },
-  { path: "/superadmin/storage-requests", label: "Storage Requests", icon: Database },
+  { path: "/superadmin/storage-requests", label: "Subscriptions", icon: Database },
 ];
 
 export function SuperAdminLayout() {

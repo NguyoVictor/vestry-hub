@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Mail, Phone, MapPin, Calendar, Edit, Camera } from "lucide-react";
 import { format } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const MEMBERSHIP_STATUSES = [
   "Pending Approval", "Visitor", "New Convert", "Member", "Worker",
@@ -218,7 +219,7 @@ const MemberProfile = () => {
     },
     onError: (error: any) => {
       console.error("Member update failed:", error);
-      toast.error(`Failed to update member: ${error.message || 'Unknown error'}`);
+      toast.error(`Failed to update member: ${toUserFacingError(error, 'Unknown error')}`);
     },
   });
 
@@ -294,7 +295,7 @@ const MemberProfile = () => {
                     toast.success("Member approved");
                   } catch (error: any) {
                     console.error("Member approval error:", error);
-                    toast.error(`Failed to approve member: ${error.message || 'Unknown error'}`);
+                    toast.error(`Failed to approve member: ${toUserFacingError(error, 'Unknown error')}`);
                   }
                 }}
               >

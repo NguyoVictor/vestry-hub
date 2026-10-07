@@ -12,6 +12,7 @@ import { Empty } from "@/components/ui/empty";
 import { AnnouncementCardAdmin } from "@/components/announcements/AnnouncementCardAdmin";
 import { PostAnnouncementDrawer } from "@/components/announcements/PostAnnouncementDrawer";
 import { useChurch } from "@/contexts/ChurchContext";
+import { toUserFacingError } from "@/lib/userFacingError";
 import type {
   Announcement,
   AnnouncementType,
@@ -138,7 +139,7 @@ export function AnnouncementFeedAdmin({
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to archive announcement");
+      toast.error(toUserFacingError(err, "Failed to archive announcement"));
     },
   });
 
@@ -157,7 +158,7 @@ export function AnnouncementFeedAdmin({
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to delete announcement");
+      toast.error(toUserFacingError(err, "Failed to delete announcement"));
     },
   });
 
@@ -175,7 +176,7 @@ export function AnnouncementFeedAdmin({
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to update pin status");
+      toast.error(toUserFacingError(err, "Failed to update pin status"));
     },
   });
 
@@ -206,7 +207,7 @@ export function AnnouncementFeedAdmin({
       invalidate();
     },
     onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to duplicate announcement");
+      toast.error(toUserFacingError(err, "Failed to duplicate announcement"));
     },
   });
 

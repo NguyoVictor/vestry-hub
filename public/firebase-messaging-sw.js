@@ -45,18 +45,16 @@ self.addEventListener('notificationclick', (event) => {
   
   // Focus or open the app
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If app is already open, focus it
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
+      const requestedPath = event.notification?.data?.link || '/';
+      const destination = new URL(requestedPath, self.location.origin).href;
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
+          if ('navigate' in client) await client.navigate(destination);
           return client.focus();
         }
       }
-      
-      // Otherwise, open the app
-      if (clients.openWindow) {
-        return clients.openWindow('/');
-      }
+      if (clients.openWindow) return clients.openWindow(destination);
     })
   );
 });

@@ -16,6 +16,7 @@ import FamiliesStatBar from "@/components/families/FamiliesStatBar";
 import FamiliesTable from "@/components/families/FamiliesTable";
 import CreateFamilyDrawer from "@/components/families/CreateFamilyDrawer";
 import EmptyFamilyState from "@/components/families/EmptyFamilyState";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const Families = () => {
   const { tenantId } = useChurch();
@@ -124,7 +125,7 @@ const Families = () => {
       setDrawerOpen(false);
       setEditingFamily(null);
     },
-    onError: (err: any) => toast.error(err.message || "Failed to save family"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to save family")),
   });
 
   const deleteMut = useMutation({

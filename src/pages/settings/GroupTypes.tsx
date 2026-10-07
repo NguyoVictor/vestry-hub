@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { Plus, Pencil, GripVertical, Trash2, UsersRound } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const PRESET_COLORS = [
   '#7c3aed','#6366f1','#3b82f6','#10b981',
@@ -80,7 +81,7 @@ function TypeDrawer({ open, onClose, tenantId, editData, nextOrder }: DrawerProp
       qc.invalidateQueries({ queryKey: ["group-types", tenantId] });
       handleClose();
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save.");
+      toast.error(toUserFacingError(err, "Failed to save."));
     } finally {
       setSaving(false);
     }

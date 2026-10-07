@@ -17,6 +17,7 @@ import {
   type CanonicalModuleConfig,
 } from "@/config/modules";
 import { TABLES, COLS } from "@/lib/schema";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export default function Modules() {
   const church = useChurch();
@@ -69,7 +70,7 @@ export default function Modules() {
       queryClient.invalidateQueries({ queryKey: ["tenant-settings", tenantId] });
       toast.success("Module settings saved");
     },
-    onError: (error: Error) => toast.error(error.message || "Failed to save module settings"),
+    onError: (error: Error) => toast.error(toUserFacingError(error, "Failed to save module settings")),
   });
 
   if (isLoading) {

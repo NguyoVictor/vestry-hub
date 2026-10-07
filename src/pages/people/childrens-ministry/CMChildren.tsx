@@ -21,6 +21,7 @@ import { childGradient, calcAge } from "./types";
 import type { Child, ChildClass } from "./types";
 import { cn } from "@/lib/utils";
 import RegisterChildModal from "./RegisterChildModal";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export default function CMChildren() {
   const { tenantId } = useChurch();
@@ -70,7 +71,7 @@ export default function CMChildren() {
   const deactivateMutation = useMutation({
     mutationFn: async (id: string) => { if (readOnly) return; const { error } = await supabase.from(TABLES.CHILDREN).update({ active: false } as any).eq("id", id).eq("tenant_id", tenantId!); if (error) throw error; },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["children-list"] }); qc.invalidateQueries({ queryKey: ["cm-stats"] }); toast.success("Child deactivated"); setDeleteId(null); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const filtered = children.filter(c => {

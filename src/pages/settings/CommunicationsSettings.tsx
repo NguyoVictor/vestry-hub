@@ -28,6 +28,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tag, MessageSquare, Plus, MoreHorizontal, Pencil, Trash2, Settings, Play, Pause } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface EmailCategory {
@@ -171,7 +172,7 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["email-categories", tenantId] }); setDeleteCat(null); toast.success("Category deleted."); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return (

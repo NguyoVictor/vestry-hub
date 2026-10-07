@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { staffDisplayName, formatStaffRole } from "@/lib/messaging";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface MessageRow {
@@ -727,7 +728,7 @@ export default function MemberMessages() {
       toast.success("File sent");
     } catch (err: any) {
       setAllMessages(prev => prev.filter(m => !m.id.startsWith("temp-file-")));
-      toast.error(err.message || "Upload failed");
+      toast.error(toUserFacingError(err, "Upload failed"));
     } finally { setUploading(false); }
   };
 

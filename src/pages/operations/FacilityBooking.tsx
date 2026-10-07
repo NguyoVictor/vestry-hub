@@ -48,6 +48,7 @@ import {
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PremiumGallery } from "@/components/ui/PremiumGallery";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
   Share2, Eye, MessageSquare, Search, X, ChevronRight, Video, ChevronLeft, ImageIcon, Download,
@@ -1065,7 +1066,7 @@ function AcceptRejectModal({
       });
       if (respErr) {
         console.error("facility_booking_responses insert error:", respErr);
-        toast.error(`Failed to save response: ${respErr.message}`);
+        toast.error(`Failed to save response: ${toUserFacingError(respErr)}`);
         return;
       }
 
@@ -1082,7 +1083,7 @@ function AcceptRejectModal({
       });
       if (notifErr) {
         console.error("notifications insert error:", notifErr);
-        toast.error(`Response saved but notification failed: ${notifErr.message}`);
+        toast.error(`Response saved but notification failed: ${toUserFacingError(notifErr)}`);
         onClose();
         return;
       }

@@ -10,10 +10,21 @@ export function useFcmToken(userId: string | null, tenantId: string | null) {
     // Register FCM token
     requestFcmToken().then(async (token) => {
       if (!token) return;
-      await supabase.from("device_tokens").upsert(
-        { user_id: userId, tenant_id: tenantId, token, device_type: "web" },
-        { onConflict: "user_id,token" }
-      );
+      let memberSessionToken: string | undefined;
+      try {
+        const raw = localStorage.getItem("member_session");
+        const memberSession = raw ? JSON.parse(raw) : null;
+        if (memberSession?.memberId === userId && memberSession?.tenantId === tenantId) {
+          memberSessionToken = memberSession.sessionToken;
+        }
+      } catch {
+        memberSessionToken = undefined;
+      }
+
+      const { error } = await supabase.functions.invoke("register-device-token", {
+        body: { user_id: userId, tenant_id: tenantId, token, device_type: "web", member_session_token: memberSessionToken },
+      });
+      if (error) console.warn("Push token registration was not accepted");
     }).catch(() => {});
 
     // Handle foreground messages (app is open)

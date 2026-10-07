@@ -1,10 +1,10 @@
 /**
  * Song Library UI Revamp - Main Container Component
- * 
+ *
  * This is the main entry point for the enhanced Song Library that transforms
  * Vestry's basic song management into a premium music application comparable
  * to Spotify and Apple Music.
- * 
+ *
  * Features:
  * - Dual theme system (Vercel light + Spotify dark)
  * - Premium UI components with React Bits integration
@@ -22,7 +22,7 @@ import { useState, useEffect, useCallback, useRef, Suspense, useMemo } from "rea
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
 import { TABLES } from "@/lib/schema";
@@ -39,27 +39,27 @@ import { Music, CalendarDays, Plus, Command, Search } from "lucide-react";
 import { SongLibraryErrorBoundary } from "./components/ErrorBoundary";
 
 // Performance optimization imports
-import { 
-  useCachedSongs, 
-  useCacheWarming, 
+import {
+  useCachedSongs,
+  useCacheWarming,
   usePreloader,
-  useCacheRefresh 
+  useCacheRefresh
 } from "./hooks/useCaching";
-import { 
-  useProgressiveLoading, 
-  useLoadingSkeletons 
+import {
+  useProgressiveLoading,
+  useLoadingSkeletons
 } from "./hooks/useLazyLoading";
-import { 
-  initializeBundleOptimization, 
+import {
+  initializeBundleOptimization,
   preloadingStrategies,
-  networkAwareLoading 
+  networkAwareLoading
 } from "./utils/bundleOptimization";
 import { LazyWrapper, LazyCardWrapper, LazyPanelWrapper } from "./components/LazyWrapper";
-import { 
-  SongGridSkeleton, 
-  SongListSkeleton, 
+import {
+  SongGridSkeleton,
+  SongListSkeleton,
   SetlistSkeleton,
-  ProgressiveSkeleton 
+  ProgressiveSkeleton
 } from "./components/LoadingSkeletons";
 import { PerformanceMonitor } from "./components/PerformanceMonitor";
 
@@ -67,7 +67,7 @@ import { PerformanceMonitor } from "./components/PerformanceMonitor";
 import "./styles/theme.css";
 
 // Lazy imports for code splitting
-import { 
+import {
   LazyChordTransposition,
   LazySetlistBuilder,
   LazyCommandPalette,
@@ -84,7 +84,7 @@ import { SongList } from "./components/SongList";
 import { ViewModeToggle } from "./components/ViewModeToggle";
 
 // Import accessibility components
-import { 
+import {
   AccessibilityProvider,
   AccessibleSongGrid,
   AccessibleCommandPalette,
@@ -95,18 +95,18 @@ import {
 } from "./components/Accessibility";
 
 // Import React Bits components
-import { 
-  ShinyPageTitle, 
-  MagneticButton, 
+import {
+  ShinyPageTitle,
+  MagneticButton,
   FadeContent
 } from "./components/ReactBits";
 
 // Import Animation Engine
-import { 
-  StaggerContainer, 
-  StaggerItem, 
+import {
+  StaggerContainer,
+  StaggerItem,
   PageTransition,
-  AnimatedCard 
+  AnimatedCard
 } from "./components/AnimationEngine";
 
 // Import mobile navigation
@@ -130,30 +130,31 @@ import type { Song, Setlist, ViewMode, SongLibraryState } from "@/types/song-lib
  */
 function SongLibraryInner() {
   const { tenantId } = useChurch();
-  
+  const queryClient = useQueryClient();
+
   // Accessibility hooks (now safe to use inside AccessibilityProvider)
-  const { 
-    isHighContrast, 
-    prefersReducedMotion, 
-    showKeyboardHelp, 
-    setShowKeyboardHelp 
+  const {
+    isHighContrast,
+    prefersReducedMotion,
+    showKeyboardHelp,
+    setShowKeyboardHelp
   } = useAccessibility();
   const { announceNavigation, announceStateChange } = useAccessibleAnnouncements();
   const { isKeyboardOnly, shouldShowFocusRing } = useKeyboardOnly();
-  
+
   // Performance optimization hooks
   const { getCachedSong, setCachedSong } = useCachedSongs();
   const { preloadPopularSongs, preloadCoverArt, preloadComponents } = usePreloader();
   const { refreshAllCaches } = useCacheRefresh();
-  const { 
-    isLoadingEssential, 
-    isLoadingSupplementary, 
+  const {
+    isLoadingEssential,
+    isLoadingSupplementary,
     essentialLoaded,
     loadEssential,
-    loadSupplementary 
+    loadSupplementary
   } = useProgressiveLoading();
   const { showSkeletons, hideSkeletons, skeletonItems } = useLoadingSkeletons();
-  
+
   // Main state management
   const [state, setState] = useState<SongLibraryState>({
     viewMode: 'grid',
@@ -166,6 +167,8 @@ function SongLibraryInner() {
 
   // Add Song modal state
   const [isAddSongModalOpen, setIsAddSongModalOpen] = useState(false);
+  const [newSong, setNewSong] = useState({ title: '', artist: '', key: '', tempo: '', lyrics: '' });
+  const [isSavingSong, setIsSavingSong] = useState(false);
 
   // Performance tracking
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -193,25 +196,25 @@ function SongLibraryInner() {
   // Data fetching hooks with caching
   const { data: songs = [], isLoading: loadingSongs } = useSongs(tenantId);
   const { data: setlists = [], isLoading: loadingSetlists } = useSetlists(tenantId);
-  
+
   // Feature hooks
   const { preferences, updatePreferences } = useUserPreferences();
-  const { 
-    isOpen: isCommandPaletteOpen, 
+  const {
+    isOpen: isCommandPaletteOpen,
     toggle: toggleCommandPalette,
-    close: closeCommandPalette 
+    close: closeCommandPalette
   } = useCommandPalette();
 
   // Initialize performance optimizations
   useEffect(() => {
     const startTime = Date.now();
-    
+
     // Initialize bundle optimization
     initializeBundleOptimization();
-    
+
     // Adjust loading strategy based on network
     networkAwareLoading.adjustStrategy();
-    
+
     // Preload critical components
     preloadComponents().then(() => {
       setPerformanceMetrics(prev => ({
@@ -223,7 +226,7 @@ function SongLibraryInner() {
 
     // Trigger route-based preloading
     preloadingStrategies.onRouteEnter('/media/song-library');
-    
+
     return () => {
       // Cleanup performance monitoring
     };
@@ -243,13 +246,13 @@ function SongLibraryInner() {
       loadEssential(async () => {
         // Load essential song metadata first
         hideSkeletons();
-        
+
         // Preload cover art for visible songs
         const visibleSongs = songs.slice(0, 12);
         const coverArtUrls = visibleSongs
           .map(s => s.cover_art_url)
           .filter(Boolean) as string[];
-        
+
         if (coverArtUrls.length > 0) {
           await preloadCoverArt(coverArtUrls);
         }
@@ -264,8 +267,8 @@ function SongLibraryInner() {
             .sort((a, b) => b.usage_count - a.usage_count)
             .slice(0, 20)
             .map(s => s.id);
-          
-          await preloadPopularSongs(popularSongIds, async (id) => 
+
+          await preloadPopularSongs(popularSongIds, async (id) =>
             songs.find(s => s.id === id)!
           );
         });
@@ -282,10 +285,10 @@ function SongLibraryInner() {
 
   // Save scroll position when switching views
   const saveScrollPosition = useCallback(() => {
-    const container = state.viewMode === 'grid' 
-      ? gridContainerRef.current 
+    const container = state.viewMode === 'grid'
+      ? gridContainerRef.current
       : listContainerRef.current;
-    
+
     if (container) {
       setScrollPosition(container.scrollTop);
     }
@@ -295,10 +298,10 @@ function SongLibraryInner() {
   const restoreScrollPosition = useCallback(() => {
     // Use a small delay to ensure the new view has rendered
     setTimeout(() => {
-      const container = state.viewMode === 'grid' 
-        ? gridContainerRef.current 
+      const container = state.viewMode === 'grid'
+        ? gridContainerRef.current
         : listContainerRef.current;
-      
+
       if (container) {
         container.scrollTop = scrollPosition;
       }
@@ -311,13 +314,13 @@ function SongLibraryInner() {
       // ⌘K or Ctrl+K to open command palette (desktop only)
       if ((event.metaKey || event.ctrlKey) && event.key === 'k' && !mobileResponsive.isMobile) {
         event.preventDefault();
-        
+
         // Preload command palette if not already loaded
         preloadingStrategies.onUserInteraction('hover-search-button');
-        
+
         toggleCommandPalette();
       }
-      
+
       // Escape to close command palette
       if (event.key === 'Escape') {
         if (mobileResponsive.isMobile && mobileCommandPalette.isMobileSearchOpen) {
@@ -331,9 +334,9 @@ function SongLibraryInner() {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [
-    isCommandPaletteOpen, 
-    toggleCommandPalette, 
-    closeCommandPalette, 
+    isCommandPaletteOpen,
+    toggleCommandPalette,
+    closeCommandPalette,
     mobileResponsive.isMobile,
     mobileCommandPalette.isMobileSearchOpen,
     mobileCommandPalette.closeMobileSearch
@@ -348,24 +351,24 @@ function SongLibraryInner() {
   const handleViewModeChange = useCallback((viewMode: ViewMode) => {
     // Save current scroll position
     saveScrollPosition();
-    
+
     // Use mobile-optimized view mode if on mobile
-    const finalViewMode = mobileResponsive.isMobile && mobileResponsive.optimalViewMode 
-      ? mobileResponsive.optimalViewMode 
+    const finalViewMode = mobileResponsive.isMobile && mobileResponsive.optimalViewMode
+      ? mobileResponsive.optimalViewMode
       : viewMode;
-    
+
     // Update state
     setState(prev => ({ ...prev, viewMode: finalViewMode }));
-    
+
     // Persist to preferences
     updatePreferences({ view_mode: finalViewMode });
-    
+
     // Restore scroll position after transition
     restoreScrollPosition();
-    
+
     // Trigger haptic feedback on mobile
     mobileResponsive.triggerHaptic('light');
-    
+
     // Announce view mode change
     announceStateChange(`Switched to ${finalViewMode} view`);
   }, [saveScrollPosition, updatePreferences, restoreScrollPosition, mobileResponsive, announceStateChange]);
@@ -378,12 +381,12 @@ function SongLibraryInner() {
         ? prev.selectedSongs.filter(id => id !== song.id)
         : [...prev.selectedSongs, song.id]
     }));
-    
+
     // Announce selection change
     const isSelected = state.selectedSongs.includes(song.id);
     announceStateChange(
-      isSelected 
-        ? `Deselected ${song.title}` 
+      isSelected
+        ? `Deselected ${song.title}`
         : `Selected ${song.title}`
     );
   };
@@ -539,23 +542,23 @@ function SongLibraryInner() {
               {/* Page Header with React Bits */}
               <div className={`flex items-start justify-between gap-4 mb-6 ${mobileResponsive.isMobile ? 'flex-col' : ''}`}>
                 <div className={mobileResponsive.isMobile ? 'w-full' : ''}>
-                  <ShinyPageTitle 
-                    title="Song Library" 
+                  <ShinyPageTitle
+                    title="Song Library"
                     className={`mb-2 ${mobileResponsive.isMobile ? 'text-2xl' : ''}`}
                   />
-                  <motion.p 
+                  <motion.p
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
                     className={`sl-text-secondary ${mobileResponsive.isMobile ? 'text-sm' : 'text-sm'}`}
                   >
-                    {mobileResponsive.isMobile 
-                      ? "Premium music management" 
+                    {mobileResponsive.isMobile
+                      ? "Premium music management"
                       : "Premium music management with advanced search, chord tools, and collaboration"
                     }
                   </motion.p>
                 </div>
-                
+
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -563,7 +566,7 @@ function SongLibraryInner() {
                   className={`flex items-center gap-3 ${mobileResponsive.isMobile ? 'w-full justify-between' : ''}`}
                 >
                   <ThemeToggle size="sm" />
-                  
+
                   {/* Mobile Search Button */}
                   {mobileResponsive.isMobile ? (
                     <MagneticButton
@@ -586,14 +589,14 @@ function SongLibraryInner() {
                       </kbd>
                     </MagneticButton>
                   )}
-                  
+
                   <ViewModeToggle
                     viewMode={mobileResponsive.optimalViewMode || state.viewMode}
                     onChange={handleViewModeChange}
                     isMobile={mobileResponsive.isMobile}
                   />
-                  
-                  <HapticPrimaryButton 
+
+                  <HapticPrimaryButton
                     className={`sl-button-primary ${mobileResponsive.isMobile ? 'min-h-[44px] px-4' : ''}`}
                     touchOptimized={mobileResponsive.isMobile}
                     onClick={() => setIsAddSongModalOpen(true)}
@@ -605,38 +608,38 @@ function SongLibraryInner() {
               </div>
 
               {/* Stats Cards with Stagger Animation */}
-              <StaggerContainer 
-                variant={mobileResponsive.isMobile ? "fast" : "normal"} 
+              <StaggerContainer
+                variant={mobileResponsive.isMobile ? "fast" : "normal"}
                 className={`grid gap-4 ${
-                  mobileResponsive.isMobile 
-                    ? 'grid-cols-2' 
+                  mobileResponsive.isMobile
+                    ? 'grid-cols-2'
                     : 'grid-cols-2 lg:grid-cols-4'
                 }`}
               >
                 {[
-                  { 
-                    label: "Total Songs", 
-                    value: songs.length, 
-                    icon: Music, 
-                    color: "bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400" 
+                  {
+                    label: "Total Songs",
+                    value: songs.length,
+                    icon: Music,
+                    color: "bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400"
                   },
-                  { 
-                    label: "Trending", 
-                    value: songs.filter(s => s.is_trending).length, 
-                    icon: Music, 
-                    color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" 
+                  {
+                    label: "Trending",
+                    value: songs.filter(s => s.is_trending).length,
+                    icon: Music,
+                    color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
                   },
-                  { 
-                    label: "With Chords", 
-                    value: songs.filter(s => s.chords || s.chord_sheet_path).length, 
-                    icon: Music, 
-                    color: "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400" 
+                  {
+                    label: "With Chords",
+                    value: songs.filter(s => s.chords || s.chord_sheet_path).length,
+                    icon: Music,
+                    color: "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
                   },
-                  { 
-                    label: "Setlists", 
-                    value: setlists.length, 
-                    icon: CalendarDays, 
-                    color: "bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400" 
+                  {
+                    label: "Setlists",
+                    value: setlists.length,
+                    icon: CalendarDays,
+                    color: "bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
                   },
                 ].map(({ label, value, icon: Icon, color }, index) => (
                   <StaggerItem key={label} variant="stagger">
@@ -655,13 +658,13 @@ function SongLibraryInner() {
                           <p className="text-xs sl-text-muted font-medium uppercase tracking-wide">
                             {label}
                           </p>
-                          <motion.p 
+                          <motion.p
                             initial={{ opacity: 0, scale: 0.5 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ 
+                            transition={{
                               delay: index * 0.1 + 0.5,
                               type: "spring",
-                              stiffness: 200 
+                              stiffness: 200
                             }}
                             className="text-2xl font-bold sl-text-primary"
                           >
@@ -702,14 +705,14 @@ function SongLibraryInner() {
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.3, ease: "easeInOut" }}
                       >
-                        <FadeContent 
-                          show={true} 
-                          direction="up" 
+                        <FadeContent
+                          show={true}
+                          direction="up"
                           duration={0.4}
                         >
                           {/* Show progressive loading skeleton during initial load */}
                           {isLoadingEssential && showSkeletons ? (
-                            <ProgressiveSkeleton 
+                            <ProgressiveSkeleton
                               stage={essentialLoaded ? 'essential' : 'initial'}
                               className="space-y-6"
                             />
@@ -844,7 +847,7 @@ function SongLibraryInner() {
 
         {/* Performance Monitor */}
         {mobileResponsive.isMobile ? (
-          <MobilePerformanceMonitor 
+          <MobilePerformanceMonitor
             enabled={process.env.NODE_ENV === 'development'}
             autoOptimize={true}
             onSettingsChange={(settings) => {
@@ -853,7 +856,7 @@ function SongLibraryInner() {
             }}
           />
         ) : (
-          <PerformanceMonitor 
+          <PerformanceMonitor
             enabled={process.env.NODE_ENV === 'development'}
             position="bottom-right"
             compact={false}
@@ -873,7 +876,9 @@ function SongLibraryInner() {
                   id="song-title"
                   placeholder="Amazing Grace"
                   className="font-jakarta"
-                />
+
+                  value={newSong.title}
+                  onChange={(e) => setNewSong(prev => ({ ...prev, title: e.target.value }))}/>
               </div>
               <div>
                 <Label htmlFor="song-artist" className="font-jakarta">Artist</Label>
@@ -881,7 +886,9 @@ function SongLibraryInner() {
                   id="song-artist"
                   placeholder="John Newton"
                   className="font-jakarta"
-                />
+
+                  value={newSong.artist}
+                  onChange={(e) => setNewSong(prev => ({ ...prev, artist: e.target.value }))}/>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -890,7 +897,9 @@ function SongLibraryInner() {
                     id="song-key"
                     placeholder="G"
                     className="font-jakarta"
-                  />
+
+                  value={newSong.key}
+                  onChange={(e) => setNewSong(prev => ({ ...prev, key: e.target.value }))}/>
                 </div>
                 <div>
                   <Label htmlFor="song-bpm" className="font-jakarta">BPM</Label>
@@ -899,7 +908,9 @@ function SongLibraryInner() {
                     type="number"
                     placeholder="120"
                     className="font-jakarta"
-                  />
+
+                  value={newSong.tempo}
+                  onChange={(e) => setNewSong(prev => ({ ...prev, tempo: e.target.value }))}/>
                 </div>
               </div>
               <div>
@@ -909,7 +920,9 @@ function SongLibraryInner() {
                   placeholder="Enter song lyrics..."
                   rows={6}
                   className="font-jakarta"
-                />
+
+                  value={newSong.lyrics}
+                  onChange={(e) => setNewSong(prev => ({ ...prev, lyrics: e.target.value }))}/>
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <Button
@@ -923,10 +936,20 @@ function SongLibraryInner() {
                 <Button
                   type="button"
                   className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta"
-                  onClick={() => {
-                    // TODO: Implement song creation
-                    toast.success('Song creation will be implemented soon');
+                  disabled={isSavingSong || !newSong.title.trim()}
+                  onClick={async () => {
+                    if (!tenantId || !newSong.title.trim()) return;
+                    setIsSavingSong(true);
+                    const { error } = await supabase.from(TABLES.SONGS).insert({
+                      tenant_id: tenantId, title: newSong.title.trim(), artist: newSong.artist.trim() || null,
+                      key: newSong.key.trim() || null, tempo: newSong.tempo ? Number(newSong.tempo) : null, lyrics: newSong.lyrics.trim() || null,
+                    });
+                    setIsSavingSong(false);
+                    if (error) { toast.error('Could not add song. Please try again.'); return; }
+                    await queryClient.invalidateQueries({ queryKey: ['songs', tenantId] });
+                    setNewSong({ title: '', artist: '', key: '', tempo: '', lyrics: '' });
                     setIsAddSongModalOpen(false);
+                    toast.success('Song added');
                   }}
                 >
                   Add Song
@@ -960,7 +983,7 @@ export default function SongLibrary() {
       onError={(error, errorInfo) => {
         // Log to monitoring service
         console.error('Song Library Error:', error, errorInfo);
-        
+
         // Could send to Sentry or other monitoring service
         // Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
       }}

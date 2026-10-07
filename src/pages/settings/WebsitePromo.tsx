@@ -19,6 +19,7 @@ import {
   MessageCircle, Star,
 } from "lucide-react";
 import { format } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Review {
@@ -174,7 +175,7 @@ export default function WebsitePromo() {
       setReviewText("");
       setRating(0);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return (

@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/lib/userFacingError";
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,7 +41,7 @@ export function PaymentInfrastructureTest() {
       console.log('Channel setup response:', { data, error })
 
       if (error) {
-        toast.error(`Setup failed: ${error.message}`)
+        toast.error(`Setup failed: ${toUserFacingError(error)}`)
       } else if (data?.success) {
         if (data.manual_setup_required) {
           toast.success('✅ Manual setup flow working correctly!')
@@ -52,7 +53,7 @@ export function PaymentInfrastructureTest() {
       }
     } catch (error: any) {
       console.error('Setup test error:', error)
-      toast.error(`Setup test failed: ${error.message}`)
+      toast.error(`Setup test failed: ${toUserFacingError(error)}`)
     } finally {
       setIsTestingSetup(false)
     }
@@ -82,7 +83,7 @@ export function PaymentInfrastructureTest() {
       console.log('STK Push response:', { data, error })
 
       if (error) {
-        toast.error(`STK Push failed: ${error.message}`)
+        toast.error(`STK Push failed: ${toUserFacingError(error)}`)
       } else if (data?.success) {
         toast.success('✅ STK Push initiated successfully!')
       } else if (data?.setup_status === 'manual_setup_pending') {
@@ -92,7 +93,7 @@ export function PaymentInfrastructureTest() {
       }
     } catch (error: any) {
       console.error('STK Push test error:', error)
-      toast.error(`STK Push test failed: ${error.message}`)
+      toast.error(`STK Push test failed: ${toUserFacingError(error)}`)
     } finally {
       setIsTestingSTK(false)
     }

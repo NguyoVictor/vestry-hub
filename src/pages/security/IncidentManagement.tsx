@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   ShieldAlert,
   Calendar,
@@ -409,7 +410,7 @@ function ReportIncidentSheet({
       onOpenChange(false);
       onSuccess();
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save incident");
+      toast.error(toUserFacingError(err, "Failed to save incident"));
     } finally {
       setSaving(false);
       setUploading(false);
@@ -697,7 +698,7 @@ function UpdateStatusModal({
       onOpenChange(false);
       onSuccess();
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to update status");
+      toast.error(toUserFacingError(err, "Failed to update status"));
     } finally {
       setSaving(false);
     }
@@ -1345,7 +1346,7 @@ export default function IncidentManagement() {
       toast.success("Incident deleted");
       setDeleteTarget(null);
     },
-    onError: (err: any) => toast.error(err.message ?? "Failed to delete incident"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to delete incident")),
   });
 
   // ── PDF export ─────────────────────────────────────────────────────────────
@@ -1360,7 +1361,7 @@ export default function IncidentManagement() {
       await exportToPDF(filtered, churchName);
       toast.success("PDF exported successfully");
     } catch (err: any) {
-      toast.error(err.message ?? "Export failed");
+      toast.error(toUserFacingError(err, "Export failed"));
     } finally {
       setExporting(false);
     }

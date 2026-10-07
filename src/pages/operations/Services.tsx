@@ -25,6 +25,7 @@ import { TABLES } from "@/lib/schema";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, isToday, addMonths, subMonths } from "date-fns";
 import { Plus, Church, CalendarDays, Users, CheckCircle2, List, LayoutGrid, Calendar, ChevronLeft, ChevronRight, MoreHorizontal, MapPin, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const SERVICE_TYPES = [
   { value: "sunday",   label: "Sunday Service" },
@@ -383,7 +384,7 @@ export default function ServicesPage() {
       if (e.message?.includes('allow_attendance') && e.message?.includes('schema cache')) {
         toast.error("Database column missing. Please run the ADD_MISSING_SERVICES_COLUMNS.sql script in Supabase Dashboard.");
       } else {
-        toast.error(e.message || "Failed to schedule service");
+        toast.error(toUserFacingError(e, "Failed to schedule service"));
       }
     },
   });
@@ -445,7 +446,7 @@ export default function ServicesPage() {
       if (e.message?.includes('allow_attendance') && e.message?.includes('schema cache')) {
         toast.error("Database column missing. Please run the ADD_MISSING_SERVICES_COLUMNS.sql script in Supabase Dashboard.");
       } else {
-        toast.error(e.message || "Failed to update service");
+        toast.error(toUserFacingError(e, "Failed to update service"));
       }
     },
   });
@@ -457,7 +458,7 @@ export default function ServicesPage() {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success("Service deleted"); setDeleteServiceId(null); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const updateStatusMutation = useMutation({
@@ -467,7 +468,7 @@ export default function ServicesPage() {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast.success("Status updated"); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const openEdit = (s: any) => {

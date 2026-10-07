@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChevronDown, X, Globe, MapPin, GitMerge } from "lucide-react";
 import { logActivity } from "@/lib/activityLogger";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const PRESET_COLORS = ["#4F46E5","#7c3aed","#10B981","#F59E0B","#EF4444","#8B5CF6","#EC4899","#06B6D4","#F97316","#14B8A6","#64748B","#3b82f6"];
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -191,7 +192,7 @@ export function GroupDrawer({ open, onClose, tenantId, groupTypes, editData, onS
       onSuccess();
       handleClose();
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save group.");
+      toast.error(toUserFacingError(err, "Failed to save group."));
     } finally {
       setSaving(false);
     }
