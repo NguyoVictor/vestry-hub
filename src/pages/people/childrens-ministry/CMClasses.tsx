@@ -22,6 +22,7 @@ import { Plus, BookOpen, MoreHorizontal, Pencil, Trash2, Users, Loader2 } from "
 import { DEFAULT_CLASSES } from "./types";
 import type { ChildClass } from "./types";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export default function CMClasses() {
   const { tenantId } = useChurch();
@@ -70,7 +71,7 @@ export default function CMClasses() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["children-classes"] }); toast.success("Class deleted"); setDeleteId(null); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   return (
@@ -195,7 +196,7 @@ function ClassModal({ open, onClose, editing, tenantId, readOnly }: { open: bool
       }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["children-classes"] }); toast.success(editing ? "Class updated" : "Class created"); onClose(); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   return (

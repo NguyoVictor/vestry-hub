@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Globe, Plus, X, Save } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export default function VisionMission() {
   const { tenantId } = useChurch();
@@ -76,7 +77,7 @@ export default function VisionMission() {
       queryClient.invalidateQueries({ queryKey: ["tenant-settings", tenantId] });
       toast.success("Vision & Mission saved");
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save"),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save")),
   });
 
   if (isLoading) {

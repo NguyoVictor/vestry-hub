@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { Plus, Pencil, GripVertical, Trash2, Image } from "lucide-react";
 import type { MediaCategory } from "@/types/media";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const PRESET_COLORS = [
   '#6366f1', '#7c3aed', '#f59e0b', '#10b981',
@@ -81,7 +82,7 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
       qc.invalidateQueries({ queryKey: ["media-categories", tenantId] });
       handleClose();
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save category.");
+      toast.error(toUserFacingError(err, "Failed to save category."));
     } finally {
       setSubmitting(false);
     }

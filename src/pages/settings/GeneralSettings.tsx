@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Upload, Clock, Save, CreditCard } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Timezone list ────────────────────────────────────────────────────────────
 const TIMEZONES = [
@@ -182,7 +183,7 @@ export default function GeneralSettings() {
       setLogoFile(null);
       toast.success("Settings saved successfully");
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save settings"),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save settings")),
   });
 
   if (isLoading) {

@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { HandHeart, Users, Clock, Search, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function deptColor(dept: string): string {
@@ -103,7 +104,7 @@ export default function MemberVolunteer() {
       invalidate();
       toast.success(`You've signed up as ${role.name}! Thank you for serving 🙏`);
     },
-    onError: (err: any) => toast.error(err.message || "Failed to sign up"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to sign up")),
   });
 
   const withdrawMut = useMutation({
@@ -121,7 +122,7 @@ export default function MemberVolunteer() {
       toast.success("You have withdrawn from the role");
       setWithdrawConfirm(null);
     },
-    onError: (err: any) => toast.error(err.message || "Failed to withdraw"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to withdraw")),
   });
 
   // ── Derived ───────────────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AdminBroadcast {
@@ -43,7 +44,7 @@ interface Officer { id: string; first_name: string | null; last_name: string | n
 // ── Template variable replacement ─────────────────────────────────────────────
 const replaceTemplateVariables = (text: string, churchData: any): string => {
   if (!text || !churchData) return text;
-  
+
   const variables = {
     '{{church_name}}': churchData.name || 'Church',
     '{{church_tagline}}': churchData.tagline || '',
@@ -57,12 +58,12 @@ const replaceTemplateVariables = (text: string, churchData: any): string => {
     '{{service_time}}': churchData.service_time || '',
     '{{founded_year}}': churchData.founded_year ? String(churchData.founded_year) : '',
   };
-  
+
   let result = text;
   Object.entries(variables).forEach(([placeholder, value]) => {
     result = result.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
   });
-  
+
   return result;
 };
 
@@ -226,7 +227,7 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
       // Store processed content (with variables replaced) in the database
       payload.subject = processedSubject;
       payload.message = processedMessage;
-      
+
       const { data: row, error } = await supabase.from(TABLES.ADMIN_BROADCASTS).insert(payload as any).select("id").single();
       if (error) throw error;
 
@@ -246,18 +247,9 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
         memberIds = (data ?? []).map((m: any) => m.id).filter(Boolean);
       }
 
-      // Get user IDs for push notifications (Edge Function expects user IDs)
-      let userIds: string[] = [];
-      if (recipientType === "all") {
-        const { data } = await supabase.from(TABLES.MEMBERS).select("user_id").eq("tenant_id", tenantId).not("user_id", "is", null);
-        userIds = (data ?? []).map((m: any) => m.user_id).filter(Boolean);
-      } else if (recipientType === "officers") {
-        userIds = selectedOfficers;
-      } else if (recipientType === "branches") {
-        // Get user IDs for members in selected branches
-        const { data } = await supabase.from(TABLES.MEMBERS).select("user_id").eq("tenant_id", tenantId).in("branch_id", selectedBranches).not("user_id", "is", null);
-        userIds = (data ?? []).map((m: any) => m.user_id).filter(Boolean);
-      }
+      // Push tokens for Member Portal sessions are keyed by member ID.
+      // Reuse the exact tenant-scoped recipient set used by in-app notifications.
+      const pushRecipientIds = memberIds;
 
       // Send in-app notifications (use member IDs for member portal compatibility)
       if (channels.includes("in_app") && memberIds.length > 0) {
@@ -295,16 +287,16 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
       // Send push notifications and capture results
       let pushSentCount = 0;
       let pushFailedCount = 0;
-      if (channels.includes("push") && !scheduleAt && userIds.length > 0) {
+      if (channels.includes("push") && !scheduleAt && pushRecipientIds.length > 0) {
         try {
           const { data: pushResult } = await supabase.functions.invoke("send-push-notification", {
-            body: { 
-              tenant_id: tenantId, 
-              recipient_user_ids: userIds,
-              title: processedSubject, 
-              body: processedMessage, 
-              priority, 
-              data: { broadcast_id: row?.id, type: "broadcast" } 
+            body: {
+              tenant_id: tenantId,
+              recipient_user_ids: pushRecipientIds,
+              title: processedSubject,
+              body: processedMessage,
+              priority,
+              data: { broadcast_id: row?.id, type: "broadcast", link: "/member/announcements" }
             },
           });
           if (pushResult) {
@@ -313,15 +305,15 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
           }
         } catch (pushError) {
           console.error("Push notification error:", pushError);
-          pushFailedCount = userIds.length; // Mark all as failed if error
+          pushFailedCount = pushRecipientIds.length; // Mark all as failed if error
         }
 
         // Update broadcast record with push stats
         if (row?.id) {
           await supabase.from(TABLES.ADMIN_BROADCASTS)
-            .update({ 
-              push_sent_count: pushSentCount, 
-              push_failed_count: pushFailedCount 
+            .update({
+              push_sent_count: pushSentCount,
+              push_failed_count: pushFailedCount
             } as any)
             .eq("id", row.id);
         }
@@ -412,7 +404,7 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
                   )}
                 </div>
               )}
-              
+
               {/* Available Template Variables */}
               <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                 <p className="text-xs font-medium text-slate-700 mb-2">💡 Available template variables:</p>
@@ -739,7 +731,7 @@ export function AdminBroadcast() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-broadcasts", tenantId] }); setDeleteBroadcast(null); toast.success("Broadcast deleted."); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const deleteTemplateMutation = useMutation({
@@ -749,7 +741,7 @@ export function AdminBroadcast() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["broadcast-templates", tenantId] }); setDeleteTemplate(null); toast.success("Template deleted."); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const handleDuplicate = (b: AdminBroadcast) => {
@@ -772,7 +764,7 @@ export function AdminBroadcast() {
   const since = subDays(new Date(), timeFilter);
   const filtered = broadcasts.filter(b => new Date(b.created_at) >= since);
   const totalSent = filtered.filter(b => b.status === "sent").length;
-  
+
   // Get unique recipients count (total people in system, not cumulative sends)
   const { data: uniqueRecipients } = useQuery({
     queryKey: ["unique-recipients", tenantId],
@@ -789,14 +781,14 @@ export function AdminBroadcast() {
   });
 
   const totalRecipients = uniqueRecipients ?? 0; // Total unique people, not cumulative
-  
+
   // Get actual read count from notifications (always call, but conditionally enable)
   const { data: readNotifications } = useQuery({
     queryKey: ["broadcast-read-count", tenantId, timeFilter],
     queryFn: async () => {
       const broadcastIds = filtered.map(b => b.id);
       if (broadcastIds.length === 0) return [];
-      
+
       const { data } = await supabase
         .from(TABLES.NOTIFICATIONS)
         .select("user_id")
@@ -804,7 +796,7 @@ export function AdminBroadcast() {
         .eq("type", "broadcast")
         .eq("is_read", true)
         .gte("created_at", since.toISOString());
-      
+
       // Count unique users who read (not total reads)
       const uniqueReaders = new Set((data ?? []).map(n => n.user_id));
       return Array.from(uniqueReaders);

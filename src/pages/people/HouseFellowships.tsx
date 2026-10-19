@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   Plus, Home, Trash2, Pencil, MoreHorizontal, LayoutGrid, List,
   Search, Users, MapPin, Clock, ChevronRight, Eye,
@@ -217,7 +218,7 @@ const HouseFellowships = () => {
       qc.invalidateQueries({ queryKey: ["fellowships", tenantId] });
       setSheetOpen(false);
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save");
+      toast.error(toUserFacingError(err, "Failed to save"));
     } finally {
       setSaving(false);
     }

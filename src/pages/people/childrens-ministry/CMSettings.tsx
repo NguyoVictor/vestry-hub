@@ -15,6 +15,7 @@ import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { Settings, Monitor, QrCode, Bell, Layers, Loader2, Eye, EyeOff } from "lucide-react";
 import type { CMSettings as CMSettingsType } from "./types";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const DEFAULT_SETTINGS: Omit<CMSettingsType, "id" | "tenant_id"> = {
   kiosk_pin: "1234",
@@ -63,7 +64,7 @@ export default function CMSettings() {
       }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["cm-settings"] }); toast.success("Settings saved"); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const set = (key: keyof typeof form, value: any) => setForm(f => ({ ...f, [key]: value }));

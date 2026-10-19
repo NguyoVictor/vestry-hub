@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StorageBar, formatBytes } from "@/components/media/StorageBar";
 import { Building2, Clock, Database, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
-const PLATFORM_LIMIT = Number(import.meta.env.VITE_PLATFORM_STORAGE_LIMIT_BYTES ?? 107_374_182_400);
+import { SentryMonitor } from "@/components/security/SentryMonitor";
+import { PostHogDashboard } from "@/components/security/PostHogDashboard";
 
 function StatCard({ icon: Icon, label, value, accent = false }: { icon: React.ElementType; label: string; value: string | number; accent?: boolean }) {
   return (
@@ -23,37 +22,32 @@ function StatCard({ icon: Icon, label, value, accent = false }: { icon: React.El
   );
 }
 
+const formatGb = (value: number) => `${Number(value || 0).toFixed(value >= 100 ? 0 : 1)} GB`;
+
 export default function SuperAdminDashboard() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, isError } = useQuery({
     queryKey: ["superadmin-stats"],
     queryFn: async () => {
-      const [churchesRes, storageRes, pendingRes, activityRes] = await Promise.all([
-        supabase.from("tenants").select("id, name, created_at", { count: "exact" }),
-        supabase.from("church_storage").select("storage_used_bytes, storage_plans(name)"),
-        supabase.from("church_storage").select("id", { count: "exact" }).not("upgrade_requested_at", "is", null),
-        supabase.from("activity_log").select("id, action_type, description, created_at").order("created_at", { ascending: false }).limit(10),
-      ]);
-
-      const totalChurches = churchesRes.count ?? 0;
-      const storageRows = storageRes.data ?? [];
-      const totalUsed = storageRows.reduce((sum, r) => sum + (r.storage_used_bytes ?? 0), 0);
-      const pendingCount = pendingRes.count ?? 0;
-      const recentActivity = activityRes.data ?? [];
-
-      return { totalChurches, totalUsed, pendingCount, recentActivity };
+      const { data, error } = await supabase.functions.invoke("platform-admin-overview", { body: { action: "overview" } });
+      if (error) throw error;
+      return data;
     },
     staleTime: 60_000,
   });
 
   return (
     <div className="space-y-8 font-jakarta">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">Platform Dashboard</h1>
         <p className="text-sm text-slate-400 mt-1">VestryHub platform overview</p>
       </div>
 
-      {/* Stats */}
+      {isError && (
+        <div className="rounded-xl border border-red-800/60 bg-red-950/30 p-4 text-sm text-red-300">
+          Platform metrics are temporarily unavailable. Your access remains protected.
+        </div>
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl bg-slate-800" />)}
@@ -61,48 +55,50 @@ export default function SuperAdminDashboard() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard icon={Building2} label="Total Churches" value={stats?.totalChurches ?? 0} />
-          <StatCard icon={Database} label="Total Storage Used" value={formatBytes(stats?.totalUsed ?? 0)} />
-          <StatCard icon={Clock} label="Pending Upgrades" value={stats?.pendingCount ?? 0} accent={(stats?.pendingCount ?? 0) > 0} />
-          <StatCard icon={TrendingUp} label="Platform Limit" value={formatBytes(PLATFORM_LIMIT)} />
+          <StatCard icon={TrendingUp} label="Active Subscriptions" value={stats?.activeSubscriptions ?? 0} />
+          <StatCard icon={Clock} label="Pending Plan Changes" value={stats?.pendingPlanChanges ?? 0} accent={(stats?.pendingPlanChanges ?? 0) > 0} />
+          <StatCard icon={Database} label="Storage Used" value={formatGb(stats?.totalStorageUsedGb ?? 0)} />
         </div>
       )}
 
-      {/* Platform storage bar */}
       <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-        <h2 className="text-sm font-semibold text-slate-300 mb-4">Platform Storage</h2>
-        {isLoading ? <Skeleton className="h-8 bg-slate-700 rounded" /> : (
-          <StorageBar
-            usedBytes={stats?.totalUsed ?? 0}
-            limitBytes={PLATFORM_LIMIT}
-            planName="Supabase Pro"
-            onUpgrade={() => {}}
+        <div className="flex items-center justify-between gap-4 mb-3">
+          <h2 className="text-sm font-semibold text-slate-300">Subscription Storage Capacity</h2>
+          <span className="text-xs text-slate-500">{formatGb(stats?.totalStorageUsedGb ?? 0)} / {formatGb(stats?.totalStorageLimitGb ?? 0)}</span>
+        </div>
+        <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+          <div
+            className="h-full bg-violet-500 transition-all"
+            style={{ width: `${Math.min(100, (Number(stats?.totalStorageUsedGb || 0) / Math.max(1, Number(stats?.totalStorageLimitGb || 0))) * 100)}%` }}
           />
-        )}
+        </div>
       </div>
 
-      {/* Recent activity */}
       <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-5">
-        <h2 className="text-sm font-semibold text-slate-300 mb-4">Recent Activity</h2>
+        <h2 className="text-sm font-semibold text-slate-300 mb-4">Recent Subscription Payments</h2>
         {isLoading ? (
           <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-10 bg-slate-700 rounded" />)}</div>
-        ) : !stats?.recentActivity?.length ? (
-          <p className="text-sm text-slate-500 py-4 text-center">No recent activity</p>
+        ) : !stats?.recentPayments?.length ? (
+          <p className="text-sm text-slate-500 py-4 text-center">No recent subscription payments</p>
         ) : (
           <div className="space-y-2">
-            {stats.recentActivity.map((a: any) => (
-              <div key={a.id} className="flex items-start justify-between gap-3 py-2 border-b border-slate-700/50 last:border-0">
+            {stats.recentPayments.map((payment: any) => (
+              <div key={payment.id} className="flex items-start justify-between gap-3 py-2 border-b border-slate-700/50 last:border-0">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-slate-300 truncate">{a.description || a.action_type}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 capitalize">{a.action_type?.replace(/_/g, " ")}</p>
+                  <p className="text-xs font-medium text-slate-300 truncate">{payment.product_code || "Subscription payment"}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">KES {Number(payment.expected_amount || 0).toLocaleString()} · {payment.status || "pending"}</p>
                 </div>
                 <span className="text-[10px] text-slate-500 shrink-0">
-                  {a.created_at ? formatDistanceToNow(new Date(a.created_at), { addSuffix: true }) : ""}
+                  {payment.created_at ? formatDistanceToNow(new Date(payment.created_at), { addSuffix: true }) : ""}
                 </span>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <SentryMonitor />
+      <PostHogDashboard />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -1140,7 +1141,7 @@ function RolesOverview() {
       setRoleName('');
       setRoleDescription('');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const deleteMutation = useMutation({
@@ -1157,7 +1158,7 @@ function RolesOverview() {
       toast.success('Role removed!');
       setDeleteId(null);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const openCreate = () => {
@@ -1461,7 +1462,7 @@ const UsersPage = () => {
       qc.invalidateQueries({ queryKey: ["staff-count", church.tenantId] });
       toast.success("User removed.");
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to remove user."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to remove user.")),
   });
 
   const sendInviteMutation = useMutation({
@@ -1496,7 +1497,7 @@ const UsersPage = () => {
         toast.success("Invitation sent successfully.");
       }
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to send invitation."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to send invitation.")),
   });
 
   // Reset password

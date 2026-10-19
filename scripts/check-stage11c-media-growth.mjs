@@ -1,0 +1,28 @@
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(p,'utf8');
+const checks=[]; const check=(name,ok)=>checks.push([name,!!ok]);
+const ai=read('supabase/functions/generate-ai-content/index.ts');
+const canva=read('supabase/functions/canva-api/index.ts');
+const graphics=read('src/pages/media/GraphicsStudio.tsx');
+const assets=read('src/pages/media/AssetManagement.tsx');
+const discipleship=read('src/pages/growth/Discipleship.tsx');
+const songs=read('src/pages/media/SongLibrary/index.tsx');
+const smart=read('src/pages/media/SongLibrary/components/SmartOrganization/index.tsx');
+const tools=read('src/pages/media/AITools.tsx');
+check('AI requires tenant context', ai.includes('prompt_and_tenant_required'));
+check('AI authenticates caller', ai.includes('auth.getUser'));
+check('AI enforces actor tenant', ai.includes('actor.tenant_id'));
+check('AI uses atomic reservation RPC', ai.includes('reserve_ai_request'));
+check('AI releases failed reservation', ai.includes('release_ai_request'));
+check('AI caller sends tenant id', tools.includes('tenant_id: church.tenantId'));
+check('AI fake success removed', !tools.includes('Generated content will appear here...'));
+check('Canva tokens stay server-side', !graphics.includes('.from("canva_tokens")') && !graphics.includes(".from('canva_tokens')"));
+check('Canva API authenticates actor', canva.includes('auth.getUser') && canva.includes('actor.status'));
+check('Canva browser uses proxy', graphics.includes('functions.invoke("canva-api"'));
+check('Asset export has no fake PDF/Word actions', !assets.includes('PDF export coming soon') && !assets.includes('Word export coming soon'));
+check('Song creation writes real record', songs.includes('.from(TABLES.SONGS).insert'));
+check('Song analytics export is real', smart.includes('song-library-analytics.csv') && !smart.includes('Export functionality coming soon'));
+check('Discipleship journey uses pathways table', discipleship.includes('.from("discipleship_pathways")'));
+check('Discipleship journey placeholder removed', !discipleship.includes('Structured discipleship pathway coming soon'));
+let pass=0; for(const [n,ok] of checks){console.log(`${ok?'PASS':'FAIL'} ${n}`); if(ok)pass++;}
+console.log(`Stage 11C contract: ${pass===checks.length?'PASS':'FAIL'} (${pass}/${checks.length})`); if(pass!==checks.length)process.exit(1);

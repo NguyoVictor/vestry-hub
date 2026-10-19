@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Send, Pencil, Trash2, Copy, Info } from "lucide-react";
 import { format } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface EmailCategory { id: string; name: string; is_active: boolean; is_system: boolean; }
@@ -103,12 +104,12 @@ function TemplateModal({ open, onClose, tenantId, userId, categories, editData, 
   // Reset when modal opens
   useEffect(() => {
     if (open) {
-      setName(editData?.name ?? ""); 
+      setName(editData?.name ?? "");
       setCategoryId(editData?.category_id ?? "");
-      setSubject(editData?.subject ?? ""); 
+      setSubject(editData?.subject ?? "");
       setBody(editData?.body ?? "");
-      setIsActive(editData?.is_active ?? true); 
-      setHtmlMode(false); 
+      setIsActive(editData?.is_active ?? true);
+      setHtmlMode(false);
       setErrors({});
     }
   }, [open, editData]);
@@ -489,23 +490,23 @@ export function EmailTemplates() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["email-templates", tenantId] }); setDeleteTemplate(null); toast.success("Template deleted."); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const handleDuplicateUserTemplate = async (template: EmailTemplate) => {
     const { error } = await supabase.from(TABLES.EMAIL_TEMPLATES).insert({
-      tenant_id: tenantId, 
-      category_id: template.category_id, 
+      tenant_id: tenantId,
+      category_id: template.category_id,
       name: `${template.name} (Copy)`,
-      subject: template.subject, 
-      body: template.body, 
-      is_active: true, 
-      is_system: false, 
+      subject: template.subject,
+      body: template.body,
+      is_active: true,
+      is_system: false,
       created_by: userId,
     } as never);
-    if (error) { 
-      toast.error(error.message); 
-      return; 
+    if (error) {
+      toast.error(toUserFacingError(error));
+      return;
     }
     qc.invalidateQueries({ queryKey: ["email-templates", tenantId] });
     toast.success("✅ Template duplicated successfully.");
@@ -517,7 +518,7 @@ export function EmailTemplates() {
       tenant_id: tenantId, category_id: cat?.id ?? null, name: libTemplate.name,
       subject: libTemplate.subject, body: libTemplate.body, is_active: true, is_system: false, created_by: userId,
     } as never);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(toUserFacingError(error)); return; }
     qc.invalidateQueries({ queryKey: ["email-templates", tenantId] });
     toast.success("✅ Template duplicated to My Templates.");
   };
@@ -532,10 +533,10 @@ export function EmailTemplates() {
           <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Email Templates</h2>
           <p className="text-xs text-slate-500">Manage and customize email templates for different scenarios</p>
         </div>
-        <PermissionButton 
+        <PermissionButton
           readOnly={readOnly}
-          className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0" 
-          size="sm" 
+          className="bg-orange-500 hover:bg-orange-600 text-white gap-2 shrink-0"
+          size="sm"
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="h-4 w-4" /> Create Template

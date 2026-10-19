@@ -19,6 +19,7 @@ import { AdaptiveImage } from '../Performance/AdaptiveImage';
 import { useAmbientColors } from '../../hooks/useAmbientColors';
 import type { CoverArtProps, CoverArtUploadResult } from './types';
 import type { CoverArtColors } from '@/types/song-library';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const sizeClasses = {
   sm: 'w-16 h-16',
@@ -78,7 +79,7 @@ export function CoverArt({
     setUploadProgress(0);
     setShowUploadModal(false);
     
-    toast.error(`Upload failed: ${error.message}`);
+    toast.error(`Upload failed: ${toUserFacingError(error)}`);
   }, []);
 
   // Handle upload progress

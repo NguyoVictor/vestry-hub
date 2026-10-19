@@ -25,6 +25,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Briefcase, Plus, Pencil, Trash2 } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Position {
@@ -238,7 +239,7 @@ export function PositionsTab() {
       qc.invalidateQueries({ queryKey: ["staff-positions", tenantId] });
       toast.success("Position deleted successfully!");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   // Check how many active staff use this position

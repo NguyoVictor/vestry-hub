@@ -9,13 +9,14 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CommandDialog, CommandInput, CommandList, CommandEmpty } from "@/components/ui/command";
+import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Menu, Search, Bell, Sun, Moon, Settings, LogOut, User } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { isAdminPathEnabled } from "@/config/modules";
 
 interface TopNavbarProps { onMenuClick: () => void; }
 
@@ -25,6 +26,29 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const { data: searchResults = [], isFetching: searchLoading } = useQuery({
+    queryKey: ["global-search", church.tenantId],
+    enabled: searchOpen && Boolean(church.tenantId),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const [membersResult, eventsResult, servicesResult, givingResult] = await Promise.all([
+        supabase.from("members").select("id, first_name, last_name, email, membership_number").eq("tenant_id", church.tenantId).order("first_name").limit(75),
+        supabase.from("events").select("id, title, event_date, location").eq("tenant_id", church.tenantId).order("event_date", { ascending: false }).limit(50),
+        supabase.from("services").select("id, title, service_date, location").eq("tenant_id", church.tenantId).order("service_date", { ascending: false }).limit(50),
+        supabase.from("giving_records").select("id, donor_name, amount, currency, receipt_number, given_at").eq("tenant_id", church.tenantId).order("given_at", { ascending: false }).limit(50),
+      ]);
+      const firstError = membersResult.error || eventsResult.error || servicesResult.error || givingResult.error;
+      if (firstError) throw firstError;
+      const results = [
+        ...(membersResult.data ?? []).map((row) => ({ id: `member:${row.id}`, group: "Members", label: `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "Member", detail: row.email || row.membership_number || "Member profile", path: `/members/${row.id}` })),
+        ...(eventsResult.data ?? []).map((row) => ({ id: `event:${row.id}`, group: "Events", label: row.title, detail: [row.event_date, row.location].filter(Boolean).join(" · "), path: "/events" })),
+        ...(servicesResult.data ?? []).map((row) => ({ id: `service:${row.id}`, group: "Services", label: row.title, detail: [row.service_date, row.location].filter(Boolean).join(" · "), path: "/services" })),
+        ...(givingResult.data ?? []).map((row) => ({ id: `giving:${row.id}`, group: "Giving", label: row.donor_name || "Giving record", detail: `${row.currency || church.currency || ""} ${Number(row.amount || 0).toLocaleString()}${row.receipt_number ? ` · ${row.receipt_number}` : ""}`.trim(), path: "/giving-records" })),
+      ];
+      return results.filter((result) => isAdminPathEnabled(result.path, church.enabledModules));
+    },
+  });
 
   // Unread count — scoped to this user + tenant
   const { data: unreadCount = 0 } = useQuery({
@@ -83,7 +107,10 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
 
   const markRead = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("notifications").update({ is_read: true } as any).eq("id", id);
+      await supabase.from("notifications").update({ is_read: true } as any)
+        .eq("id", id)
+        .eq("tenant_id", church.tenantId)
+        .eq("user_id", church.userId);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
@@ -119,6 +146,8 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
           } 
         } as any)
         .eq("id", n.id)
+        .eq("tenant_id", church.tenantId)
+        .eq("user_id", church.userId)
         .then(() => {
           // Invalidate queries to refresh counts
           queryClient.invalidateQueries({ queryKey: ["broadcast-reads"] });
@@ -252,7 +281,24 @@ export const TopNavbar = ({ onMenuClick }: TopNavbarProps) => {
       <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
         <CommandInput placeholder="Search members, events, transactions..." />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>{searchLoading ? "Searching…" : "No results found."}</CommandEmpty>
+          {["Members", "Events", "Services", "Giving"].map((group) => {
+            const items = searchResults.filter((result) => result.group === group);
+            if (items.length === 0) return null;
+            return (
+              <CommandGroup key={group} heading={group}>
+                {items.map((result) => (
+                  <CommandItem key={result.id} value={`${result.group} ${result.label} ${result.detail}`} onSelect={() => { setSearchOpen(false); navigate(result.path); }}>
+                    <Search className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{result.label}</p>
+                      <p className="truncate text-xs text-muted-foreground">{result.detail}</p>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            );
+          })}
         </CommandList>
       </CommandDialog>
     </>

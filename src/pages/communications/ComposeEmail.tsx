@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Member {
@@ -492,7 +493,7 @@ export default function ComposeEmail() {
                 .upload(fileName, file);
               
               if (uploadError) {
-                toast.error(`Failed to upload ${file.name}: ${uploadError.message}`);
+                toast.error(`Failed to upload ${file.name}: ${toUserFacingError(uploadError)}`);
                 setSending(false);
                 return;
               }

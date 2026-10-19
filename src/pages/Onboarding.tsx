@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Shield, Church, Phone, Target, ArrowRight, Loader2 } from "lucide-react";
 import { countries, getCurrencyByCountry } from "@/lib/country-currency";
-import { moduleConfigFromOnboarding } from "@/config/modules";
+import { ADMIN_MODULES, moduleConfigFromOnboarding } from "@/config/modules";
 import {
   Select,
   SelectContent,
@@ -16,17 +16,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const priorityNeeds = [
-  { id: "online_giving", label: "Online Giving", desc: "Accept tithes & offerings digitally" },
-  { id: "member_management", label: "Member Management", desc: "Track & organize your congregation" },
-  { id: "attendance_tracking", label: "Attendance Tracking", desc: "Monitor service attendance" },
-  { id: "event_management", label: "Event Management", desc: "Plan and coordinate church events" },
-  { id: "children_church", label: "Children's Church", desc: "Manage kids ministry check-in" },
-  { id: "communication", label: "Communication", desc: "SMS, email & announcements" },
-  { id: "volunteer_scheduling", label: "Volunteer Scheduling", desc: "Coordinate ministry teams" },
-  { id: "financial_reporting", label: "Financial Reporting", desc: "Track income & expenses" },
-  { id: "multi_branch", label: "Multi-Branch Management", desc: "Manage multiple locations" },
-];
+const onboardingServices = ADMIN_MODULES.map((module) => ({
+  id: module.key,
+  label: module.label,
+  desc: module.description,
+  core: Boolean(module.core),
+}));
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -39,7 +34,7 @@ const Onboarding = () => {
   const [selectedCountry, setSelectedCountry] = useState("");
   const [phoneCountry, setPhoneCountry] = useState("KE");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [selectedNeeds, setSelectedNeeds] = useState<string[]>([]);
+  const [selectedNeeds, setSelectedNeeds] = useState<string[]>(["members_groups"]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -78,7 +73,8 @@ const Onboarding = () => {
     checkAuth();
   }, [navigate]);
 
-  const toggleNeed = (id: string) => {
+  const toggleNeed = (id: string, core = false) => {
+    if (core) return;
     setSelectedNeeds((prev) =>
       prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]
     );
@@ -369,25 +365,27 @@ const Onboarding = () => {
             <div className="mb-6">
               <div className="mb-3 flex items-center gap-2">
                 <Target className="h-4 w-4 text-accent" />
-                <Label className="text-base font-semibold">What are your priority needs?</Label>
-                <span className="text-xs text-muted-foreground">(Select all that apply)</span>
+                <Label className="text-base font-semibold">Choose the services your church will use</Label>
+                <span className="text-xs text-muted-foreground">(Members & Groups is always enabled)</span>
               </div>
               <p className="mb-4 text-sm text-muted-foreground">
-                Help us focus our support on what matters most to your church
+                Your selections control which modules are available in the Admin and Member portals. You can change them later in Settings.
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {priorityNeeds.map((need) => {
+                {onboardingServices.map((need) => {
                   const isSelected = selectedNeeds.includes(need.id);
                   return (
                     <button
                       key={need.id}
                       type="button"
-                      onClick={() => toggleNeed(need.id)}
+                      onClick={() => toggleNeed(need.id, need.core)}
+                      aria-pressed={isSelected}
+                      disabled={need.core}
                       className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-left transition-all ${
                         isSelected
                           ? "border-accent bg-accent/5 ring-1 ring-accent"
                           : "border-border bg-card hover:border-muted-foreground/30"
-                      }`}
+                      } ${need.core ? "cursor-not-allowed opacity-80" : ""}`}
                     >
                       <div
                         className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 transition-colors ${
@@ -403,7 +401,7 @@ const Onboarding = () => {
                         )}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-card-foreground">{need.label}</p>
+                        <p className="text-sm font-semibold text-card-foreground">{need.label}{need.core ? " (Core)" : ""}</p>
                         <p className="text-xs text-muted-foreground">{need.desc}</p>
                       </div>
                     </button>

@@ -1,0 +1,10 @@
+alter table public.canva_tokens enable row level security;
+drop policy if exists "canva_tokens_tenant_access" on public.canva_tokens;
+drop policy if exists "Users can view tenant canva tokens" on public.canva_tokens;
+drop policy if exists "Users can manage tenant canva tokens" on public.canva_tokens;
+revoke all on table public.canva_tokens from public, anon, authenticated;
+grant select, insert, update, delete on table public.canva_tokens to service_role;
+drop policy if exists "Users can delete their tenant's Canva tokens" on public.canva_tokens;
+drop policy if exists "Users can insert Canva tokens for their tenant" on public.canva_tokens;
+drop policy if exists "Users can update their tenant's Canva tokens" on public.canva_tokens;
+drop policy if exists "Users can view their tenant's Canva tokens" on public.canva_tokens;

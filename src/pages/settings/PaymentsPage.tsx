@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/lib/userFacingError";
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -165,7 +166,7 @@ export default function PaymentsPage() {
       toast.success('Direct M-Pesa recording enabled successfully!')
       checkConnectionStatus() // Refresh to show updated status
     } catch (err: any) {
-      toast.error(err.message || 'Failed to enable direct M-Pesa recording. Please try again.')
+      toast.error(toUserFacingError(err, 'Failed to enable direct M-Pesa recording. Please try again.'))
     } finally {
       setC2bLoading(false)
     }

@@ -26,6 +26,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TABLES } from "@/lib/schema";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ function ComposeDialog({ open, onClose, tenantId, userId, onSuccess, hasSermonAi
       onSuccess();
       handleClose();
     } catch (err: any) {
-      toast.error(err.message || "Save failed");
+      toast.error(toUserFacingError(err, "Save failed"));
     } finally {
       setSaving(false);
     }
@@ -430,7 +431,7 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
         onSuccess();
       }).catch(() => {/* silent — status will show "pending" until manually retried */});
     } catch (err: any) {
-      toast.error(err.message || "Upload failed");
+      toast.error(toUserFacingError(err, "Upload failed"));
     } finally {
       setUploading(false);
     }
@@ -597,7 +598,7 @@ const SermonPreparation = () => {
       qc.invalidateQueries({ queryKey: ["sermon_archives"] });
       toast.success("Archive deleted");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const deleteMut = useMutation({
@@ -610,7 +611,7 @@ const SermonPreparation = () => {
       toast.success("Deleted");
       setDeleteId(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["sermons"] });

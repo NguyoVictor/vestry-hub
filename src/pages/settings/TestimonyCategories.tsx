@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { Plus, Pencil, GripVertical, Trash2, Quote } from "lucide-react";
 import type { TestimonyCategory } from "@/types/testimonies";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Preset colors ────────────────────────────────────────────────────────────
 const PRESET_COLORS = [
@@ -95,7 +96,7 @@ function CategoryDrawer({ open, onClose, tenantId, editData, nextOrder }: Catego
       qc.invalidateQueries({ queryKey: ["testimony-categories", tenantId] });
       handleClose();
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save category.");
+      toast.error(toUserFacingError(err, "Failed to save category."));
     } finally {
       setSubmitting(false);
     }
@@ -202,7 +203,7 @@ export default function TestimonyCategories() {
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["testimony-categories", tenantId] });
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to seed defaults.");
+      toast.error(toUserFacingError(err, "Failed to seed defaults."));
     } finally {
       setSeeding(false);
     }

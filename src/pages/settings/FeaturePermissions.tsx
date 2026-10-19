@@ -7,6 +7,7 @@ import { TABLES } from "@/lib/schema";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Save } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AccessLevel = "full" | "read" | "none";
@@ -235,7 +236,7 @@ export function FeaturePermissions() {
       setDirty(false);
       toast.success("Permissions saved successfully!");
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save permissions."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save permissions.")),
   });
 
   return (

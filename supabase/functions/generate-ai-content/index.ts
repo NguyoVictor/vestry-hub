@@ -5,117 +5,48 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
+  const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { autoRefreshToken: false, persistSession: false } });
+  let reservationId: number | null = null;
   try {
     const { prompt, model, tenant_id } = await req.json();
+    if (!prompt || !tenant_id) return json({ error: "prompt_and_tenant_required" }, 400);
 
-    if (!prompt) {
-      return new Response(JSON.stringify({ error: "Prompt is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    if (!token) return json({ error: "unauthorized" }, 401);
+    const { data: authData, error: authError } = await service.auth.getUser(token);
+    if (authError || !authData.user) return json({ error: "unauthorized" }, 401);
+
+    const { data: actor } = await service.from("users").select("id, tenant_id, status, role").eq("id", authData.user.id).maybeSingle();
+    if (!actor || actor.status !== "active" || String(actor.tenant_id) !== String(tenant_id) || actor.role === "member") return json({ error: "forbidden" }, 403);
+
+    const { data: reservation, error: reserveError } = await service.rpc("reserve_ai_request", { p_tenant_id: String(tenant_id), p_actor_id: String(actor.id), p_function_name: "generate-ai-content" });
+    if (reserveError) {
+      const msg = reserveError.message || "";
+      if (msg.includes("ai_rate_limit")) return json({ error: "rate_limit", message: "AI request limit reached. Please wait a minute and try again." }, 429);
+      if (msg.includes("ai_credit_limit")) return json({ error: "credit_limit", message: "AI credit limit reached." }, 402);
+      return json({ error: "ai_unavailable" }, 503);
     }
-
-    // Check AI usage limits if tenant_id is provided
-    if (tenant_id) {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-      );
-
-      const { data: subscription } = await supabase
-        .from("tenant_subscriptions")
-        .select("ai_credits, ai_addons, ai_used")
-        .eq("tenant_id", tenant_id)
-        .maybeSingle();
-
-      if (subscription) {
-        const aiLimit = (subscription.ai_credits || 0) + (subscription.ai_addons || 0);
-        const aiUsed = subscription.ai_used || 0;
-        
-        if (aiUsed >= aiLimit) {
-          return new Response(JSON.stringify({ 
-            error: "AI credit limit reached. Top up to continue.",
-            limit_reached: true 
-          }), {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
-    }
+    reservationId = Number(reservation);
 
     const groqKey = Deno.env.get("GROQ_API_KEY");
-    if (!groqKey) {
-      return new Response(JSON.stringify({ error: "GROQ_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    if (!groqKey) throw new Error("ai_provider_not_configured");
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${groqKey}`,
-      },
-      body: JSON.stringify({
-        model: model || "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-      }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqKey}` },
+      body: JSON.stringify({ model: model || "llama-3.3-70b-versatile", messages: [{ role: "user", content: String(prompt).slice(0, 24000) }] }),
     });
-
-    if (!groqRes.ok) {
-      const errText = await groqRes.text();
-      return new Response(
-        JSON.stringify({ error: `Groq API error: ${groqRes.status}`, detail: errText }),
-        {
-          status: groqRes.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
+    if (!groqRes.ok) throw new Error(`ai_provider_${groqRes.status}`);
     const data = await groqRes.json();
-    const content = data.choices?.[0]?.message?.content || "";
-
-    // Increment AI usage after successful call
-    if (tenant_id) {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-      );
-
-      const { data: subscription } = await supabase
-        .from("tenant_subscriptions")
-        .select("ai_used")
-        .eq("tenant_id", tenant_id)
-        .maybeSingle();
-
-      if (subscription) {
-        await supabase
-          .from("tenant_subscriptions")
-          .update({ 
-            ai_used: (subscription.ai_used || 0) + 1,
-            updated_at: new Date().toISOString()
-          })
-          .eq("tenant_id", tenant_id);
-      }
-    }
-
-    return new Response(JSON.stringify({ content }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || "Internal error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ content: data.choices?.[0]?.message?.content || "" });
+  } catch (error) {
+    if (reservationId) await service.rpc("release_ai_request", { p_request_id: reservationId }).catch(() => undefined);
+    console.error("generate-ai-content failed", error instanceof Error ? error.message : "unknown_error");
+    return json({ error: "ai_generation_failed" }, 500);
   }
 });

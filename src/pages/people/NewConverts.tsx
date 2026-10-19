@@ -36,6 +36,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -309,7 +310,7 @@ const NewConverts = () => {
       setEditingConvert(null);
       form.reset();
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const advanceMilestoneMut = useMutation({
@@ -341,7 +342,7 @@ const NewConverts = () => {
         setMilestoneConvert((prev: any) => prev ? { ...prev, discipleship_stage: String(newStage) } : prev);
       }
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const createTaskMut = useMutation({
@@ -367,7 +368,7 @@ const NewConverts = () => {
       setTaskDialogOpen(false);
       setTaskForm({ title: "", due_date: "", notes: "" });
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const bapStatus = form.watch("baptism_status");
@@ -383,7 +384,7 @@ const NewConverts = () => {
       toast.success("Convert deleted");
       setDeleteId(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const openMilestones = (c: any) => {

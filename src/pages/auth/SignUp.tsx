@@ -10,6 +10,7 @@ import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import PasswordStrength from "@/components/auth/PasswordStrength";
 import { Helmet } from "react-helmet-async";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ const SignUp = () => {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
     } else {
       toast.success("Account created! Check your email to verify.");
       navigate("/auth/signin");
@@ -63,7 +64,7 @@ const SignUp = () => {
       provider: "google",
       options: { redirectTo: window.location.origin + "/auth/callback" },
     });
-    if (error) toast.error(error.message);
+    if (error) toast.error(toUserFacingError(error));
   };
 
   return (

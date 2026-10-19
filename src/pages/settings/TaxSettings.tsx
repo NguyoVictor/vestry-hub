@@ -34,6 +34,7 @@ import {
   Eye, Download, Send, Settings, AlertTriangle,
 } from "lucide-react";
 import { format, startOfYear, endOfYear, setMonth, setDate } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Registration type options ────────────────────────────────────────────────
 const REGISTRATION_TYPES = [
@@ -239,7 +240,7 @@ function TaxSettingsTab({ tenantId, onSaved }: { tenantId: string; onSaved: () =
       toast.success("✅ Tax settings saved successfully.");
       onSaved();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   if (isLoading) return <div className="space-y-4">{Array.from({length:3}).map((_,i)=><Skeleton key={i} className="h-32 w-full rounded-xl"/>)}</div>;
@@ -479,7 +480,7 @@ function DeductibilityTab({ tenantId }: { tenantId: string }) {
   const toggleDeductible = async (type: DeductibleType) => {
     const newVal = !type.is_deductible;
     const { error } = await supabase.from(TABLES.TAX_DEDUCTIBLE_TYPES).update({ is_deductible: newVal } as never).eq("id", type.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(toUserFacingError(error)); return; }
     qc.invalidateQueries({ queryKey: ["tax-deductible-types", tenantId] });
   };
 
@@ -490,7 +491,7 @@ function DeductibilityTab({ tenantId }: { tenantId: string }) {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["tax-deductible-types", tenantId] }); setDeleteType(null); toast.success("Type deleted."); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   return (
@@ -808,7 +809,7 @@ function StatementsTab({ tenantId, isConfigured, taxSettings, currency }: {
   const handleSend = async (stmt: TaxStatement) => {
     if (!stmt.members?.email) { toast.error("Member has no email address."); return; }
     const { error } = await supabase.from(TABLES.TAX_STATEMENTS).update({ status: "sent", sent_at: new Date().toISOString() } as never).eq("id", stmt.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(toUserFacingError(error)); return; }
     qc.invalidateQueries({ queryKey: ["tax-statements", tenantId] });
     toast.success(`✅ Statement sent to ${stmt.members.email}`);
   };

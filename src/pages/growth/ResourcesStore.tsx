@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   Package, Tag, ShoppingCart, Star, DollarSign, TrendingUp,
   Users, QrCode, Copy, Download, Share2, Plus, Pencil, Trash2,
@@ -415,7 +416,7 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       onSaved();
     },
     onError: (e: Error) => {
-      toast.error(e.message || "Failed to save resource");
+      toast.error(toUserFacingError(e, "Failed to save resource"));
       setUploadProgress({ cover: 0, gallery: 0, digital: 0 });
     },
   });
@@ -1439,7 +1440,7 @@ function CouponsTab({ tenantId }: { tenantId: string }) {
       setModalOpen(false);
       toast.success(editCoupon ? "Coupon updated" : "Coupon created");
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save coupon"),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save coupon")),
   });
 
   const remove = useMutation({
@@ -1741,7 +1742,7 @@ function BundlesTab({ tenantId, formatCurrency }: { tenantId: string; formatCurr
       setModalOpen(false);
       toast.success(editBundle ? "Bundle updated" : "Bundle created");
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save bundle"),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save bundle")),
   });
 
   const remove = useMutation({
@@ -2009,7 +2010,7 @@ function CategoriesTab({ tenantId }: { tenantId: string }) {
       setModalOpen(false);
       toast.success(editCat ? "Category updated" : "Category created");
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save category"),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save category")),
   });
 
   const remove = useMutation({

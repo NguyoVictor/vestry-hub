@@ -38,7 +38,17 @@
     "test:p1:domains:contract": "node --experimental-strip-types scripts/check-domain-separation.mjs",
     "test:p1:actions:contract": "node --experimental-strip-types scripts/check-platform-actions.mjs",
     "test:p1:stage7:contract": "node --experimental-strip-types scripts/check-stage7-e2e.mjs",
-    "test:e2e:stage7": "playwright test e2e/platform/stage7 e2e/platform/tenant-boundary.spec.ts e2e/platform/infrastructure/tenant-domain.spec.ts e2e/platform/permissions.spec.ts e2e/platform/import-export.spec.ts"
+    "test:e2e:stage7": "playwright test e2e/platform/stage7 e2e/platform/tenant-boundary.spec.ts e2e/platform/infrastructure/tenant-domain.spec.ts e2e/platform/permissions.spec.ts e2e/platform/import-export.spec.ts",
+    "test:p1:stage9:contract": "node scripts/check-stage9-regression.mjs",
+    "test:p1:regression": "npm run test:security:secrets && npm run test:p1:people && npm run test:p1:operations && npm run test:p1:engagement && npm run test:p1:analytics && npm run test:p1:modules && npm run test:p1:modules:contract && npm run test:p1:modules:qa-contract && npm run test:p1:performance:contract && npm run test:p1:domains:contract && npm run test:p1:actions:contract && npm run test:p1:stage7:contract && npm run test:p1:stage8:contract && npm run test:p1:stage9:contract && npm run test:p2:contracts && npm run test:p2:vitest && tsc --noEmit && npm run build",
+    "test:p1:stage8:contract": "node scripts/check-stage8-security.mjs",
+    "test:p1:stage10:contract": "node scripts/check-stage10-closeout.mjs",
+    "test:p1:closeout": "npm run test:p1:regression && npm run test:p1:stage10:contract",
+    "test:p1:stage11a:contract": "node scripts/check-stage11a-shell-communications.mjs",
+    "test:e2e:stage11a": "playwright test e2e/platform/stage11a",
+    "test:p1:stage11b:contract": "node scripts/check-stage11b-security-superadmin.mjs",
+    "test:e2e:stage11b": "playwright test e2e/platform/stage11b",
+    "test:p1:stage11c:contract": "node scripts/check-stage11c-media-growth.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import NumberFlow from "@/components/finance/AnimatedNumber";
+import { toUserFacingError } from "@/lib/userFacingError";
 import { 
   Heart, 
   Target, 
@@ -237,7 +238,7 @@ export default function MemberPledgeCampaigns() {
       return commitment
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to create pledge', {
+      toast.error(toUserFacingError(error, 'Failed to create pledge'), {
         duration: 4000,
         style: {
           background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',

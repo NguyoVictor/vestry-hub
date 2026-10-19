@@ -16,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Clock, CalendarDays, Hash, UserCheck, Settings } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Time options: 00:00 → 23:30 in 30-min steps ─────────────────────────────
 const TIME_OPTIONS: string[] = [];
@@ -170,7 +171,7 @@ export default function Preferences() {
       qc.invalidateQueries({ queryKey: ["tenant-preferences", tenantId] });
       toast.success("Preferences saved");
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save preferences."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save preferences.")),
   });
 
   const prefix = memberIdPrefix.trim() || "MEM";

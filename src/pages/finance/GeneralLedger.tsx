@@ -21,6 +21,7 @@ import { toast } from "react-hot-toast";
 import { BookMarked, Plus, Trash2, Sparkles, Calculator, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrencyFull } from "@/lib/format";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // Premium page animations
 const pageVariants = {
@@ -154,7 +155,7 @@ const GeneralLedger = () => {
       setEntryForm({ description: "", reference: "", entry_date: new Date().toISOString().split("T")[0] }); 
       setJournalLines([{ account_id: "", debit_amount: "", credit_amount: "" }, { account_id: "", debit_amount: "", credit_amount: "" }]); 
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to post entry", {
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to post entry"), {
       duration: 4000,
       style: {
         background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',

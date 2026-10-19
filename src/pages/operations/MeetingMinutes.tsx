@@ -21,6 +21,7 @@ import {
   Clock, MapPin, Calendar, Link, FileText, Users, AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ActionItem {
@@ -323,7 +324,7 @@ export default function MeetingMinutesPage({ meetingIdProp, inline = false }: { 
       queryClient.invalidateQueries({ queryKey: ["meeting_decisions", meetingId] });
       queryClient.invalidateQueries({ queryKey: ["meeting_action_items", meetingId] });
     } catch (err: any) {
-      toast.error("Failed to save: " + (err.message ?? "Unknown error"));
+      toast.error("Failed to save: " + (toUserFacingError(err, "Unknown error")));
     } finally {
       setIsSaving(false);
     }

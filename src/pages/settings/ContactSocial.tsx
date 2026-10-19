@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Phone, Save } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Social icon components ───────────────────────────────────────────────────
 function FacebookIcon() {
@@ -147,7 +148,7 @@ export default function ContactSocial() {
       queryClient.invalidateQueries({ queryKey: ["tenant-settings", tenantId] });
       toast.success("Contact & Social saved");
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to save"),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save")),
   });
 
   if (isLoading) {

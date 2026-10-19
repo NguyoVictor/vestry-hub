@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, CheckCircle2, ExternalLink, MessageSquare, FlaskConical } from "lucide-react";
 import { TABLES } from "@/lib/schema";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 export function SmsSettings() {
   const { tenantId, name: churchName, userPhone } = useChurch() as any;
@@ -98,7 +99,7 @@ export function SmsSettings() {
       queryClient.invalidateQueries({ queryKey: ["sms-stats", tenantId] });
     },
     onError: (error) => {
-      toast.error(`❌ Failed to send test SMS: ${error.message}`);
+      toast.error(`❌ Failed to send test SMS: ${toUserFacingError(error)}`);
     }
   });
 

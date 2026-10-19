@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { showPaywallToast } from '@/components/PaywallToast';
 import { TABLES } from '@/lib/schema';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 interface SermonDrawerProps {
   open: boolean;
@@ -104,7 +105,7 @@ export default function SermonDrawer({
         
         if (upErr) {
           console.error('Thumbnail upload error:', upErr);
-          toast.error(`Failed to upload thumbnail: ${upErr.message}`);
+          toast.error(`Failed to upload thumbnail: ${toUserFacingError(upErr)}`);
           throw upErr;
         }
         
@@ -181,7 +182,7 @@ export default function SermonDrawer({
       onSuccess();
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Save failed');
+      toast.error(toUserFacingError(err, 'Save failed'));
       setSaving(false);
     },
   });

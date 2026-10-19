@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageTransition } from '@/components/ui/PageTransition';
 import { JoinMeetingButton } from '@/components/shared/JoinMeetingButton';
 import type { Appointment, AppointmentType, AppointmentStatus } from '@/types/appointments';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const STATUS_CONFIG: Record<AppointmentStatus, { label: string; color: string; bg: string }> = {
   pending:     { label: 'Pending Review', color: 'text-amber-700',  bg: 'bg-amber-100' },
@@ -78,7 +79,7 @@ function RequestDrawer({ open, onClose, types, memberId, tenantId, memberName, o
       toast.success('Appointment request submitted!');
       onSuccess(); handleClose();
     } catch (err: any) {
-      toast.error(err.message ?? 'Failed to submit');
+      toast.error(toUserFacingError(err, 'Failed to submit'));
     } finally {
       setSubmitting(false);
     }

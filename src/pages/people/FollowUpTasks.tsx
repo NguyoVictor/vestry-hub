@@ -24,6 +24,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const taskSchema = z.object({
   title: z.string().min(1, "Required").max(200),
@@ -136,7 +137,7 @@ const FollowUpTasks = () => {
       setEditingTask(null);
       form.reset();
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const updateStatusMut = useMutation({
@@ -165,7 +166,7 @@ const FollowUpTasks = () => {
       queryClient.invalidateQueries({ queryKey: ["follow-up-tasks"] });
       toast.success("Task deleted");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const onDragStart = (e: React.DragEvent, id: string) => { setDragId(id); e.dataTransfer.effectAllowed = "move"; };

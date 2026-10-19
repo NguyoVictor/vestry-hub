@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { authorizeTenantActor } from "../_shared/authorize-tenant-actor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +66,7 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
 
   const tokenData = await tokenResponse.json();
   if (!tokenResponse.ok) {
-    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+    throw new Error("fcm_oauth_failed");
   }
 
   return tokenData.access_token;
@@ -100,8 +101,8 @@ Deno.serve(async (req: Request) => {
 
     const FCM_SERVICE_ACCOUNT = Deno.env.get("FCM_SERVICE_ACCOUNT");
     if (!FCM_SERVICE_ACCOUNT) {
-      return new Response(JSON.stringify({ error: "FCM_SERVICE_ACCOUNT not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "push_not_configured" }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -111,6 +112,13 @@ Deno.serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
+    try {
+      await authorizeTenantActor(req, supabase, tenant_id);
+    } catch (error) {
+      const forbidden = String(error).includes("forbidden");
+      return new Response(JSON.stringify({ error: forbidden ? "forbidden" : "unauthorized" }), { status: forbidden ? 403 : 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Get OAuth2 access token
     const accessToken = await getAccessToken(FCM_SERVICE_ACCOUNT);
 
@@ -119,7 +127,8 @@ Deno.serve(async (req: Request) => {
     if (recipient_user_ids && Array.isArray(recipient_user_ids) && recipient_user_ids.length > 0) {
       query = query.in("user_id", recipient_user_ids);
     }
-    const { data: tokenRows } = await query;
+    const { data: tokenRows, error: tokenError } = await query;
+    if (tokenError) throw tokenError;
     const tokens: string[] = (tokenRows ?? []).map((r: any) => r.token).filter(Boolean);
 
     if (tokens.length === 0) {
@@ -148,16 +157,10 @@ Deno.serve(async (req: Request) => {
             payload: { aps: { sound: "default", badge: 1 } },
           },
           webpush: {
-            notification: {
-              icon: "/favicon.ico",
-              badge: "/favicon.ico",
-              requireInteraction: isUrgent,
-            },
+            notification: { icon: "/favicon.ico", badge: "/favicon.ico", requireInteraction: isUrgent },
+            fcm_options: data?.link ? { link: String(data.link) } : undefined,
           },
-          data: {
-            ...(data ?? {}),
-            priority: priority ?? "normal",
-          },
+          data: Object.fromEntries(Object.entries({ ...(data ?? {}), priority: priority ?? "normal" }).map(([key, value]) => [key, String(value ?? "")])),
         },
       };
 
@@ -187,15 +190,16 @@ Deno.serve(async (req: Request) => {
 
     // Clean up invalid/expired tokens
     if (invalidTokens.length > 0) {
-      await supabase.from("device_tokens").delete().in("token", invalidTokens);
+      await supabase.from("device_tokens").delete().eq("tenant_id", tenant_id).in("token", invalidTokens);
     }
 
     return new Response(JSON.stringify({ ok: true, sent: successCount, failed: failCount, invalid_cleaned: invalidTokens.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
+  } catch (error) {
+    console.error("send-push-notification failed", error instanceof Error ? error.message : "unknown_error");
+    return new Response(JSON.stringify({ error: "server_error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

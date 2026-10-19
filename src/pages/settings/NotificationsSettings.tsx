@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bell, MessageSquare, Settings, Eye, EyeOff, RefreshCw, ExternalLink } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 function Card({ children }: { children: React.ReactNode }) {
@@ -255,7 +256,7 @@ export default function NotificationsSettings() {
       setAtApiKey(""); // clear from state after save
       toast.success("Notification settings saved");
     },
-    onError: (e: Error) => toast.error(e.message ?? "Failed to save."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save.")),
   });
 
   if (isLoading) {

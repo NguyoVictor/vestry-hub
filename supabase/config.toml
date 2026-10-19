@@ -18,3 +18,8 @@ verify_jwt = false
 # The function validates that token against the server-only member_sessions table.
 [functions.member-session-context]
 verify_jwt = false
+
+# Supports both Supabase-authenticated Admin users and opaque Member Portal sessions.
+# The function performs its own session validation before using service-role access.
+[functions.register-device-token]
+verify_jwt = false

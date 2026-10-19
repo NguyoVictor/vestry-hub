@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 
 import type { CoverArtUploadResult } from '../components/CoverArt/types';
 import type { CoverArtColors } from '@/types/song-library';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 interface UseCoverArtReturn {
   uploadCoverArt: (songId: string, result: CoverArtUploadResult) => Promise<void>;
@@ -58,7 +59,7 @@ export function useCoverArt(): UseCoverArtReturn {
     },
     onError: (error) => {
       console.error('Cover art upload error:', error);
-      toast.error(`Failed to upload cover art: ${error.message}`);
+      toast.error(`Failed to upload cover art: ${toUserFacingError(error)}`);
     }
   });
 
@@ -137,7 +138,7 @@ export function useCoverArt(): UseCoverArtReturn {
     },
     onError: (error) => {
       console.error('Cover art removal error:', error);
-      toast.error(`Failed to remove cover art: ${error.message}`);
+      toast.error(`Failed to remove cover art: ${toUserFacingError(error)}`);
     }
   });
 
@@ -164,7 +165,7 @@ export function useCoverArt(): UseCoverArtReturn {
     },
     onError: (error) => {
       console.error('Color update error:', error);
-      toast.error(`Failed to update colors: ${error.message}`);
+      toast.error(`Failed to update colors: ${toUserFacingError(error)}`);
     }
   });
 

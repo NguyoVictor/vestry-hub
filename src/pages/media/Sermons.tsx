@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { TABLES } from "@/lib/schema";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Add Sermon Dialog ─────────────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ function AddSermonDialog({ open, onClose, tenantId, userId, editing, onSuccess }
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err.message || "Save failed");
+      toast.error(toUserFacingError(err, "Save failed"));
     } finally {
       setSaving(false);
     }
@@ -410,7 +411,7 @@ const Sermons = () => {
       toast.success("Sermon deleted");
       setDeleteId(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["sermons-admin"] });

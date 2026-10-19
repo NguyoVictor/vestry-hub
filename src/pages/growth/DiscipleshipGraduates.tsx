@@ -20,6 +20,7 @@ import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { toast } from "sonner";
 import { Trophy, GraduationCap, Calendar, Phone, CalendarPlus, Trash2 } from "lucide-react";
 import { format, startOfMonth, startOfYear } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const DiscipleshipGraduates = () => {
   const { tenantId } = useChurch();
@@ -76,7 +77,7 @@ const DiscipleshipGraduates = () => {
       setScheduleConvert(null);
       setCeremonyDate("");
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const deleteGraduationMut = useMutation({
@@ -97,7 +98,7 @@ const DiscipleshipGraduates = () => {
       toast.success("Graduation removed — convert moved back to Ministry stage");
       setDeleteId(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => toast.error(toUserFacingError(err)),
   });
 
   const statCards = [

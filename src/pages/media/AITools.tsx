@@ -1784,16 +1784,13 @@ For each suggestion provide:
 
 PRIORITISE songs from the Song Library above all. If suggesting songs not in the library, clearly mark them 'Add to library'. Include a mix of well-known and possibly lesser-known songs appropriate for an African congregation.`;
       } else {
-        // Placeholder for other tools
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setOutput("Generated content will appear here...");
-        toast.success("Content generated successfully!");
+        toast.error("This AI tool is not available yet.");
         return;
       }
 
       // Call Supabase Edge Function instead of Groq directly
       const { data, error } = await supabase.functions.invoke('generate-ai-content', {
-        body: { prompt }
+        body: { prompt, tenant_id: church.tenantId || undefined }
       });
 
       if (error) {

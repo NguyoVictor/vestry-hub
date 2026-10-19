@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // WhatsApp green color
 const WA_GREEN = "#25D366";
@@ -125,7 +126,7 @@ function ContactModal({
       onClose();
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to save contact");
+      toast.error(toUserFacingError(error, "Failed to save contact"));
     },
   });
 
@@ -299,7 +300,7 @@ function GroupModal({
       onClose();
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to save group");
+      toast.error(toUserFacingError(error, "Failed to save group"));
     },
   });
 
@@ -454,7 +455,7 @@ export default function WhatsAppDirectory() {
       toast.success("Contact deleted successfully");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to delete contact");
+      toast.error(toUserFacingError(error, "Failed to delete contact"));
     },
   });
 
@@ -472,7 +473,7 @@ export default function WhatsAppDirectory() {
       toast.success("Group deleted successfully");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Failed to delete group");
+      toast.error(toUserFacingError(error, "Failed to delete group"));
     },
   });
 

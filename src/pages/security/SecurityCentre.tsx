@@ -15,8 +15,6 @@ import { MemberAvatar } from "@/components/shared/MemberAvatar";
 import { Shield, AlertTriangle, Users, Clock, Monitor, Smartphone, Download, RefreshCw } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { SentryMonitor } from "@/components/security/SentryMonitor";
-import { PostHogDashboard } from "@/components/security/PostHogDashboard";
 
 const severityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
@@ -39,16 +37,16 @@ export default function SecurityCentre() {
   const readOnly = isReadOnly('reports_analytics');
   const queryClient = useQueryClient();
 
-  const { data: loginEvents, isLoading: loadingEvents } = useQuery({
+  const { data: loginEvents = [], isLoading: loadingEvents } = useQuery({
     queryKey: ["login_events", tenantId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("login_events")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(20);
-      return data || [];
+      const { data, error } = await supabase.functions.invoke("get-security-access-log", {
+        body: { tenant_id: tenantId },
+      });
+      if (error) throw error;
+      return data?.events || [];
     },
+    enabled: !!tenantId,
   });
 
   const { data: alerts, isLoading: loadingAlerts } = useQuery({
@@ -118,9 +116,25 @@ export default function SecurityCentre() {
   const unresolvedAlerts = alerts?.filter(a => a.status !== "resolved") || [];
   const staffCount = users?.length || 0;
 
+  const exportLogs = () => {
+    const rows = [
+      ["type", "status", "user_id", "ip_address", "created_at", "description"],
+      ...loginEvents.map((event: any) => ["login", event.status || "", event.user_id || "", event.ip_address || "", event.created_at || "", ""]),
+      ...(alerts || []).map((alert: any) => ["alert", alert.status || "", alert.affected_user_id || "", alert.ip_address || "", alert.created_at || "", alert.description || ""]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `security-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
-      <PageHeader title="Security Centre" subtitle="Monitor access, sessions and suspicious activity" action={<PermissionButton readOnly={readOnly} variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export Logs</PermissionButton>} />
+      <PageHeader title="Security Centre" subtitle="Monitor access, sessions and suspicious activity" action={<PermissionButton readOnly={readOnly} variant="outline" size="sm" onClick={exportLogs}><Download className="mr-2 h-4 w-4" />Export Logs</PermissionButton>} />
 
       {readOnly && <ReadOnlyBanner permission="reports_analytics" />}
 
@@ -404,13 +418,6 @@ export default function SecurityCentre() {
         </Card>
       )}
 
-      {/* Error & Performance Monitor (Sentry) */}
-      <div className="mt-6">
-        <SentryMonitor />
-      </div>
-
-      {/* Live Analytics (PostHog) */}
-      <PostHogDashboard />
     </div>
   );
 }

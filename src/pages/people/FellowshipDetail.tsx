@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   ArrowLeft, Pencil, Users, MapPin, Clock, Calendar, Crown,
   UserPlus, Trash2, MoreHorizontal, CheckCircle2, XCircle,
@@ -68,7 +69,7 @@ function RecordAttendanceModal({ fellowshipId, tenantId, members, onClose, onSav
       if (error) throw error;
       toast.success("Attendance recorded");
       onSaved(); onClose();
-    } catch (err: any) { toast.error(err.message); } finally { setSaving(false); }
+    } catch (err: any) { toast.error(toUserFacingError(err)); } finally { setSaving(false); }
   };
 
   return (
@@ -220,7 +221,7 @@ const FellowshipDetail = () => {
       if (error) { if (error.code === "23505") throw new Error("Already a member"); throw error; }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["fellowship-members", fellowshipId] }); toast.success("Member added"); setSelectedMember(""); },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const removeMemberMut = useMutation({
@@ -275,7 +276,7 @@ const FellowshipDetail = () => {
       qc.invalidateQueries({ queryKey: ["fellowship", fellowshipId] });
       setEditOpen(false);
     } catch (err: any) {
-      toast.error(err.message ?? "Failed to save");
+      toast.error(toUserFacingError(err, "Failed to save"));
     } finally {
       setESaving(false);
     }

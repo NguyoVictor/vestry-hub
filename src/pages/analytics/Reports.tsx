@@ -42,6 +42,7 @@ import html2canvas from "html2canvas";
 import { formatCurrencyFull, formatCurrencyShort } from "@/lib/format";
 import { toast } from "sonner";
 import { fetchCanonicalAnalyticsMetrics } from "@/lib/analyticsMetrics";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Colour palettes ────────────────────────────────────────────────────────
 const COLORS = {
@@ -1300,7 +1301,7 @@ function CustomReportTab({ tenantId, fromStr, toStr }: { tenantId: string; fromS
       if (error) throw error;
       setResults(data || []);
     } catch (e: any) {
-      toast.error(`Report failed: ${e.message}`);
+      toast.error(`Report failed: ${toUserFacingError(e)}`);
     } finally {
       setRunning(false);
     }

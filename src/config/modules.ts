@@ -270,7 +270,12 @@ export function normalizeModuleConfig(raw: unknown): CanonicalModuleConfig {
 
 export function moduleConfigFromOnboarding(priorityNeeds: string[]): CanonicalModuleConfig {
   const admin = Object.fromEntries(ADMIN_MODULES.map(module => [module.key, !!module.core])) as Record<AdminModuleKey, boolean>;
+  const canonicalKeys = new Set<AdminModuleKey>(ADMIN_MODULES.map(module => module.key));
   for (const need of priorityNeeds) {
+    if (canonicalKeys.has(need as AdminModuleKey)) {
+      admin[need as AdminModuleKey] = true;
+      continue;
+    }
     for (const key of ONBOARDING_MODULE_MAP[need] || []) admin[key] = true;
   }
 

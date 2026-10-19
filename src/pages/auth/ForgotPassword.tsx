@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowRight, ArrowLeft, Mail, CheckCircle } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { motion } from "motion/react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -25,7 +26,7 @@ const ForgotPassword = () => {
     setLoading(false);
     
     if (error) {
-      toast.error(error.message);
+      toast.error(toUserFacingError(error));
     } else {
       setEmailSent(true);
       toast.success("Password reset email sent! Check your inbox.");

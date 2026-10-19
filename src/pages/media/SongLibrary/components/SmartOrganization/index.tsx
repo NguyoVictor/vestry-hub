@@ -86,8 +86,17 @@ export function SmartOrganization({
   };
 
   const handleExportReport = () => {
-    // TODO: Implement export functionality
-    toast.info('Export functionality coming soon');
+    const rows = [
+      ...(trendingSongs || []).map((song: any) => ({ section: 'trending', title: song.title, artist: song.artist || '', usage_count: song.usage_count || 0 })),
+      ...(unusedSongs || []).map((song: any) => ({ section: 'unused', title: song.title, artist: song.artist || '', usage_count: song.usage_count || 0 })),
+    ];
+    if (rows.length === 0) { toast.info('No song analytics are available to export yet.'); return; }
+    const headers = ['section','title','artist','usage_count'];
+    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const csv = [headers.join(','), ...rows.map(row => headers.map(key => escape((row as any)[key])).join(','))].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'song-library-analytics.csv'; a.click(); URL.revokeObjectURL(url);
+    toast.success('Song analytics exported');
   };
 
   if (!church) {

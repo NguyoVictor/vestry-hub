@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle, Church } from "lucide-react";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Form state ───────────────────────────────────────────────────────────────
 const EMPTY_FORM = {
@@ -99,7 +100,7 @@ export default function MemberRegistration() {
       setSubmitted(true);
       toast.success("Registration successful!");
     },
-    onError: (e: Error) => toast.error(e.message ?? "Registration failed. Please try again."),
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Registration failed. Please try again.")),
   });
 
   function handleSubmit(ev: React.FormEvent) {

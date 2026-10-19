@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { Plus, Pencil, Trash2, CalendarClock } from 'lucide-react';
 import type { AppointmentType } from '@/types/appointments';
+import { toUserFacingError } from "@/lib/userFacingError";
 
 interface DrawerProps { open: boolean; onClose: () => void; tenantId: string; editData?: AppointmentType | null; nextOrder: number; }
 
@@ -62,7 +63,7 @@ function TypeDrawer({ open, onClose, tenantId, editData, nextOrder }: DrawerProp
       qc.invalidateQueries({ queryKey: ['appointment-types', tenantId] });
       handleClose();
     } catch (err: any) {
-      toast.error(err.message ?? 'Failed to save');
+      toast.error(toUserFacingError(err, 'Failed to save'));
     } finally {
       setSaving(false);
     }

@@ -27,6 +27,7 @@ import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Conversation {
@@ -692,7 +693,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
       toast.success("File sent");
     } catch (err: any) {
       setAllMessages(prev => prev.filter(m => !m.id.startsWith("temp-file-")));
-      toast.error(err.message || "Upload failed");
+      toast.error(toUserFacingError(err, "Upload failed"));
     } finally { setUploading(false); }
   };
 

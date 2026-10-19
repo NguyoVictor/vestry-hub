@@ -24,6 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserCircle2, Plus, Search, Pencil, Trash2, ChevronDown, ShieldCheck } from "lucide-react";
 import { ManagePermissionsModal, type ManageTarget } from "./ManagePermissionsModal";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Role definitions ─────────────────────────────────────────────────────────
 const OVERRIDE_ROLES: { key: string; label: string; color: string }[] = [
@@ -288,7 +289,7 @@ export function UserOverrides() {
       qc.invalidateQueries({ queryKey: ["user-role-overrides", tenantId] });
       toast.success("Override removed.");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(toUserFacingError(e)),
   });
 
   const existingMemberIds = useMemo(() => new Set(overrides.map(o => o.member_id)), [overrides]);

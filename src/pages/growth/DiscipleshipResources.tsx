@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ResourceType = "document" | "video" | "link" | "lesson";
@@ -863,7 +864,7 @@ export default function DiscipleshipResources() {
       setAddResourceOpen(false); resetForm();
       toast.success("Resource created successfully");
     },
-    onError: (err: Error) => toast.error(err.message || "Failed to create resource"),
+    onError: (err: Error) => toast.error(toUserFacingError(err, "Failed to create resource")),
   });
 
   // ─── Update ──────────────────────────────────────────────────────────────────
@@ -882,7 +883,7 @@ export default function DiscipleshipResources() {
       setEditResource(null); resetForm();
       toast.success("Resource updated");
     },
-    onError: (err: Error) => toast.error(err.message || "Failed to update resource"),
+    onError: (err: Error) => toast.error(toUserFacingError(err, "Failed to update resource")),
   });
 
   // ─── Delete ──────────────────────────────────────────────────────────────────

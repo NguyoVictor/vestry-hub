@@ -1,0 +1,2 @@
+[functions.get-active-sessions]
+verify_jwt = true
