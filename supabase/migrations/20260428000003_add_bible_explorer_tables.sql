@@ -81,8 +81,18 @@ CREATE INDEX idx_verse_notes_lookup ON verse_notes (tenant_id, member_id, book_i
 -- Add bible_settings column to member_preferences
 -- ══════════════════════════════════════════════════════════════════════════════
 
-ALTER TABLE member_preferences 
-  ADD COLUMN IF NOT EXISTS bible_settings JSONB DEFAULT '{}';
+-- The legacy member_preferences table may not exist.
+-- Skip the enhancement when the table is absent.
+
+DO $$
+BEGIN
+    IF to_regclass('public.member_preferences') IS NOT NULL THEN
+        ALTER TABLE public.member_preferences
+            ADD COLUMN IF NOT EXISTS bible_settings JSONB
+            DEFAULT '{}'::jsonb;
+    END IF;
+END
+$$;
 -- ══════════════════════════════════════════════════════════════════════════════
 -- RLS Policies
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -96,53 +106,53 @@ ALTER TABLE verse_notes ENABLE ROW LEVEL SECURITY;
 -- verse_highlights policies
 CREATE POLICY "Members can view their own highlights"
   ON verse_highlights FOR SELECT
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_highlights.tenant_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_highlights.tenant_id));
 CREATE POLICY "Members can insert their own highlights"
   ON verse_highlights FOR INSERT
-  WITH CHECK (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_highlights.tenant_id));
+  WITH CHECK (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_highlights.tenant_id));
 CREATE POLICY "Members can delete their own highlights"
   ON verse_highlights FOR DELETE
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_highlights.tenant_id AND id = verse_highlights.member_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_highlights.tenant_id AND id = verse_highlights.member_id));
 -- verse_bookmarks policies
 CREATE POLICY "Members can view their own bookmarks"
   ON verse_bookmarks FOR SELECT
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_bookmarks.tenant_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_bookmarks.tenant_id));
 CREATE POLICY "Members can insert their own bookmarks"
   ON verse_bookmarks FOR INSERT
-  WITH CHECK (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_bookmarks.tenant_id));
+  WITH CHECK (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_bookmarks.tenant_id));
 CREATE POLICY "Members can delete their own bookmarks"
   ON verse_bookmarks FOR DELETE
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_bookmarks.tenant_id AND id = verse_bookmarks.member_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_bookmarks.tenant_id AND id = verse_bookmarks.member_id));
 -- verse_reactions policies (tenant-wide read, member-scoped write)
 CREATE POLICY "Members can view all reactions in their tenant"
   ON verse_reactions FOR SELECT
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_reactions.tenant_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_reactions.tenant_id));
 CREATE POLICY "Members can insert their own reactions"
   ON verse_reactions FOR INSERT
-  WITH CHECK (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_reactions.tenant_id));
+  WITH CHECK (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_reactions.tenant_id));
 CREATE POLICY "Members can delete their own reactions"
   ON verse_reactions FOR DELETE
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_reactions.tenant_id AND id = verse_reactions.member_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_reactions.tenant_id AND id = verse_reactions.member_id));
 -- reading_progress policies
 CREATE POLICY "Members can view their own progress"
   ON reading_progress FOR SELECT
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = reading_progress.tenant_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = reading_progress.tenant_id));
 CREATE POLICY "Members can insert their own progress"
   ON reading_progress FOR INSERT
-  WITH CHECK (auth.uid() IN (SELECT id FROM members WHERE tenant_id = reading_progress.tenant_id));
+  WITH CHECK (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = reading_progress.tenant_id));
 CREATE POLICY "Members can update their own progress"
   ON reading_progress FOR UPDATE
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = reading_progress.tenant_id AND id = reading_progress.member_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = reading_progress.tenant_id AND id = reading_progress.member_id));
 -- verse_notes policies
 CREATE POLICY "Members can view their own notes"
   ON verse_notes FOR SELECT
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id AND id = verse_notes.member_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id AND id = verse_notes.member_id));
 CREATE POLICY "Members can insert their own notes"
   ON verse_notes FOR INSERT
-  WITH CHECK (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id));
+  WITH CHECK (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id));
 CREATE POLICY "Members can update their own notes"
   ON verse_notes FOR UPDATE
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id AND id = verse_notes.member_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id AND id = verse_notes.member_id));
 CREATE POLICY "Members can delete their own notes"
   ON verse_notes FOR DELETE
-  USING (auth.uid() IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id AND id = verse_notes.member_id));
+  USING (auth.uid()::text IN (SELECT id FROM members WHERE tenant_id = verse_notes.tenant_id AND id = verse_notes.member_id));

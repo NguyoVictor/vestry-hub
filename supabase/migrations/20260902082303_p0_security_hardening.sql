@@ -13,8 +13,17 @@ drop policy if exists "device_tokens_anon_rw"
 drop policy if exists "device_tokens_insert"
   on public.device_tokens;
 
-drop policy if exists "reactions_all"
-  on public.message_reactions;
+DO $migration$
+BEGIN
+    IF to_regclass('public.message_reactions') IS NOT NULL THEN
+        DROP POLICY IF EXISTS "reactions_all"
+        ON public.message_reactions;
+    ELSE
+        RAISE NOTICE
+            'Skipping legacy reactions policy cleanup: table does not exist';
+    END IF;
+END;
+$migration$;
 
 drop policy if exists "notifications_anon_read"
   on public.notifications;
@@ -36,8 +45,15 @@ drop policy if exists "whatsapp_groups_tenant_access"
 revoke all privileges on table public.device_tokens
   from anon;
 
-revoke all privileges on table public.message_reactions
-  from anon;
+DO $migration$
+BEGIN
+    IF to_regclass('public.message_reactions') IS NOT NULL THEN
+        REVOKE ALL PRIVILEGES
+        ON TABLE public.message_reactions
+        FROM anon;
+    END IF;
+END;
+$migration$;
 
 revoke all privileges on table public.notifications
   from anon;
@@ -62,33 +78,72 @@ drop policy if exists "tenants_public_read"
 revoke all privileges on table public.tenants
   from anon;
 
-grant select (
-  id,
-  name,
-  slug,
-  logo,
-  contact_email,
-  church_code,
-  tagline,
-  website_url,
-  about,
-  address,
-  founded_year,
-  denomination,
-  service_days,
-  service_time,
-  average_attendance,
-  facebook_url,
-  instagram_url,
-  youtube_url,
-  twitter_url,
-  whatsapp_number,
-  city,
-  country,
-  phone,
-  website
-) on table public.tenants
-to anon;
+
+-- Grant anonymous access only to approved public columns
+-- that actually exist in the current tenants table.
+-- Never fall back to table-wide SELECT privileges.
+
+DO $migration$
+DECLARE
+    v_allowed_columns TEXT[] := ARRAY[
+        'id',
+        'name',
+        'slug',
+        'logo',
+        'contact_email',
+        'church_code',
+        'tagline',
+        'website_url',
+        'about',
+        'address',
+        'founded_year',
+        'denomination',
+        'service_days',
+        'service_time',
+        'average_attendance',
+        'facebook_url',
+        'instagram_url',
+        'youtube_url',
+        'twitter_url',
+        'whatsapp_number',
+        'city',
+        'country',
+        'phone',
+        'website'
+    ];
+
+    v_existing_columns TEXT[];
+BEGIN
+    SELECT ARRAY_AGG(
+        FORMAT('%I', c.column_name)
+        ORDER BY array_position(
+            v_allowed_columns,
+            c.column_name::TEXT
+        )
+    )
+    INTO v_existing_columns
+    FROM information_schema.columns AS c
+    WHERE c.table_schema = 'public'
+      AND c.table_name = 'tenants'
+      AND c.column_name = ANY(v_allowed_columns);
+
+    IF v_existing_columns IS NULL
+       OR array_length(v_existing_columns, 1) IS NULL
+    THEN
+        RAISE EXCEPTION
+            'No approved public tenant columns found';
+    END IF;
+
+    EXECUTE FORMAT(
+        'GRANT SELECT (%s) ON TABLE public.tenants TO anon',
+        array_to_string(v_existing_columns, ', ')
+    );
+
+    RAISE NOTICE
+        'Granted anonymous SELECT only on approved existing tenant columns';
+END;
+$migration$;
+
 
 create policy "tenants_public_read_safe_columns"
   on public.tenants

@@ -1,7 +1,24 @@
-begin;
+BEGIN;
 
-alter table public.member_request_notes
-  add column if not exists tenant_id varchar;
+-- Restore the member request notes table if it is missing.
+-- Use VARCHAR identifiers to match the existing member_requests schema.
+
+CREATE TABLE IF NOT EXISTS public.member_request_notes (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    request_id VARCHAR NOT NULL,
+    tenant_id VARCHAR,
+    note TEXT NOT NULL,
+    created_by VARCHAR,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Protect the table before configuring role permissions.
+ALTER TABLE public.member_request_notes
+ENABLE ROW LEVEL SECURITY;
+
+-- Support an older table if it exists without tenant_id.
+ALTER TABLE public.member_request_notes
+ADD COLUMN IF NOT EXISTS tenant_id VARCHAR;
 
 update public.member_request_notes n
 set tenant_id = r.tenant_id

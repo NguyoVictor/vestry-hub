@@ -1,7 +1,57 @@
 -- ─── Facility Booking Enhancement Migration ───────────────────────────────────
 -- Adds quotation to facilities, booker identity fields to facility_bookings,
 -- and creates the facility_booking_responses table.
+-- =====================================================
+-- Restore missing facilities table foundation
+-- Based on the existing production schema
+-- =====================================================
 
+CREATE TABLE IF NOT EXISTS public.facilities (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+
+    tenant_id VARCHAR NOT NULL
+        REFERENCES public.tenants(id) ON DELETE CASCADE,
+
+    name TEXT NOT NULL,
+
+    type VARCHAR DEFAULT 'other',
+
+    capacity INTEGER,
+
+    description TEXT,
+
+    amenities TEXT[],
+
+    photo_url TEXT,
+
+    is_active BOOLEAN DEFAULT true,
+
+    created_at TIMESTAMPTZ DEFAULT now(),
+
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable Row Level Security before any API access.
+ALTER TABLE public.facilities ENABLE ROW LEVEL SECURITY;
+
+-- Permit tenant-scoped access for authenticated users.
+-- Reuses the tenant helper employed elsewhere in the schema.
+DROP POLICY IF EXISTS facilities_tenant_rls
+ON public.facilities;
+
+CREATE POLICY facilities_tenant_rls
+ON public.facilities
+FOR ALL
+TO authenticated
+USING (
+    tenant_id::text = public.get_my_tenant_id()::text
+)
+WITH CHECK (
+    tenant_id::text = public.get_my_tenant_id()::text
+);
+
+CREATE INDEX IF NOT EXISTS idx_facilities_tenant_id
+ON public.facilities(tenant_id);
 -- 1. Add quotation column to facilities
 ALTER TABLE facilities
   ADD COLUMN IF NOT EXISTS quotation NUMERIC;

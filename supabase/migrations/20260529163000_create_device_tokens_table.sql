@@ -21,18 +21,20 @@ BEGIN
   DROP POLICY IF EXISTS "device_tokens_insert" ON public.device_tokens;
   DROP POLICY IF EXISTS "device_tokens_select" ON public.device_tokens;
   DROP POLICY IF EXISTS "device_tokens_delete" ON public.device_tokens;
-  
+
   -- Create new policies with proper type casting
-  CREATE POLICY "device_tokens_insert" ON public.device_tokens 
+  CREATE POLICY "device_tokens_insert" ON public.device_tokens
     FOR INSERT WITH CHECK (true);
 
-  CREATE POLICY "device_tokens_select" ON public.device_tokens 
+  CREATE POLICY "device_tokens_select" ON public.device_tokens
     FOR SELECT USING (user_id::text = auth.uid()::text);
 
-  CREATE POLICY "device_tokens_delete" ON public.device_tokens 
+  CREATE POLICY "device_tokens_delete" ON public.device_tokens
     FOR DELETE USING (user_id::text = auth.uid()::text);
 END $$;
 
 -- Create indexes for performance
-CREATE INDEX idx_device_tokens_tenant ON public.device_tokens(tenant_id);
-CREATE INDEX idx_device_tokens_user ON public.device_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_tenant
+ON public.device_tokens(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user
+ON public.device_tokens(user_id);

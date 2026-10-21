@@ -1,3 +1,7 @@
+-- Reconcile approval fields expected by the booking RLS policies.
+ALTER TABLE public.facility_bookings
+    ADD COLUMN IF NOT EXISTS approved_by VARCHAR,
+    ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
 create unique index if not exists facility_bookings_id_tenant_unique
   on public.facility_bookings(id, tenant_id);
 

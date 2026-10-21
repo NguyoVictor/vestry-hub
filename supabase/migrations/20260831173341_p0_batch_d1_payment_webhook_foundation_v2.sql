@@ -7,8 +7,11 @@ create table if not exists public.tenant_payment_credentials (
   daraja_passkey text null,
   daraja_transaction_type text not null default 'CustomerPayBillOnline',
   daraja_shortcode varchar null,
-  mpesa_callback_secret text not null default encode(gen_random_bytes(32), 'hex'),
-  c2b_callback_secret text not null default encode(gen_random_bytes(32), 'hex'),
+  mpesa_callback_secret text not null
+    default encode(extensions.gen_random_bytes(32), 'hex'),
+
+c2b_callback_secret text not null
+    default encode(extensions.gen_random_bytes(32), 'hex'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

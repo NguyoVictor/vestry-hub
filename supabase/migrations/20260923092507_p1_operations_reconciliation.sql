@@ -1,4 +1,48 @@
+BEGIN;
+
 -- P1 OPERATIONS RECONCILIATION
+
+
+-- Reconcile event publication status before creating RLS policies.
+-- Existing unpublished events must remain unpublished.
+
+ALTER TABLE public.events
+ADD COLUMN IF NOT EXISTS status VARCHAR;
+
+-- Derive status from the existing publication flag.
+UPDATE public.events
+SET status = CASE
+    WHEN is_published IS TRUE THEN 'published'
+    ELSE 'draft'
+END
+WHERE status IS NULL;
+
+-- Ensure new events start unpublished unless explicitly published.
+ALTER TABLE public.events
+ALTER COLUMN status SET DEFAULT 'draft';
+
+ALTER TABLE public.events
+ALTER COLUMN status SET NOT NULL;
+
+-- Ensure the status is valid for publication policies.
+DO $migration$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM public.events
+        WHERE status NOT IN (
+            'draft',
+            'published',
+            'completed',
+            'cancelled'
+        )
+    ) THEN
+        RAISE EXCEPTION
+            'Unexpected event status values; review before enforcing constraints';
+    END IF;
+END;
+$migration$;
+
 
 -- Reconcile schema objects that are present in source/migration history but absent live.
 alter table public.services add column if not exists status varchar not null default 'draft';
@@ -14,6 +58,8 @@ alter table public.facilities
   add column if not exists video_path text;
 
 alter table public.facility_bookings
+  add column if not exists facility_id varchar,
+  add column if not exists rejection_reason varchar,
   add column if not exists booker_type varchar,
   add column if not exists booker_name varchar,
   add column if not exists booker_org_name varchar,
@@ -132,6 +178,12 @@ create table if not exists public.facility_responses (
   updated_at timestamptz not null default now()
 );
 
+-- Existing installations may already have facility_responses with an older schema.
+-- Preserve data while providing the columns used by subsequent policies.
+ALTER TABLE public.facility_responses
+  ADD COLUMN IF NOT EXISTS facility_id VARCHAR,
+  ADD COLUMN IF NOT EXISTS source VARCHAR;
+
 create table if not exists public.facility_booking_responses (
   id varchar primary key default gen_random_uuid()::text,
   tenant_id varchar not null references public.tenants(id) on delete cascade,
@@ -146,6 +198,90 @@ create table if not exists public.facility_booking_responses (
   is_read boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- ============================================================
+-- FACILITY BOOKING RESPONSES SCHEMA RECONCILIATION
+-- ============================================================
+
+ALTER TABLE public.facility_booking_responses
+    ADD COLUMN IF NOT EXISTS member_id VARCHAR,
+    ADD COLUMN IF NOT EXISTS facility_name VARCHAR,
+    ADD COLUMN IF NOT EXISTS message TEXT,
+    ADD COLUMN IF NOT EXISTS status VARCHAR;
+
+-- Validate existing status values before adding constraints.
+
+DO $migration$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM public.facility_booking_responses
+        WHERE status IS NOT NULL
+          AND status NOT IN ('accepted', 'rejected')
+    ) THEN
+        RAISE EXCEPTION
+            'Unexpected facility booking response status values';
+    END IF;
+END;
+$migration$;
+
+-- Enforce valid response statuses.
+
+DO $migration$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid =
+            'public.facility_booking_responses'::regclass
+          AND conname =
+            'facility_booking_responses_status_check'
+    ) THEN
+        ALTER TABLE public.facility_booking_responses
+        ADD CONSTRAINT facility_booking_responses_status_check
+        CHECK (
+            status IN ('accepted', 'rejected')
+        );
+    END IF;
+END;
+$migration$;
+-- Restore the event RSVP table when absent.
+-- The table is required by the following indexes,
+-- composite foreign keys, triggers and RLS policies.
+
+CREATE TABLE IF NOT EXISTS public.event_rsvps (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+
+    tenant_id VARCHAR NOT NULL
+        REFERENCES public.tenants(id) ON DELETE CASCADE,
+
+    event_id VARCHAR NOT NULL,
+    member_id VARCHAR,
+
+    name TEXT,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+
+    status VARCHAR DEFAULT 'confirmed',
+    rsvp_source VARCHAR DEFAULT 'web',
+
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enforce RLS immediately, before any browser grants.
+ALTER TABLE public.event_rsvps ENABLE ROW LEVEL SECURITY;
+
+-- Start with no direct browser access.
+-- The subsequent statements in this migration establish
+-- the intended role permissions and tenant-scoped policies.
+REVOKE ALL ON TABLE public.event_rsvps
+FROM PUBLIC, anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE public.event_rsvps
+TO service_role;
+
 
 -- Tenant-consistent foreign keys for self-service objects.
 create unique index if not exists events_id_tenant_unique on public.events(id,tenant_id);
@@ -190,10 +326,10 @@ create or replace function private.enforce_event_rsvp_capacity()
 returns trigger language plpgsql security definer set search_path=public,private,pg_temp as $$
 declare v_capacity integer; v_count integer;
 begin
-  if new.member_id is null or new.status<>'confirmed' then return new; end if;
+  if new.member_id is null or new.status::text<>'confirmed' then return new; end if;
   select capacity_limit into v_capacity from public.events where id=new.event_id and tenant_id=new.tenant_id for update;
   if v_capacity is null then return new; end if;
-  select count(*) into v_count from public.event_rsvps where event_id=new.event_id and status='confirmed' and id<>coalesce(new.id,'');
+  select count(*) into v_count from public.event_rsvps where event_id=new.event_id and status::text='confirmed' and id<>coalesce(new.id,'');
   if v_count>=v_capacity then raise exception 'Event capacity reached.' using errcode='23514'; end if;
   return new;
 end $$;
@@ -217,11 +353,11 @@ create trigger volunteer_role_count_refresh after insert or update or delete on 
 create or replace function private.prevent_facility_booking_overlap()
 returns trigger language plpgsql security definer set search_path=public,private,pg_temp as $$
 begin
-  if new.facility_id is null or new.status not in ('open','in_progress') then return new; end if;
+  if new.facility_id is null or new.status::text not in ('open','in_progress') then return new; end if;
   if exists(
     select 1 from public.facility_bookings b
     where b.tenant_id=new.tenant_id and b.facility_id=new.facility_id and b.booking_date=new.booking_date
-      and b.id<>coalesce(new.id,'') and b.status in ('open','in_progress')
+      and b.id<>coalesce(new.id,'') and b.status::text in ('open','in_progress')
       and new.start_time < b.end_time and new.end_time > b.start_time
       and b.admin_deleted_at is null
   ) then raise exception 'Facility is already booked for the selected time.' using errcode='23P01'; end if;
@@ -312,91 +448,148 @@ grant insert on table public.facility_responses to anon;
 grant select,insert,update,delete on table public.service_request_types,public.meeting_minutes,public.meeting_decisions,public.facility_types,public.facility_images,public.facility_responses,public.facility_booking_responses to authenticated,service_role;
 
 -- Explicit staff policies.
-create policy services_staff_manage on public.services for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy events_staff_manage on public.events for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy event_rsvps_staff_manage on public.event_rsvps for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy volunteer_roles_staff_manage on public.volunteer_roles for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy volunteers_staff_manage on public.volunteers for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy member_requests_staff_manage on public.member_requests for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy board_meetings_staff_manage on public.board_meetings for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy meeting_attendees_staff_manage on public.meeting_attendees for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy meeting_action_items_staff_manage on public.meeting_action_items for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy meeting_minutes_staff_manage on public.meeting_minutes for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy meeting_decisions_staff_manage on public.meeting_decisions for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy facilities_staff_manage on public.facilities for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy facility_bookings_staff_manage on public.facility_bookings for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy facility_booking_responses_staff_manage on public.facility_booking_responses for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy service_request_types_staff_manage on public.service_request_types for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy facility_types_staff_manage on public.facility_types for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy facility_images_staff_manage on public.facility_images for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
-create policy facility_responses_staff_manage on public.facility_responses for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS services_staff_manage ON public.services;
+CREATE POLICY services_staff_manage ON public.services for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS events_staff_manage ON public.events;
+CREATE POLICY events_staff_manage ON public.events for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS event_rsvps_staff_manage ON public.event_rsvps;
+CREATE POLICY event_rsvps_staff_manage ON public.event_rsvps for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS volunteer_roles_staff_manage ON public.volunteer_roles;
+CREATE POLICY volunteer_roles_staff_manage ON public.volunteer_roles for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS volunteers_staff_manage ON public.volunteers;
+CREATE POLICY volunteers_staff_manage ON public.volunteers for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS member_requests_staff_manage ON public.member_requests;
+CREATE POLICY member_requests_staff_manage ON public.member_requests for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS board_meetings_staff_manage ON public.board_meetings;
+CREATE POLICY board_meetings_staff_manage ON public.board_meetings for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS meeting_attendees_staff_manage ON public.meeting_attendees;
+CREATE POLICY meeting_attendees_staff_manage ON public.meeting_attendees for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS meeting_action_items_staff_manage ON public.meeting_action_items;
+CREATE POLICY meeting_action_items_staff_manage ON public.meeting_action_items for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS meeting_minutes_staff_manage ON public.meeting_minutes;
+CREATE POLICY meeting_minutes_staff_manage ON public.meeting_minutes for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS meeting_decisions_staff_manage ON public.meeting_decisions;
+CREATE POLICY meeting_decisions_staff_manage ON public.meeting_decisions for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS facilities_staff_manage ON public.facilities;
+CREATE POLICY facilities_staff_manage ON public.facilities for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS facility_bookings_staff_manage ON public.facility_bookings;
+CREATE POLICY facility_bookings_staff_manage ON public.facility_bookings for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS facility_booking_responses_staff_manage ON public.facility_booking_responses;
+CREATE POLICY facility_booking_responses_staff_manage ON public.facility_booking_responses for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS service_request_types_staff_manage ON public.service_request_types;
+CREATE POLICY service_request_types_staff_manage ON public.service_request_types for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS facility_types_staff_manage ON public.facility_types;
+CREATE POLICY facility_types_staff_manage ON public.facility_types for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS facility_images_staff_manage ON public.facility_images;
+CREATE POLICY facility_images_staff_manage ON public.facility_images for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
+DROP POLICY IF EXISTS facility_responses_staff_manage ON public.facility_responses;
+CREATE POLICY facility_responses_staff_manage ON public.facility_responses for all to authenticated using(private.actor_has_tenant(tenant_id)) with check(private.actor_has_tenant(tenant_id));
 
+-- Legacy member-session policies from the historical application.
+-- SECURITY NOTE: re-check replacement/cutover to native auth in later migrations.
+-- Existing permissive policies must be audited; DROP+CREATE below only replaces
+-- policies with the same name, and does not eliminate unknown legacy policies.
 -- Member-session policies.
-create policy services_member_read on public.services for select to anon
+DROP POLICY IF EXISTS services_member_read ON public.services;
+CREATE POLICY services_member_read ON public.services for select to anon
 using(private.member_session_has_tenant(tenant_id) and is_published=true and status='published');
-create policy events_member_read on public.events for select to anon
+DROP POLICY IF EXISTS events_member_read ON public.events;
+CREATE POLICY events_member_read ON public.events for select to anon
 using(private.member_session_has_tenant(tenant_id) and is_published=true and status in ('published','completed'));
 
-create policy service_attendance_member_read on public.service_attendance for select to anon
+DROP POLICY IF EXISTS service_attendance_member_read ON public.service_attendance;
+
+CREATE POLICY service_attendance_member_read ON public.service_attendance for select to anon
 using(member_id=private.member_session_member_id(tenant_id));
-create policy service_attendance_member_insert on public.service_attendance for insert to anon
+DROP POLICY IF EXISTS service_attendance_member_insert ON public.service_attendance;
+CREATE POLICY service_attendance_member_insert ON public.service_attendance for insert to anon
 with check(member_id=private.member_session_member_id(tenant_id) and status in ('attending','cancelled') and exists(select 1 from public.services s where s.id=service_attendance.service_id and s.tenant_id=service_attendance.tenant_id and s.is_published=true and s.status='published'));
-create policy service_attendance_member_update on public.service_attendance for update to anon
+DROP POLICY IF EXISTS service_attendance_member_update ON public.service_attendance;
+CREATE POLICY service_attendance_member_update ON public.service_attendance for update to anon
 using(member_id=private.member_session_member_id(tenant_id))
 with check(member_id=private.member_session_member_id(tenant_id) and status in ('attending','cancelled'));
-create policy service_attendance_member_delete on public.service_attendance for delete to anon
+DROP POLICY IF EXISTS service_attendance_member_delete ON public.service_attendance;
+CREATE POLICY service_attendance_member_delete ON public.service_attendance for delete to anon
 using(member_id=private.member_session_member_id(tenant_id));
 
-create policy event_rsvps_member_read on public.event_rsvps for select to anon
+DROP POLICY IF EXISTS event_rsvps_member_read ON public.event_rsvps;
+
+CREATE POLICY event_rsvps_member_read ON public.event_rsvps for select to anon
 using(member_id=private.member_session_member_id(tenant_id));
-create policy event_rsvps_member_insert on public.event_rsvps for insert to anon
+DROP POLICY IF EXISTS event_rsvps_member_insert ON public.event_rsvps;
+CREATE POLICY event_rsvps_member_insert ON public.event_rsvps for insert to anon
 with check(member_id=private.member_session_member_id(tenant_id) and status in ('confirmed','cancelled') and exists(select 1 from public.events e where e.id=event_rsvps.event_id and e.tenant_id=event_rsvps.tenant_id and e.is_published=true and e.status in ('published','completed')));
-create policy event_rsvps_member_update on public.event_rsvps for update to anon
+DROP POLICY IF EXISTS event_rsvps_member_update ON public.event_rsvps;
+CREATE POLICY event_rsvps_member_update ON public.event_rsvps for update to anon
 using(member_id=private.member_session_member_id(tenant_id))
 with check(member_id=private.member_session_member_id(tenant_id) and status in ('confirmed','cancelled'));
-create policy event_rsvps_member_delete on public.event_rsvps for delete to anon
+DROP POLICY IF EXISTS event_rsvps_member_delete ON public.event_rsvps;
+CREATE POLICY event_rsvps_member_delete ON public.event_rsvps for delete to anon
 using(member_id=private.member_session_member_id(tenant_id));
 
-create policy volunteer_roles_member_read on public.volunteer_roles for select to anon
+DROP POLICY IF EXISTS volunteer_roles_member_read ON public.volunteer_roles;
+
+CREATE POLICY volunteer_roles_member_read ON public.volunteer_roles for select to anon
 using(private.member_session_has_tenant(tenant_id));
-create policy volunteers_member_read on public.volunteers for select to anon
+DROP POLICY IF EXISTS volunteers_member_read ON public.volunteers;
+CREATE POLICY volunteers_member_read ON public.volunteers for select to anon
 using(member_id=private.member_session_member_id(tenant_id));
-create policy volunteers_member_insert on public.volunteers for insert to anon
+DROP POLICY IF EXISTS volunteers_member_insert ON public.volunteers;
+CREATE POLICY volunteers_member_insert ON public.volunteers for insert to anon
 with check(member_id=private.member_session_member_id(tenant_id) and status='confirmed' and exists(select 1 from public.volunteer_roles r where r.id=volunteers.role_id and r.tenant_id=volunteers.tenant_id and (r.max_volunteers is null or r.confirmed_count<r.max_volunteers)));
-create policy volunteers_member_delete on public.volunteers for delete to anon
+DROP POLICY IF EXISTS volunteers_member_delete ON public.volunteers;
+CREATE POLICY volunteers_member_delete ON public.volunteers for delete to anon
 using(member_id=private.member_session_member_id(tenant_id));
 
-create policy service_request_types_member_read on public.service_request_types for select to anon
+DROP POLICY IF EXISTS service_request_types_member_read ON public.service_request_types;
+
+CREATE POLICY service_request_types_member_read ON public.service_request_types for select to anon
 using(is_active=true and private.member_session_has_tenant(tenant_id));
-create policy member_requests_member_read on public.member_requests for select to anon
+DROP POLICY IF EXISTS member_requests_member_read ON public.member_requests;
+CREATE POLICY member_requests_member_read ON public.member_requests for select to anon
 using(member_id=private.member_session_member_id(tenant_id));
-create policy member_requests_member_insert on public.member_requests for insert to anon
+DROP POLICY IF EXISTS member_requests_member_insert ON public.member_requests;
+CREATE POLICY member_requests_member_insert ON public.member_requests for insert to anon
 with check(member_id=private.member_session_member_id(tenant_id) and status::text='open');
-create policy member_requests_member_update on public.member_requests for update to anon
+DROP POLICY IF EXISTS member_requests_member_update ON public.member_requests;
+CREATE POLICY member_requests_member_update ON public.member_requests for update to anon
 using(member_id=private.member_session_member_id(tenant_id) and status::text='open')
 with check(member_id=private.member_session_member_id(tenant_id));
-create policy member_requests_member_delete on public.member_requests for delete to anon
+DROP POLICY IF EXISTS member_requests_member_delete ON public.member_requests;
+CREATE POLICY member_requests_member_delete ON public.member_requests for delete to anon
 using(member_id=private.member_session_member_id(tenant_id) and status::text='open');
 
 -- Public facilities may be browsed for the explicit public booking route.
-create policy facilities_public_read_safe on public.facilities for select to anon using(is_active=true);
-create policy facility_types_public_read_safe on public.facility_types for select to anon using(is_active=true);
-create policy facility_images_public_read_safe on public.facility_images for select to anon using(exists(select 1 from public.facilities f where f.id=facility_images.facility_id and f.tenant_id=facility_images.tenant_id and f.is_active=true));
+DROP POLICY IF EXISTS facilities_public_read_safe ON public.facilities;
+CREATE POLICY facilities_public_read_safe ON public.facilities for select to anon using(is_active=true);
+DROP POLICY IF EXISTS facility_types_public_read_safe ON public.facility_types;
+CREATE POLICY facility_types_public_read_safe ON public.facility_types for select to anon using(is_active=true);
+DROP POLICY IF EXISTS facility_images_public_read_safe ON public.facility_images;
+CREATE POLICY facility_images_public_read_safe ON public.facility_images for select to anon using(exists(select 1 from public.facilities f where f.id=facility_images.facility_id and f.tenant_id=facility_images.tenant_id and f.is_active=true));
 
-create policy facility_bookings_member_read on public.facility_bookings for select to anon
+DROP POLICY IF EXISTS facility_bookings_member_read ON public.facility_bookings;
+
+CREATE POLICY facility_bookings_member_read ON public.facility_bookings for select to anon
 using(booked_by=private.member_session_member_id(tenant_id) and source='member');
-create policy facility_bookings_member_insert on public.facility_bookings for insert to anon
+DROP POLICY IF EXISTS facility_bookings_member_insert ON public.facility_bookings;
+CREATE POLICY facility_bookings_member_insert ON public.facility_bookings for insert to anon
 with check(source='member' and booker_type='member' and status::text='open' and booked_by=private.member_session_member_id(tenant_id) and exists(select 1 from public.facilities f where f.id=facility_bookings.facility_id and f.tenant_id=facility_bookings.tenant_id and f.is_active=true));
-create policy facility_bookings_member_update on public.facility_bookings for update to anon
+DROP POLICY IF EXISTS facility_bookings_member_update ON public.facility_bookings;
+CREATE POLICY facility_bookings_member_update ON public.facility_bookings for update to anon
 using(booked_by=private.member_session_member_id(tenant_id) and source='member' and status::text='open')
 with check(booked_by=private.member_session_member_id(tenant_id) and source='member' and status::text='cancelled' and rejection_reason='booker_withdrew');
 
-create policy facility_bookings_public_insert on public.facility_bookings for insert to anon
+DROP POLICY IF EXISTS facility_bookings_public_insert ON public.facility_bookings;
+
+CREATE POLICY facility_bookings_public_insert ON public.facility_bookings for insert to anon
 with check(source='external' and booked_by is null and exists(select 1 from public.facilities f where f.id=facility_bookings.facility_id and f.tenant_id=facility_bookings.tenant_id and f.is_active=true));
 
-create policy facility_booking_responses_member_read on public.facility_booking_responses for select to anon
+DROP POLICY IF EXISTS facility_booking_responses_member_read ON public.facility_booking_responses;
+
+CREATE POLICY facility_booking_responses_member_read ON public.facility_booking_responses for select to anon
 using(member_id=private.member_session_member_id(tenant_id) and exists(select 1 from public.facility_bookings b where b.id=facility_booking_responses.booking_id and b.tenant_id=facility_booking_responses.tenant_id and b.booked_by=facility_booking_responses.member_id));
-create policy facility_responses_public_insert on public.facility_responses for insert to anon
+DROP POLICY IF EXISTS facility_responses_public_insert ON public.facility_responses;
+CREATE POLICY facility_responses_public_insert ON public.facility_responses for insert to anon
 with check(source='external' and exists(select 1 from public.facilities f where f.id=facility_responses.facility_id and f.tenant_id=facility_responses.tenant_id and f.is_active=true));
 
 create index if not exists service_request_types_tenant_active_idx on public.service_request_types(tenant_id,is_active,sort_order);
@@ -409,3 +602,5 @@ create index if not exists facility_images_tenant_facility_idx on public.facilit
 create index if not exists facility_responses_tenant_idx on public.facility_responses(tenant_id,created_at desc);
 create index if not exists facility_booking_responses_tenant_member_idx on public.facility_booking_responses(tenant_id,member_id,created_at desc);
 create index if not exists facility_bookings_tenant_facility_date_idx on public.facility_bookings(tenant_id,facility_id,booking_date,start_time,end_time);
+
+COMMIT;

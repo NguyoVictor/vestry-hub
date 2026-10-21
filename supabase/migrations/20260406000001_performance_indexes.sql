@@ -5,20 +5,23 @@
 -- ============================================================
 
 -- Phase 8 new tables
-CREATE INDEX IF NOT EXISTS idx_discipleship_resources_tenant ON discipleship_resources(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_resource_assignments_tenant ON resource_assignments(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_resource_collections_tenant ON resource_collections(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_store_products_tenant ON store_products(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_store_orders_tenant ON store_orders(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
-CREATE INDEX IF NOT EXISTS idx_course_enrollments_course ON course_enrollments(course_id);
-CREATE INDEX IF NOT EXISTS idx_course_enrollments_user ON course_enrollments(user_id);
-CREATE INDEX IF NOT EXISTS idx_lesson_completions_enrollment ON lesson_completions(enrollment_id);
-CREATE INDEX IF NOT EXISTS idx_course_comments_course ON course_comments(course_id);
--- Phase 9 new tables
-CREATE INDEX IF NOT EXISTS idx_saved_reports_tenant ON saved_reports(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_prayer_requests_tenant ON prayer_requests(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_prayer_requests_member ON prayer_requests(member_id);
+-- ============================================================
+-- PHASE 8 AND PHASE 9 INDEXES
+-- ============================================================
+-- These tables are created by later migrations.
+--
+-- Phase 8:
+--   20260406094846_phase8_discipleship_resources.sql
+--   20260406094911_phase8_store_tables.sql
+--   20260406094931_phase8_training_tables.sql
+--
+-- Phase 9:
+--   20260406095120_phase9_saved_reports_prayer.sql
+--
+-- Their indexes are created by their respective migrations
+-- and later performance-index migrations.
+--
+-- Do not create their indexes before the tables exist.
 -- Core tables queried heavily
 CREATE INDEX IF NOT EXISTS idx_users_tenant_status ON users(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_tenant_created ON users(tenant_id, created_at);
@@ -43,5 +46,9 @@ CREATE INDEX IF NOT EXISTS idx_outreach_activities_tenant ON outreach_activities
 CREATE INDEX IF NOT EXISTS idx_training_courses_tenant ON training_courses(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_member ON group_members(member_id);
-CREATE INDEX IF NOT EXISTS idx_event_rsvps_event ON event_rsvps(event_id);
-CREATE INDEX IF NOT EXISTS idx_event_rsvps_member ON event_rsvps(member_id);
+-- Event registrations: current canonical table
+CREATE INDEX IF NOT EXISTS idx_event_registrations_event
+ON event_registrations(event_id);
+
+CREATE INDEX IF NOT EXISTS idx_event_registrations_member
+ON event_registrations(member_id);

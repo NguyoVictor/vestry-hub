@@ -57,46 +57,43 @@ CREATE INDEX IF NOT EXISTS idx_sermons_featured ON sermons(tenant_id, is_feature
 ALTER TABLE sermon_reactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Members can view all reactions in their church"
   ON sermon_reactions FOR SELECT
-  USING (tenant_id IN (SELECT tenant_id FROM members WHERE id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM members WHERE id = auth.uid()::text));
 CREATE POLICY "Members can insert their own reactions"
   ON sermon_reactions FOR INSERT
-  WITH CHECK (member_id = auth.uid());
+  WITH CHECK (member_id = auth.uid()::text);
 CREATE POLICY "Members can delete their own reactions"
   ON sermon_reactions FOR DELETE
-  USING (member_id = auth.uid());
+  USING (member_id = auth.uid()::text);
 -- Sermon bookmarks
 ALTER TABLE sermon_bookmarks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Members can view their own bookmarks"
   ON sermon_bookmarks FOR SELECT
-  USING (member_id = auth.uid());
+  USING (member_id = auth.uid()::text);
 CREATE POLICY "Members can insert their own bookmarks"
   ON sermon_bookmarks FOR INSERT
-  WITH CHECK (member_id = auth.uid());
+  WITH CHECK (member_id = auth.uid()::text);
 CREATE POLICY "Members can delete their own bookmarks"
   ON sermon_bookmarks FOR DELETE
-  USING (member_id = auth.uid());
+  USING (member_id = auth.uid()::text);
 -- Sermon notes
 ALTER TABLE sermon_notes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Members can view their own notes"
   ON sermon_notes FOR SELECT
-  USING (member_id = auth.uid());
+  USING (member_id = auth.uid()::text);
 CREATE POLICY "Members can insert their own notes"
   ON sermon_notes FOR INSERT
-  WITH CHECK (member_id = auth.uid());
+  WITH CHECK (member_id = auth.uid()::text);
 CREATE POLICY "Members can update their own notes"
   ON sermon_notes FOR UPDATE
-  USING (member_id = auth.uid());
+  USING (member_id = auth.uid()::text);
 CREATE POLICY "Members can delete their own notes"
   ON sermon_notes FOR DELETE
-  USING (member_id = auth.uid());
+  USING (member_id = auth.uid()::text);
 -- Sermon views
 ALTER TABLE sermon_views ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can insert sermon views"
-  ON sermon_views FOR INSERT
-  WITH CHECK (true);
 CREATE POLICY "Admins can view all sermon views"
   ON sermon_views FOR SELECT
-  USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()));
+  USING (tenant_id IN (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
 -- Function to increment view count
 CREATE OR REPLACE FUNCTION increment_sermon_view_count()
 RETURNS TRIGGER AS $$

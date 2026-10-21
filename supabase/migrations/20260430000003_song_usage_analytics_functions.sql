@@ -2,6 +2,44 @@
 -- Migration for usage tracking, trending algorithms, and smart recommendations
 -- Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7
 
+-- Restore the missing song usage analytics table.
+
+CREATE TABLE IF NOT EXISTS public.song_usage_analytics (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    tenant_id VARCHAR NOT NULL
+        REFERENCES public.tenants(id) ON DELETE CASCADE,
+    song_id VARCHAR NOT NULL
+        REFERENCES public.songs(id) ON DELETE CASCADE,
+    service_type VARCHAR,
+    used_at TIMESTAMPTZ DEFAULT now(),
+    setlist_id VARCHAR
+        REFERENCES public.set_lists(id) ON DELETE SET NULL,
+    key_used VARCHAR,
+    duration_played INTEGER,
+    user_id VARCHAR
+        REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.song_usage_analytics
+    ENABLE ROW LEVEL SECURITY;
+-- =====================================================
+-- SONG METADATA FOUNDATION
+-- Required by the April 30 analytics functions/indexes.
+-- The May 1 migration also defines these columns.
+-- =====================================================
+
+ALTER TABLE public.songs
+    ADD COLUMN IF NOT EXISTS bpm INTEGER,
+    ADD COLUMN IF NOT EXISTS time_signature VARCHAR(10),
+    ADD COLUMN IF NOT EXISTS cover_art_url TEXT,
+    ADD COLUMN IF NOT EXISTS cover_art_colors JSONB,
+    ADD COLUMN IF NOT EXISTS duration_seconds INTEGER,
+    ADD COLUMN IF NOT EXISTS usage_count INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS last_played_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS custom_fields JSONB DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS is_trending BOOLEAN DEFAULT false,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 -- =====================================================
 -- Function: Get Usage Reports (Monthly/Yearly)
 -- =====================================================
@@ -18,15 +56,15 @@ RETURNS TABLE (
   top_song_title TEXT,
   top_song_artist TEXT,
   top_song_usage BIGINT
-) 
+)
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $vestry_fn$
 BEGIN
   IF p_report_type = 'monthly' THEN
     RETURN QUERY
     WITH monthly_stats AS (
-      SELECT 
+      SELECT
         TO_CHAR(used_at, 'YYYY-MM') as report_period,
         COUNT(*) as usage_count,
         COUNT(DISTINCT song_id) as unique_song_count,
@@ -39,7 +77,7 @@ BEGIN
       GROUP BY TO_CHAR(used_at, 'YYYY-MM'), song_id, s.title, s.artist
     ),
     period_totals AS (
-      SELECT 
+      SELECT
         report_period,
         SUM(usage_count) as total_usage,
         MAX(unique_song_count) as unique_songs
@@ -47,7 +85,7 @@ BEGIN
       GROUP BY report_period
     ),
     top_songs AS (
-      SELECT 
+      SELECT
         ms.report_period,
         s.title as song_title,
         s.artist as song_artist,
@@ -56,7 +94,7 @@ BEGIN
       INNER JOIN songs s ON ms.song_id = s.id
       WHERE ms.song_rank = 1
     )
-    SELECT 
+    SELECT
       pt.report_period,
       pt.total_usage,
       pt.unique_songs,
@@ -66,11 +104,11 @@ BEGIN
     FROM period_totals pt
     LEFT JOIN top_songs ts ON pt.report_period = ts.report_period
     ORDER BY pt.report_period DESC;
-    
+
   ELSE -- yearly
     RETURN QUERY
     WITH yearly_stats AS (
-      SELECT 
+      SELECT
         TO_CHAR(used_at, 'YYYY') as report_period,
         COUNT(*) as usage_count,
         COUNT(DISTINCT song_id) as unique_song_count,
@@ -83,7 +121,7 @@ BEGIN
       GROUP BY TO_CHAR(used_at, 'YYYY'), song_id, s.title, s.artist
     ),
     period_totals AS (
-      SELECT 
+      SELECT
         report_period,
         SUM(usage_count) as total_usage,
         MAX(unique_song_count) as unique_songs
@@ -91,7 +129,7 @@ BEGIN
       GROUP BY report_period
     ),
     top_songs AS (
-      SELECT 
+      SELECT
         ys.report_period,
         s.title as song_title,
         s.artist as song_artist,
@@ -100,7 +138,7 @@ BEGIN
       INNER JOIN songs s ON ys.song_id = s.id
       WHERE ys.song_rank = 1
     )
-    SELECT 
+    SELECT
       pt.report_period,
       pt.total_usage,
       pt.unique_songs,
@@ -112,7 +150,7 @@ BEGIN
     ORDER BY pt.report_period DESC;
   END IF;
 END;
-$$;
+$vestry_fn$;
 -- =====================================================
 -- Function: Update Trending Songs Status
 -- =====================================================
@@ -121,18 +159,18 @@ CREATE OR REPLACE FUNCTION update_trending_songs(p_tenant_id VARCHAR)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $vestry_fn$
 DECLARE
   trending_threshold NUMERIC := 10.0; -- Minimum trending score
 BEGIN
   -- First, reset all trending flags
-  UPDATE songs 
-  SET is_trending = FALSE 
+  UPDATE songs
+  SET is_trending = FALSE
   WHERE tenant_id = p_tenant_id;
 
   -- Calculate trending scores and update trending songs
   WITH trending_calculations AS (
-    SELECT 
+    SELECT
       s.id,
       s.title,
       s.artist,
@@ -143,7 +181,7 @@ BEGIN
       -- Total usage count
       COALESCE(s.usage_count, 0) as total_usage,
       -- Days since last use
-      CASE 
+      CASE
         WHEN s.last_played_at IS NULL THEN 999
         ELSE EXTRACT(DAYS FROM (NOW() - s.last_played_at))
       END as days_since_last_use,
@@ -152,7 +190,7 @@ BEGIN
         -- Base score from recent usage
         COALESCE(recent.usage_count, 0) * 10 +
         -- Growth bonus
-        CASE 
+        CASE
           WHEN COALESCE(previous.usage_count, 0) > 0 AND COALESCE(recent.usage_count, 0) > COALESCE(previous.usage_count, 0)
           THEN ((COALESCE(recent.usage_count, 0) - COALESCE(previous.usage_count, 0))::NUMERIC / COALESCE(previous.usage_count, 1)) * 20
           ELSE 0
@@ -160,9 +198,9 @@ BEGIN
         -- Popularity bonus
         LN(COALESCE(s.usage_count, 0) + 1) * 5 -
         -- Recency penalty
-        CASE 
+        CASE
           WHEN s.last_played_at IS NULL THEN 60
-          WHEN EXTRACT(DAYS FROM (NOW() - s.last_played_at)) > 7 
+          WHEN EXTRACT(DAYS FROM (NOW() - s.last_played_at)) > 7
           THEN LEAST(EXTRACT(DAYS FROM (NOW() - s.last_played_at)) - 7, 30) * 2
           ELSE 0
         END
@@ -170,7 +208,7 @@ BEGIN
     FROM songs s
     LEFT JOIN (
       -- Recent usage (last 7 days)
-      SELECT 
+      SELECT
         song_id,
         COUNT(*) as usage_count
       FROM song_usage_analytics
@@ -180,7 +218,7 @@ BEGIN
     ) recent ON s.id = recent.song_id
     LEFT JOIN (
       -- Previous usage (8-30 days ago)
-      SELECT 
+      SELECT
         song_id,
         COUNT(*) as usage_count
       FROM song_usage_analytics
@@ -191,7 +229,7 @@ BEGIN
     ) previous ON s.id = previous.song_id
     WHERE s.tenant_id = p_tenant_id
   )
-  UPDATE songs 
+  UPDATE songs
   SET is_trending = TRUE
   FROM trending_calculations tc
   WHERE songs.id = tc.id
@@ -209,7 +247,7 @@ BEGIN
     NOW()
   );
 END;
-$$;
+$vestry_fn$;
 -- =====================================================
 -- Function: Get Smart Song Recommendations
 -- =====================================================
@@ -238,21 +276,21 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $vestry_fn$
 BEGIN
   RETURN QUERY
   WITH song_scores AS (
-    SELECT 
+    SELECT
       s.*,
       (
         -- Base popularity score
         COALESCE(s.usage_count, 0) * 2 +
-        
+
         -- Trending bonus
         CASE WHEN s.is_trending THEN 15 ELSE 0 END +
-        
+
         -- Service type matching bonus
-        CASE 
+        CASE
           WHEN p_service_type IS NOT NULL THEN
             COALESCE((
               SELECT COUNT(*) * 5
@@ -263,18 +301,18 @@ BEGIN
             ), 0)
           ELSE 0
         END +
-        
+
         -- Recency bonus (songs used recently but not too recently)
-        CASE 
+        CASE
           WHEN s.last_played_at IS NULL THEN -10
           WHEN s.last_played_at >= (NOW() - INTERVAL '7 days') THEN -5 -- Don't repeat too soon
           WHEN s.last_played_at >= (NOW() - INTERVAL '30 days') THEN 10 -- Good recency
           WHEN s.last_played_at >= (NOW() - INTERVAL '90 days') THEN 5  -- Moderate recency
           ELSE -5 -- Too old
         END +
-        
+
         -- Key compatibility bonus (if current setlist has songs)
-        CASE 
+        CASE
           WHEN array_length(p_current_setlist, 1) > 0 AND s.key IS NOT NULL THEN
             COALESCE((
               SELECT COUNT(*) * 3
@@ -295,13 +333,13 @@ BEGIN
             ), 0)
           ELSE 0
         END +
-        
+
         -- BPM flow bonus (if current setlist has songs)
-        CASE 
+        CASE
           WHEN array_length(p_current_setlist, 1) > 0 AND s.bpm IS NOT NULL THEN
             COALESCE((
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN ABS(AVG(cs.bpm) - s.bpm) <= 10 THEN 8  -- Very close tempo
                   WHEN ABS(AVG(cs.bpm) - s.bpm) <= 20 THEN 5  -- Close tempo
                   WHEN ABS(AVG(cs.bpm) - s.bpm) <= 40 THEN 2  -- Moderate tempo difference
@@ -313,26 +351,26 @@ BEGIN
             ), 0)
           ELSE 0
         END +
-        
+
         -- Random factor for variety (small influence)
         (RANDOM() * 5)
-        
+
       ) as recommendation_score,
-      
+
       -- Generate recommendation reason
-      CASE 
+      CASE
         WHEN s.is_trending THEN 'Trending song'
         WHEN s.usage_count > 10 THEN 'Popular choice'
         WHEN s.last_played_at >= (NOW() - INTERVAL '30 days') THEN 'Recently used'
         WHEN s.last_played_at IS NULL OR s.last_played_at < (NOW() - INTERVAL '90 days') THEN 'Haven''t used recently'
         ELSE 'Good fit for service'
       END as recommendation_reason
-      
+
     FROM songs s
     WHERE s.tenant_id = p_tenant_id
       AND (p_current_setlist IS NULL OR s.id != ALL(p_current_setlist)) -- Exclude songs already in setlist
   )
-  SELECT 
+  SELECT
     ss.id,
     ss.title,
     ss.artist,
@@ -349,7 +387,7 @@ BEGIN
   ORDER BY ss.recommendation_score DESC, ss.title ASC
   LIMIT p_limit;
 END;
-$$;
+$vestry_fn$;
 -- =====================================================
 -- Function: Get Usage Analytics Summary
 -- =====================================================
@@ -366,18 +404,18 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $vestry_fn$
 BEGIN
   RETURN QUERY
   WITH stats AS (
-    SELECT 
+    SELECT
       (SELECT COUNT(*) FROM songs WHERE tenant_id = p_tenant_id) as total_songs,
       (SELECT COUNT(*) FROM song_usage_analytics WHERE tenant_id = p_tenant_id) as total_usage,
       (SELECT COUNT(*) FROM songs WHERE tenant_id = p_tenant_id AND is_trending = TRUE) as trending_songs,
       (SELECT COUNT(*) FROM songs WHERE tenant_id = p_tenant_id AND (last_played_at IS NULL OR last_played_at < (NOW() - INTERVAL '90 days'))) as unused_songs
   ),
   service_type_stats AS (
-    SELECT 
+    SELECT
       service_type,
       COUNT(*) as usage_count,
       ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as rank
@@ -387,45 +425,45 @@ BEGIN
     GROUP BY service_type
   ),
   growth_stats AS (
-    SELECT 
+    SELECT
       (SELECT COUNT(*) FROM song_usage_analytics WHERE tenant_id = p_tenant_id AND used_at >= (NOW() - INTERVAL '30 days')) as recent_usage,
       (SELECT COUNT(*) FROM song_usage_analytics WHERE tenant_id = p_tenant_id AND used_at >= (NOW() - INTERVAL '60 days') AND used_at < (NOW() - INTERVAL '30 days')) as previous_usage
   )
-  SELECT 
+  SELECT
     s.total_songs,
     s.total_usage,
     s.trending_songs,
     s.unused_songs,
     CASE WHEN s.total_songs > 0 THEN s.total_usage::NUMERIC / s.total_songs ELSE 0 END as avg_usage_per_song,
     COALESCE((SELECT service_type FROM service_type_stats WHERE rank = 1), 'Unknown') as most_popular_service_type,
-    CASE 
+    CASE
       WHEN gs.previous_usage > 0 THEN ((gs.recent_usage - gs.previous_usage)::NUMERIC / gs.previous_usage) * 100
       ELSE 0
     END as usage_growth_rate
   FROM stats s
   CROSS JOIN growth_stats gs;
 END;
-$$;
+$vestry_fn$;
 -- =====================================================
 -- Indexes for Performance
 -- =====================================================
 
 -- Optimize usage analytics queries
-CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_tenant_used_at 
+CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_tenant_used_at
 ON song_usage_analytics(tenant_id, used_at DESC);
-CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_song_service_type 
+CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_song_service_type
 ON song_usage_analytics(song_id, service_type, used_at DESC);
-CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_setlist 
-ON song_usage_analytics(setlist_id, used_at DESC) 
+CREATE INDEX IF NOT EXISTS idx_song_usage_analytics_setlist
+ON song_usage_analytics(setlist_id, used_at DESC)
 WHERE setlist_id IS NOT NULL;
 -- Optimize song queries for recommendations
-CREATE INDEX IF NOT EXISTS idx_songs_trending_usage 
-ON songs(tenant_id, is_trending, usage_count DESC) 
+CREATE INDEX IF NOT EXISTS idx_songs_trending_usage
+ON songs(tenant_id, is_trending, usage_count DESC)
 WHERE is_trending = TRUE;
-CREATE INDEX IF NOT EXISTS idx_songs_last_played 
+CREATE INDEX IF NOT EXISTS idx_songs_last_played
 ON songs(tenant_id, last_played_at DESC NULLS LAST);
-CREATE INDEX IF NOT EXISTS idx_songs_key_bpm 
-ON songs(tenant_id, key, bpm) 
+CREATE INDEX IF NOT EXISTS idx_songs_key_bpm
+ON songs(tenant_id, key, bpm)
 WHERE key IS NOT NULL AND bpm IS NOT NULL;
 -- =====================================================
 -- RLS Policies
@@ -440,14 +478,17 @@ CREATE POLICY "song_usage_analytics_tenant_isolation" ON song_usage_analytics
     tenant_id IN (
       SELECT t.id FROM tenants t
       INNER JOIN users u ON u.tenant_id = t.id
-      WHERE u.id = auth.uid()
+      WHERE u.id = auth.uid()::text
     )
   );
--- Grant execute permissions on functions
-GRANT EXECUTE ON FUNCTION get_usage_reports(VARCHAR, VARCHAR, INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION update_trending_songs(VARCHAR) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_song_recommendations(VARCHAR, VARCHAR, VARCHAR[], VARCHAR, VARCHAR, INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_usage_analytics_summary(VARCHAR) TO authenticated;
+-- SECURITY: Deny execution until each SECURITY DEFINER function
+-- independently verifies that the caller may access p_tenant_id.
+-- PostgreSQL functions default to EXECUTE for PUBLIC.
+REVOKE ALL ON FUNCTION public.get_usage_reports(VARCHAR, VARCHAR, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.update_trending_songs(VARCHAR) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_song_recommendations(VARCHAR, VARCHAR, VARCHAR[], VARCHAR, VARCHAR, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_usage_analytics_summary(VARCHAR) FROM PUBLIC, anon, authenticated;
+
 -- =====================================================
 -- Trigger: Auto-update trending songs daily
 -- =====================================================
@@ -457,7 +498,7 @@ CREATE OR REPLACE FUNCTION auto_update_trending_songs()
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $vestry_fn$
 DECLARE
   tenant_record RECORD;
 BEGIN
@@ -466,7 +507,9 @@ BEGIN
     PERFORM update_trending_songs(tenant_record.id);
   END LOOP;
 END;
-$$;
+$vestry_fn$;
+-- Prevent users from manually invoking a cross-tenant administrative routine.
+REVOKE ALL ON FUNCTION public.auto_update_trending_songs() FROM PUBLIC, anon, authenticated;
 -- Note: In production, you would set up a cron job to call auto_update_trending_songs()
 -- For now, it can be called manually or triggered by application logic
 

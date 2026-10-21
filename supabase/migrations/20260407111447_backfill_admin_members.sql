@@ -14,7 +14,7 @@ SELECT
   CASE WHEN u.status = 'active' THEN 'active' ELSE 'inactive' END,
   'member',
   'admin',
-  COALESCE(u.join_date, CURRENT_DATE),
+CURRENT_DATE,
   'MEM-' || UPPER(TO_HEX(EXTRACT(EPOCH FROM NOW())::BIGINT)) || '-' || UPPER(SUBSTRING(u.id::TEXT, 1, 4)),
   NOW(),
   NOW()

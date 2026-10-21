@@ -264,33 +264,100 @@ for delete
 to authenticated
 using (private.member_actor_matches(user_id, tenant_id));
 
-drop policy if exists reactions_member_auth_read on public.message_reactions;
-create policy reactions_member_auth_read
-on public.message_reactions
-for select
-to authenticated
-using (private.member_has_tenant(tenant_id));
 
-drop policy if exists reactions_member_auth_insert on public.message_reactions;
-create policy reactions_member_auth_insert
-on public.message_reactions
-for insert
-to authenticated
-with check (private.member_actor_matches(user_id, tenant_id));
+-- ============================================================
+-- Message reactions: native authentication policies
+-- ============================================================
+-- The reactions table may be introduced by a later
+-- messaging migration.
+--
+-- Apply policies only when the table exists.
+-- A present table must have the expected security columns.
+-- ============================================================
 
-drop policy if exists reactions_member_auth_update on public.message_reactions;
-create policy reactions_member_auth_update
-on public.message_reactions
-for update
-to authenticated
-using (private.member_actor_matches(user_id, tenant_id))
-with check (private.member_actor_matches(user_id, tenant_id));
+DO $migration$
+BEGIN
+    IF to_regclass('public.message_reactions') IS NULL THEN
+        RAISE NOTICE
+            'Skipping reaction policies: public.message_reactions does not exist';
 
-drop policy if exists reactions_member_auth_delete on public.message_reactions;
-create policy reactions_member_auth_delete
-on public.message_reactions
-for delete
-to authenticated
-using (private.member_actor_matches(user_id, tenant_id));
+        RETURN;
+    END IF;
+
+    -- A table that exists must have the required columns.
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'message_reactions'
+          AND column_name = 'tenant_id'
+    )
+    OR NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'message_reactions'
+          AND column_name = 'user_id'
+    ) THEN
+        RAISE EXCEPTION
+            'message_reactions exists but is missing security columns';
+    END IF;
+
+    ALTER TABLE public.message_reactions
+        ENABLE ROW LEVEL SECURITY;
+
+    DROP POLICY IF EXISTS reactions_member_auth_read
+        ON public.message_reactions;
+
+    CREATE POLICY reactions_member_auth_read
+        ON public.message_reactions
+        FOR SELECT
+        TO authenticated
+        USING (
+            private.member_has_tenant(tenant_id)
+        );
+
+    DROP POLICY IF EXISTS reactions_member_auth_insert
+        ON public.message_reactions;
+
+    CREATE POLICY reactions_member_auth_insert
+        ON public.message_reactions
+        FOR INSERT
+        TO authenticated
+        WITH CHECK (
+            private.member_actor_matches(user_id, tenant_id)
+        );
+
+    DROP POLICY IF EXISTS reactions_member_auth_update
+        ON public.message_reactions;
+
+    CREATE POLICY reactions_member_auth_update
+        ON public.message_reactions
+        FOR UPDATE
+        TO authenticated
+        USING (
+            private.member_actor_matches(user_id, tenant_id)
+        )
+        WITH CHECK (
+            private.member_actor_matches(user_id, tenant_id)
+        );
+
+    DROP POLICY IF EXISTS reactions_member_auth_delete
+        ON public.message_reactions;
+
+    CREATE POLICY reactions_member_auth_delete
+        ON public.message_reactions
+        FOR DELETE
+        TO authenticated
+        USING (
+            private.member_actor_matches(user_id, tenant_id)
+        );
+
+    RAISE NOTICE
+        'Message reaction authentication policies applied';
+END;
+$migration$;
+
+
 
 commit;;

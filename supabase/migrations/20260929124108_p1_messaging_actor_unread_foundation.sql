@@ -12,8 +12,22 @@ where c.id = cp.conversation_id
 create unique index if not exists conversations_id_tenant_unique
   on public.conversations(id, tenant_id);
 
-alter table public.messages add column if not exists read_at timestamptz;
-alter table public.messages alter column conversation_id set not null;
+-- ============================================================
+-- MESSAGING SCHEMA RECONCILIATION
+-- ============================================================
+
+-- Tracks when a message was read.
+ALTER TABLE public.messages
+ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+
+-- Identifies the message being replied to.
+-- Nullable because not every message is a reply.
+ALTER TABLE public.messages
+ADD COLUMN IF NOT EXISTS reply_to_id VARCHAR;
+
+-- Conversation association is mandatory.
+ALTER TABLE public.messages
+ALTER COLUMN conversation_id SET NOT NULL;
 
 create unique index if not exists messages_id_tenant_conversation_unique
   on public.messages(id, tenant_id, conversation_id);
@@ -35,18 +49,75 @@ alter table public.messages add constraint messages_reply_conversation_tenant_fk
   references public.messages(id, tenant_id, conversation_id)
   on delete set null (reply_to_id);
 
-alter table public.message_reactions add column if not exists conversation_id text;
-update public.message_reactions r
-set conversation_id = m.conversation_id
-from public.messages m
-where m.id = r.message_id
-  and r.conversation_id is null;
-alter table public.message_reactions alter column conversation_id set not null;
-alter table public.message_reactions drop constraint if exists message_reactions_message_tenant_conversation_fkey;
-alter table public.message_reactions add constraint message_reactions_message_tenant_conversation_fkey
-  foreign key (message_id, tenant_id, conversation_id)
-  references public.messages(id, tenant_id, conversation_id)
-  on delete cascade;
+
+-- ============================================================
+-- MESSAGE REACTIONS SCHEMA RECONCILIATION
+-- ============================================================
+
+-- 1. Create the table if it does not already exist.
+CREATE TABLE IF NOT EXISTS public.message_reactions (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    tenant_id VARCHAR NOT NULL,
+    message_id VARCHAR NOT NULL,
+    conversation_id VARCHAR,
+    user_id VARCHAR NOT NULL,
+    emoji TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. Enable Row Level Security immediately.
+ALTER TABLE public.message_reactions
+ENABLE ROW LEVEL SECURITY;
+
+-- 3. Add the conversation reference for older schemas.
+ALTER TABLE public.message_reactions
+ADD COLUMN IF NOT EXISTS conversation_id VARCHAR;
+
+-- 4. Backfill conversation IDs from existing messages.
+UPDATE public.message_reactions r
+SET conversation_id = m.conversation_id
+FROM public.messages m
+WHERE m.id = r.message_id
+  AND m.tenant_id = r.tenant_id
+  AND r.conversation_id IS NULL;
+
+-- 5. Check for missing or mismatched relationships.
+DO $migration$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM public.message_reactions r
+        LEFT JOIN public.messages m
+            ON m.id = r.message_id
+           AND m.tenant_id = r.tenant_id
+           AND m.conversation_id = r.conversation_id
+        WHERE r.conversation_id IS NULL
+           OR m.id IS NULL
+    ) THEN
+        RAISE EXCEPTION
+            'Message reactions contain missing or mismatched message relationships';
+    END IF;
+END;
+$migration$;
+
+-- 6. Require every reaction to belong to a conversation.
+ALTER TABLE public.message_reactions
+ALTER COLUMN conversation_id SET NOT NULL;
+
+-- 7. Replace the tenant- and conversation-aware foreign key.
+ALTER TABLE public.message_reactions
+DROP CONSTRAINT IF EXISTS message_reactions_message_tenant_conversation_fkey;
+
+ALTER TABLE public.message_reactions
+ADD CONSTRAINT message_reactions_message_tenant_conversation_fkey
+FOREIGN KEY (message_id, tenant_id, conversation_id)
+REFERENCES public.messages(id, tenant_id, conversation_id)
+ON DELETE CASCADE;
+
+-- 8. Keep the table inaccessible until the intended
+-- messaging RLS policies and grants are established.
+REVOKE ALL ON TABLE public.message_reactions
+FROM PUBLIC, anon, authenticated;
 
 create or replace function private.messaging_actor_id(p_tenant_id text)
 returns text

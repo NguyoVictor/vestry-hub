@@ -1,6 +1,22 @@
-begin;
+BEGIN;
 
-drop policy if exists event_rsvps_member_insert on public.event_rsvps;
+-- ============================================================
+-- RECONCILE SELF-SERVICE FLAGS
+-- ============================================================
+
+-- Control whether members can register for events.
+ALTER TABLE public.events
+ADD COLUMN IF NOT EXISTS allow_rsvp BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Control whether members can register attendance for services.
+ALTER TABLE public.services
+ADD COLUMN IF NOT EXISTS allow_attendance BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ============================================================
+-- EVENT RSVP POLICIES
+-- ============================================================
+
+DROP POLICY IF EXISTS event_rsvps_member_insert ON public.event_rsvps;
 drop policy if exists event_rsvps_member_update on public.event_rsvps;
 create policy event_rsvps_member_insert on public.event_rsvps
 for insert to anon

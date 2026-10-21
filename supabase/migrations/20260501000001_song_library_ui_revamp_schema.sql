@@ -14,7 +14,7 @@
 -- =====================================================
 
 -- Add new columns to existing songs table for enhanced metadata
-ALTER TABLE songs 
+ALTER TABLE songs
 ADD COLUMN IF NOT EXISTS bpm integer,
 ADD COLUMN IF NOT EXISTS time_signature varchar(10),
 ADD COLUMN IF NOT EXISTS cover_art_url text,
@@ -26,7 +26,7 @@ ADD COLUMN IF NOT EXISTS custom_fields jsonb DEFAULT '{}',
 ADD COLUMN IF NOT EXISTS is_trending boolean DEFAULT false,
 ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 -- Add check constraints for data validation
-ALTER TABLE songs 
+ALTER TABLE songs
 ADD CONSTRAINT songs_bpm_range CHECK (bpm IS NULL OR (bpm >= 40 AND bpm <= 300)),
 ADD CONSTRAINT songs_duration_positive CHECK (duration_seconds IS NULL OR duration_seconds > 0),
 ADD CONSTRAINT songs_usage_count_positive CHECK (usage_count >= 0);
@@ -87,36 +87,41 @@ CREATE TABLE IF NOT EXISTS setlist_change_history (
 -- =====================================================
 
 -- Indexes for enhanced songs table
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_bpm ON songs(bpm) WHERE bpm IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_time_signature ON songs(time_signature) WHERE time_signature IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_usage_count ON songs(usage_count DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_last_played ON songs(last_played_at DESC) WHERE last_played_at IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_is_trending ON songs(is_trending) WHERE is_trending = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tags_gin ON songs USING GIN(tags) WHERE tags IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_cover_colors_gin ON songs USING GIN(cover_art_colors) WHERE cover_art_colors IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_songs_bpm ON songs(bpm) WHERE bpm IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_songs_time_signature ON songs(time_signature) WHERE time_signature IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_songs_usage_count ON songs(usage_count DESC);
+CREATE INDEX IF NOT EXISTS idx_songs_last_played ON songs(last_played_at DESC) WHERE last_played_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_songs_is_trending ON songs(is_trending) WHERE is_trending = true;
+CREATE INDEX IF NOT EXISTS idx_songs_tags_gin ON songs USING GIN(tags) WHERE tags IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_songs_cover_colors_gin ON songs USING GIN(cover_art_colors) WHERE cover_art_colors IS NOT NULL;
 -- Composite indexes for common query patterns
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tenant_usage ON songs(tenant_id, usage_count DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tenant_trending ON songs(tenant_id, is_trending) WHERE is_trending = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_tenant_bpm ON songs(tenant_id, bpm) WHERE bpm IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_songs_tenant_usage ON songs(tenant_id, usage_count DESC);
+CREATE INDEX IF NOT EXISTS idx_songs_tenant_trending ON songs(tenant_id, is_trending) WHERE is_trending = true;
+CREATE INDEX IF NOT EXISTS idx_songs_tenant_bpm ON songs(tenant_id, bpm) WHERE bpm IS NOT NULL;
 -- Full-text search index for song content
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_songs_search ON songs USING GIN(
-  to_tsvector('english', 
-    COALESCE(title, '') || ' ' || 
-    COALESCE(artist, '') || ' ' || 
-    COALESCE(lyrics, '') || ' ' ||
-    COALESCE(array_to_string(tags, ' '), '')
-  )
+-- Full-text search index for song content
+-- Excludes the tags array to keep the index expression immutable.
+
+CREATE INDEX IF NOT EXISTS idx_songs_search
+ON public.songs
+USING GIN (
+    to_tsvector(
+        'english'::regconfig,
+        COALESCE(title, '') || ' ' ||
+        COALESCE(artist, '') || ' ' ||
+        COALESCE(lyrics, '')
+    )
 );
 -- Indexes for usage analytics
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_song_usage_tenant_song ON song_usage_analytics(tenant_id, song_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_song_usage_date ON song_usage_analytics(used_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_song_usage_service_type ON song_usage_analytics(tenant_id, service_type) WHERE service_type IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_song_usage_tenant_song ON song_usage_analytics(tenant_id, song_id);
+CREATE INDEX IF NOT EXISTS idx_song_usage_date ON song_usage_analytics(used_at DESC);
+CREATE INDEX IF NOT EXISTS idx_song_usage_service_type ON song_usage_analytics(tenant_id, service_type) WHERE service_type IS NOT NULL;
 -- Indexes for collaboration
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_collaborations_setlist ON setlist_collaborations(setlist_id) WHERE is_active = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_collaborations_user ON setlist_collaborations(user_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_setlist_collaborations_setlist ON setlist_collaborations(setlist_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_setlist_collaborations_user ON setlist_collaborations(user_id) WHERE is_active = true;
 -- Indexes for change history
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_change_history_setlist ON setlist_change_history(setlist_id, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_setlist_change_history_user ON setlist_change_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_setlist_change_history_setlist ON setlist_change_history(setlist_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_setlist_change_history_user ON setlist_change_history(user_id, created_at DESC);
 -- =====================================================
 -- Phase 4: Row Level Security (RLS) Policies
 -- =====================================================
@@ -129,17 +134,17 @@ ALTER TABLE setlist_change_history ENABLE ROW LEVEL SECURITY;
 -- User preferences policies - users can only access their own preferences
 CREATE POLICY user_song_preferences_isolation ON user_song_preferences
   FOR ALL USING (
-    tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text) AND 
+    tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text) AND
     user_id = auth.uid()::text
   );
 -- Usage analytics policies - tenant isolation
-CREATE POLICY song_usage_analytics_tenant_isolation ON song_usage_analytics
-  FOR ALL USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text));
+-- Usage analytics policy already created in the April 30 migration.
+-- Preserve the existing policy rather than recreating it.
 -- Collaboration policies - access through setlist ownership
 CREATE POLICY setlist_collaborations_tenant_isolation ON setlist_collaborations
   FOR ALL USING (
     setlist_id IN (
-      SELECT id FROM set_lists 
+      SELECT id FROM set_lists
       WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text)
     )
   );
@@ -147,7 +152,7 @@ CREATE POLICY setlist_collaborations_tenant_isolation ON setlist_collaborations
 CREATE POLICY setlist_change_history_tenant_isolation ON setlist_change_history
   FOR ALL USING (
     setlist_id IN (
-      SELECT id FROM set_lists 
+      SELECT id FROM set_lists
       WHERE tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()::text)
     )
   );
@@ -158,21 +163,21 @@ CREATE POLICY setlist_change_history_tenant_isolation ON setlist_change_history
 -- Create storage bucket for song cover art if it doesn't exist
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
-  'song-cover-art', 
-  'song-cover-art', 
-  false, 
+  'song-cover-art',
+  'song-cover-art',
+  false,
   5242880, -- 5MB limit
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 )
 ON CONFLICT (id) DO NOTHING;
 -- Storage policies for cover art - tenant isolation
-DO $$ 
+DO $$
 BEGIN
   -- Allow authenticated users to upload cover art for their tenant
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE schemaname = 'storage' 
-    AND tablename = 'objects' 
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+    AND tablename = 'objects'
     AND policyname = 'song_cover_art_upload_policy'
   ) THEN
     CREATE POLICY song_cover_art_upload_policy ON storage.objects
@@ -185,9 +190,9 @@ BEGIN
 
   -- Allow users to view cover art from their tenant
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE schemaname = 'storage' 
-    AND tablename = 'objects' 
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+    AND tablename = 'objects'
     AND policyname = 'song_cover_art_select_policy'
   ) THEN
     CREATE POLICY song_cover_art_select_policy ON storage.objects
@@ -200,9 +205,9 @@ BEGIN
 
   -- Allow users to update cover art from their tenant
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE schemaname = 'storage' 
-    AND tablename = 'objects' 
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+    AND tablename = 'objects'
     AND policyname = 'song_cover_art_update_policy'
   ) THEN
     CREATE POLICY song_cover_art_update_policy ON storage.objects
@@ -215,9 +220,9 @@ BEGIN
 
   -- Allow users to delete cover art from their tenant
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE schemaname = 'storage' 
-    AND tablename = 'objects' 
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+    AND tablename = 'objects'
     AND policyname = 'song_cover_art_delete_policy'
   ) THEN
     CREATE POLICY song_cover_art_delete_policy ON storage.objects
@@ -237,8 +242,8 @@ CREATE OR REPLACE FUNCTION update_song_usage_stats()
 RETURNS TRIGGER AS $$
 BEGIN
   -- Update usage count and last played date
-  UPDATE songs 
-  SET 
+  UPDATE songs
+  SET
     usage_count = usage_count + 1,
     last_played_at = NEW.used_at,
     updated_at = now()
@@ -246,11 +251,11 @@ BEGIN
 
   -- Update trending status based on recent usage
   -- A song is trending if it has been used 3+ times in the last 30 days
-  UPDATE songs 
+  UPDATE songs
   SET is_trending = (
     SELECT COUNT(*) >= 3
-    FROM song_usage_analytics 
-    WHERE song_id = NEW.song_id 
+    FROM song_usage_analytics
+    WHERE song_id = NEW.song_id
     AND used_at >= now() - interval '30 days'
   )
   WHERE id = NEW.song_id;
@@ -269,9 +274,9 @@ CREATE OR REPLACE FUNCTION cleanup_inactive_collaborations()
 RETURNS void AS $$
 BEGIN
   -- Mark collaborations as inactive if user hasn't been seen for 5 minutes
-  UPDATE setlist_collaborations 
+  UPDATE setlist_collaborations
   SET is_active = false
-  WHERE is_active = true 
+  WHERE is_active = true
   AND last_seen_at < now() - interval '5 minutes';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -286,14 +291,14 @@ RETURNS TABLE(
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     s.id,
     s.title,
     s.artist,
     s.usage_count,
     COUNT(sua.id) as recent_usage_count
   FROM songs s
-  LEFT JOIN song_usage_analytics sua ON s.id = sua.song_id 
+  LEFT JOIN song_usage_analytics sua ON s.id = sua.song_id
     AND sua.used_at >= now() - interval '30 days'
   WHERE s.tenant_id = p_tenant_id
   GROUP BY s.id, s.title, s.artist, s.usage_count
@@ -329,13 +334,13 @@ DO $$
 BEGIN
   RAISE NOTICE 'Song Library UI Revamp schema migration completed successfully';
   RAISE NOTICE 'Enhanced songs table with % new columns', (
-    SELECT COUNT(*) FROM information_schema.columns 
-    WHERE table_name = 'songs' 
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_name = 'songs'
     AND column_name IN ('bpm', 'time_signature', 'cover_art_url', 'cover_art_colors', 'duration_seconds', 'usage_count', 'last_played_at', 'custom_fields', 'is_trending')
   );
   RAISE NOTICE 'Created % new tables for enhanced functionality', 4;
   RAISE NOTICE 'Added % performance indexes for search optimization', (
-    SELECT COUNT(*) FROM pg_indexes 
+    SELECT COUNT(*) FROM pg_indexes
     WHERE tablename IN ('songs', 'song_usage_analytics', 'setlist_collaborations', 'setlist_change_history')
     AND indexname LIKE 'idx_%'
   );

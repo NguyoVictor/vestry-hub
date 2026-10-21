@@ -1,48 +1,44 @@
-do $$
-declare
-  v_command text;
-  v_token text;
-  v_secret_id uuid;
-begin
-  select command into v_command
-  from cron.job
-  where jobname = 'process-email-automations'
-  limit 1;
 
-  if v_command is null then
-    raise exception 'process-email-automations cron job not found';
-  end if;
+-- ============================================================
+-- Email Automation Cron Security
+-- Migration: 20260831174447
+-- ============================================================
+--
+-- The original migration attempted to extract a service-role
+-- token from an existing cron command and rescheduled a
+-- production Edge Function URL.
+--
+-- Credentials must be provisioned independently per environment.
+-- Do not copy tokens from an existing cron job.
+-- Do not schedule production URLs from staging.
+--
+-- Disable the legacy job until secure environment-specific
+-- configuration is completed.
+-- ============================================================
 
-  select (regexp_match(v_command, 'Bearer ([A-Za-z0-9._-]+)'))[1] into v_token;
-  if v_token is null or length(v_token) < 40 then
-    raise exception 'Could not safely extract existing cron authorization token';
-  end if;
+DO $migration$
+DECLARE
+    v_job RECORD;
+BEGIN
+    IF to_regclass('cron.job') IS NULL THEN
+        RAISE NOTICE
+            'pg_cron jobs table not found; no email job to disable';
+        RETURN;
+    END IF;
 
-  select id into v_secret_id from vault.secrets where name = 'vestry_internal_service_role_jwt' limit 1;
-  if v_secret_id is null then
-    perform vault.create_secret(v_token, 'vestry_internal_service_role_jwt', 'Privileged token used only by internal scheduled Edge Function calls');
-  else
-    perform vault.update_secret(v_secret_id, v_token, 'vestry_internal_service_role_jwt', 'Privileged token used only by internal scheduled Edge Function calls');
-  end if;
+    FOR v_job IN
+        SELECT jobid
+        FROM cron.job
+        WHERE jobname = 'process-email-automations'
+    LOOP
+        PERFORM cron.unschedule(v_job.jobid);
 
-  perform cron.unschedule('process-email-automations');
-  perform cron.schedule(
-    'process-email-automations',
-    '0 8 * * *',
-    $cron$
-      select net.http_post(
-        url := 'https://crjdsxxkspvdwknrmijs.supabase.co/functions/v1/process-email-automations',
-        headers := jsonb_build_object(
-          'Content-Type', 'application/json',
-          'Authorization', 'Bearer ' || (
-            select decrypted_secret
-            from vault.decrypted_secrets
-            where name = 'vestry_internal_service_role_jwt'
-            limit 1
-          )
-        ),
-        body := '{}'::jsonb
-      );
-    $cron$
-  );
-end $$;;
+        RAISE NOTICE
+            'Disabled legacy email automation cron job %',
+            v_job.jobid;
+    END LOOP;
+
+    RAISE NOTICE
+        'Email automation cron remains disabled pending secure staging configuration';
+END;
+$migration$;

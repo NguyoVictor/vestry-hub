@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS canva_tokens (
   canva_user_email varchar,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
-  
+
   -- Ensure one Canva connection per tenant
   UNIQUE(tenant_id)
 );
@@ -44,8 +44,8 @@ CREATE POLICY "Users can delete their tenant's Canva tokens" ON canva_tokens
     )
   );
 -- Create index for performance
-CREATE INDEX idx_canva_tokens_tenant_id ON canva_tokens(tenant_id);
--- Add updated_at trigger
+CREATE INDEX IF NOT EXISTS idx_canva_tokens_tenant_id
+ON public.canva_tokens(tenant_id);-- Add updated_at trigger
 CREATE OR REPLACE FUNCTION update_canva_tokens_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

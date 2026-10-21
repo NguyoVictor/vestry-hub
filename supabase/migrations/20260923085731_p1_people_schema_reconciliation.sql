@@ -53,19 +53,133 @@ grant usage on schema private to anon;
 grant execute on function private.member_session_member_id(varchar) to anon,authenticated,service_role;
 grant execute on function private.member_session_has_tenant(varchar) to anon,authenticated,service_role;
 
-create table if not exists public.join_requests (
-  id varchar primary key default gen_random_uuid()::text,
-  tenant_id varchar not null references public.tenants(id) on delete cascade,
-  group_id varchar not null,
-  member_id varchar not null,
-  status varchar not null default 'pending' check(status in ('pending','approved','declined')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  foreign key(group_id,tenant_id) references public.groups(id,tenant_id) on delete cascade,
-  foreign key(member_id,tenant_id) references public.members(id,tenant_id) on delete cascade,
-  unique(group_id,member_id)
+
+-- ============================================================
+-- JOIN REQUESTS SCHEMA RECONCILIATION
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.join_requests (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    tenant_id VARCHAR,
+    group_id VARCHAR NOT NULL,
+    member_id VARCHAR NOT NULL,
+    status VARCHAR NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'declined')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (group_id, member_id)
 );
-create index if not exists join_requests_tenant_status_idx on public.join_requests(tenant_id,status,created_at desc);
+
+-- Add missing columns to the existing table.
+
+ALTER TABLE public.join_requests
+    ADD COLUMN IF NOT EXISTS tenant_id VARCHAR;
+
+ALTER TABLE public.join_requests
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ
+    DEFAULT NOW();
+
+-- Recover tenant IDs from the associated groups.
+-- The staging table currently contains zero rows.
+
+UPDATE public.join_requests AS jr
+SET tenant_id = g.tenant_id
+FROM public.groups AS g
+WHERE jr.group_id::TEXT = g.id::TEXT
+  AND jr.tenant_id IS NULL;
+
+-- Refuse to continue if tenant ownership cannot be
+-- determined or group/member tenant IDs disagree.
+
+DO $migration$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM public.join_requests AS jr
+        LEFT JOIN public.groups AS g
+            ON g.id::TEXT = jr.group_id::TEXT
+        LEFT JOIN public.members AS m
+            ON m.id::TEXT = jr.member_id::TEXT
+        WHERE jr.tenant_id IS NULL
+           OR g.id IS NULL
+           OR m.id IS NULL
+           OR jr.tenant_id::TEXT <> g.tenant_id::TEXT
+           OR jr.tenant_id::TEXT <> m.tenant_id::TEXT
+    ) THEN
+        RAISE EXCEPTION
+            'Join requests contain missing or mismatched tenant relationships';
+    END IF;
+END;
+$migration$;
+
+-- Enforce required fields.
+
+ALTER TABLE public.join_requests
+    ALTER COLUMN tenant_id SET NOT NULL;
+
+ALTER TABLE public.join_requests
+    ALTER COLUMN updated_at SET NOT NULL;
+
+-- Add tenant ownership constraint.
+
+DO $migration$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'public.join_requests'::regclass
+          AND conname = 'join_requests_tenant_id_fkey'
+    ) THEN
+        ALTER TABLE public.join_requests
+        ADD CONSTRAINT join_requests_tenant_id_fkey
+        FOREIGN KEY (tenant_id)
+        REFERENCES public.tenants(id)
+        ON DELETE CASCADE;
+    END IF;
+END;
+$migration$;
+
+-- Add composite foreign keys to prevent cross-tenant
+-- group/member relationships.
+
+DO $migration$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'public.join_requests'::regclass
+          AND conname = 'join_requests_group_tenant_fkey'
+    ) THEN
+        ALTER TABLE public.join_requests
+        ADD CONSTRAINT join_requests_group_tenant_fkey
+        FOREIGN KEY (group_id, tenant_id)
+        REFERENCES public.groups(id, tenant_id)
+        ON DELETE CASCADE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'public.join_requests'::regclass
+          AND conname = 'join_requests_member_tenant_fkey'
+    ) THEN
+        ALTER TABLE public.join_requests
+        ADD CONSTRAINT join_requests_member_tenant_fkey
+        FOREIGN KEY (member_id, tenant_id)
+        REFERENCES public.members(id, tenant_id)
+        ON DELETE CASCADE;
+    END IF;
+END;
+$migration$;
+
+-- Create the intended performance index.
+
+CREATE INDEX IF NOT EXISTS join_requests_tenant_status_idx
+    ON public.join_requests(
+        tenant_id,
+        status,
+        created_at DESC
+    );
 
 create table if not exists public.fellowship_attendance (
   id varchar primary key default gen_random_uuid()::text,

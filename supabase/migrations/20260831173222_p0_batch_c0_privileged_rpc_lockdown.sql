@@ -33,19 +33,49 @@ grant execute on function public.get_my_tenant_id_safe() to authenticated, servi
 
 revoke all on function public.handle_new_user() from public, anon, authenticated;
 revoke all on function public.create_member_for_user() from public, anon, authenticated;
-revoke all on function public.create_default_subscription() from public, anon, authenticated;
 revoke all on function public.trigger_email_automation() from public, anon, authenticated;
 grant execute on function public.handle_new_user() to service_role;
 grant execute on function public.create_member_for_user() to service_role;
-grant execute on function public.create_default_subscription() to service_role;
 grant execute on function public.trigger_email_automation() to service_role;
+
+-- Lock down the subscription function only when it exists.
+DO $$
+BEGIN
+    IF to_regprocedure('public.create_default_subscription()') IS NOT NULL THEN
+
+        REVOKE ALL ON FUNCTION public.create_default_subscription()
+        FROM PUBLIC, anon, authenticated;
+
+        GRANT EXECUTE ON FUNCTION public.create_default_subscription()
+        TO service_role;
+
+        RAISE NOTICE 'create_default_subscription() permissions secured';
+
+    ELSE
+        RAISE NOTICE
+            'create_default_subscription() does not exist; skipping permission changes';
+    END IF;
+END;
+$$;
+
 
 alter function public.update_updated_at_column() set search_path = public, pg_temp;
 alter function public.update_canva_tokens_updated_at() set search_path = public, pg_temp;
 alter function public.generate_order_number() set search_path = public, pg_temp;
 alter function public.post_auto_journal_entry(varchar, text, varchar, date, jsonb) set search_path = public, pg_temp;
-alter function public.create_default_subscription() set search_path = public, pg_temp;
+DO $$
+BEGIN
+    IF to_regprocedure('public.create_default_subscription()') IS NOT NULL THEN
 
+        ALTER FUNCTION public.create_default_subscription()
+        SET search_path = public, pg_temp;
+
+    ELSE
+        RAISE NOTICE
+            'Skipping search_path update: create_default_subscription() not found';
+    END IF;
+END;
+$$;
 drop trigger if exists trigger_member_automation_insert on public.members;
 drop trigger if exists trigger_member_automation_update on public.members;
 

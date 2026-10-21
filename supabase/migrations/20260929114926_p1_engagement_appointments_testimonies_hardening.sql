@@ -1,3 +1,12 @@
+-- ============================================================
+-- TENANT-CONSISTENT FOREIGN KEY SUPPORT
+-- ============================================================
+
+-- A composite foreign key requires a matching unique key
+-- on the referenced table.
+
+CREATE UNIQUE INDEX IF NOT EXISTS testimony_categories_id_tenant_unique
+ON public.testimony_categories(id, tenant_id);
 create unique index if not exists users_id_tenant_unique on public.users(id, tenant_id);
 create unique index if not exists testimonies_id_tenant_unique on public.testimonies(id, tenant_id);
 

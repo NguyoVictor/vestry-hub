@@ -1,3 +1,18 @@
+-- ============================================================
+-- CONVERSATIONS SCHEMA RECONCILIATION
+-- ============================================================
+
+-- Identifies server-managed staff directory conversations.
+ALTER TABLE public.conversations
+ADD COLUMN IF NOT EXISTS is_staff_directory BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Identifies forum-style conversations.
+ALTER TABLE public.conversations
+ADD COLUMN IF NOT EXISTS is_forum BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Identifies the staff user associated with a conversation.
+ALTER TABLE public.conversations
+ADD COLUMN IF NOT EXISTS staff_user_id VARCHAR;
 
 delete from public.conversations c
 where coalesce(c.is_staff_directory,false)

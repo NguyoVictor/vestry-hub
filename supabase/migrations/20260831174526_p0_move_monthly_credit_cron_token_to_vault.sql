@@ -1,23 +1,40 @@
-do $$
-begin
-  perform cron.unschedule('reset-monthly-credits');
-  perform cron.schedule(
-    'reset-monthly-credits',
-    '0 0 1 * *',
-    $cron$
-      select net.http_post(
-        url := 'https://crjdsxxkspvdwknrmijs.supabase.co/functions/v1/reset-monthly-credits',
-        headers := jsonb_build_object(
-          'Content-Type', 'application/json',
-          'Authorization', 'Bearer ' || (
-            select decrypted_secret
-            from vault.decrypted_secrets
-            where name = 'vestry_internal_service_role_jwt'
-            limit 1
-          )
-        ),
-        body := '{}'::jsonb
-      );
-    $cron$
-  );
-end $$;;
+
+-- ============================================================
+-- Monthly Credits Cron Security
+-- Migration: 20260831174526
+-- ============================================================
+--
+-- Do not schedule production Edge Function endpoints
+-- from a staging database.
+--
+-- Disable the legacy reset job.
+-- Reconfigure it separately with environment-specific
+-- endpoint and Vault credentials after verification.
+-- ============================================================
+
+DO $migration$
+DECLARE
+    v_job RECORD;
+BEGIN
+    IF to_regclass('cron.job') IS NULL THEN
+        RAISE NOTICE
+            'pg_cron jobs table not found; no credit reset job to disable';
+        RETURN;
+    END IF;
+
+    FOR v_job IN
+        SELECT jobid
+        FROM cron.job
+        WHERE jobname = 'reset-monthly-credits'
+    LOOP
+        PERFORM cron.unschedule(v_job.jobid);
+
+        RAISE NOTICE
+            'Disabled legacy monthly credits cron job %',
+            v_job.jobid;
+    END LOOP;
+
+    RAISE NOTICE
+        'Monthly credits cron remains disabled pending secure staging configuration';
+END;
+$migration$;

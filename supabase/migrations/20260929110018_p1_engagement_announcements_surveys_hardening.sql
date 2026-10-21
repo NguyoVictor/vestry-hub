@@ -1,3 +1,13 @@
+-- ============================================================
+-- TENANT-CONSISTENT FOREIGN KEY SUPPORT
+-- ============================================================
+
+-- Required for:
+-- announcements(category_id, tenant_id)
+--   -> announcement_types(id, tenant_id)
+
+CREATE UNIQUE INDEX IF NOT EXISTS announcement_types_id_tenant_unique
+ON public.announcement_types(id, tenant_id);
 create unique index if not exists announcements_id_tenant_unique
   on public.announcements(id, tenant_id);
 create unique index if not exists surveys_id_tenant_unique

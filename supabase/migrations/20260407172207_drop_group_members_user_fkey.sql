@@ -1,12 +1,40 @@
--- Drop FK that requires group_members.member_id to exist in users table
--- Members now live in the members table, not users
-ALTER TABLE group_members DROP CONSTRAINT IF EXISTS group_members_member_id_fkey;
--- Also check and fix other tables that may have similar FKs to users
-ALTER TABLE follow_up_tasks DROP CONSTRAINT IF EXISTS follow_up_tasks_related_member_id_fkey;
-ALTER TABLE follow_up_tasks DROP CONSTRAINT IF EXISTS follow_up_tasks_assigned_to_fkey;
-ALTER TABLE follow_up_tasks DROP CONSTRAINT IF EXISTS follow_up_tasks_created_by_fkey;
-ALTER TABLE volunteers DROP CONSTRAINT IF EXISTS volunteers_member_id_fkey;
-ALTER TABLE volunteer_assignments DROP CONSTRAINT IF EXISTS volunteer_assignments_member_id_fkey;
-ALTER TABLE meeting_attendees DROP CONSTRAINT IF EXISTS meeting_attendees_member_id_fkey;
-ALTER TABLE event_registrations DROP CONSTRAINT IF EXISTS event_registrations_member_id_fkey;
-ALTER TABLE attendance_records DROP CONSTRAINT IF EXISTS attendance_records_member_id_fkey;
+-- =====================================================
+-- DROP LEGACY FOREIGN KEYS TO USERS
+-- Migration: 20260407172207
+-- =====================================================
+--
+-- Some legacy tables may not exist in a fresh deployment.
+-- Only drop a constraint when its table exists.
+--
+-- This migration does not delete tables or records.
+-- =====================================================
+
+DO $$
+DECLARE
+    item RECORD;
+BEGIN
+    FOR item IN
+        SELECT *
+        FROM (
+            VALUES
+                ('group_members', 'group_members_member_id_fkey'),
+                ('follow_up_tasks', 'follow_up_tasks_related_member_id_fkey'),
+                ('follow_up_tasks', 'follow_up_tasks_assigned_to_fkey'),
+                ('follow_up_tasks', 'follow_up_tasks_created_by_fkey'),
+                ('volunteers', 'volunteers_member_id_fkey'),
+                ('volunteer_assignments', 'volunteer_assignments_member_id_fkey'),
+                ('meeting_attendees', 'meeting_attendees_member_id_fkey'),
+                ('event_registrations', 'event_registrations_member_id_fkey'),
+                ('attendance_records', 'attendance_records_member_id_fkey')
+        ) AS constraints_to_remove(table_name, constraint_name)
+    LOOP
+        IF to_regclass('public.' || item.table_name) IS NOT NULL THEN
+            EXECUTE format(
+                'ALTER TABLE public.%I DROP CONSTRAINT IF EXISTS %I',
+                item.table_name,
+                item.constraint_name
+            );
+        END IF;
+    END LOOP;
+END
+$$;
