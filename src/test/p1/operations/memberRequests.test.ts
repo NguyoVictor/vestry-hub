@@ -40,7 +40,7 @@ describe('P1 Member Requests contract', () => {
   it('hardens member_request_notes as authenticated tenant-staff data only', () => {
     const migrations = allMigrations();
 
-    expect(migrations).toMatch(/alter table public\.member_request_notes[\s\S]*?add column if not exists tenant_id/);
+    expect(migrations).toMatch(/alter table public\.member_request_notes[\s\S]*?add column if not exists tenant_id/i);
     expect(migrations).toContain('drop policy if exists "mrn_tenant_rls" on public.member_request_notes');
     expect(migrations).toContain('revoke all on table public.member_request_notes from public, anon, authenticated');
     expect(migrations).toContain('member_request_notes_staff_read');

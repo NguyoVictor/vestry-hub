@@ -263,9 +263,6 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
 
 // ─── Automation Management Tab ────────────────────────────────────────────────
 function AutomationManagementTab({ tenantId }: { tenantId: string }) {
-  const qc = useQueryClient();
-  const [testing, setTesting] = useState(false);
-  const [configuringKey, setConfiguringKey] = useState(false);
 
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ["automation-status", tenantId],
@@ -276,49 +273,14 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
     staleTime: 300_000,
   });
 
-  const handleTestAutomation = async () => {
-    setTesting(true);
-    try {
-      const response = await fetch('https://crjdsxxkspvdwknrmijs.supabase.co/functions/v1/process-email-automations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
-        },
-        body: JSON.stringify({ test: true }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to test automation');
-      
-      const result = await response.json();
-      toast.success(`✅ Automation test completed. Processed: ${result.processed}, Sent: ${result.sent}`);
-    } catch (err: unknown) {
-      toast.error((err as Error)?.message ?? "Failed to test automation");
-    } finally {
-      setTesting(false);
-    }
+  // Staging automation workers and trigger configuration have not been verified.
+  // These actions must be implemented behind a role-checked server endpoint.
+  const handleTestAutomation = () => {
+    toast.info("Automation testing is unavailable until the staging email worker is configured and audited.");
   };
 
-  const handleConfigureServiceKey = async () => {
-    setConfiguringKey(true);
-    try {
-      // Configure the service key for database triggers
-      // This sets a placeholder that will be updated by the system
-      const { error } = await supabase
-        .from('automation_settings')
-        .upsert({ 
-          key: 'service_role_key', 
-          value: 'system_configured',
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'key' });
-      
-      if (error) throw error;
-      toast.success('✅ Triggers configured - immediate automations are now active');
-    } catch (err: unknown) {
-      toast.error((err as Error)?.message ?? "Failed to configure triggers");
-    } finally {
-      setConfiguringKey(false);
-    }
+  const handleConfigureServiceKey = () => {
+    toast.info("Email triggers and secrets must be configured on the server, not from the browser.");
   };
 
   const activeCount = automations.filter(a => a.is_active).length;
@@ -373,27 +335,25 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Automation System</p>
-              <p className="text-xs text-slate-500">Monitor and test your email automation system</p>
+              <p className="text-xs text-slate-500">Review email automation configuration and availability</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button 
+            <Button
               variant="outline"
-              size="sm" 
+              size="sm"
               onClick={handleConfigureServiceKey}
-              disabled={configuringKey}
             >
-              <Settings className="h-4 w-4 mr-1.5" /> 
-              {configuringKey ? "Enabling..." : "Enable Triggers"}
+              <Settings className="h-4 w-4 mr-1.5" />
+              Setup information
             </Button>
-            <Button 
-              className="bg-orange-500 hover:bg-orange-600 text-white gap-2" 
-              size="sm" 
+            <Button
+              className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              size="sm"
               onClick={handleTestAutomation}
-              disabled={testing}
             >
-              <Play className="h-4 w-4" /> 
-              {testing ? "Testing..." : "Test Automations"}
+              <Play className="h-4 w-4" />
+              Test Automations
             </Button>
           </div>
         </div>
@@ -402,20 +362,20 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
           <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-xs text-blue-700 space-y-2">
             <p className="font-medium">📋 System Status:</p>
             <ul className="list-disc list-inside space-y-1 text-blue-600">
-              <li>✅ Email automation Edge Function deployed</li>
-              <li>✅ Daily cron job scheduled (8:00 AM UTC)</li>
-              <li>✅ Database triggers configured for immediate automations</li>
-              <li>✅ Integration with existing email system active</li>
+              <li>Email automation worker deployment has not been verified in staging.</li>
+              <li>Scheduled queue processing is disabled in staging pending review.</li>
+              <li>Trigger and email-provider configuration must be verified server-side.</li>
+              <li>Testing is unavailable until staging infrastructure is ready.</li>
             </ul>
           </div>
 
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-700 space-y-2">
             <p className="font-medium">⚙️ How it works:</p>
             <ul className="list-disc list-inside space-y-1 text-amber-600">
-              <li><strong>Immediate:</strong> Visitor welcome & new convert emails sent instantly when member status changes</li>
-              <li><strong>Daily:</strong> Birthday greetings, task reminders, and event reminders processed at 8:00 AM UTC</li>
-              <li><strong>Custom:</strong> Your custom automations run based on their configured frequency</li>
-              <li><strong>Templates:</strong> Uses your custom templates or falls back to system defaults</li>
+              <li><strong>Immediate:</strong> Event-based emails require configured and verified triggers.</li>
+              <li><strong>Daily:</strong> Scheduled emails require an enabled staging worker and scheduler.</li>
+              <li><strong>Custom:</strong> Configurations shown here do not guarantee delivery.</li>
+              <li><strong>Templates:</strong> Templates can be managed separately from delivery infrastructure.</li>
             </ul>
           </div>
 
@@ -445,8 +405,8 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
                       <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">System</span>
                     )}
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      auto.is_active 
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700' 
+                      auto.is_active
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                         : 'border-slate-200 bg-slate-100 text-slate-500'
                     }`}>
                       {auto.is_active ? 'Active' : 'Inactive'}
@@ -495,9 +455,9 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
 
   const handleSave = async () => {
     if (readOnly) return;
-    if (!apiKey.trim() || !projectName.trim() || !senderId.trim()) { 
-      toast.error("API Key, Project Name, and Sender ID are required."); 
-      return; 
+    if (!apiKey.trim() || !projectName.trim() || !senderId.trim()) {
+      toast.error("API Key, Project Name, and Sender ID are required.");
+      return;
     }
     setSaving(true);
     try {
@@ -596,14 +556,14 @@ export default function CommunicationsSettings() {
   const { tenantId } = useChurch();
   const { isReadOnly } = usePermissions();
   const readOnly = isReadOnly('church_settings');
-  
+
   return (
     <>
       <Helmet><title>Communications Settings — Vestry</title></Helmet>
-      
+
       {/* Read-only banner */}
       {readOnly && <ReadOnlyBanner section="Communications Settings" />}
-      
+
       <div className="max-w-3xl">
         <Tabs defaultValue="email_categories" className="w-full">
           <TabsList className="bg-slate-100 p-1 rounded-lg w-auto mb-5">

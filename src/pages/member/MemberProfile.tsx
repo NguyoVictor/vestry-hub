@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { memberProfileRequest } from "@/lib/memberProfileRequest";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { revokeMemberSession } from "@/lib/memberLogout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,32 +30,50 @@ export default function MemberProfilePage() {
     city: "",
   });
   const [leaveDialog, setLeaveDialog] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  useEffect(() => {
+    let active = true;
+    memberProfileRequest("get_profile", member.memberId, member.tenantId)
+      .then(result => {
+        if (!active || !result.profile) return;
+        const p = result.profile;
+        setForm({
+          first_name: p.first_name || "", last_name: p.last_name || "",
+          phone: p.phone || "", date_of_birth: p.date_of_birth || "",
+          gender: p.gender || "", marital_status: p.marital_status || "",
+          address: p.address || "", city: p.city || "",
+        });
+        setProfileLoaded(true);
+      })
+      .catch(() => { if (active) toast.error("Could not load profile. Please reload before editing."); });
+    return () => { active = false; };
+  }, [member.memberId, member.tenantId]);
 
   const saveProfile = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("members").update(form).eq("id", member.memberId);
-      if (error) throw error;
+      await memberProfileRequest("update_profile", member.memberId, member.tenantId, form);
     },
-    onSuccess: () => toast.success("Profile updated successfully"),
+    onSuccess: () => { toast.success("Profile updated successfully"); },
     onError: () => toast.error("Failed to update profile"),
   });
 
   const leaveChurch = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("members").update({ status: "inactive" }).eq("id", member.memberId);
-      if (error) throw error;
+      await memberProfileRequest("leave_church", member.memberId, member.tenantId);
     },
-    onSuccess: () => {
-      localStorage.removeItem("member_session");
+    onSuccess: async () => {
+      const revoked = await revokeMemberSession();
+      if (!revoked) toast.warning("Church membership changed; session revocation could not be confirmed.");
       toast.success("You have left the church");
-      navigate("/member/login");
+      navigate("/member/login", { replace: true });
     },
     onError: () => toast.error("Failed to leave church"),
   });
 
-  const signOut = () => {
-    localStorage.removeItem("member_session");
-    navigate("/member/login");
+  const signOut = async () => {
+    const revoked = await revokeMemberSession();
+    if (!revoked) toast.warning("Signed out locally, but server session revocation could not be confirmed.");
+    navigate("/member/login", { replace: true });
   };
 
   return (
@@ -117,7 +136,7 @@ export default function MemberProfilePage() {
             </div>
             <div className="space-y-1.5"><Label>Address</Label><Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="h-11 rounded-xl" /></div>
             <div className="space-y-1.5"><Label>City</Label><Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="h-11 rounded-xl" /></div>
-            <Button className="w-full h-11 rounded-full" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}>
+            <Button className="w-full h-11 rounded-full" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending || !profileLoaded}>
               {saveProfile.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </CardContent>

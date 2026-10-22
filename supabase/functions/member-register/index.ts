@@ -118,7 +118,7 @@ Deno.serve(async (req: Request) => {
         phone: phone.trim(),
         gender: gender || null,
         date_of_birth: dateOfBirth || null,
-        street: address || null,
+        address: address || null,
         city: city || null,
         occupation: occupation || null,
         marital_status: maritalStatus || null,

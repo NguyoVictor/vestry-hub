@@ -1,198 +1,171 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const STAGING_REF = "xwbajophstetbnnemsyq";
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+async function runTest(
+  name: string,
+  url: string,
+  auth: string,
+  method: "GET" | "POST",
+  requestData?: Record<string, unknown>,
+) {
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: auth,
+        "Content-Type": "application/json",
+      },
+      ...(requestData ? { body: JSON.stringify(requestData) } : {}),
+    });
+
+    // Providers may return non-JSON responses for errors.
+    const rawResponse = await response.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(rawResponse);
+    } catch {
+      data = { message: rawResponse.slice(0, 500) };
+    }
+
+    // Never return credentials or authorization headers in test results.
+    return {
+      name,
+      status: response.status,
+      success: response.ok,
+      data,
+    };
+  } catch (error: unknown) {
+    console.error(`${name} failed:`, errorMessage(error));
+    return {
+      name,
+      status: "error",
+      success: false,
+      error: errorMessage(error),
+    };
   }
+}
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const authKey = Deno.env.get("PAYHERO_BASIC_AUTH") ?? "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+  // Disabled by default. This code makes real HTTP requests to a payment provider.
+  // Explicitly enable only after confirming the account, number and channel are
+  // sandbox/test-only. Never enable it on production.
+  if (
+    Deno.env.get("PAYHERO_TEST_ENABLED") !== "true" ||
+    supabaseUrl !== `https://${STAGING_REF}.supabase.co`
+  ) {
+    return json({ error: "payment_tests_disabled" }, 403);
+  }
+
+  if (!authKey || !serviceRoleKey || !anonKey) {
+    return json({ error: "missing_server_configuration" }, 503);
+  }
+
+  const bearer = req.headers.get("Authorization")?.match(/^Bearer (.+)$/i)?.[1];
+  if (!bearer) return json({ error: "unauthorized" }, 401);
 
   try {
-    const PAYHERO_BASIC_AUTH = Deno.env.get('PAYHERO_BASIC_AUTH')
+    // Authenticate the actual user, rather than trusting the public API key.
+    const userClient = createClient(supabaseUrl, anonKey);
+    const { data: { user }, error: authError } = await userClient.auth.getUser(bearer);
+    if (authError || !user) return json({ error: "unauthorized" }, 401);
 
-    console.log('=== PayHero STK Push Test ===')
-    console.log('PAYHERO_BASIC_AUTH exists:', !!PAYHERO_BASIC_AUTH)
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: caller, error: callerError } = await adminClient
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    const tests = []
+    if (callerError || caller?.role !== "super_admin") {
+      return json({ error: "forbidden" }, 403);
+    }
 
-    // Test 1: Try STK Push endpoint (this is likely the correct PayHero API)
-    try {
-      console.log('=== Test 1: STK Push Request ===')
-      const stkData = {
+    // Intentionally require a separate confirmation in every request.
+    const body = await req.json().catch(() => ({}));
+    if (body?.confirmSandboxOnly !== true) {
+      return json({ error: "sandbox_confirmation_required" }, 400);
+    }
+
+    const callbackUrl = `${supabaseUrl}/functions/v1/payment-webhook`;
+    const tests: unknown[] = [];
+
+    const stkData = {
+      amount: 10,
+      phone_number: "254700000000", // Replace only with a verified sandbox test number.
+      channel_id: 1, // Replace only with a verified sandbox channel.
+      provider: "mpesa",
+      external_reference: `test-${Date.now()}`,
+      callback_url: callbackUrl,
+    };
+
+    tests.push(await runTest(
+      "STK Push Request",
+      "https://backend.payhero.co.ke/api/v2/payments",
+      authKey,
+      "POST",
+      stkData,
+    ));
+
+    tests.push(await runTest(
+      "Alternative STK Endpoint",
+      "https://backend.payhero.co.ke/api/v2/stk-push",
+      authKey,
+      "POST",
+      {
         amount: 10,
-        phone_number: '254700000000', // Test phone number
-        channel_id: 1, // This might be configured in PayHero dashboard
-        provider: 'mpesa',
-        external_reference: 'test-' + Date.now(),
-        callback_url: 'https://crjdsxxkspvdwknrmijs.supabase.co/functions/v1/payment-webhook'
-      }
-      
-      console.log('Sending STK Push data:', stkData)
-      
-      const stkResponse = await fetch('https://backend.payhero.co.ke/api/v2/payments', {
-        method: 'POST',
-        headers: {
-          'Authorization': PAYHERO_BASIC_AUTH!,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(stkData)
-      })
-      
-      console.log('STK Push status:', stkResponse.status)
-      console.log('STK Push headers:', Object.fromEntries(stkResponse.headers.entries()))
-      
-      const stkResponseData = await stkResponse.json()
-      console.log('STK Push response:', stkResponseData)
-      
-      tests.push({
-        name: 'STK Push Request',
-        status: stkResponse.status,
-        success: stkResponse.ok,
-        data: stkResponseData,
-        request: stkData
-      })
-    } catch (error) {
-      console.error('STK Push failed:', error)
-      tests.push({
-        name: 'STK Push Request',
-        status: 'error',
-        success: false,
-        error: error.message
-      })
-    }
+        phone_number: "254700000000",
+        reference: `test-${Date.now()}`,
+      },
+    ));
 
-    // Test 2: Try different STK endpoint
-    try {
-      console.log('=== Test 2: Alternative STK Endpoint ===')
-      const stkData = {
-        amount: 10,
-        phone_number: '254700000000',
-        reference: 'test-' + Date.now()
-      }
-      
-      const stkResponse = await fetch('https://backend.payhero.co.ke/api/v2/stk-push', {
-        method: 'POST',
-        headers: {
-          'Authorization': PAYHERO_BASIC_AUTH!,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(stkData)
-      })
-      
-      console.log('Alternative STK status:', stkResponse.status)
-      const stkResponseData = await stkResponse.json()
-      console.log('Alternative STK response:', stkResponseData)
-      
-      tests.push({
-        name: 'Alternative STK Endpoint',
-        status: stkResponse.status,
-        success: stkResponse.ok,
-        data: stkResponseData,
-        request: stkData
-      })
-    } catch (error) {
-      console.error('Alternative STK failed:', error)
-      tests.push({
-        name: 'Alternative STK Endpoint',
-        status: 'error',
-        success: false,
-        error: error.message
-      })
-    }
+    tests.push(await runTest(
+      "Account Profile",
+      "https://backend.payhero.co.ke/api/v2/profile",
+      authKey,
+      "GET",
+    ));
 
-    // Test 3: Check account/profile endpoint
-    try {
-      console.log('=== Test 3: Account Profile ===')
-      const profileResponse = await fetch('https://backend.payhero.co.ke/api/v2/profile', {
-        method: 'GET',
-        headers: {
-          'Authorization': PAYHERO_BASIC_AUTH!,
-          'Content-Type': 'application/json',
-        }
-      })
-      
-      console.log('Profile status:', profileResponse.status)
-      const profileData = await profileResponse.json()
-      console.log('Profile response:', profileData)
-      
-      tests.push({
-        name: 'Account Profile',
-        status: profileResponse.status,
-        success: profileResponse.ok,
-        data: profileData
-      })
-    } catch (error) {
-      console.error('Profile check failed:', error)
-      tests.push({
-        name: 'Account Profile',
-        status: 'error',
-        success: false,
-        error: error.message
-      })
-    }
+    tests.push(await runTest(
+      "Account Info",
+      "https://backend.payhero.co.ke/api/v2/account",
+      authKey,
+      "GET",
+    ));
 
-    // Test 4: Check account balance/info
-    try {
-      console.log('=== Test 4: Account Info ===')
-      const accountResponse = await fetch('https://backend.payhero.co.ke/api/v2/account', {
-        method: 'GET',
-        headers: {
-          'Authorization': PAYHERO_BASIC_AUTH!,
-          'Content-Type': 'application/json',
-        }
-      })
-      
-      console.log('Account status:', accountResponse.status)
-      const accountData = await accountResponse.json()
-      console.log('Account response:', accountData)
-      
-      tests.push({
-        name: 'Account Info',
-        status: accountResponse.status,
-        success: accountResponse.ok,
-        data: accountData
-      })
-    } catch (error) {
-      console.error('Account check failed:', error)
-      tests.push({
-        name: 'Account Info',
-        status: 'error',
-        success: false,
-        error: error.message
-      })
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'PayHero STK Push tests completed',
-        tests,
-        conclusion: 'PayHero likely does not have channel registration API. Channels are probably configured in dashboard, and API is used for STK Push payments only.',
-        environment: {
-          has_basic_auth: !!PAYHERO_BASIC_AUTH,
-          basic_auth_format: PAYHERO_BASIC_AUTH ? 'Basic ' + PAYHERO_BASIC_AUTH.substring(6, 20) + '...' : 'missing'
-        }
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
-
-  } catch (error) {
-    console.error('Error in test-payhero-stk:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error', 
-        details: error.message 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
+    return json({
+      success: true,
+      message: "PayHero API diagnostic requests completed; individual test results may indicate failures.",
+      tests,
+      environment: { has_basic_auth: true, project: STAGING_REF },
+    });
+  } catch (error: unknown) {
+    console.error("test-payhero-stk failed:", errorMessage(error));
+    return json({ error: "server_error" }, 500);
   }
-})
+});

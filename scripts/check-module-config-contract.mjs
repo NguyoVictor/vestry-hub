@@ -17,7 +17,7 @@ assert(modules.includes("MODULE_CONFIG_VERSION = 1"), "canonical module config m
 assert(modules.includes("moduleConfigFromOnboarding"), "onboarding mapper must exist");
 assert(modules.includes("isAdminPathEnabled"), "admin route guard helper must exist");
 assert(modules.includes("isMemberPathEnabled"), "member route guard helper must exist");
-assert(onboarding.includes("enabled_modules: moduleConfigFromOnboarding(selectedNeeds)"), "onboarding must persist canonical enabled_modules");
+assert(/const\s+(\w+)\s*=\s*moduleConfigFromOnboarding\(selectedNeeds\)\s*;?[\s\S]*?enabled_modules\s*:\s*\1\b/.test(onboarding), "onboarding must persist canonical enabled_modules mapped from selectedNeeds");
 assert(adminLayout.includes("filterAdminNavigation"), "admin navigation must be filtered by canonical config");
 assert(adminLayout.includes("isAdminPathEnabled"), "admin direct routes must be guarded");
 assert(memberLayout.includes("isMemberPathEnabled"), "member navigation and direct routes must be guarded");

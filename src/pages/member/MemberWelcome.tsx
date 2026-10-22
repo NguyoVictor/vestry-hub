@@ -21,8 +21,8 @@ const MemberWelcome = () => {
       <Helmet>
         <title>Welcome — Vestry</title>
       </Helmet>
-      
-      <div 
+
+      <div
         style={{
           minHeight: '100vh',
           background: 'linear-gradient(135deg, #0f0f13 0%, #1a1030 50%, #0f0f13 100%)',
@@ -41,8 +41,8 @@ const MemberWelcome = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundImage: `radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.1) 0%, transparent 50%), 
-                              radial-gradient(circle at 80% 20%, rgba(249, 115, 22, 0.1) 0%, transparent 50%), 
+            backgroundImage: `radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.1) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(249, 115, 22, 0.1) 0%, transparent 50%),
                               radial-gradient(circle at 40% 80%, rgba(124, 58, 237, 0.08) 0%, transparent 50%)`,
             pointerEvents: 'none'
           }}
@@ -52,7 +52,7 @@ const MemberWelcome = () => {
         <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
           {/* VestryHub logo */}
           <motion.img
-            src="https://crjdsxxkspvdwknrmijs.supabase.co/storage/v1/object/public/brand/logo.jpeg"
+            src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/brand/logo.jpeg`}
             alt="VestryHub"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -69,9 +69,9 @@ const MemberWelcome = () => {
           <motion.div
             animate={{ rotate: [0, 20, -10, 20, 0] }}
             transition={{ duration: 1.2, ease: "easeInOut", delay: 0.4 }}
-            style={{ 
-              fontSize: 64, 
-              display: 'inline-block', 
+            style={{
+              fontSize: 64,
+              display: 'inline-block',
               transformOrigin: '70% 70%',
               marginBottom: 24
             }}
@@ -84,9 +84,9 @@ const MemberWelcome = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            style={{ 
-              color: '#a1a1aa', 
-              fontSize: 16, 
+            style={{
+              color: '#a1a1aa',
+              fontSize: 16,
               margin: '24px 0 8px',
               fontWeight: 400,
               letterSpacing: '0.5px'
@@ -99,11 +99,11 @@ const MemberWelcome = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            style={{ 
-              color: '#ffffff', 
-              fontSize: 36, 
-              fontWeight: 700, 
-              letterSpacing: -1, 
+            style={{
+              color: '#ffffff',
+              fontSize: 36,
+              fontWeight: 700,
+              letterSpacing: -1,
               margin: 0,
               background: 'linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%)',
               WebkitBackgroundClip: 'text',

@@ -38,7 +38,8 @@ describe('P1 People schema contract', () => {
   it('uses tenant-consistent foreign keys for member self-service records', () => {
     const source = migrationSource(migrations[0]);
 
-    expect(source).toContain('foreign key(group_id,tenant_id) references public.groups(id,tenant_id)');
+    const groupSessionPolicies = migrationSource(migrations[2]);
+    expect(groupSessionPolicies).toContain('foreign key(group_id,tenant_id) references public.groups(id,tenant_id)');
     expect(source).toContain('foreign key(member_id,tenant_id) references public.members(id,tenant_id)');
     expect(source).toContain('foreign key(fellowship_id,tenant_id) references public.house_fellowships(id,tenant_id)');
     expect(source).toContain('foreign key(child_id,tenant_id) references public.children(id,tenant_id)');

@@ -19,10 +19,30 @@ describe('P2 permission contracts', () => {
     }
   });
 
-  it('allows catalog reads without exposing payment-attempt mutation', () => {
-    expect(billingMigration).toMatch(/subscription_catalog/i);
-    expect(billingMigration).toMatch(/subscription_payment_attempts/i);
-    expect(billingMigration).toMatch(/grant select on table public\.subscription_catalog to anon, authenticated/i);
-    expect(billingMigration).toMatch(/revoke all on table public\.subscription_payment_attempts from public, anon/i);
-  });
+
+it('allows catalog reads without exposing payment-attempt mutation', () => {
+  expect(billingMigration).toMatch(/subscription_catalog/i);
+  expect(billingMigration).toMatch(/subscription_payment_attempts/i);
+
+  // PostgreSQL permits GRANT SELECT ON with or without TABLE.
+  expect(billingMigration).toMatch(
+    /grant\s+select\s+on\s+(?:table\s+)?public\.subscription_catalog\s+to\s+anon,\s*authenticated/i
+  );
+
+  // The payment attempts table must revoke client privileges.
+  expect(billingMigration).toMatch(
+  /revoke\s+all\s+on\s+(?:table\s+)?public\.subscription_payment_attempts\s+from\s+anon,\s*authenticated/i
+);
+
+  // Authenticated users receive read-only table privileges.
+  expect(billingMigration).toMatch(
+    /grant\s+select\s+on\s+(?:table\s+)?public\.subscription_payment_attempts\s+to\s+authenticated/i
+  );
+
+  // Mutations remain restricted to service_role.
+  expect(billingMigration).toMatch(
+    /grant\s+select,\s*insert,\s*update,\s*delete\s+on\s+(?:table\s+)?public\.subscription_payment_attempts\s+to\s+service_role/i
+  );
+});
+
 });

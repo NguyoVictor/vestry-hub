@@ -61,7 +61,7 @@ const MemberProfile = () => {
       if (memberData) return memberData;
       const { data, error } = await supabase
         .from("users")
-        .select("id, tenant_id, email, role, first_name, last_name, phone, date_of_birth, join_date, status, gender, avatar_url, created_at, updated_at")
+        .select("id, tenant_id, email, role, first_name, last_name, phone, join_date, status, gender, avatar_url, created_at, updated_at")
         .eq("id", memberId!)
         .eq("tenant_id", tenantId!)
         .single();

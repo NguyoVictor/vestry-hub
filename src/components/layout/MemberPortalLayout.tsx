@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { revokeMemberSession } from "@/lib/memberLogout";
 import { AgeAwareProvider } from "@/contexts/AgeAwareContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import {
   Megaphone, Users, LogOut, HandHeart, Quote, Baby, Clock, Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { NotificationBell } from "@/components/ui/notifications-1";
 import { useNotificationBell } from "@/hooks/useNotificationBell";
 import type { MemberNotification } from "@/components/ui/notifications-1";
@@ -55,8 +57,9 @@ export function MemberPortalLayout() {
   useFcmToken(member.memberId, member.tenantId);
 
   const signOut = async () => {
-    localStorage.removeItem("member_session");
-    navigate("/member/login");
+    const revoked = await revokeMemberSession();
+    if (!revoked) toast.warning("Signed out locally, but server session revocation could not be confirmed.");
+    navigate("/member/login", { replace: true });
   };
 
   // ── Notification bell via hook ──
@@ -83,14 +86,14 @@ export function MemberPortalLayout() {
   // ── Notification click handler ──
   const handleNotificationClick = (notif: MemberNotification) => {
     markOneRead(notif.id);
-    
+
     // Handle different notification types
     if (notif.type === "broadcast") {
       // For broadcast notifications, just mark as read and stay on current page
       // The notification content is already visible in the dropdown
       return;
     }
-    
+
     // For other notification types (announcements, etc.)
     const announcementId = notif.metadata?.announcementId;
     const dest = announcementId

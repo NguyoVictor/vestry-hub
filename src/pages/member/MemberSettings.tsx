@@ -1,24 +1,20 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
+import { revokeMemberSession } from "@/lib/memberLogout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { toUserFacingError } from "@/lib/userFacingError";
+import { memberProfileRequest } from "@/lib/memberProfileRequest";
 
 export default function MemberSettings() {
   const member = useMemberPortal();
   const navigate = useNavigate();
   const [deleteDialog, setDeleteDialog] = useState(false);
-  const [newEmail, setNewEmail] = useState('');
-  const [savingEmail, setSavingEmail] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState({
     inapp_announcements: true,
     inapp_event_reminders: true,
@@ -27,54 +23,23 @@ export default function MemberSettings() {
     email_weekly_digest_member: false,
   });
 
-  const signOut = () => {
-    localStorage.removeItem("member_session");
-    navigate("/member/login");
-  };
-
-  const handleEmailChange = async (newEmail: string) => {
-    if (!newEmail || !newEmail.includes('@')) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-    setSavingEmail(true);
-    try {
-      // 1. Update Supabase Auth email
-      const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
-      if (authError) throw authError;
-
-      // 2. Update members table
-      const { error: memberError } = await supabase
-        .from('members')
-        .update({ email: newEmail })
-        .eq('id', member.memberId);
-      if (memberError) throw memberError;
-
-      // 3. Update users table if this member is also an admin
-      await supabase
-        .from('users')
-        .update({ email: newEmail })
-        .eq('id', member.userId);
-      // No error check — member may not have a users record
-
-      toast.success('Confirmation sent to both your old and new email. Check both inboxes.');
-      setNewEmail('');
-    } catch (error: any) {
-      toast.error(toUserFacingError(error, 'Failed to update email'));
-    } finally {
-      setSavingEmail(false);
-    }
+  const signOut = async () => {
+    const revoked = await revokeMemberSession();
+    if (!revoked) toast.warning("Signed out locally, but server session revocation could not be confirmed.");
+    navigate("/member/login", { replace: true });
   };
 
   const deleteAccount = useMutation({
     mutationFn: async () => {
-      await supabase.from("members").update({ status: "inactive" }).eq("id", member.memberId);
+      if (!member.memberId || !member.churchId) throw new Error("Missing member context");
+      await memberProfileRequest("leave_church", member.memberId, member.churchId);
     },
-    onSuccess: () => {
-      localStorage.removeItem("member_session");
-      navigate("/member/login");
+    onSuccess: async () => {
+      const revoked = await revokeMemberSession();
+      if (!revoked) toast.warning("Membership deactivated; session revocation could not be confirmed.");
+      navigate("/member/login", { replace: true });
     },
-    onError: () => toast.error("Failed to deactivate account"),
+    onError: () => toast.error("Failed to deactivate membership. No changes confirmed."),
   });
 
   return (
@@ -85,7 +50,7 @@ export default function MemberSettings() {
 
         {/* Notifications */}
         <Card className="rounded-2xl">
-          <CardHeader><CardTitle className="text-base">Notifications</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Notifications</CardTitle><CardDescription>These switches are preview settings only and are not yet saved or applied to notifications.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
             {[
               { key: "inapp_announcements", label: "Announcements", sub: "In-app" },
@@ -108,32 +73,15 @@ export default function MemberSettings() {
           </CardContent>
         </Card>
 
-        {/* Change Email Address */}
+        {/* Email changes are deliberately disabled until a verified two-address confirmation flow exists. */}
         <Card className="rounded-2xl">
           <CardHeader>
             <CardTitle className="text-base">Change Email Address</CardTitle>
             <CardDescription>
-              Update the email address you use to access your church portal
+              Email changes are temporarily unavailable in the member portal. Please contact your church administrator.
+              This protects your login until a verified email-change workflow is ready.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>New Email Address</Label>
-              <Input
-                type="email"
-                placeholder="Enter new email address"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={() => handleEmailChange(newEmail)}
-              disabled={savingEmail || !newEmail}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
-            >
-              {savingEmail ? 'Updating...' : 'Update Email'}
-            </Button>
-          </CardContent>
         </Card>
 
         {/* Sign Out */}

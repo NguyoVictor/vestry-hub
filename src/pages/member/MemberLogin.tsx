@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,12 +19,23 @@ const PRIMARY = "#3D1C8E";
 const PRIMARY_HOVER = "#4e24b5";
 const PANEL_BG = "#0d0e24";
 
+// Separate, non-persistent Auth instance: an OTP login must not overwrite the
+// church administrator's session maintained by the main Supabase client.
+const memberOtpClient = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+);
+
+
 export default function MemberLoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [churchCode, setChurchCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
   const [church, setChurch] = useState<{ name: string; logo: string | null } | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
 
@@ -59,33 +71,58 @@ export default function MemberLoginPage() {
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !churchCode) return;
+    if (!email.trim() || !churchCode.trim()) return;
     setLoading(true);
-
     try {
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("member-login", {
-        body: { email: email.trim().toLowerCase(), churchCode: churchCode.trim().toUpperCase() },
-      });
+      if (!otpStep) {
+        // Pre-existing Auth accounts only. Provision existing members via a
+        // separately audited invitation flow; do not create arbitrary users here.
+        const { error } = await memberOtpClient.auth.signInWithOtp({
+          email: email.trim().toLowerCase(),
+          options: { shouldCreateUser: false },
+        });
+        if (error) throw error;
+        setOtpStep(true);
+        toast.success("If this email has an account, a verification code has been sent.");
+        return;
+      }
 
-      if (fnError || fnData?.error) {
-        const err = fnData?.error || "unknown";
-        if (err === "invalid_code") toast.error("Invalid church code. Please check the code with your church admin.");
-        else if (err === "member_not_found") toast.error("No member found with this email for this church. Did you register yet?");
-        else if (err === "pending_approval") toast.error("Your membership is pending approval. Please wait for your church admin to approve your account.", { duration: 6000 });
-        else toast.error("Sign in failed. Please check your details.");
-        setLoading(false);
+      const { data: verified, error: verifyError } = await memberOtpClient.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: otp.trim(),
+        type: "email",
+      });
+      if (verifyError || !verified.session?.access_token) {
+        toast.error("Verification failed. Check the code and try again.");
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/member-login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Authorization": `Bearer ${verified.session.access_token}`,
+        },
+        body: JSON.stringify({ churchCode: churchCode.trim().toUpperCase() }),
+      });
+      // Discard the temporary Auth session; the portal continues to use its
+      // existing tenant-bound opaque session validated by member-session-context.
+      await memberOtpClient.auth.signOut({ scope: "local" });
+      const fnData = await response.json().catch(() => null);
+      if (!response.ok || !fnData?.sessionToken || !fnData?.member || !fnData?.tenant) {
+        toast.error(fnData?.error === "membership_not_active"
+          ? "Your membership is not active or is awaiting approval."
+          : "Unable to sign in. Confirm your membership and church code.");
         return;
       }
 
       const tenantSlug = String(fnData.tenant.slug || "").toLowerCase();
       if (!tenantSlug || !tenantSlugMatchesHostname(window.location.hostname, tenantSlug, currentTenantBaseDomain())) {
         toast.error("This church account belongs to a different VestryHub workspace.");
-        setLoading(false);
         return;
       }
-
-      // Store session in localStorage
-      const session = {
+      localStorage.setItem("member_session", JSON.stringify({
         memberId: fnData.member.id,
         tenantId: fnData.tenant.id,
         tenantSlug: fnData.tenant.slug,
@@ -94,11 +131,11 @@ export default function MemberLoginPage() {
         enabledModules: fnData.tenant.enabled_modules || null,
         sessionToken: fnData.sessionToken,
         expiresAt: fnData.expiresAt,
-      };
-      localStorage.setItem("member_session", JSON.stringify(session));
+      }));
       navigate("/member");
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error("Sign in could not be completed. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
@@ -190,7 +227,8 @@ export default function MemberLoginPage() {
                 <Input
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => { setEmail(e.target.value); setOtpStep(false); setOtp(""); }}
+                  disabled={otpStep}
                   placeholder="you@example.com"
                   required
                   className="h-12 text-[0.95rem] border-[#e2e2e2] focus-visible:ring-[rgba(61,28,142,0.3)] focus-visible:border-[#3D1C8E]"
@@ -203,6 +241,7 @@ export default function MemberLoginPage() {
                 <Input
                   value={churchCode}
                   onChange={e => handleCodeChange(e.target.value)}
+                  disabled={otpStep}
                   placeholder="e.g. HOPE-2847"
                   required
                   maxLength={9}
@@ -215,10 +254,27 @@ export default function MemberLoginPage() {
                 </p>
               </div>
 
+              {otpStep && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-700">Email verification code</Label>
+                  <Input
+                    value={otp}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="Enter the code from your email"
+                    required
+                    className="h-12"
+                  />
+                  <button type="button" className="text-sm underline" onClick={() => { setOtpStep(false); setOtp(""); }}>
+                    Change email or request another code
+                  </button>
+                </div>
+              )}
               <Button
                 type="submit"
                 className="w-full h-12 text-white font-medium transition-all duration-200 border-0 shadow-none"
-                disabled={loading || !email || !churchCode}
+                disabled={loading || !email || !churchCode || (otpStep && otp.length < 6)}
                 style={{
                   borderRadius: 8,
                   background: loading || !email || !churchCode ? "rgba(61,28,142,0.45)" : PRIMARY,
@@ -232,7 +288,7 @@ export default function MemberLoginPage() {
                     loading || !email || !churchCode ? "rgba(61,28,142,0.45)" : PRIMARY;
                 }}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : otpStep ? "Verify & Sign In" : "Email Me a Code"}
               </Button>
             </form>
 

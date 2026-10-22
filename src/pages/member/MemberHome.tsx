@@ -1,3 +1,4 @@
+import { memberPortalFeed } from "@/lib/memberPortalFeed";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -75,15 +76,8 @@ export default function MemberHome() {
   const { data: latestSermon } = useQuery({
     queryKey: ["member-latest-sermon", member.churchId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from(TABLES.STUDIO_MEDIA)
-        .select("id, title, speaker, duration, thumbnail_url, media_url")
-        .eq(COLS.TENANT_ID, member.churchId)
-        .eq(COLS.STATUS, "published")
-        .order("published_at", { ascending: false })
-        .limit(1)
-        .single();
-      return data;
+      const result = await memberPortalFeed<{ media: { id: string; title: string; speaker: string | null; duration: string | null; thumbnail_url: string | null; media_url: string | null } | null }>("latest_media", member.memberId, member.churchId);
+      return result.media;
     },
     staleTime: 300000,
   });

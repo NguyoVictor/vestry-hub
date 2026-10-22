@@ -21,13 +21,28 @@ describe('P1 member registration and session contract', () => {
     expect(client).toContain('/rest/v1/');
   });
 
-  it('revalidates the member against both the stored tenant and approval state', () => {
-    const context = source('src/contexts/MemberPortalContext.tsx');
 
-    expect(context).toContain('.eq("tenant_id", session.tenantId)');
-    expect(context).toMatch(/membership_status[\s\S]*Pending Approval/);
-    expect(context).toMatch(/status[\s\S]*inactive/);
-  });
+it('revalidates hashed member sessions through the secure Edge Function', () => {
+  const context = source('src/contexts/MemberPortalContext.tsx');
+  const fn = source('supabase/functions/member-session-context/index.ts');
+
+  expect(context).toContain('supabase.functions.invoke("member-session-context"');
+  expect(context).toContain('sessionToken: session.sessionToken');
+  // The raw opaque token must be SHA-256 hashed before comparison with the DB.
+  expect(fn).toContain('crypto.subtle.digest("SHA-256", bytes)');
+  expect(fn).toContain('const sessionTokenHash = await hashSessionToken(sessionToken)');
+  expect(fn).toContain('.eq("member_id", memberId)');
+  expect(fn).toContain('.eq("tenant_id", tenantId)');
+  expect(fn).toContain('.eq("session_token", sessionTokenHash)');
+  expect(fn).toContain('.gt("expires_at", new Date().toISOString())');
+  // Member and church must match the validated session.
+  expect(fn).toContain('.eq("tenant_id", session.tenant_id)');
+  expect(fn).toContain('member.tenant_id !== session.tenant_id');
+  expect(fn).toContain('String(member.status || "").trim().toLowerCase() !== "active"');
+  expect(fn).toContain('String(member.membership_status || "").trim().toLowerCase() !== "active"');
+  expect(context).toContain('member.tenant_id !== session.tenantId');
+});
+
 
   it('captures member-portal module configuration at canonical login', () => {
     const loginFn = source('supabase/functions/member-login/index.ts');

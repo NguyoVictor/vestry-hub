@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:p1:readiness": "node scripts/p1-readiness.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test e2e/song-library",

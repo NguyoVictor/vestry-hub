@@ -12,8 +12,8 @@ const checks = [
   ['server-only webhook_events', /revoke all on table public\.webhook_events from public, anon, authenticated/i.test(migration)],
   ['trigger function lockdown', /revoke execute on function private\.enforce_event_rsvp_capacity\(\) from public, anon, authenticated/i.test(migration)],
   ['member session context config', /\[functions\.member-session-context\][\s\S]*?verify_jwt\s*=\s*false/i.test(config)],
-  ['member session validates token', /\.eq\("session_token", String\(sessionToken\)\)/.test(memberContext)],
-  ['member session validates tenant', /\.eq\("tenant_id", String\(tenantId\)\)/.test(memberContext)],
+  ['member session validates token', /crypto\.subtle\.digest\("SHA-256"/.test(memberContext) && /const sessionTokenHash\s*=\s*await hashSessionToken\(sessionToken\)/.test(memberContext) && /\.eq\("session_token", sessionTokenHash\)/.test(memberContext)],
+  ['member session validates tenant', /\.eq\("tenant_id", tenantId\)/.test(memberContext) && /\.eq\("tenant_id", session\.tenant_id\)/.test(memberContext)],
   ['member session validates expiry', /\.gt\("expires_at", new Date\(\)\.toISOString\(\)\)/.test(memberContext)],
 ];
 

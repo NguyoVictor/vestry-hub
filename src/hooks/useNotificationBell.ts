@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { memberPortalFeed } from "@/lib/memberPortalFeed";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
-import { TABLES, COLS } from "@/lib/schema";
 
 export interface MemberNotification {
   id: string;
@@ -27,16 +26,8 @@ export function useNotificationBell() {
   const { data, isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from(TABLES.NOTIFICATIONS)
-        .select("*")
-        .eq(COLS.TENANT_ID, member.tenantId)
-        .eq(COLS.NOTIF_USER_ID, member.memberId)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      return (data ?? []) as MemberNotification[];
+      const result = await memberPortalFeed<{ notifications: MemberNotification[] }>("notifications", member.memberId, member.tenantId);
+      return result.notifications;
     },
     staleTime: 60_000,
   });
@@ -46,19 +37,8 @@ export function useNotificationBell() {
 
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
-      const unreadIds = notifications
-        .filter((n) => !n.is_read)
-        .map((n) => n.id);
-
-      if (unreadIds.length === 0) return;
-
-      const { error } = await supabase
-        .from(TABLES.NOTIFICATIONS)
-        .update({ [COLS.NOTIF_IS_READ]: true })
-        .in(COLS.ID, unreadIds)
-        .eq(COLS.TENANT_ID, member.tenantId);
-
-      if (error) throw error;
+      if (!notifications.some(n => !n.is_read)) return;
+      await memberPortalFeed("mark_all", member.memberId, member.tenantId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
@@ -67,13 +47,7 @@ export function useNotificationBell() {
 
   const markOneReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from(TABLES.NOTIFICATIONS)
-        .update({ [COLS.NOTIF_IS_READ]: true })
-        .eq(COLS.ID, notificationId)
-        .eq(COLS.TENANT_ID, member.tenantId);
-
-      if (error) throw error;
+      await memberPortalFeed("mark_one", member.memberId, member.tenantId, notificationId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });

@@ -1,5 +1,4 @@
-project_id = "crjdsxxkspvdwknrmijs"
-
+project_id = "xwbajophstetbnnemsyq"
 [functions.payment-webhook]
 verify_jwt = false
 [functions.subscription-payment-webhook]
@@ -22,4 +21,10 @@ verify_jwt = false
 # Supports both Supabase-authenticated Admin users and opaque Member Portal sessions.
 # The function performs its own session validation before using service-role access.
 [functions.register-device-token]
+verify_jwt = false
+
+[functions.member-login]
+verify_jwt = true
+
+[functions.member-logout]
 verify_jwt = false

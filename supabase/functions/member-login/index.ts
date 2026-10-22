@@ -1,85 +1,93 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+// STAGING: member-login must receive a valid Supabase Auth access token
+// from a successfully verified email OTP. A church code is NOT authentication.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   try {
-    const { email, churchCode } = await req.json();
+    const auth = req.headers.get("Authorization") || "";
+    const jwt = auth.match(/^Bearer\s+(\S+)$/i)?.[1];
+    if (!jwt) return json({ error: "unauthorized" }, 401);
 
-    if (!email || !churchCode) {
-      return new Response(JSON.stringify({ error: "missing_fields" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const url = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const publicKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!url || !serviceKey || !publicKey) return json({ error: "server_configuration_error" }, 500);
+
+    // Never use a public key as evidence of a user's identity.
+    const authClient = createClient(url, publicKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: { user }, error: authError } = await authClient.auth.getUser(jwt);
+    if (authError || !user || !user.email || !user.email_confirmed_at) {
+      return json({ error: "unauthorized" }, 401);
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const body = await req.json().catch(() => null);
+    const churchCode = typeof body?.churchCode === "string" ? body.churchCode.trim().toUpperCase() : "";
+    if (!/^[A-Z0-9-]{4,32}$/.test(churchCode)) return json({ error: "invalid_request" }, 400);
 
-    // 1. Look up tenant by church_code OR invite_code (both are the same access code)
-    const { data: tenant } = await supabase
-      .from("tenants")
+    const db = createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: tenant, error: tenantError } = await db.from("tenants")
       .select("id, name, logo, church_code, slug, enabled_modules")
-      .or(`church_code.eq.${churchCode.trim().toUpperCase()},invite_code.eq.${churchCode.trim().toUpperCase()}`)
-      .single();
+      .or(`church_code.eq.${churchCode},invite_code.eq.${churchCode}`)
+      .maybeSingle();
+    if (tenantError || !tenant) return json({ error: "invalid_credentials_or_membership" }, 403);
 
-    if (!tenant) {
-      return new Response(JSON.stringify({ error: "invalid_code" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 2. Look up member by email + tenant_id
-    const { data: member } = await supabase
-      .from("members")
-      .select("id, first_name, last_name, email, phone, avatar_url, status, member_type, membership_status, created_at")
+    // Match the email taken from verified Auth identity, never an email in the request body.
+    const { data: member, error: memberError } = await db.from("members")
+      .select("id, tenant_id, first_name, last_name, email, phone, avatar_url, status, member_type, membership_status, created_at")
       .eq("tenant_id", tenant.id)
-      .eq("email", email.trim().toLowerCase())
-      .neq("status", "inactive")
-      .single();
-
-    if (!member) {
-      return new Response(JSON.stringify({ error: "member_not_found" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      .ilike("email", user.email.trim())
+      .maybeSingle();
+    if (memberError || !member || member.tenant_id !== tenant.id) {
+      return json({ error: "invalid_credentials_or_membership" }, 403);
+    }
+    if (String(member.status || "").trim().toLowerCase() !== "active" ||
+        String(member.membership_status || "").trim().toLowerCase() !== "active") {
+      return json({ error: "membership_not_active" }, 403);
     }
 
-    // Block pending approval members — they must wait for admin approval
-    if (member.membership_status === "Pending Approval") {
-      return new Response(JSON.stringify({ error: "pending_approval" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 3. Generate session token
-    const sessionToken = crypto.randomUUID() + "-" + Date.now();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
-
-    // 4. Insert session
-    await supabase.from("member_sessions").insert({
+    // Only issue a session after verified email + tenant-specific membership checks.
+    const sessionToken = `${crypto.randomUUID()}-${crypto.randomUUID()}`;
+    const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sessionToken));
+    const sessionTokenHash = `sha256:${Array.from(new Uint8Array(tokenHash), b => b.toString(16).padStart(2, "0")).join("")}`;
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: sessionError } = await db.from("member_sessions").insert({
       member_id: member.id,
       tenant_id: tenant.id,
-      session_token: sessionToken,
+      session_token: sessionTokenHash,
       expires_at: expiresAt,
     });
+    if (sessionError) {
+      console.error("member-login: session insert failed", sessionError.code);
+      return json({ error: "session_creation_failed" }, 500);
+    }
 
-    // 5. Update portal_last_seen
-    await supabase.from("members").update({ portal_last_seen: new Date().toISOString() }).eq("id", member.id);
+    await db.from("members")
+      .update({ portal_last_seen: new Date().toISOString() })
+      .eq("id", member.id).eq("tenant_id", tenant.id);
 
-    return new Response(
-      JSON.stringify({ member, tenant, sessionToken, expiresAt }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (err) {
-    return new Response(JSON.stringify({ error: "server_error", message: String(err) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ member, tenant, sessionToken, expiresAt });
+  } catch (error) {
+    console.error("member-login failed", error instanceof Error ? error.message : "unknown_error");
+    return json({ error: "server_error" }, 500);
   }
 });
