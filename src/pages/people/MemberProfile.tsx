@@ -47,6 +47,7 @@ const MemberProfile = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [sendingActivation, setSendingActivation] = useState(false);
   const [editForm, setEditForm] = useState<any>(null);
 
   const { data: member, isLoading } = useQuery({
@@ -61,7 +62,7 @@ const MemberProfile = () => {
       if (memberData) return memberData;
       const { data, error } = await supabase
         .from("users")
-        .select("id, tenant_id, email, role, first_name, last_name, phone, join_date, status, gender, avatar_url, created_at, updated_at")
+        .select("id, tenant_id, email, role, first_name, last_name, phone, date_of_birth, join_date, status, gender, avatar_url, created_at, updated_at")
         .eq("id", memberId!)
         .eq("tenant_id", tenantId!)
         .single();
@@ -229,6 +230,30 @@ const MemberProfile = () => {
   const name = `${member.first_name || ""} ${member.last_name || ""}`.trim();
   const initials = `${(member.first_name || "?")[0]}${(member.last_name || "?")[0]}`.toUpperCase();
 
+  const sendMemberActivation = async () => {
+    if (!memberId || !tenantId || !member.email) return;
+    setSendingActivation(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("member-provision-access", {
+        body: { memberId, tenantId },
+      });
+      if (error || data?.error) {
+        toast.error("Could not send member activation. Please check the staging function logs.");
+      } else if (data?.status === "invitation_sent") {
+        toast.success("Member activation invitation sent.");
+      } else if (data?.status === "identity_already_exists") {
+        toast.info("This member already has an Auth account. They can request a member login link.");
+      } else {
+        toast.error("Unexpected activation response. Please retry.");
+      }
+    } catch (error) {
+      console.error("Member activation failed", error);
+      toast.error("Could not send member activation.");
+    } finally {
+      setSendingActivation(false);
+    }
+  };
+
   return (
     <>
       <Helmet><title>{name} — Vestry</title></Helmet>
@@ -276,6 +301,22 @@ const MemberProfile = () => {
                 <Mail className="h-4 w-4 mr-1" />Message
               </Button>
             </div>
+            {member.email && member.member_type === "member" &&
+              String(member.status).trim().toLowerCase() === "active" &&
+              ["active", "member"].includes(String(member.membership_status || "").trim().toLowerCase()) && (
+              <PermissionButton
+                permission="member_management"
+                readOnly={readOnly}
+                variant="outline"
+                className="w-full"
+                size="sm"
+                disabled={sendingActivation}
+                onClick={sendMemberActivation}
+              >
+                <Mail className="h-4 w-4 mr-1" />
+                {sendingActivation ? "Sending activation..." : "Send / Resend Activation Email"}
+              </PermissionButton>
+            )}
             {member.membership_status === "Pending Approval" && (
               <PermissionButton
                 permission="member_management"
@@ -293,6 +334,12 @@ const MemberProfile = () => {
                     
                     queryClient.invalidateQueries({ queryKey: ["member", memberId] });
                     toast.success("Member approved");
+                    // Provision member authentication after approval; repeatable if email delivery fails.
+                    const { data: activation, error: activationError } = await supabase.functions.invoke("member-provision-access", {
+                      body: { memberId: memberId!, tenantId: tenantId! },
+                    });
+                    if (activationError || activation?.error) toast.warning("Member approved, but activation invitation failed. Retry from member management.");
+                    else if (activation?.status === "invitation_sent") toast.success("Member activation invitation sent");
                   } catch (error: any) {
                     console.error("Member approval error:", error);
                     toast.error(`Failed to approve member: ${toUserFacingError(error, 'Unknown error')}`);

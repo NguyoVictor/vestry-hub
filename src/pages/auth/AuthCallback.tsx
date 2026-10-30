@@ -9,116 +9,73 @@ const AuthCallback = () => {
   const [message, setMessage] = useState("Signing you in…");
 
   useEffect(() => {
-    const handleCallback = async () => {
+    let cancelled = false;
+    const run = async () => {
       try {
-        // Check URL parameters for member portal redirect
-        const urlParams = new URLSearchParams(window.location.search);
-        const redirectTo = urlParams.get('redirect_to');
-        const tenantId = urlParams.get('tenant_id');
+        const params = new URLSearchParams(window.location.search);
+        const redirectTo = params.get("redirect_to");
+        const tenantId = params.get("tenant_id");
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || !session) throw error || new Error("No authenticated session");
 
-        // Let the SDK handle PKCE code exchange automatically via getSession().
-        // It detects ?code= in the URL, reads the code_verifier from localStorage,
-        // and exchanges them — no manual exchangeCodeForSession needed.
-        const { data, error } = await supabase.auth.getSession();
+        if (redirectTo === "/member/welcome") {
+          if (!tenantId || !/^[\da-f-]{36}$/i.test(tenantId)) throw new Error("Missing member tenant");
+          const { data: tenant, error: tenantError } = await supabase
+            .from("tenants").select("id,church_code,slug").eq("id", tenantId).maybeSingle();
+          if (tenantError || !tenant?.church_code) throw new Error("Invalid member tenant");
 
-        if (error) throw error;
-
-        if (data.session) {
-          // Track OAuth login event
-          try {
-            await supabase.from('login_events').insert({
-              id: crypto.randomUUID(),
-              user_id: data.session.user.id,
-              status: 'success',
-              ip_address: null, // not available client-side
-              user_agent: navigator.userAgent,
-              location: null,
-              created_at: new Date().toISOString()
-            });
-
-            // Update last_login_at
-            supabase
-              .from('users')
-              .update({ last_login_at: new Date().toISOString() })
-              .eq('id', data.session.user.id)
-              .then();
-
-          } catch (trackingError) {
-            console.error('Failed to track OAuth login event:', trackingError);
+          // This server function validates the signed-in Auth user, approved membership,
+          // and selected tenant BEFORE it creates a member session.
+          const { data: result, error: loginError } = await supabase.functions.invoke("member-login", {
+            body: { churchCode: tenant.church_code },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (loginError || result?.error || !result?.member?.id ||
+              result?.tenant?.id !== tenantId || !result?.sessionToken || !result?.expiresAt) {
+            throw new Error("Member membership verification failed");
           }
-
+          if (cancelled) return;
+          localStorage.setItem("member_session", JSON.stringify({
+            memberId: result.member.id,
+            tenantId: result.tenant.id,
+            tenantSlug: result.tenant.slug || tenant.slug,
+            sessionToken: result.sessionToken,
+            expiresAt: result.expiresAt,
+          }));
           setStatus("success");
-          setMessage("Signed in successfully!");
-
-          // Handle member portal redirect
-          if (redirectTo === '/member/welcome' && tenantId) {
-            // Store tenant ID for member portal
-            localStorage.setItem('member_tenant_id', tenantId);
-            navigate(redirectTo, { replace: true });
-            return;
-          }
-
-          // Existing admin redirect logic
-          const { data: userData } = await supabase
-            .from("users")
-            .select("tenant_id")
-            .eq("id", data.session.user.id)
-            .maybeSingle();
-
-          if (userData?.tenant_id) {
-            const { data: tenant } = await supabase
-              .from("tenants")
-              .select("onboarding_completed")
-              .eq("id", userData.tenant_id)
-              .maybeSingle();
-
-            setTimeout(() => {
-              if (tenant?.onboarding_completed) {
-                navigate("/dashboard", { replace: true });
-              } else {
-                navigate("/onboarding", { replace: true });
-              }
-            }, 2500);
-          } else {
-            setTimeout(() => navigate("/onboarding", { replace: true }), 2500);
-          }
-        } else {
-          throw new Error("No session returned");
+          navigate("/member/welcome", { replace: true });
+          return;
         }
-      } catch {
+
+        const { data: userData } = await supabase.from("users")
+          .select("tenant_id").eq("id", session.user.id).maybeSingle();
+        const { data: tenant } = userData?.tenant_id
+          ? await supabase.from("tenants").select("onboarding_completed").eq("id", userData.tenant_id).maybeSingle()
+          : { data: null };
+        if (cancelled) return;
+        setStatus("success");
+        setMessage("Signed in successfully!");
+        navigate(tenant?.onboarding_completed ? "/dashboard" : "/onboarding", { replace: true });
+      } catch (error) {
+        console.error("Auth callback failed", error);
+        if (cancelled) return;
+        localStorage.removeItem("member_session");
         setStatus("error");
-        setMessage("Something went wrong. Redirecting…");
-        setTimeout(() => navigate("/auth/signin", { replace: true }), 3000);
+        setMessage("Unable to verify access. Please try signing in again.");
+        navigate("/member/login", { replace: true });
       }
     };
-
-    handleCallback();
+    void run();
+    return () => { cancelled = true; };
   }, [navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-6 text-center">
-        {status === "loading" && (
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          </div>
-        )}
-        {status === "success" && (
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
-          </div>
-        )}
-        {status === "error" && (
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-destructive/10">
-            <span className="text-4xl">⚠️</span>
-          </div>
-        )}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {status === "success" ? "Success!" : status === "error" ? "Oops!" : "Please wait"}
-          </h1>
-          <p className="mt-2 text-muted-foreground">{message}</p>
-        </div>
+        {status === "loading" && <div className="flex h-24 w-24 items-center justify-center rounded-full bg-muted"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}
+        {status === "success" && <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100"><CheckCircle2 className="h-12 w-12 text-green-600" /></div>}
+        {status === "error" && <div className="flex h-24 w-24 items-center justify-center rounded-full bg-destructive/10"><span className="text-4xl">!</span></div>}
+        <div><h1 className="text-2xl font-bold text-foreground">{status === "success" ? "Success!" : status === "error" ? "Oops!" : "Please wait"}</h1><p className="mt-2 text-muted-foreground">{message}</p></div>
       </div>
     </div>
   );

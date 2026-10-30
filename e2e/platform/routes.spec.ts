@@ -36,8 +36,13 @@ async function assertRouteLoads(page: import('@playwright/test').Page, route: st
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   const response = await page.goto(materialize(route));
   expect(response?.status() ?? 200).toBeLessThan(500);
-  await expect(page.locator('body')).toBeVisible();
-  expect(consoleErrors.filter((x) => /uncaught|fatal/i.test(x))).toEqual([]);
+await expect(page.locator('#root')).toBeAttached();
+
+await expect
+  .poll(async () => {
+    return page.locator('#root').innerText();
+  })
+  .not.toBe('');  expect(consoleErrors.filter((x) => /uncaught|fatal/i.test(x))).toEqual([]);
 }
 
 for (const route of PLATFORM_ROUTES.filter((r) => r.actor === 'public')) {

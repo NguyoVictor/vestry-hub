@@ -8,6 +8,7 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
     const {
@@ -17,7 +18,10 @@ Deno.serve(async (req: Request) => {
       ageGroup, preferredContact, prayerRequest,
     } = await req.json();
 
-    if (!churchCode || !firstName || !lastName || !phone) {
+    if (typeof churchCode !== "string" || !/^[A-Z0-9-]{4,32}$/.test(churchCode.trim().toUpperCase()) ||
+        typeof firstName !== "string" || !firstName.trim() ||
+        typeof lastName !== "string" || !lastName.trim() ||
+        typeof phone !== "string" || !phone.trim()) {
       return new Response(JSON.stringify({ error: "missing_required_fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -31,13 +35,20 @@ Deno.serve(async (req: Request) => {
     // Look up tenant by church_code OR invite_code (both are the same access code)
     const { data: tenant } = await supabase
       .from("tenants")
-      .select("id, name, logo, church_code, slug")
+      .select("id, name, logo, church_code, slug, registration_enabled")
       .or(`church_code.eq.${churchCode.trim().toUpperCase()},invite_code.eq.${churchCode.trim().toUpperCase()}`)
       .single();
 
     if (!tenant) {
       return new Response(JSON.stringify({ error: "invalid_code" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Public registration must respect each church's explicit opt-in.
+    if (tenant.registration_enabled !== true) {
+      return new Response(JSON.stringify({ error: "registration_disabled" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -59,7 +70,7 @@ Deno.serve(async (req: Request) => {
           how_heard: howHeard || null,
           how_heard_detail: preferredContact || null,
           follow_up_status: "new",
-          service_attended: registrationSource === "qr_scan" ? "qr_scan" : "form",
+          registration_source: "qr_scan",
           notes: [
             ageGroup ? `Age group: ${ageGroup}` : null,
             prayerRequest ? `Prayer request: ${prayerRequest}` : null,
@@ -125,7 +136,7 @@ Deno.serve(async (req: Request) => {
         status: "active",
         member_type: "member",
         membership_status: "Pending Approval",
-        registration_source: registrationSource === "qr_scan" ? "qr_scan" : "form",
+        registration_source: registrationSource === "qr_scan" ? "qr_scan" : "web_form",
         join_date: today,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -156,7 +167,8 @@ Deno.serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: "server_error", message: String(err) }), {
+    console.error("member-register failed", err instanceof Error ? err.message : "unknown");
+    return new Response(JSON.stringify({ error: "server_error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

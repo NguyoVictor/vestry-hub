@@ -94,11 +94,11 @@ const SignIn = () => {
       toast.success("Signed in successfully!");
 
       // Update last_login_at — fire and forget
-      supabase
-        .from('users')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', data.session.user.id)
-        .then();
+      // supabase
+      //   .from('users')
+      //   .update({ last_login_at: new Date().toISOString() })
+      //   .eq('id', data.session.user.id)
+      //   .then();
 
       captureEvent("login_success");
       identifyUser(data.session.user.id, { email: data.session.user.email });

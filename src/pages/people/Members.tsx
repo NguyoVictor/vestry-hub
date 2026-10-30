@@ -463,11 +463,12 @@ const Members = () => {
                 <Button className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta" disabled={sendingWelcome === "email"}
                   onClick={async () => {
                     setSendingWelcome("email");
-                    const { data, error } = await supabase.functions.invoke("send-member-welcome", { body: { memberId: welcomeDialog.memberId, tenantId: welcomeDialog.tenantId, channel: "email" } });
+                    const { data, error } = await supabase.functions.invoke("member-provision-access", { body: { memberId: welcomeDialog.memberId, tenantId: welcomeDialog.tenantId } });
                     setSendingWelcome(null);
-                    if (error) toast.error("Failed to send email");
-                    else if (data?.no_provider) toast.info(`Share code manually: ${data.details?.churchCode}`);
-                    else toast.success("Welcome email sent!");
+                    if (error || data?.error) toast.error("Could not activate member access. Please try again.");
+                    else if (data?.status === "identity_already_exists") toast.info("Member already has a login identity. They can request a member magic link.");
+                    else if (data?.status === "invitation_sent") toast.success("Member activation invitation sent!");
+                    else toast.error("Unexpected activation response. Please try again.");
                   }}>
                   <Mail className="h-4 w-4" />{sendingWelcome === "email" ? "Sending..." : "Send via Email"}
                 </Button>

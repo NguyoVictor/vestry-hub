@@ -51,11 +51,11 @@ export const AuthGuard = () => {
       }
 
       // Update last_login_at for this admin — fire and forget
-      supabase
-        .from('users')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', session.user.id)
-        .then();
+      // supabase
+      //   .from('users')
+      //   .update({ last_login_at: new Date().toISOString() })
+      //   .eq('id', session.user.id)
+      //   .then();
 
       const { data: tenant } = await supabase
         .from("tenants")

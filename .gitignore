@@ -35,3 +35,15 @@ supabase/.temp/
 testsprite_tests/tmp/
 # Generated TestSprite runtime config may contain credentials
 testsprite_tests/tmp/config.json
+
+playwright/.auth/
+
+# Generated testing reports
+playwright-report/
+test-results/
+reports/e2e-automation/
+
+# Python and Node dependencies
+node_modules/
+# Local QA administration utility
+/scripts/reset-qa-password.mjs

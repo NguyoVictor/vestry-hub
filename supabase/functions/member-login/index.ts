@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "invalid_credentials_or_membership" }, 403);
     }
     if (String(member.status || "").trim().toLowerCase() !== "active" ||
-        String(member.membership_status || "").trim().toLowerCase() !== "active") {
+        !["active", "member"].includes(String(member.membership_status || "").trim().toLowerCase())) {
       return json({ error: "membership_not_active" }, 403);
     }
 

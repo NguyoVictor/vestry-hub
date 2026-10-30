@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-10-22T07:05:34.021Z",
+  "schema_snapshot": "2026-10-22 (staging verified after migration)",
+  "schema_project": "xwbajophstetbnnemsyq",
+  "files_scanned": 745,
+  "issues": [
+    {
+      "severity": "FAIL",
+      "kind": "unknown-select-column",
+      "file": "src/pages/communications/EmailTemplates.tsx",
+      "table": "group_members",
+      "column": "first_name",
+      "detail": "line 362; literal select references a field missing from schema snapshot"
+    }
+  ],
+  "checks": [
+    {
+      "label": "TypeScript",
+      "result": "PASS",
+      "status": 0
+    },
+    {
+      "label": "Production build",
+      "result": "PASS",
+      "status": 0
+    },
+    {
+      "label": "test:p1:stage11a:contract",
+      "result": "NOT RUN"
+    },
+    {
+      "label": "test:p1:closeout",
+      "result": "NOT RUN"
+    }
+  ],
+  "note": "Static scan of literal Supabase queries only; not a full semantic analyzer or runtime/RLS penetration test. Schema snapshot can become stale."
+}
