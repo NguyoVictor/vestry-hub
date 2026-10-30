@@ -47,3 +47,9 @@ reports/e2e-automation/
 node_modules/
 # Local QA administration utility
 /scripts/reset-qa-password.mjs
+
+# Local development backups and temporary artifacts
+/scripts/capture-staging-auth.mjs.bak
+/scripts/check-a8-contract (copy).mjs
+/supabase/migrations_backup_20261027/
+/vestry-member-activation-patch.zip
