@@ -17,7 +17,7 @@ import { KeyRound, Building2, Link, Copy, Eye, EyeOff, X } from "lucide-react";
 import { format } from "date-fns";
 import { toUserFacingError } from "@/lib/userFacingError";
 
-const BASE_URL = import.meta.env.VITE_BASE_URL || "https://www.churchcentralcloud.com";
+const BASE_URL = import.meta.env.VITE_BASE_URL || "https://www.vestryhub.com";
 const BRANCH_LOGIN_URL = `${BASE_URL}/branch-login`;
 
 // ─── Simple hash (SHA-256 via Web Crypto) ─────────────────────────────────────

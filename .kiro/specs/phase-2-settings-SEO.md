@@ -84,7 +84,7 @@ Build a form using React Hook Form + Zod. All fields read from and write to the 
 *Church Identity section:*
 - **Church Logo** — image upload component: shows current logo in a `96px` circular preview (or indigo initials avatar if none). Below it: "Upload Logo" button that opens a file picker (accepts `.jpg`, `.png`, `.webp`, max 2MB). On select, upload to Supabase Storage bucket `church-logos` at path `{tenant_id}/logo.{ext}`, get public URL, update `tenants.logo`. Show upload progress indicator. "Remove Logo" link appears if a logo exists.
 - **Church Name** — text input, required, min 2 chars, max 100 chars
-- **Church Slug** — text input, auto-generated from church name (lowercase, hyphens, alphanumeric only), editable, must be unique (validate against Supabase on blur with a debounced query), shows preview: `churchcentralcloud.com/church/{slug}` below the input in `text-xs text-slate-500`. Green checkmark if available, red X if taken.
+- **Church Slug** — text input, auto-generated from church name (lowercase, hyphens, alphanumeric only), editable, must be unique (validate against Supabase on blur with a debounced query), shows preview: `vestryhub.com/church/{slug}` below the input in `text-xs text-slate-500`. Green checkmark if available, red X if taken.
 - **Tagline / Mission Statement** — textarea, max 200 chars, optional
 
 *Contact & Location section:*

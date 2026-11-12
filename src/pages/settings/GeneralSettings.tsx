@@ -51,7 +51,7 @@ const CURRENCIES = [
   { code: "BRL", label: "R$ - Brazilian Real (BRL)" },
 ];
 
-const APP_BASE_URL = "https://www.churchcentralcloud.com/app/";
+const APP_BASE_URL = "https://www.vestryhub.com/app/";
 
 export default function GeneralSettings() {
   const { tenantId } = useChurch();
