@@ -34,3 +34,14 @@ dist-ssr
 testsprite_tests/tmp/
 # Generated TestSprite runtime config may contain credentials
 testsprite_tests/tmp/config.json
+
+# Phase 0: generated CLI link metadata, local QA config and private backups
+# Already-tracked .temp files require an explicit one-time git rm --cached.
+supabase/.temp/
+.recovery/
+backups/
+*.dump
+*.dump.age
+*.sql.age
+*.role.age
+.env.qa.local
