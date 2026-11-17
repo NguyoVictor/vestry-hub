@@ -23,3 +23,7 @@ verify_jwt = false
 # The function performs its own session validation before using service-role access.
 [functions.register-device-token]
 verify_jwt = false
+
+# Staff invitations require a signed-in Supabase Auth user and server-side role checks.
+[functions.send-invitation]
+verify_jwt = true

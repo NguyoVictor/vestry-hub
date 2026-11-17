@@ -1,144 +1,140 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { buildBrandedEmail } from "../_shared/branded-email.ts";
+import { mayInviteStaff, validateStaffInvite } from "./validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function json(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// This function uses the service role *only after validating the caller's Supabase Auth JWT*
+// and checking the caller's persisted tenant/role. Client-supplied role metadata is never
+// considered proof of permission.
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  const bearer = /^Bearer\s+([^\s]+)$/i.exec(req.headers.get("Authorization")?.trim() ?? "");
+  if (!bearer) return json({ error: "Authentication required" }, 401);
+
+  const validation = validateStaffInvite(await req.json().catch(() => null));
+  if (!validation.ok) return json({ error: validation.error }, 400);
+  const { email, tenantId, role, firstName, lastName } = validation.value;
+
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !serviceRoleKey) return json({ error: "Invitation service unavailable" }, 503);
+
+  const service = createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
   try {
-    const payload = await req.json();
-    const { email, role, church_name, invited_by, tenant_id, first_name, last_name } = payload;
+    // Confirm the JWT against Supabase Auth, not unverified JWT claims or user_metadata.
+    const { data: authData, error: authError } = await service.auth.getUser(bearer[1]);
+    if (authError || !authData.user) return json({ error: "Authentication required" }, 401);
 
-    if (!email || !tenant_id) {
-      return new Response(JSON.stringify({ error: "email and tenant_id are required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      return new Response(JSON.stringify({ error: "RESEND_API_KEY not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { autoRefreshToken: false, persistSession: false } });
-
-    // Enforce staff limit at backend level
-    const { count: currentStaffCount } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant_id)
-      .neq('role', 'member')
-      .eq('status', 'active');
-
-    const { data: subscription } = await supabase
-      .from('tenant_subscriptions')
-      .select('staff_limit')
-      .eq('tenant_id', tenant_id)
+    const { data: actor, error: actorError } = await service
+      .from("users")
+      .select("tenant_id, role, status, is_super_admin")
+      .eq("id", authData.user.id)
       .maybeSingle();
+    if (actorError) return json({ error: "Unable to verify inviter permissions" }, 503);
+    if (!mayInviteStaff(actor, tenantId)) return json({ error: "Forbidden: church administrator required" }, 403);
 
-    const staffLimit = subscription?.staff_limit ?? 3;
+    const { data: tenant, error: tenantError } = await service
+      .from("tenants")
+      .select("id, name")
+      .eq("id", tenantId)
+      .maybeSingle();
+    if (tenantError) return json({ error: "Unable to verify church" }, 503);
+    if (!tenant) return json({ error: "Church not found" }, 404);
 
-    if ((currentStaffCount ?? 0) >= staffLimit) {
-      return new Response(
-        JSON.stringify({
-          error: `Staff limit reached. Your plan allows ${staffLimit} admins. Remove an existing admin before adding a new one.`
-        }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // public.users.id is the Auth user ID (single primary key across tenants).
+    // Never UPSERT here: it could silently move an existing account to another tenant.
+    const { data: existingAccount, error: existingError } = await service
+      .from("users")
+      .select("id")
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) return json({ error: "Unable to check existing account" }, 503);
+    if (existingAccount) {
+      return json({ error: "An account already uses this email. Existing-account access needs separate review." }, 409);
     }
 
-    let newUserId: string | null = null;
-    let alreadyRegistered = false;
+    const { count: staffCount, error: staffError } = await service
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .neq("role", "member")
+      .eq("status", "active");
+    if (staffError || staffCount === null) return json({ error: "Unable to verify staff quota" }, 503);
 
-    try {
-      const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(email, {
-        data: { tenant_id, role, invited_by, church_name, first_name: first_name || '', last_name: last_name || '' },
-        redirectTo: `${Deno.env.get("SITE_URL") ?? "https://vestryhub.com"}/auth/invite`,
-      });
+    const { data: subscription, error: subscriptionError } = await service
+      .from("tenant_subscriptions")
+      .select("staff_limit")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (subscriptionError) return json({ error: "Unable to verify staff quota" }, 503);
+    const limit = subscription?.staff_limit ?? 3;
+    if (staffCount >= limit) return json({ error: `Staff limit reached (${limit})` }, 403);
 
-      if (inviteErr) {
-        if (inviteErr.status === 422 || inviteErr.message?.includes('already been registered')) {
-          // User already has auth account — find their ID and add directly
-          const { data: { users: allUsers } } = await supabase.auth.admin.listUsers();
-          const existingAuthUser = allUsers?.find((u: any) => u.email === email);
-          newUserId = existingAuthUser?.id ?? null;
-          alreadyRegistered = true;
-          console.warn("User already registered, adding directly:", email);
-        } else {
-          console.warn("Auth invite warning:", inviteErr.message);
-        }
-      } else {
-        newUserId = inviteData?.user?.id ?? null;
-      }
-    } catch (authError) {
-      console.warn("Auth invite skipped:", authError);
-    }
-
-    // Create users table record if we have a valid user ID
-    if (newUserId) {
-      const userRecord: any = {
-        id: newUserId,
-        tenant_id,
-        email,
+    // Supabase Auth sends the invitation email. RESEND_API_KEY is not required here.
+    // The invitation's user_metadata is for display only, never authorization.
+    const siteUrl = Deno.env.get("SITE_URL") ?? "https://vestryhub.com";
+    const redirectTo = new URL("/auth/invite", siteUrl).toString();
+    const { data: invited, error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: {
+        tenant_id: tenantId,
         role,
-        status: 'active',
-        invitation_sent: true,
-      };
-
-      if (first_name) userRecord.first_name = first_name;
-      if (last_name !== undefined && last_name !== null) userRecord.last_name = last_name;
-
-      await supabase.from('users').upsert(userRecord, { onConflict: 'id' });
-
-      if (alreadyRegistered) {
-        const { data: existingThread } = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('staff_user_id', newUserId)
-          .eq('is_staff_directory', true)
-          .eq('tenant_id', tenant_id)
-          .maybeSingle();
-        if (!existingThread) {
-          const displayName = (first_name || '').trim() || `${first_name || ''} ${last_name || ''}`.trim() || 'Team member';
-          const welcomeMsg = `Hi! I'm ${displayName}. Feel free to reach out with any questions, prayer requests, or concerns. 🙏`;
-          const { data: newConv } = await supabase
-            .from('conversations')
-            .insert({
-              tenant_id,
-              type: 'direct',
-              is_staff_directory: true,
-              staff_user_id: newUserId,
-              name: displayName,
-              created_by: newUserId,
-              status: 'open',
-              last_message_preview: welcomeMsg.slice(0, 100),
-              last_message_at: new Date().toISOString(),
-            })
-            .select('id')
-            .single();
-          if (newConv) {
-            await supabase.from('conversation_participants').insert({
-              conversation_id: newConv.id,
-              user_id: newUserId,
-              unread_count: 0,
-              joined_at: new Date().toISOString(),
-            });
-            await supabase.from('messages').insert({
-              tenant_id,
-              conversation_id: newConv.id,
-              sender_id: newUserId,
-              body: welcomeMsg,
-              status: 'sent',
-            });
-          }
-        }
+        invited_by: authData.user.id,
+        church_name: tenant.name,
+        first_name: firstName,
+        last_name: lastName,
+      },
+    });
+    if (inviteError) {
+      if (inviteError.status === 422) {
+        return json({ error: "This email already has an Auth account. Existing-account access needs separate review." }, 409);
       }
+      console.error("send-invitation: Supabase Auth invitation failed", inviteError.status);
+      return json({ error: "Unable to send invitation" }, 502);
     }
 
-    return new Response(JSON.stringify({ ok: true, already_registered: alreadyRegistered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const invitedId = invited.user?.id;
+    if (!invitedId) return json({ error: "Invite sent but no Auth user ID was returned; administrator review required" }, 502);
+
+    const { error: userError } = await service.from("users").insert({
+      id: invitedId,
+      tenant_id: tenantId,
+      email,
+      first_name: firstName || null,
+      last_name: lastName || null,
+      role,
+      status: "active",
+      invitation_sent: true,
+      is_super_admin: false,
+    });
+    if (userError) {
+      // The Auth invitation may already be delivered. Never report false success,
+      // and never delete an Auth account without proof it was newly created.
+      console.error("send-invitation: profile insertion failed", userError.code);
+      return json({ error: "Invitation sent but staff profile creation failed; administrator review required" }, 503);
+    }
+
+    return json({ ok: true, already_registered: false });
+  } catch (error) {
+    console.error("send-invitation failed", error instanceof Error ? error.name : "unknown");
+    return json({ error: "Unable to process invitation" }, 500);
   }
 });
