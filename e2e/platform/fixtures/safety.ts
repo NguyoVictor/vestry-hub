@@ -9,6 +9,25 @@ export function requireDisposablePlatformTestEnv(): PlatformSafetyConfig {
   if (process.env.PW_PLATFORM_TEST_ENV !== 'disposable') {
     throw new Error('Refusing platform E2E: PW_PLATFORM_TEST_ENV must equal "disposable".');
   }
+  const supabaseUrl = process.env.PW_SUPABASE_URL?.trim();
+  if (!supabaseUrl) {
+    throw new Error('Refusing platform E2E: PW_SUPABASE_URL must identify a disposable backend.');
+  }
+  let supabaseHost: string;
+  try {
+    const url = new URL(supabaseUrl);
+    if (url.protocol !== 'https:' || !/^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname)) {
+      throw new Error('not a supported Supabase HTTPS URL');
+    }
+    supabaseHost = url.hostname.toLowerCase();
+  } catch {
+    throw new Error('Refusing platform E2E: invalid PW_SUPABASE_URL.');
+  }
+  // This database is shared by the Vercel Production and Preview environments.
+  // A disposable flag alone must never authorize destructive tests against it.
+  if (supabaseHost === 'xwbajophstetbnnemsyq.supabase.co') {
+    throw new Error('Refusing platform E2E: shared Vestry Hub staging Supabase project is not disposable.');
+  }
   const tenantAId = process.env.PW_TENANT_A_ID?.trim();
   const tenantBId = process.env.PW_TENANT_B_ID?.trim();
   if (!tenantAId || !tenantBId || tenantAId === tenantBId) {

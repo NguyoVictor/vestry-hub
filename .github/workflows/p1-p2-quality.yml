@@ -3,7 +3,7 @@ name: P1 P2 Quality
 on:
   pull_request:
   push:
-    branches: [main, p1-stabilization-hardening, b-batch-infrastructure-qa]
+    branches: [main, p1-stabilization-hardening, b-batch-infrastructure-qa, recovery/system-stabilization-2026-11]
 
 permissions:
   contents: read
@@ -42,7 +42,9 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
 
   platform-e2e:
-    if: ${{ secrets.PW_PLATFORM_TEST_ENV == 'disposable' }}
+    # Temporarily disabled: Production and Preview currently share the same Supabase project.
+    # Restore only after isolated destructive E2E targets and a reviewed CI gate exist.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     env:
       PW_PLATFORM_TEST_ENV: ${{ secrets.PW_PLATFORM_TEST_ENV }}
