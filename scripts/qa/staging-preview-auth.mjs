@@ -29,6 +29,30 @@ export function isExpectedBlockedSentryTelemetry(rawUrl, method) {
   }
 }
 
+/**
+ * Known GA browser collection endpoints. These requests are still aborted;
+ * the exception only stops expected background telemetry from being counted
+ * as a functional application write. Do not match whole hostnames or arbitrary
+ * paths (e.g. /api/delete, /pagead/*, other Supabase backends).
+ *
+ * Use exact HTTPS origins, POST only, and fixed collector paths. Any new or
+ * unexpected endpoint remains a violation until explicitly reviewed.
+ */
+export function isExpectedBlockedGoogleTelemetry(rawUrl, method) {
+  if (String(method).toUpperCase() !== 'POST') return false;
+  try {
+    const url = new URL(rawUrl);
+    if (url.username || url.password || url.port || url.protocol !== 'https:') return false;
+    const paths = {
+      'https://www.google-analytics.com': ['/g/collect', '/collect', '/j/collect'],
+      'https://www.google.com': ['/g/collect', '/ccm/collect'],
+    };
+    return (paths[url.origin] || []).includes(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function previewOrigin(rawUrl, cfg) {
   const url = new URL(rawUrl);
   return url.origin === cfg.baseURL;
@@ -43,11 +67,19 @@ export async function forwardStagingReadOnlyRequest(route, cfg, violations, toke
   const raw = request.url();
   const decision = classifyReadOnlyRequest(raw, request.method(), cfg);
   if (!decision.allow) {
-    if (!isExpectedBlockedSentryTelemetry(raw, request.method())) {
-      violations.push(`${request.method()} ${new URL(raw).hostname}: ${decision.reason}`);
+    if (!isExpectedBlockedSentryTelemetry(raw, request.method()) &&
+        !isExpectedBlockedGoogleTelemetry(raw, request.method())) {
+      const url = new URL(raw);
+      // If a Google endpoint is newly encountered, include pathname only,
+      // never query string, headers, credentials, or request body. This lets
+      // the next review distinguish genuine telemetry from unrelated writes.
+      const safePath = (url.hostname === 'www.google-analytics.com' ||
+        url.hostname === 'www.google.com') && /^[a-z0-9/_.-]{1,90}$/i.test(url.pathname)
+        ? ` ${url.pathname}` : '';
+      violations.push(`${request.method()} ${url.hostname}${safePath}: ${decision.reason}`);
     }
-    // All POSTs stay blocked, including known Sentry telemetry. A narrowly
-    // identified telemetry envelope isn't a functional write-violation.
+    // All POSTs stay blocked, including known Sentry/Google telemetry.
+    // Only exact, reviewed collection endpoints are excluded from violations.
     await route.abort('blockedbyclient');
     return;
   }

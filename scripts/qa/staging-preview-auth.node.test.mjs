@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { forwardStagingReadOnlyRequest, isExpectedBlockedSentryTelemetry, requirePreviewOidcIfConfigured, VERCEL_TRUSTED_HEADER } from './staging-preview-auth.mjs';
+import { forwardStagingReadOnlyRequest, isExpectedBlockedSentryTelemetry, isExpectedBlockedGoogleTelemetry, requirePreviewOidcIfConfigured, VERCEL_TRUSTED_HEADER } from './staging-preview-auth.mjs';
 
 const cfg = {
   baseURL: 'https://example-preview.vercel.app',
@@ -116,5 +116,72 @@ test('Supabase and app POSTs always remain blocked AND reported', async () => {
     await forwardStagingReadOnlyRequest(route, cfg, violations, 'oidc-token');
     assert.deepEqual(route.events.map(e => e.name), ['abort']);
     assert.equal(violations.length, 1, url);
+  }
+});
+
+
+test('GA4 Google Analytics collector POST is aborted but not a functional violation', async () => {
+  for (const endpoint of [
+    'https://www.google-analytics.com/g/collect?v=2&tid=G-TEST',
+    'https://www.google-analytics.com/collect?v=1',
+    'https://www.google-analytics.com/j/collect?v=1',
+    'https://www.google.com/g/collect?v=2',
+    'https://www.google.com/ccm/collect?v=2',
+  ]) {
+    assert.equal(isExpectedBlockedGoogleTelemetry(endpoint, 'POST'), true, endpoint);
+    const route = fakeRoute(endpoint, 'POST');
+    const violations = [];
+    await forwardStagingReadOnlyRequest(route, cfg, violations, 'oidc-token');
+    assert.deepEqual(route.events.map(e => e.name), ['abort'], endpoint);
+    assert.deepEqual(violations, [], endpoint);
+  }
+});
+
+test('Google lookalike hosts, HTTP and arbitrary write endpoints still fail smoke', async () => {
+  for (const endpoint of [
+    'https://www.google.com/api/update',
+    'https://www.google.com/pagead/anything',
+    'https://www.google-analytics.com/api/delete',
+    'https://www.google.com.evil.example/g/collect',
+    'https://www.google-analytics.com.evil.example/g/collect',
+    'http://www.google-analytics.com/g/collect',
+    'https://www.google-analytics.com:444/g/collect',
+    'https://test@www.google-analytics.com/g/collect',
+    'https://www.google.com/g/collect/extra',
+  ]) {
+    assert.equal(isExpectedBlockedGoogleTelemetry(endpoint, 'POST'), false, endpoint);
+    const route = fakeRoute(endpoint, 'POST');
+    const violations = [];
+    await forwardStagingReadOnlyRequest(route, cfg, violations, 'oidc-token');
+    assert.deepEqual(route.events.map(e => e.name), ['abort'], endpoint);
+    assert.equal(violations.length, 1, endpoint);
+    assert.ok(!violations[0].includes('?'), 'violations do not log query params');
+  }
+});
+
+test('only POST can be classified as expected blocked telemetry', async () => {
+  for (const method of ['PUT', 'PATCH', 'DELETE']) {
+    for (const endpoint of ['https://www.google-analytics.com/g/collect', 'https://www.google.com/ccm/collect']) {
+      assert.equal(isExpectedBlockedGoogleTelemetry(endpoint, method), false);
+      const route = fakeRoute(endpoint, method);
+      const violations = [];
+      await forwardStagingReadOnlyRequest(route, cfg, violations, 'oidc-token');
+      assert.deepEqual(route.events.map(e => e.name), ['abort']);
+      assert.equal(violations.length, 1);
+    }
+  }
+});
+
+test('Supabase writes remain blocked and reported despite analytics exception', async () => {
+  for (const endpoint of [
+    'https://xwbajophstetbnnemsyq.supabase.co/functions/v1/member-login',
+    'https://xwbajophstetbnnemsyq.supabase.co/rest/v1/members',
+    'https://example-preview.vercel.app/api/login',
+  ]) {
+    const route = fakeRoute(endpoint, 'POST');
+    const violations = [];
+    await forwardStagingReadOnlyRequest(route, cfg, violations, 'oidc-token');
+    assert.deepEqual(route.events.map(e => e.name), ['abort']);
+    assert.equal(violations.length, 1);
   }
 });
