@@ -48,7 +48,9 @@
     "test:e2e:stage11a": "playwright test e2e/platform/stage11a",
     "test:p1:stage11b:contract": "node scripts/check-stage11b-security-superadmin.mjs",
     "test:e2e:stage11b": "playwright test e2e/platform/stage11b",
-    "test:p1:stage11c:contract": "node scripts/check-stage11c-media-growth.mjs"
+    "test:p1:stage11c:contract": "node scripts/check-stage11c-media-growth.mjs",
+    "test:e2e:staging:readonly": "playwright test --config playwright.staging-readonly.config.ts",
+    "test:qa:guard": "node --test scripts/qa/staging-readonly-guard.node.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

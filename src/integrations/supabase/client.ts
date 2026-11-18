@@ -2,8 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://crjdsxxkspvdwknrmijs.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyamRzeHhrc3B2ZHdrbnJtaWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDUwOTUsImV4cCI6MjA4NjkyMTA5NX0.V2QDuq--RX9bekwjQV_4aD7MlQ90hKqqf1C-UFqiYCQ";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error("Missing Supabase environment configuration");
+}
+
 
 function currentMemberSessionToken(): string | null {
   try {

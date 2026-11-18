@@ -27,6 +27,19 @@ jobs:
           npm run test:p1:engagement
           npm run test:p1:analytics
           npm run test:p1:analytics:contract
+      - name: Phase 1 read-only browser safety guard (offline)
+        run: node --test scripts/qa/staging-readonly-guard.node.test.mjs
+      - name: Discover real browser smoke tests (not executed in CI)
+        env:
+          PW_STAGING_READONLY: '1'
+          PW_STAGING_BASE_URL: https://vestry-hub-git-recovery-example.vercel.app
+          PW_STAGING_ALLOWED_HOST: vestry-hub-git-recovery-example.vercel.app
+          PW_STAGING_SUPABASE_URL: https://xwbajophstetbnnemsyq.supabase.co
+        run: npx playwright test --config playwright.staging-readonly.config.ts --list
+      - name: Prevent Supabase client hard-coded backend regression
+        run: |
+          node scripts/qa/check-supabase-client-source.mjs
+          node --test scripts/qa/check-supabase-client-source.node.test.mjs
       - name: Production build
         run: npm run build
       - name: TypeScript check

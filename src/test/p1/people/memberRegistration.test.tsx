@@ -21,12 +21,20 @@ describe('P1 member registration and session contract', () => {
     expect(client).toContain('/rest/v1/');
   });
 
-  it('revalidates the member against both the stored tenant and approval state', () => {
+  it('revalidates opaque sessions on the server, not using frontend approval checks', () => {
     const context = source('src/contexts/MemberPortalContext.tsx');
+    const server = source('supabase/functions/member-session-context/index.ts');
 
-    expect(context).toContain('.eq("tenant_id", session.tenantId)');
-    expect(context).toMatch(/membership_status[\s\S]*Pending Approval/);
-    expect(context).toMatch(/status[\s\S]*inactive/);
+    expect(context).toContain('supabase.functions.invoke("member-session-context"');
+    expect(context).toContain('sessionToken: session.sessionToken');
+    expect(context).toContain('member.tenant_id !== session.tenantId');
+    expect(context).toContain('localStorage.removeItem("member_session")');
+    expect(server).toContain('.from("member_sessions")');
+    expect(server).toContain('.eq("session_token", String(sessionToken))');
+    expect(server).toContain('.eq("tenant_id", String(tenantId))');
+    expect(server).toContain('.gt("expires_at", new Date().toISOString())');
+    expect(server).toContain('member.membership_status === "Pending Approval"');
+    expect(server).toContain('member.status?.toLowerCase() === "inactive"');
   });
 
   it('captures member-portal module configuration at canonical login', () => {
