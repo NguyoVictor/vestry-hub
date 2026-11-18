@@ -1,95 +1,66 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { TABLES, COLS } from '@/lib/schema';
+import { isValidInvitedStaffProfile } from "./inviteCallbackGuards";
 
+/** The Edge Function creates the Auth user and the staff profile before the email is sent.
+ * This callback must only verify them; never create or change tenant roles in the browser.
+ */
 export default function InviteCallback() {
   const navigate = useNavigate();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleInvite = async () => {
-      const { data, error } = await supabase.auth.getSession();
+    let cancelled = false;
 
-      if (error || !data.session) {
-        navigate("/auth/signin", { replace: true });
-        return;
-      }
-
-      const userMeta = data.session.user.user_metadata || {};
-      const invitedTenantId = userMeta.tenant_id;
-      const invitedRole = userMeta.role;
-
-      if (invitedTenantId && invitedRole) {
-        // Check metadata first (external invites), fall back to members table (member-based invites)
-        let resolvedFirstName = userMeta.first_name || '';
-        let resolvedLastName = userMeta.last_name || '';
-
-        if (!resolvedFirstName) {
-          const { data: memberData } = await supabase
-            .from(TABLES.MEMBERS)
-            .select(`${COLS.FIRST_NAME}, ${COLS.LAST_NAME}`)
-            .eq('email', data.session.user.email)
-            .eq('tenant_id', invitedTenantId)
-            .maybeSingle();
-          resolvedFirstName = memberData?.first_name || '';
-          resolvedLastName = memberData?.last_name || '';
+    const verifyInvitation = async () => {
+      try {
+        // Supabase's browser client processes Auth tokens from the invite URL.
+        // getUser() revalidates the session with Supabase Auth.
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          throw new Error("This invitation link is invalid or has expired. Ask your administrator for a new invitation.");
         }
 
-        const { error: upsertError } = await supabase
-          .from('users')
-          .upsert({
-            id: data.session.user.id,
-            tenant_id: invitedTenantId,
-            email: data.session.user.email,
-            role: invitedRole,
-            status: 'active',
-            invitation_sent: true,
-            first_name: resolvedFirstName,
-            last_name: resolvedLastName,
-          }, { onConflict: 'id' });
+        // RLS permits the signed-in user to read their own staff profile.
+        // The profile was created by the authenticated, tenant-authorized Edge Function.
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("id, tenant_id, email, role, status, invitation_sent")
+          .eq("id", user.id)
+          .maybeSingle();
 
-        // Auto-create member record for invited admin (unified identity)
-        await supabase
-          .from('members')
-          .upsert({
-            id: data.session.user.id,
-            tenant_id: invitedTenantId,
-            first_name: resolvedFirstName,
-            last_name: resolvedLastName,
-            email: data.session.user.email,
-            status: 'active',
-            registration_source: 'admin_invite',
-          }, { onConflict: 'id' });
-
-        // Auto-create staff directory thread for this user (staff/admin roles only, never plain members)
-        if (invitedRole !== 'member') {
-          const { error: threadError } = await supabase.functions.invoke('create-staff-thread', {
-            body: {
-              userId: data.session.user.id,
-              tenantId: invitedTenantId,
-              firstName: resolvedFirstName,
-              lastName: resolvedLastName,
-            },
-          });
-          if (threadError) {
-            console.error('Failed to create staff directory thread:', threadError);
-          }
+        if (profileError || !isValidInvitedStaffProfile(user, profile)) {
+          throw new Error("Your staff invitation is not ready. Please contact your church administrator.");
         }
 
-        if (upsertError) {
-          console.error('InviteCallback upsert failed:', upsertError);
+        if (!cancelled) navigate("/auth/reset-password", { replace: true });
+      } catch (error) {
+        if (!cancelled) {
+          setErrorMessage(error instanceof Error ? error.message : "Unable to verify this invitation.");
         }
       }
-
-      navigate('/auth/reset-password', { replace: true });
     };
 
-    handleInvite();
+    void verifyInvitation();
+    return () => { cancelled = true; };
   }, [navigate]);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'sans-serif', color: '#71717a' }}>
-      <p>Setting up your account...</p>
-    </div>
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <section className="w-full max-w-md rounded-xl border border-border bg-card p-8 text-center shadow-sm" role="status">
+        <h1 className="text-xl font-semibold text-card-foreground">
+          {errorMessage ? "Unable to accept invitation" : "Verifying your invitation"}
+        </h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          {errorMessage || "Checking your account before password setup..."}
+        </p>
+        {errorMessage && (
+          <Link to="/auth/signin" className="mt-5 inline-block text-sm font-medium text-primary underline">
+            Go to sign in
+          </Link>
+        )}
+      </section>
+    </main>
   );
 }
