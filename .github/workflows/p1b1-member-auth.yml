@@ -1,0 +1,25 @@
+name: P1B1 Member Auth Safety
+
+on:
+  push:
+    branches: [recovery/system-stabilization-2026-11]
+  pull_request:
+    branches: [recovery/system-stabilization-2026-11]
+
+permissions:
+  contents: read
+
+jobs:
+  member-auth-source-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: No insecure member login or raw bearer session regressions
+        run: node scripts/recovery/check-member-auth-contract.mjs
+      - name: Member OTP flow unit tests
+        run: node --experimental-strip-types --test scripts/recovery/member-auth-contract.node.test.mjs

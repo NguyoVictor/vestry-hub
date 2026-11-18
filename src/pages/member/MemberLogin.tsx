@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Church } from "lucide-react";
+import { isValidChurchCode, normalizeMemberEmail, sendExistingMemberOtp, verifyMemberOtpAndLogin } from "@/lib/memberOtpLogin";
 import Threads from "@/components/Threads";
 import logo from "@/assets/logo.png";
 import { currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
@@ -26,79 +27,94 @@ export default function MemberLoginPage() {
   const [loading, setLoading] = useState(false);
   const [church, setChurch] = useState<{ name: string; logo: string | null } | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [otp, setOtp] = useState("");
 
-  // Auto-fill code from URL ?code= param and look up church branding
+  // Prefill the code from the URL, but perform the same debounced lookup
+  // used for manually typed codes (including the existing 8-character codes).
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code) {
-      const upper = code.toUpperCase();
-      setChurchCode(upper);
-      lookupChurch(upper);
-    }
-  }, []);
+    if (code) setChurchCode(code.trim().toUpperCase().slice(0, 32));
+  }, [searchParams]);
 
-  const lookupChurch = async (code: string) => {
-    if (!code || code.length < 4) return;
+  useEffect(() => {
+    let cancelled = false;
+    if (!isValidChurchCode(churchCode)) {
+      setChurch(null);
+      setLookingUp(false);
+      return;
+    }
     setLookingUp(true);
-    const { data } = await supabase
-      .from("tenants")
-      .select("name, logo")
-      .eq("church_code", code.trim().toUpperCase())
-      .single();
-    setLookingUp(false);
-    if (data) setChurch(data);
-    else setChurch(null);
-  };
+    const timer = window.setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from("tenants")
+          .select("name, logo")
+          .eq("church_code", churchCode)
+          .maybeSingle();
+        if (!cancelled) setChurch(data ?? null);
+      } catch {
+        if (!cancelled) setChurch(null);
+      } finally {
+        if (!cancelled) setLookingUp(false);
+      }
+    }, 350);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [churchCode]);
 
   const handleCodeChange = (val: string) => {
-    const upper = val.toUpperCase();
-    setChurchCode(upper);
-    if (upper.length >= 9) lookupChurch(upper);
-    else setChurch(null);
+    setChurchCode(val.trim().toUpperCase());
+    setChurch(null);
+    setVerificationSent(false);
+    setOtp("");
   };
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !churchCode) return;
+    if (loading || !email.trim() || !isValidChurchCode(churchCode)) return;
     setLoading(true);
-
     try {
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("member-login", {
-        body: { email: email.trim().toLowerCase(), churchCode: churchCode.trim().toUpperCase() },
-      });
-
-      if (fnError || fnData?.error) {
-        const err = fnData?.error || "unknown";
-        if (err === "invalid_code") toast.error("Invalid church code. Please check the code with your church admin.");
-        else if (err === "member_not_found") toast.error("No member found with this email for this church. Did you register yet?");
-        else if (err === "pending_approval") toast.error("Your membership is pending approval. Please wait for your church admin to approve your account.", { duration: 6000 });
-        else toast.error("Sign in failed. Please check your details.");
-        setLoading(false);
+      if (!verificationSent) {
+        const sent = await sendExistingMemberOtp(supabase, email);
+        if (!sent) {
+          toast.error("Unable to send a sign-in code. Check your details or contact your church admin.");
+          return;
+        }
+        setVerificationSent(true);
+        toast.success("If your account is eligible, check your email for a six-digit sign-in code.");
         return;
       }
 
-      const tenantSlug = String(fnData.tenant.slug || "").toLowerCase();
+      const result = await verifyMemberOtpAndLogin(supabase, email, churchCode, otp);
+      if (result.kind !== "success") {
+        setOtp("");
+        toast.error(result.kind === "verification_failed"
+          ? "The verification code could not be confirmed. Please try again."
+          : "Sign in could not be completed. Check your church membership or contact your church admin.");
+        return;
+      }
+      const fnData = result.login;
+      const tenantSlug = fnData.tenant.slug.toLowerCase();
       if (!tenantSlug || !tenantSlugMatchesHostname(window.location.hostname, tenantSlug, currentTenantBaseDomain())) {
         toast.error("This church account belongs to a different VestryHub workspace.");
-        setLoading(false);
         return;
       }
-
-      // Store session in localStorage
       const session = {
         memberId: fnData.member.id,
         tenantId: fnData.tenant.id,
         tenantSlug: fnData.tenant.slug,
-        memberName: `${fnData.member.first_name} ${fnData.member.last_name}`,
+        memberName: `${fnData.member.first_name || ""} ${fnData.member.last_name || ""}`.trim(),
         memberType: fnData.member.member_type || "member",
         enabledModules: fnData.tenant.enabled_modules || null,
         sessionToken: fnData.sessionToken,
         expiresAt: fnData.expiresAt,
       };
       localStorage.setItem("member_session", JSON.stringify(session));
+      setOtp("");
       navigate("/member");
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error("Sign in could not be completed. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
@@ -190,8 +206,9 @@ export default function MemberLoginPage() {
                 <Input
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => { setEmail(e.target.value); setVerificationSent(false); setOtp(""); }}
                   placeholder="you@example.com"
+                  disabled={verificationSent}
                   required
                   className="h-12 text-[0.95rem] border-[#e2e2e2] focus-visible:ring-[rgba(61,28,142,0.3)] focus-visible:border-[#3D1C8E]"
                   style={{ borderRadius: 8, padding: "12px 16px" }}
@@ -205,7 +222,8 @@ export default function MemberLoginPage() {
                   onChange={e => handleCodeChange(e.target.value)}
                   placeholder="e.g. HOPE-2847"
                   required
-                  maxLength={9}
+                  disabled={verificationSent}
+                  maxLength={32}
                   className="h-12 uppercase font-mono tracking-widest text-center text-lg border-[#e2e2e2] focus-visible:ring-[rgba(61,28,142,0.3)] focus-visible:border-[#3D1C8E]"
                   style={{ borderRadius: 8, padding: "12px 16px" }}
                 />
@@ -215,13 +233,42 @@ export default function MemberLoginPage() {
                 </p>
               </div>
 
+              {verificationSent && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="member-email-otp" className="text-sm font-medium text-slate-700">
+                    Six-digit email verification code
+                  </Label>
+                  <Input
+                    id="member-email-otp"
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={otp}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    required
+                    className="h-12 text-center tracking-widest text-lg border-[#e2e2e2]"
+                    aria-label="Six-digit email verification code"
+                  />
+                  <button
+                    type="button"
+                    className="text-sm underline text-slate-500"
+                    onClick={() => { setVerificationSent(false); setOtp(""); }}
+                    disabled={loading}
+                  >
+                    Change email or church code
+                  </button>
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full h-12 text-white font-medium transition-all duration-200 border-0 shadow-none"
-                disabled={loading || !email || !churchCode}
+                disabled={loading || !normalizeMemberEmail(email) || !isValidChurchCode(churchCode) || (verificationSent && otp.length !== 6)}
                 style={{
                   borderRadius: 8,
-                  background: loading || !email || !churchCode ? "rgba(61,28,142,0.45)" : PRIMARY,
+                  background: loading || !email || !isValidChurchCode(churchCode) || (verificationSent && otp.length !== 6) ? "rgba(61,28,142,0.45)" : PRIMARY,
                 }}
                 onMouseEnter={e => {
                   if (!loading && email && churchCode)
@@ -232,7 +279,7 @@ export default function MemberLoginPage() {
                     loading || !email || !churchCode ? "rgba(61,28,142,0.45)" : PRIMARY;
                 }}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : verificationSent ? "Verify code & sign in" : "Send verification code"}
               </Button>
             </form>
 
