@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { TENANT_SAFE_COLUMNS } from "@/lib/tenantColumns";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -62,7 +63,7 @@ export const AuthGuard = () => {
 
       const { data: tenant } = await supabase
         .from("tenants")
-        .select("*")
+        .select(TENANT_SAFE_COLUMNS)
         .eq("id", user.tenant_id)
         .maybeSingle();
 

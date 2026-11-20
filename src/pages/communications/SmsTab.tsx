@@ -80,13 +80,13 @@ export function SmsTab() {
   const { data: smsSettings, isLoading: settingsLoading } = useQuery<SmsSettings | null>({
     queryKey: ["sms-settings", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("is_configured, sozuri_api_key, sozuri_project, sender_id").eq("tenant_id", tenantId).maybeSingle();
+      const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("is_configured, sender_id").eq("tenant_id", tenantId).maybeSingle();
       return data as SmsSettings | null;
     },
     staleTime: 300_000,
   });
 
-  const isConfigured = !!(smsSettings?.sozuri_api_key && smsSettings?.sozuri_project && smsSettings?.sender_id);
+  const isConfigured = !!(smsSettings?.is_configured && smsSettings?.sender_id);
 
   // Stats
   const { data: smsStats } = useQuery({

@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { TENANT_SAFE_COLUMNS } from "@/lib/tenantColumns";
 import { Helmet } from "react-helmet-async";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,7 +71,7 @@ const ChurchProfile = () => {
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["tenant", church.tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.TENANTS).select("*").eq("id", church.tenantId).single();
+      const { data } = await supabase.from(TABLES.TENANTS).select(TENANT_SAFE_COLUMNS).eq("id", church.tenantId).single();
       return data as any;
     },
   });

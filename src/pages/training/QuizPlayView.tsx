@@ -292,15 +292,9 @@ export default function QuizPlayView({ mode = 'live' }: QuizPlayViewProps) {
       points_earned: pts,
     } as any);
 
-    // Update participant score
-    if (pts > 0) {
-      await supabase.from(TABLES.QUIZ_PARTICIPANTS).update({
-        score: (participant?.score ?? 0) + pts,
-        coins: (participant?.coins ?? 0) + Math.floor(pts / 100),
-        streak: isCorrect ? (participant?.streak ?? 0) + 1 : 0,
-      } as any).eq("id", participantId!);
-      qc.invalidateQueries({ queryKey: ["play-participant", participantId] });
-    }
+    // Score, coins and streak are applied server-side by the quiz_answers
+    // trigger (Phase 5): players can no longer write their own score.
+    qc.invalidateQueries({ queryKey: ["play-participant", participantId] });
 
     // Broadcast answer submitted
     await supabase.from(TABLES.QUIZ_EVENTS).insert({

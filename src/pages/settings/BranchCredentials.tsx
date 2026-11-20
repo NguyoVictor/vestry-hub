@@ -188,7 +188,7 @@ export default function BranchCredentials() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.BRANCHES)
-        .select("id, name, branch_username, branch_password_hash, last_login_at, is_active")
+        .select("id, name, branch_username, last_login_at, is_active")
         .eq(COLS.TENANT_ID, tenantId)
         .order("name", { ascending: true });
       if (error) throw error;

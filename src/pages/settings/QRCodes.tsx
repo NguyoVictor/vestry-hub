@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { TENANT_SAFE_COLUMNS } from "@/lib/tenantColumns";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -135,7 +136,7 @@ export default function QRCodes() {
   const { data: tenant } = useQuery({
     queryKey: ["tenant-settings", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.TENANTS).select("*").eq(COLS.ID, tenantId).single();
+      const { data } = await supabase.from(TABLES.TENANTS).select(TENANT_SAFE_COLUMNS).eq(COLS.ID, tenantId).single();
       return data;
     },
     enabled: !!tenantId,

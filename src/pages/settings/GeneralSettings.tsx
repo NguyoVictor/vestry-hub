@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { TENANT_SAFE_COLUMNS } from "@/lib/tenantColumns";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,7 +87,7 @@ export default function GeneralSettings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.TENANTS)
-        .select("*")
+        .select(TENANT_SAFE_COLUMNS)
         .eq(COLS.ID, tenantId)
         .single();
       if (error) throw error;

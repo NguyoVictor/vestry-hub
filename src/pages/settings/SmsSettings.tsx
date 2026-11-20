@@ -29,7 +29,7 @@ export function SmsSettings() {
     queryFn: async () => {
       const { data } = await supabase
         .from(TABLES.SMS_SETTINGS)
-        .select("*")
+        .select("id, tenant_id, at_username, sender_id, is_configured")
         .eq("tenant_id", tenantId)
         .maybeSingle();
       return data;
@@ -38,7 +38,7 @@ export function SmsSettings() {
       if (data) {
         setForm({
           at_username: data.at_username || "",
-          at_api_key: data.at_api_key || "",
+          at_api_key: "", // Phase 5 (E5): the saved key is never sent back to the browser
           sender_id: data.sender_id || ""
         });
       }
@@ -49,14 +49,16 @@ export function SmsSettings() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (readOnly) return;
-      const payload = {
+      const keyConfigured = !!form.at_api_key || !!settings?.is_configured;
+      const payload: Record<string, unknown> = {
         tenant_id: tenantId,
         at_username: form.at_username,
-        at_api_key: form.at_api_key,
         sender_id: form.sender_id,
-        is_configured: !!(form.at_username && form.at_api_key),
+        is_configured: !!(form.at_username && keyConfigured),
         updated_at: new Date().toISOString()
       };
+      // Only send the API key when the admin typed a new one (keeps the saved key otherwise).
+      if (form.at_api_key) payload.at_api_key = form.at_api_key;
 
       if (settings?.id) {
         const { error } = await supabase
@@ -194,7 +196,7 @@ export function SmsSettings() {
           <div className="flex gap-3">
             <Button 
               onClick={() => saveMutation.mutate()}
-              disabled={!form.at_username || !form.at_api_key || saveMutation.isPending}
+              disabled={!form.at_username || (!form.at_api_key && !settings?.is_configured) || saveMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white font-jakarta"
             >
               {saveMutation.isPending ? "Saving..." : "Save SMS Settings"}

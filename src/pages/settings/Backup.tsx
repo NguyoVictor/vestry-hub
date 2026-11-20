@@ -163,7 +163,7 @@ const CATEGORIES: Category[] = [
     items: ["Branches", "Hierarchy Levels", "Staff Records", "Staff Positions"],
     tableCount: 4,
     fetcher: async (tid) => {
-      const { data } = await supabase.from(TABLES.BRANCHES).select("*").eq(COLS.TENANT_ID, tid);
+      const { data } = await supabase.from(TABLES.BRANCHES).select("id, tenant_id, name, location, pastor_id, contact_email, contact_phone, is_active, created_at, branch_username, last_login_at") /* Phase 5: never read branch_password_hash */.eq(COLS.TENANT_ID, tid);
       return (data ?? []).map(r => ({
         "Branch Name": r.name, "Location": r.location, "Status": r.status,
         "Pastor": r.pastor_name, "Created At": r.created_at,

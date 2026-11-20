@@ -451,7 +451,7 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
   const { data: existing } = useQuery({
     queryKey: ["sms-settings-form", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("*").eq("tenant_id", tenantId).maybeSingle();
+      const { data } = await supabase.from(TABLES.SMS_SETTINGS).select("id, tenant_id, at_username, sender_id, is_configured").eq("tenant_id", tenantId).maybeSingle();
       return data as any; // Using any to avoid type conflicts during migration
     },
     staleTime: 60_000,
@@ -459,7 +459,7 @@ function SmsSettingsTab({ tenantId }: { tenantId: string }) {
 
   useEffect(() => {
     if (!existing) return;
-    setApiKey(existing.sozuri_api_key ?? existing.at_api_key ?? "");
+    setApiKey(""); // Phase 5 (E5): saved API keys are never sent back to the browser
     setProjectName(existing.sozuri_project ?? "");
     setSenderId(existing.sender_id ?? "");
     setMessageType((existing.message_type as 'transactional' | 'promotional') ?? 'promotional');

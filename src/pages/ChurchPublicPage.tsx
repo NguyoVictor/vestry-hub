@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { TENANT_PUBLIC_COLUMNS } from "@/lib/tenantColumns";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +16,7 @@ const ChurchPublicPage = () => {
     queryKey: ["public-church", slug],
     queryFn: async () => {
       const { data, error } = await supabase.from("tenants")
-        .select("*")
+        .select(TENANT_PUBLIC_COLUMNS)
         .eq("slug", slug)
         .single();
       if (error) throw error;

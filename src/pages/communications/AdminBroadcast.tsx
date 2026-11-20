@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { TENANT_SAFE_COLUMNS } from "@/lib/tenantColumns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -130,7 +131,7 @@ function BroadcastModal({ open, onClose, tenantId, userId, churchName, prefill, 
   const { data: churchData } = useQuery({
     queryKey: ["church-data", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.TENANTS).select("*").eq("id", tenantId).single();
+      const { data } = await supabase.from(TABLES.TENANTS).select(TENANT_SAFE_COLUMNS).eq("id", tenantId).single();
       return data;
     },
     staleTime: 300_000,

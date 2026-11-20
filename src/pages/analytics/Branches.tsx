@@ -53,7 +53,7 @@ export default function Branches() {
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.BRANCHES).select("*").eq(COLS.TENANT_ID, tenantId);
+      const { data } = await supabase.from(TABLES.BRANCHES).select("id, tenant_id, name, location, pastor_id, contact_email, contact_phone, is_active, created_at, branch_username, last_login_at") /* Phase 5: never read branch_password_hash */.eq(COLS.TENANT_ID, tenantId);
       return data || [];
     },
     enabled: !!tenantId,
