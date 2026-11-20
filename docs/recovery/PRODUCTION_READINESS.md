@@ -72,7 +72,8 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | F1 | CI `app-typecheck` green and **blocking** | 🔶 blocking via ratchet (no new errors); baseline errors still to burn down | ≥10 errors (announcements, types drift). `src/integrations/supabase/types.ts` regenerated from staging 20 Nov: 124 → 219 tables. |
 | F7 | **6 tables referenced by code are absent on staging:** `chart_of_accounts` (Finding 22), `fund_transactions`, `invoices`, `journal_entries`, `journal_lines`, `payroll_payments` | ⬜ Phase 9 | Decide per table: create via reviewed migration vs. repoint code to existing tables. Verify Production schema separately. |
 | F2 | Real browser E2E (disposable local Docker QA + preview bypass token) | ⬜ Phase 1 | |
-| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 1/27 | Finding 1 ACCEPTED 20 Nov; Findings 2–4 STAGING_TEST_PASS (awaiting sign-off); 5–6 blocked on module setting. |
+| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 1/27 | Finding 1 ACCEPTED 20 Nov; Findings 2–6 STAGING_TEST_PASS 20 Nov (awaiting sign-off). |
+| F8 | New churches get **no service request types** → requests unusable until admin clicks "Add Default Types" (10 of 12 staging tenants have none) | ⬜ before Gate B | Seed defaults at church creation + reviewed backfill on Production, or inline guidance. |
 | F4 | Untested Finding 1 paths canaried: CSV import, QR self-registration | ⬜ | |
 | F5 | Full staging UAT sign-off | 🔒 user | |
 | F6 | Release tag + exact SHA recorded | ⬜ Gate A | |

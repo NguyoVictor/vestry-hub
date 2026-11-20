@@ -13,7 +13,7 @@
 | 1 | Credible CI | PARTIAL | `tsc --noEmit` in CI uses root tsconfig with `files: []` → checks nothing (see F-CI-1) | — | Point CI at `tsc -p tsconfig.app.json` once clean |
 | 1B.2 | Staff invitation handshake | **STAGING_TEST_PASS** — V2 fix (D-1) deployed 20 Nov; Church A + B canaries and isolation passed | see §1B.2 | pending | Church A then B staff canary (human inbox + admin session) |
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
-| 3 | Findings 2–6 (People/Operations schema drift) | **Findings 2–4 STAGING_TEST_PASS** (browser canary 20 Nov); 5–6 BLOCKED (Operations module disabled for QA churches) | see §3 | `4689c0e` | enable Operations for Church A → canary 5/6; user sign-off |
+| 3 | Findings 2–6 (People/Operations schema drift) | **STAGING_TEST_PASS (2–6)** — browser canary + DB verification 20 Nov | see §3 | `4689c0e`, `1044be2` + canary commit | user ACCEPTED sign-off |
 | 4–10 | Findings 7–27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
@@ -180,10 +180,17 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 | F2 Church A admin adds member to a fellowship → "Member added", listed after reload; then Remove → "Member removed", gone after reload | **PASS** — DB: 0 recent fellowship memberships left (cleanup verified) |
 | Isolation: Church B admin cannot see Church A canary family or visitor | **PASS** |
 | Invariants | tenants 12 (unchanged); canary rows only in Church A |
-| F5 Member Requests / F6 Board Meetings | **BLOCKED** — `/member-requests` and `/board-meetings` redirect to dashboard: `tenants.enabled_modules.admin.operations=false` for both QA churches (setup choice, not a code defect). Needs Operations enabled for Church A (Settings) before the canary. |
+| Setup (user-approved 20 Nov) | Church A admin enabled **Operations** via Settings → Modules ("Module settings saved") and added default request types via Settings → Service Requests → "Add Default Types" (Church A had 0). Church B untouched (Operations off, 0 types). |
+| F5 Church A admin creates request `QA-CANARY-202611200926 Request` → kanban **Start** → reload shows In Progress → **Resolve** → reload shows Resolved; 0 failed Supabase calls, 0 page errors (`e2e/qa/staging-canary-phase3-ops.spec.ts`) | **PASS** — DB: status `completed`, `resolved_by` set to a Church A admin |
+| F6 Church A admin schedules online meeting with link + pre-meeting notes → "Meeting scheduled", visible after reload, 0 failures/errors | **PASS** — DB: `location_type=online`, link, notes, `end_time`, `type=board_meeting`, `status=scheduled`, Church A |
+| Isolation: Church B admin still redirected away from `/member-requests` and `/board-meetings` | **PASS** |
+| Invariants after all canaries | tenants 12; canary rows only in Church A (1 family, 1 visitor, 1 request, 1 meeting) |
 
 - **Observed, queued for Phase 5:** on every admin page load `POST /rest/v1/login_events` → 403 and `PATCH /rest/v1/users` (AuthGuard `last_login_at`) → 403 repeatedly. Silent, no UI effect; RLS denies the writes.
-- Canary records left in place deliberately as evidence (1 family, 1 visitor, tagged `QA-CANARY-`).
+- Canary records left in place deliberately as evidence (1 family, 1 visitor, 1 request, 1 board meeting, tagged `QA-CANARY-`).
+- **Product gap found (queued):** new churches start with **no service request types** (staging: only 2 of 12 tenants have any), so Create Request (admin) and member-portal requests cannot be submitted until an admin finds Settings → Service Requests → "Add Default Types"; the empty dropdown gives no hint. Proposal: seed defaults at church creation + backfill, or show an inline link.
+
+**Phase 3 status: STAGING_TEST_PASS for Findings 2–6. ACCEPTED requires the user's sign-off.**
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
