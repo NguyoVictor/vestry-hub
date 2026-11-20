@@ -13,7 +13,7 @@
 | 1 | Credible CI | PARTIAL | `tsc --noEmit` in CI uses root tsconfig with `files: []` → checks nothing (see F-CI-1) | — | Point CI at `tsc -p tsconfig.app.json` once clean |
 | 1B.2 | Staff invitation handshake | **STAGING_TEST_PASS** — V2 fix (D-1) deployed 20 Nov; Church A + B canaries and isolation passed | see §1B.2 | pending | Church A then B staff canary (human inbox + admin session) |
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
-| 3 | Findings 2–6 (People/Operations schema drift) | **FIXED_LOCALLY + AUTOMATED_TEST_PASS**; migration on staging; browser canary pending | see §3 | pending | Preview canary A/B after push |
+| 3 | Findings 2–6 (People/Operations schema drift) | **Findings 2–4 STAGING_TEST_PASS** (browser canary 20 Nov); 5–6 BLOCKED (Operations module disabled for QA churches) | see §3 | `4689c0e` | enable Operations for Church A → canary 5/6; user sign-off |
 | 4–10 | Findings 7–27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
@@ -170,7 +170,20 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 - **Hard-coded projects (A3/A4):** `MemberWelcome` logo → bundled asset, `CommunicationsSettings` and `test-payhero-stk` derive from env `SUPABASE_URL`; `config.toml` label = staging; new CI guard `scripts/qa/check-no-hardcoded-supabase-projects.mjs`.
 - **CI F-CI-1 / F1:** `app-typecheck` is now **blocking** via per-file ratchet (`scripts/qa/typecheck-ratchet.mjs`, baseline `typecheck-baseline.json` from the full post-regeneration run): existing errors tolerated, any new error fails.
 - **Automated evidence (20 Nov):** P1 Vitest 27 files / 148 tests PASS (incl. new `phase3SchemaContract.test.ts`, which checks every written column against the regenerated types); ratchet unit tests 3/3; hard-coded project guard PASS; client source guard PASS; `git diff --check` warnings are pre-existing CRLF files only (line endings preserved).
-- **Not yet done:** browser canary on the Preview (Church A: create family, add fellowship member, visitor action, member-request status change, board meeting with online link; Church B isolation) — requires push → Preview build. Status will not be ACCEPTED before that.
+- **Pushed:** `4689c0e` (first push by Claude via repo-scoped deploy key; remote SHA verified with `git ls-remote`). CI all green: source-quality, staff-invite-handshake, **app-typecheck (now blocking) success**, offline-safety, secret-scan, member-auth-source-contract; platform-e2e skipped by design. Vercel Preview `https://vestry-3mhnpfr7p-nguyovictors-projects.vercel.app` (deployment `dpl_HNuM1fgDrvzYjp7cxs8kCyUSP5zX`, status for `4689c0e` = success), target preview.
+- **Browser canary (20 Nov, Playwright `playwright.staging-canary.config.ts` + `e2e/qa/staging-canary-phase3.spec.ts`, Vercel bypass token, QA admin logins from git-ignored `.env.e2e.local`):**
+
+| Check | Result |
+|---|---|
+| F3 Church A admin creates family `QA-CANARY-202611200926 Family` + 1 member → "Family created", visible after reload, 0 failed Supabase calls, 0 page errors | **PASS** — DB: 1 family in Church A with 1 `family_members` row |
+| F4 Church A admin adds visitor (sheet that crashed on `readOnly`) → "Visitor added", visible after reload, 0 failures/errors | **PASS** — DB: 1 canary visitor, Church A |
+| F2 Church A admin adds member to a fellowship → "Member added", listed after reload; then Remove → "Member removed", gone after reload | **PASS** — DB: 0 recent fellowship memberships left (cleanup verified) |
+| Isolation: Church B admin cannot see Church A canary family or visitor | **PASS** |
+| Invariants | tenants 12 (unchanged); canary rows only in Church A |
+| F5 Member Requests / F6 Board Meetings | **BLOCKED** — `/member-requests` and `/board-meetings` redirect to dashboard: `tenants.enabled_modules.admin.operations=false` for both QA churches (setup choice, not a code defect). Needs Operations enabled for Church A (Settings) before the canary. |
+
+- **Observed, queued for Phase 5:** on every admin page load `POST /rest/v1/login_events` → 403 and `PATCH /rest/v1/users` (AuthGuard `last_login_at`) → 403 repeatedly. Silent, no UI effect; RLS denies the writes.
+- Canary records left in place deliberately as evidence (1 family, 1 visitor, tagged `QA-CANARY-`).
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
