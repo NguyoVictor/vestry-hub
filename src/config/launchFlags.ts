@@ -9,7 +9,7 @@ const on = (v: string | undefined) => v === "true" || v === "1";
 
 export const LAUNCH_FEATURES = {
   ai: on(env.VITE_FEATURE_AI),                          // Findings 10, 11, 20 (AI tools/insights/course generation)
-  media: on(env.VITE_FEATURE_MEDIA),                    // Findings 12, 13, 15 + Church Studio / Graphics (Canva)
+  media: on(env.VITE_FEATURE_MEDIA),                    // Findings 12, 13, 15 + Graphics (Canva). Church Studio removed (product, Phase 7)
   livestream: on(env.VITE_FEATURE_LIVESTREAM),          // Finding 16
   appEmail: on(env.VITE_FEATURE_APP_EMAIL),             // Resend-backed app emails
   sms: on(env.VITE_FEATURE_SMS),                        // Africa's Talking
@@ -27,7 +27,7 @@ export const FEATURE_LABELS: Record<LaunchFeature, string> = {
 /** Admin + member-portal pages hidden while their area is deferred. */
 export const DEFERRED_PATHS: ReadonlyArray<[string, LaunchFeature]> = [
   ["/ai-tools", "ai"],
-  ["/graphics-studio", "media"], ["/church-studio", "media"], ["/song-library", "media"],
+  ["/graphics-studio", "media"], ["/song-library", "media"],
   ["/church-media", "media"], ["/sermon-preparation", "media"], ["/sermons", "media"],
   ["/livestreaming", "livestream"], ["/settings/livestreaming", "livestream"],
   ["/member/church-media", "media"], ["/member/sermons", "media"], ["/member/livestreaming", "livestream"],

@@ -3,7 +3,7 @@ import {
   ClipboardList, Sparkles, CreditCard, Receipt, Target, Wallet, PieChart,
   Banknote, BookOpen, FileText, BookMarked, ArrowUpRight, Church, CalendarDays,
   HandHeart, MessageSquare, Video, Building2, ShieldCheck, AlertTriangle,
-  Send, Megaphone, MessageCircle, Quote, BarChart2, Palette, Bot, Mic2,
+  Send, Megaphone, MessageCircle, Quote, BarChart2, Palette, Bot,
   BookOpenText, Music, Image as ImageIcon, Package, PenLine, PlayCircle, Radio,
   TrendingUp, GraduationCap, Globe, ShoppingBag, BookCheck, BarChart3,
   GitBranch, Settings, Baby, type LucideIcon,
@@ -61,7 +61,6 @@ export const navigationGroups: NavGroup[] = [
   { label: "Media & Content", items: [
     { title: "Graphics Studio", path: "/graphics-studio", icon: Palette },
     { title: "AI Tools", path: "/ai-tools", icon: Bot },
-    { title: "Church Studio", path: "/church-studio", icon: Mic2 },
     { title: "Bible Explorer", path: "/bible-explorer", icon: BookOpenText },
     { title: "Song Library", path: "/song-library", icon: Music },
     { title: "Church Media", path: "/church-media", icon: ImageIcon },

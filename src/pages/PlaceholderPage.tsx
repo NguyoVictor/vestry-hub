@@ -7,7 +7,6 @@ import { LayoutDashboard } from "lucide-react";
 
 const PLACEHOLDER_ROUTE_MAP: Record<string, string> = {
   '/appointments': 'Appointments',
-  '/church-studio': 'Church Studio',
   '/livestreaming': 'Livestreaming'
 };
 

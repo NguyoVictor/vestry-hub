@@ -42,7 +42,6 @@ const ROUTE_MAP: Record<string, { category: string; page: string; parent?: strin
   '/surveys': { category: 'Engagement', page: 'Surveys' },
   '/graphics-studio': { category: 'Media & Content', page: 'Graphics Studio' },
   '/ai-tools': { category: 'Media & Content', page: 'AI Tools' },
-  '/church-studio': { category: 'Media & Content', page: 'Church Studio' },
   '/bible-explorer': { category: 'Media & Content', page: 'Bible Explorer' },
   '/song-library': { category: 'Media & Content', page: 'Song Library' },
   '/church-media': { category: 'Media & Content', page: 'Church Media' },

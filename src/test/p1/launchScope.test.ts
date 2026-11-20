@@ -48,7 +48,7 @@ describe('launch scope (Phase 6)', () => {
 
   it('deferred pages are hidden for admins and members; launch pages stay', () => {
     const cfg = { ...DEFAULT_MODULE_CONFIG };
-    for (const p of ['/ai-tools', '/graphics-studio', '/church-studio', '/song-library', '/church-media', '/sermons', '/sermon-preparation', '/livestreaming', '/settings/livestreaming']) {
+    for (const p of ['/ai-tools', '/graphics-studio', '/song-library', '/church-media', '/sermons', '/sermon-preparation', '/livestreaming', '/settings/livestreaming']) {
       expect(deferredFeatureForPath(p), p).not.toBeNull();
       expect(isAdminPathEnabled(p, cfg), p).toBe(false);
     }
@@ -56,5 +56,15 @@ describe('launch scope (Phase 6)', () => {
     for (const p of ['/dashboard', '/members', '/families', '/facility-booking', '/incident-management', '/asset-management', '/bible-explorer', '/settings/general', '/giving-records'])
       expect(isAdminPathEnabled(p, cfg), p).toBe(true);
     for (const p of ['/member/profile', '/member/requests', '/member/bible']) expect(isMemberPathEnabled(p, cfg), p).toBe(true);
+  });
+
+  it('Church Studio is removed (product decision, Phase 7) — shared studio_media data is kept', () => {
+    const nav = readFileSync(resolve(root, 'src/config/navigation.ts'), 'utf8');
+    const app = readFileSync(resolve(root, 'src/App.tsx'), 'utf8');
+    expect(nav).not.toMatch(/church-studio|Church Studio/);
+    expect(app).not.toMatch(/ChurchStudio|church-studio/);
+    expect(readdirSync(resolve(root, 'src/pages/media'))).not.toContain('ChurchStudio.tsx');
+    // studio_media stays: member sermons/home still read it.
+    expect(readFileSync(resolve(root, 'src/pages/member/MemberHome.tsx'), 'utf8')).toMatch(/STUDIO_MEDIA/);
   });
 });

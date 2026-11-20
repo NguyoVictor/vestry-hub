@@ -166,7 +166,6 @@ const ADMIN_PATH_MODULE_MAP: ReadonlyArray<[string, AdminModuleKey]> = [
   ["/incident-management", "operations"],
   ["/graphics-studio", "resources_media"],
   ["/ai-tools", "resources_media"],
-  ["/church-studio", "resources_media"],
   ["/bible-explorer", "resources_media"],
   ["/song-library", "resources_media"],
   ["/church-media", "resources_media"],
