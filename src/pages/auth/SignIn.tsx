@@ -22,69 +22,9 @@ const SignIn = () => {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     
-    // Track login event
-    try {
-      await supabase.from('login_events').insert({
-        id: crypto.randomUUID(),
-        user_id: data?.user?.id || null,
-        status: error ? 'failed' : 'success',
-        ip_address: null, // not available client-side
-        user_agent: navigator.userAgent,
-        location: null,
-        created_at: new Date().toISOString()
-      });
-
-      // If login failed, create security alerts
-      if (error) {
-        // For failed logins, we need to find the user by email to get tenant_id
-        const { data: userData } = await supabase
-          .from("users")
-          .select("id, tenant_id")
-          .eq("email", email.toLowerCase())
-          .single();
-
-        if (userData?.tenant_id) {
-          // Create low severity alert for every failed login
-          await supabase.from('security_alerts').insert({
-            id: crypto.randomUUID(),
-            tenant_id: userData.tenant_id,
-            severity: 'low',
-            alert_type: 'failed_login',
-            description: 'Failed login attempt',
-            affected_user_id: userData.id,
-            affected_user_name: email,
-            status: 'open',
-            created_at: new Date().toISOString()
-          });
-
-          // Check for multiple failed logins in last 10 minutes
-          const tenMinutesAgo = new Date(Date.now() - 600000).toISOString();
-          const { data: recentFailures } = await supabase
-            .from('login_events')
-            .select('id')
-            .eq('user_id', userData.id)
-            .eq('status', 'failed')
-            .gte('created_at', tenMinutesAgo);
-
-          // Create high severity alert if 3+ failed attempts in 10 minutes
-          if (recentFailures && recentFailures.length >= 2) { // 2 previous + this one = 3 total
-            await supabase.from('security_alerts').insert({
-              id: crypto.randomUUID(),
-              tenant_id: userData.tenant_id,
-              severity: 'high',
-              alert_type: 'brute_force_attempt',
-              description: 'Multiple failed login attempts detected',
-              affected_user_id: userData.id,
-              affected_user_name: email,
-              status: 'open',
-              created_at: new Date().toISOString()
-            });
-          }
-        }
-      }
-    } catch (trackingError) {
-      console.error('Failed to track login event:', trackingError);
-    }
+    // Phase 5 (E7): sign-in is recorded server-side (record_staff_sign_in) on
+    // success only. Browser-side login_events/security_alerts writes were
+    // spoofable and always denied; failed-login alerting moves server-side (Finding 8).
 
     setLoading(false);
     if (error) {
@@ -93,12 +33,8 @@ const SignIn = () => {
     } else {
       toast.success("Signed in successfully!");
 
-      // Update last_login_at — fire and forget
-      supabase
-        .from('users')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', data.session.user.id)
-        .then();
+      // Stamp last_login_at + login event server-side (fire and forget)
+      supabase.rpc('record_staff_sign_in' as never, { p_user_agent: navigator.userAgent } as never).then();
 
       captureEvent("login_success");
       identifyUser(data.session.user.id, { email: data.session.user.email });
@@ -127,21 +63,7 @@ const SignIn = () => {
       options: { redirectTo: window.location.origin + "/auth/callback" },
     });
     
-    // Track failed OAuth attempt (success will be tracked in AuthCallback)
     if (error) {
-      try {
-        await supabase.from('login_events').insert({
-          id: crypto.randomUUID(),
-          user_id: null,
-          status: 'failed',
-          ip_address: null,
-          user_agent: navigator.userAgent,
-          location: null,
-          created_at: new Date().toISOString()
-        });
-      } catch (trackingError) {
-        console.error('Failed to track OAuth login event:', trackingError);
-      }
       toast.error(toUserFacingError(error));
     }
   };

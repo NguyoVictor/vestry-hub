@@ -119,7 +119,7 @@ export default function PublicBookingPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITIES as any)
-        .select("*, facility_images!facility_images_facility_id_fkey(id, image_path, sort_order)")
+        .select("id, tenant_id, name, type, capacity, description, amenities, photo_url, is_active, quotation, video_path, thumbnail_path, facility_images!facility_images_facility_id_fkey(id, image_path, sort_order)")
         .eq(COLS.TENANT_ID, tenantId!)
         .eq("is_active", true);
       if (error) throw error;

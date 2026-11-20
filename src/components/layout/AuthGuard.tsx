@@ -57,12 +57,8 @@ export const AuthGuard = () => {
         return;
       }
 
-      // Update last_login_at for this admin — fire and forget
-      supabase
-        .from('users')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', session.user.id)
-        .then();
+      // last_login_at is stamped server-side at sign-in (record_staff_sign_in);
+      // the old per-page-load browser PATCH was always denied (Phase 5, E7).
 
       const { data: tenant } = await supabase
         .from("tenants")

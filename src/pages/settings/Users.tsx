@@ -286,30 +286,13 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
           .limit(1);
 
         if (anyActiveRecords && anyActiveRecords.length > 0) {
-          const newUserId = crypto.randomUUID();
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              id: newUserId,
-              tenant_id: tenantId,
-              email: selectedMember.email,
-              first_name: selectedMember.first_name,
-              last_name: selectedMember.last_name,
-              role,
-              status: 'active',
-              invitation_sent: true,
-            });
-          if (insertError) throw insertError;
-          await supabase.functions.invoke('create-staff-thread', {
-            body: {
-              userId: newUserId,
-              tenantId,
-              firstName: selectedMember.first_name,
-              lastName: selectedMember.last_name,
-            },
-          });
-          toast.success(`${selectedMember.first_name} has been added as ${formatRole(role)}.`);
-          onSuccess();
+          // Phase 5 (E3): one login = one users row (id = Auth id). The old
+          // browser insert of a second row with a random id could never sign
+          // in and is denied by RLS. Role changes go through Edit (server-side).
+          toast.error(`${selectedMember.first_name} already has a staff account in this church. Use Edit on their row to change their role.`);
+          setSubmitting(false);
+          return;
+
           handleClose();
           return;
         }
@@ -385,58 +368,17 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
             setSubmitting(false);
             return;
           }
-          // Active + different role → insert with new UUID
-          const newUserId = crypto.randomUUID();
-          const { error } = await supabase
-            .from('users')
-            .insert({
-              id: newUserId,
-              tenant_id: tenantId,
-              email: selectedMember.email,
-              first_name: selectedMember.first_name,
-              last_name: selectedMember.last_name,
-              role,
-              status: 'active',
-              invitation_sent: true,
-            });
-          if (!error) {
-            await supabase.functions.invoke('create-staff-thread', {
-              body: {
-                userId: newUserId,
-                tenantId,
-                firstName: selectedMember.first_name,
-                lastName: selectedMember.last_name,
-              },
-            });
-          }
-          if (error) throw error;
-          toast.success("User added. Send them an invitation when ready.");
+          // Phase 5 (E3): see above — no second users row from the browser.
+          toast.error(`${selectedMember.first_name} already has a staff account in this church. Use Edit on their row to change their role.`);
+          setSubmitting(false);
+          return;
         } else {
-          // No existing record → insert normally
-          const { error } = await supabase
-            .from('users')
-            .insert({
-              id: selectedMember.id,
-              tenant_id: tenantId,
-              email: selectedMember.email,
-              first_name: selectedMember.first_name,
-              last_name: selectedMember.last_name,
-              role,
-              status: 'active',
-              invitation_sent: false,
-            });
-          if (!error) {
-            await supabase.functions.invoke('create-staff-thread', {
-              body: {
-                userId: selectedMember.id,
-                tenantId,
-                firstName: selectedMember.first_name,
-                lastName: selectedMember.last_name,
-              },
-            });
-          }
-          if (error) throw error;
-          toast.success("User added. Send them an invitation when ready.");
+          // Phase 5 (E3): staff accounts are created only by invitation
+          // (send-invitation binds the login to this church server-side). A
+          // browser-inserted row without a login is denied by RLS.
+          toast.error("Staff accounts are created by invitation. Turn on 'Send invitation' to add this person.");
+          setSubmitting(false);
+          return;
         }
       }
 

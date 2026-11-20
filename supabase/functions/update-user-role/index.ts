@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { BUILTIN_ROLES, decide } from "./policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,8 +13,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const bearer = /^Bearer\s+([^\s]+)$/i.exec(req.headers.get("Authorization")?.trim() ?? "");
+    if (!bearer) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -22,13 +23,11 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
-    // User client to get caller identity
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    // Same caller verification as send-invitation (no anon-key dependency).
+    const { data: authData, error: authError } = await adminClient.auth.getUser(bearer[1]);
+    const user = authData?.user;
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -36,93 +35,49 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Admin client for privileged operations
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-    // Get caller's profile
-    const { data: caller } = await adminClient
-      .from("users")
-      .select("tenant_id, role")
-      .eq("id", user.id)
-      .single();
-
-    if (!caller || !["super_admin", "church_admin", "staff_leader"].includes(caller.role)) {
-      return new Response(JSON.stringify({ error: "Forbidden: admin role required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const body = await req.json();
-    const { action, targetUserId, role, status } = body;
-
-    if (!targetUserId) {
+    const body = await req.json().catch(() => ({}));
+    const { action, targetUserId, role: requestedRole, status: requestedStatus } = body ?? {};
+    if (!targetUserId || typeof targetUserId !== "string") {
       return new Response(JSON.stringify({ error: "targetUserId required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Verify target user is in the same tenant
+    const { data: caller } = await adminClient
+      .from("users").select("id, tenant_id, role, status").eq("id", user.id).maybeSingle();
     const { data: targetUser } = await adminClient
-      .from("users")
-      .select("tenant_id, role")
-      .eq("id", targetUserId)
-      .single();
+      .from("users").select("id, tenant_id, role, status").eq("id", targetUserId).maybeSingle();
 
-    if (!targetUser || targetUser.tenant_id !== caller.tenant_id) {
-      return new Response(JSON.stringify({ error: "Target user not found in your church" }), {
-        status: 404,
+    let customRoleOk = false;
+    if (typeof requestedRole === "string" && requestedRole && caller?.tenant_id
+        && !(BUILTIN_ROLES as readonly string[]).includes(requestedRole)) {
+      const { data: customRole } = await adminClient
+        .from("custom_roles").select("id")
+        .eq("tenant_id", caller!.tenant_id).eq("name", requestedRole).eq("is_active", true)
+        .maybeSingle();
+      customRoleOk = !!customRole;
+    }
+
+    // Phase 5: all authorization decisions live in policy.ts (unit-tested).
+    const decision = decide(caller, targetUser, { action, role: requestedRole, status: requestedStatus },
+      () => customRoleOk);
+    if (!decision.ok) {
+      return new Response(JSON.stringify({ error: decision.error }), {
+        status: decision.code,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Prevent self-modification
-    if (targetUserId === user.id) {
-      return new Response(JSON.stringify({ error: "Cannot modify your own role/status" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const role = decision.role;
+    const status = decision.status;
 
     if (action === "update_role") {
-      const validRoles = [
-        "super_admin", "church_admin", "general_overseer", "senior_pastor",
-        "pastor", "assistant_pastor", "accountant", "leader", "studio_operator",
-        "staff_leader", "member", "staff", "volunteer", "guest"
-      ];
-
-      if (!role) {
-        return new Response(JSON.stringify({ error: "Role is required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (!validRoles.includes(role)) {
-        // Check if it's a valid custom role for this tenant
-        const { data: customRole } = await adminClient
-          .from("custom_roles")
-          .select("id")
-          .eq("tenant_id", caller.tenant_id)
-          .eq("name", role)
-          .eq("is_active", true)
-          .maybeSingle();
-
-        if (!customRole) {
-          return new Response(JSON.stringify({ error: "Invalid role" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
-
       // Protect last super_admin
-      if (targetUser.role === "super_admin") {
+      if (targetUser!.role === "super_admin") {
         const { count } = await adminClient
           .from("users")
           .select("id", { count: "exact", head: true })
-          .eq("tenant_id", caller.tenant_id)
+          .eq("tenant_id", caller!.tenant_id)
           .eq("role", "super_admin");
         if ((count ?? 0) <= 1) {
           return new Response(JSON.stringify({ error: "Cannot change role of the last super admin" }), {
@@ -134,7 +89,7 @@ Deno.serve(async (req) => {
 
       const { error: updateError } = await adminClient
         .from("users")
-        .update({ role: role, status: status ?? "active" })
+        .update({ role, status: status ?? "active" })
         .eq("id", targetUserId);
 
       if (updateError) throw updateError;
@@ -146,11 +101,11 @@ Deno.serve(async (req) => {
 
     if (action === "deactivate") {
       // Protect last super_admin from deactivation
-      if (targetUser.role === "super_admin") {
+      if (targetUser!.role === "super_admin") {
         const { count } = await adminClient
           .from("users")
           .select("id", { count: "exact", head: true })
-          .eq("tenant_id", caller.tenant_id)
+          .eq("tenant_id", caller!.tenant_id)
           .eq("role", "super_admin")
           .neq("status", "inactive");
         if ((count ?? 0) <= 1) {
@@ -176,7 +131,7 @@ Deno.serve(async (req) => {
     if (action === "reactivate") {
       const { error: updateError } = await adminClient
         .from("users")
-        .update({ status: "active", role, invitation_sent: true })
+        .update(role ? { status: "active", role, invitation_sent: true } : { status: "active", invitation_sent: true })
         .eq("id", targetUserId);
 
       if (updateError) throw updateError;

@@ -26,23 +26,8 @@ const AuthCallback = () => {
         if (data.session) {
           // Track OAuth login event
           try {
-            await supabase.from('login_events').insert({
-              id: crypto.randomUUID(),
-              user_id: data.session.user.id,
-              status: 'success',
-              ip_address: null, // not available client-side
-              user_agent: navigator.userAgent,
-              location: null,
-              created_at: new Date().toISOString()
-            });
-
-            // Update last_login_at
-            supabase
-              .from('users')
-              .update({ last_login_at: new Date().toISOString() })
-              .eq('id', data.session.user.id)
-              .then();
-
+            // Phase 5 (E7): recorded server-side for the caller only.
+            await supabase.rpc('record_staff_sign_in' as never, { p_user_agent: navigator.userAgent } as never);
           } catch (trackingError) {
             console.error('Failed to track OAuth login event:', trackingError);
           }

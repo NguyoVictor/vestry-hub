@@ -265,7 +265,6 @@ function EmailCategoriesTab({ tenantId }: { tenantId: string }) {
 function AutomationManagementTab({ tenantId }: { tenantId: string }) {
   const qc = useQueryClient();
   const [testing, setTesting] = useState(false);
-  const [configuringKey, setConfiguringKey] = useState(false);
 
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ["automation-status", tenantId],
@@ -300,27 +299,8 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
     }
   };
 
-  const handleConfigureServiceKey = async () => {
-    setConfiguringKey(true);
-    try {
-      // Configure the service key for database triggers
-      // This sets a placeholder that will be updated by the system
-      const { error } = await supabase
-        .from('automation_settings')
-        .upsert({ 
-          key: 'service_role_key', 
-          value: 'system_configured',
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'key' });
-      
-      if (error) throw error;
-      toast.success('✅ Triggers configured - immediate automations are now active');
-    } catch (err: unknown) {
-      toast.error((err as Error)?.message ?? "Failed to configure triggers");
-    } finally {
-      setConfiguringKey(false);
-    }
-  };
+  // Phase 5 (E12): removed a browser upsert of 'service_role_key' into the
+  // platform-wide automation_settings table (now locked by RLS).
 
   const activeCount = automations.filter(a => a.is_active).length;
   const systemCount = automations.filter(a => a.is_system).length;
@@ -378,15 +358,6 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              size="sm" 
-              onClick={handleConfigureServiceKey}
-              disabled={configuringKey}
-            >
-              <Settings className="h-4 w-4 mr-1.5" /> 
-              {configuringKey ? "Enabling..." : "Enable Triggers"}
-            </Button>
             <Button 
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2" 
               size="sm" 
