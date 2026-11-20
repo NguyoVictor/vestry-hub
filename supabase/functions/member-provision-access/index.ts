@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { mayProvision } from "./policy.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { provisionMemberPortalAccess } from "../_shared/member-portal-provisioning.ts";
 
@@ -15,7 +16,6 @@ const reply = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers });
 
 const UUID_RE = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
-const PROVISIONING_ADMIN_ROLES = new Set(["super_admin", "church_admin", "admin"]);
 
 const ERROR_STATUS: Record<string, number> = {
   member_not_found: 404,
@@ -55,7 +55,12 @@ Deno.serve(async (req) => {
     const { data: operator } = await db.from("users")
       .select("id, tenant_id, role, status")
       .eq("id", identity.user.id).eq("tenant_id", tenantId).maybeSingle();
-    if (!operator || operator.status !== "active" || !PROVISIONING_ADMIN_ROLES.has(String(operator.role))) {
+    const { data: finePerm } = operator
+      ? await db.from("user_fine_permissions").select("level")
+          .eq("user_id", identity.user.id).eq("tenant_id", tenantId).eq("permission_key", "member_management")
+          .maybeSingle()
+      : { data: null };
+    if (!mayProvision(operator, tenantId, finePerm?.level ?? null)) {
       return reply({ error: "forbidden" }, 403);
     }
 

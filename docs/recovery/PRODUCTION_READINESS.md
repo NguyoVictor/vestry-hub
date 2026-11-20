@@ -23,7 +23,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | # | Item | Status | Notes |
 |---|---|---|---|
 | B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
-| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
+| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
 | B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
 | B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
 | B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
@@ -60,20 +60,22 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 ## E. Permissions & security
 | # | Item | Status | Notes |
 |---|---|---|---|
-| E1 | Member-data RLS matrix (member A cannot read church B data via portal APIs) | ⬜ Phase 5 | Link/session isolation already proven. |
+| E1 | Member-data RLS matrix (member A cannot read church B data via portal APIs) | ✅ staging (§5 remaining items) | Link/session isolation already proven. |
 | E2 | Staff can open Settings → Users and Add (UI); server denies | ✅ server-side denial + UI guidance (`a72d505`) | |
 | E3 | `Users.tsx` browser insert into `public.users` path | ✅ browser inserts removed (`a72d505`) | |
-| E4 | Provisioning authorisation aligned with `can_write_permission('member_management')` | ⬜ Phase 5 | |
+| E4 | Provisioning authorisation aligned with `can_write_permission('member_management')` | ✅ staging (§5 remaining items) | |
 | E5 | Provider credentials stored in plain `public.tenants` columns | ⬜ Phase 5 | |
 | E6 | Supabase security advisor findings triaged | ⬜ Phase 5 | |
 | E7 | Admin page load: `login_events` insert and `users.last_login_at` update denied (403) by RLS on every load | ✅ staging (`a72d505`, migration 20261120150000) | Silent; decide server-side recording (e.g. auth hook) vs. RLS grant. |
 | E8 | Browser PATCHes `tenant_subscriptions.storage_used_gb` after uploads → 403 (RLS correctly denies); usage never recorded | ⬜ billing phase | Move storage accounting server-side (trigger on storage.objects or Edge Function). |
 | E9 | `facilities_public_read_safe`: anyone can read all churches' active facilities | ✅ staging | Confirm intended for public booking page; scope by tenant slug if not. |
 | E10 | `asset-images` / `facility-images` storage policies: any authenticated user may upload/delete any path | ✅ staging | Tenant-folder scoping like Phase 4 buckets. |
-| E11 | Incident Management read-only gate uses `reports_analytics` permission | ⬜ Phase 5 | |
+| E11 | Incident Management read-only gate uses `reports_analytics` permission | ✅ staging (§5 remaining items) | |
 | E12 | `CommunicationsSettings.tsx` upserts `service_role_key` into platform-wide `automation_settings` from the browser (denied by RLS) | ✅ staging | Remove the call. |
 | E13 | **Analytics RPCs were executable by anon with no caller check** (latent cross-church leak) | ✅ staging (20261120160000) | Production: verify the same functions/grants before Gate B; their bodies are broken (42883) → reporting phase. |
 | C7 | `update-user-role` must be deployed to Production with the Phase 5 policy (was missing on staging) | ⬜ Gate B | |
+| C8 | `member-provision-access` v5 (Phase 5 policy) to Production | ⬜ Gate B | |
+| B9 | Run the E1 isolation matrix (RECOVERY_STATUS §5) and permissive-policy audit on Production before/after Gate B migrations | ⬜ Gate B | Script pattern: rolled-back txn, impersonate member/staff/admin of two churches. |
 
 ## F. Quality gates (blocks Gate A)
 | # | Item | Status | Notes |

@@ -15,7 +15,7 @@
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
 | 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
 | 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
-| 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **F14, F19, F26 ACCEPTED 20 Nov**; hardening E3/E7/E9/E10/E12 + update-user-role + analytics RPC guard STAGING_TEST_PASS | see §5 | `0ad0b1b`, `89407a8`, `a72d505` + RPC guard commit | Phase 5 hardening sign-off; E1/E4/E11 + leaked-password toggle |
+| 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **F14, F19, F26 + hardening (E3/E7/E9/E10/E12, update-user-role, RPC guard) ACCEPTED 20 Nov**; E1/E4/E11 STAGING_TEST_PASS | see §5 | `0ad0b1b` … `114f769` + E1/E4/E11 commit | E1/E4/E11 sign-off; user: Auth leaked-password toggle |
 | 6–10 | Findings 8, 10–13, 15–18, 20–24, 27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
@@ -280,6 +280,18 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 | E12 | browser wrote `service_role_key` into platform-wide `automation_settings` | call + "Enable Triggers" button removed | — |
 
 Queued: the five analytics RPC bodies are broken (42883) → dashboard/reporting phase; E1 member-data RLS matrix; E4 provisioning permission alignment; E11 incident gate key; E5 tenant credential columns readable by all tenant staff → solved by IntaSend server-side secrets (G1–G5); Auth "leaked password protection" toggle (user, dashboard); remaining 25 search_path warnings (Phase 6 inventory).
+
+
+### §5 remaining items — E1, E4, E11 (20 Nov 2026)
+
+| Item | Root cause | Fix | Evidence |
+|---|---|---|---|
+| **E1 cross-church isolation matrix** | Impersonation matrix (rolled-back txn, `SET LOCAL ROLE authenticated` + JWT sub) over **all 177 public tables with tenant_id**, counting rows of OTHER churches, for member A, staff A, admin A, member B → `church_media_items` leaked 2 foreign rows to all four. Policy audit: `church_media_items` / `sermon_archives` **ALL USING (true)** for authenticated; `media_albums`, `media_categories`, `church_storage` (+ `church_media_items.tenant_isolation`) **tautological** `tenant_id = (select tenants.id … where tenants.id = X.tenant_id)`; `church_storage` INSERT check (true); `quiz_answers/events/participants` **ALL USING (true) for PUBLIC** (anyone could modify/delete); `sermon_reactions` DELETE USING (true) for PUBLIC | `20261120170000_p5_close_permissive_policies.sql`: church-scoped policies (media/sermon writes on `communication_tools` key; storage staff-only); quizzes keep public SELECT/INSERT (anonymous players) with session check, no public DELETE, participant UPDATE kept (documented low-stakes gap); reactions delete-own only | after: **0 leaking tables of 177** for all four actors, with positive controls (own rows visible) |
+| E1 follow-on: **portal members saw empty catalogues** | portal members are linked via `member_auth_memberships`, not `members.user_id` (0/3 match) → `actor_has_tenant` never admits them; 13 member-facing tables had staff-only reads | `20261120180000_p5_member_portal_reads.sql`: extra SELECT policy `private.member_has_tenant()` on giving/store/discipleship/WhatsApp/media/facility catalogues (not internal request notes) | member A store categories visible **0 → 2**; still 0 leaks |
+| **E4 provisioning authorization** | `member-provision-access` allowed only admin roles while member creation allows `member_management` staff → "member saved, portal access forbidden" | `policy.ts` mirrors `can_write_permission(…,'member_management')` (unit 1/1); deployed **v5** (verify_jwt on) | A staff → **200 already_provisioned** (no new identity; links 3); B staff → **403** |
+| **E11 incident/asset gate** | pages gate on `reports_analytics`; DB allowed any staff to write incidents/assets/maintenance | `20261120190000`: reads tenant staff, writes `can_write_permission(…,'reports_analytics')`; status-log inserts follow | admin sets A-STAFF read_only → incident write **403**, read **OK**; restriction removed → write **201**; cleanup verified (0 rows left) |
+
+Queued: `volunteer_hours` member own-rows read; quiz participant UPDATE cannot be bound to anonymous players (accepted gap); media/sermon pages have no frontend isReadOnly gate yet (media deferred).
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
