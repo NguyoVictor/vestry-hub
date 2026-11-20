@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TaxRatesTab } from "@/components/settings/TaxRatesTab";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -970,6 +971,8 @@ function StatementsTab({ tenantId, isConfigured, taxSettings, currency }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function TaxSettingsPage() {
   const { tenantId, currency } = useChurch();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('church_settings');
   const [isConfigured, setIsConfigured] = useState(false);
 
   const { data: taxSettings } = useQuery<TaxSettingsRow | null>({
@@ -994,6 +997,7 @@ export default function TaxSettingsPage() {
             <TabsTrigger value="settings" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">Tax Settings</TabsTrigger>
             <TabsTrigger value="deductibility" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">Deductibility</TabsTrigger>
             <TabsTrigger value="statements" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">Statements</TabsTrigger>
+            <TabsTrigger value="rates" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">Tax Rates</TabsTrigger>
           </TabsList>
           <TabsContent value="settings">
             <TaxSettingsTab tenantId={tenantId} onSaved={() => setIsConfigured(true)} />
@@ -1003,6 +1007,9 @@ export default function TaxSettingsPage() {
           </TabsContent>
           <TabsContent value="statements">
             <StatementsTab tenantId={tenantId} isConfigured={isConfigured} taxSettings={taxSettings ?? null} currency={currency} />
+          </TabsContent>
+          <TabsContent value="rates">
+            <TaxRatesTab tenantId={tenantId!} readOnly={readOnly} />
           </TabsContent>
         </Tabs>
       </div>

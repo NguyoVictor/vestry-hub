@@ -22,8 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "react-hot-toast";
+import { toUserFacingError } from "@/lib/userFacingError";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { logActivity } from "@/lib/activityLogger";
-import { Banknote, Plus, Users, Calendar, TrendingUp, Sparkles, DollarSign, Clock, Building } from "lucide-react";
+import { Banknote, Plus, Users, Calendar, TrendingUp, Sparkles, DollarSign, Clock, Building, MoreHorizontal, Pencil, UserX, UserCheck, Trash2 } from "lucide-react";
 import { formatCurrencyFull } from "@/lib/format";
 
 // Premium page animations
@@ -99,9 +102,54 @@ const Payroll = () => {
   const employmentTypes = new Set(staff.map((s: any) => s.employment_type)).size;
   const averageSalary = activeStaffCount > 0 ? totalPayroll / activeStaffCount : 0;
 
+  // ─── Product item (Phase 10): edit / deactivate / delete payroll staff ─────
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  type PayrollStaffRow = { id: string; member_id: string | null; job_title: string | null; employment_type: string | null; gross_salary: number | null; net_salary: number | null; payment_method: string | null; bank_name: string | null; account_number: string | null; mpesa_number: string | null; start_date: string | null; notes: string | null; status: string | null };
+  const openEdit = (r: PayrollStaffRow) => {
+    setEditingId(r.id);
+    setForm({
+      member_id: r.member_id || "", job_title: r.job_title || "", employment_type: r.employment_type || "full_time",
+      gross_salary: r.gross_salary != null ? String(r.gross_salary) : "", net_salary: r.net_salary != null ? String(r.net_salary) : "",
+      payment_method: r.payment_method || "bank_transfer", bank_name: r.bank_name || "", account_number: r.account_number || "",
+      mpesa_number: r.mpesa_number || "", start_date: r.start_date || new Date().toISOString().split("T")[0], notes: r.notes || "",
+    });
+    setSheetOpen(true);
+  };
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "active" | "inactive" }) => {
+      if (readOnly) throw new Error("You have read-only access to finance records.");
+      const { data, error } = await supabase.from("payroll_staff")
+        .update({ status, end_date: status === "inactive" ? new Date().toISOString().split("T")[0] : null, updated_at: new Date().toISOString() } as never)
+        .eq("id", id).eq("tenant_id", tenantId!).select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("The staff record was not changed. You may not have permission.");
+      return status;
+    },
+    onSuccess: (status) => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-staff"] });
+      toast.success(status === "inactive" ? "Staff deactivated — excluded from future payroll; history kept." : "Staff reactivated.");
+    },
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Could not update the staff record")),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (readOnly) throw new Error("You have read-only access to finance records.");
+      // Preserve payroll history: never delete staff who have payroll records.
+      const { count, error: histErr } = await supabase.from("staff_payroll" as never)
+        .select("id", { count: "exact", head: true }).eq("staff_id", id).eq("tenant_id", tenantId!);
+      if (histErr) throw histErr;
+      if ((count ?? 0) > 0) throw new Error("This staff member has payroll history. Deactivate them instead so their records are kept.");
+      const { data, error } = await supabase.from("payroll_staff").delete().eq("id", id).eq("tenant_id", tenantId!).select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("The staff record was not deleted. You may not have permission.");
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["payroll-staff"] }); setDeleteTarget(null); toast.success("Staff record removed."); },
+    onError: (e: Error) => { setDeleteTarget(null); toast.error(toUserFacingError(e, "Could not remove the staff record")); },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to finance records.");
       const gross = parseFloat(form.gross_salary) || 0;
       const net = parseFloat(form.net_salary) || gross;
       const payload: any = { tenant_id: tenantId, member_id: form.member_id || null, job_title: form.job_title, employment_type: form.employment_type, gross_salary: gross, net_salary: net, payment_method: form.payment_method, bank_name: form.bank_name, account_number: form.account_number, mpesa_number: form.mpesa_number, start_date: form.start_date, notes: form.notes, deductions: [] };
@@ -130,7 +178,7 @@ const Payroll = () => {
       }
       closeSheet();
     },
-    onError: () => toast.error("Failed to save staff record", {
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save staff record"), {
       duration: 4000,
       style: {
         background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -215,6 +263,28 @@ const Payroll = () => {
       header: "Status", 
       sortable: true, 
       render: r => <StatusBadge status={r.status || "active"} /> 
+    },
+    {
+      key: "id",
+      header: "",
+      render: (r: PayrollStaffRow) => {
+        const name = (() => { const m = (members as Array<{ id: string; first_name: string; last_name: string }>).find((x) => x.id === r.member_id); return m ? `${m.first_name} ${m.last_name}` : (r.job_title || "this staff member"); })();
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Staff actions"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem disabled={readOnly} onClick={() => openEdit(r)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+              {(r.status || "active") === "active"
+                ? <DropdownMenuItem disabled={readOnly} onClick={() => statusMutation.mutate({ id: r.id, status: "inactive" })}><UserX className="h-4 w-4 mr-2" />Deactivate</DropdownMenuItem>
+                : <DropdownMenuItem disabled={readOnly} onClick={() => statusMutation.mutate({ id: r.id, status: "active" })}><UserCheck className="h-4 w-4 mr-2" />Reactivate</DropdownMenuItem>}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={readOnly} className="text-destructive" onClick={() => setDeleteTarget({ id: r.id, name })}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -595,6 +665,21 @@ const Payroll = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => { if (!v) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {deleteTarget?.name} from payroll?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the staff record. Staff with payroll history cannot be deleted — deactivate them instead to keep their records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

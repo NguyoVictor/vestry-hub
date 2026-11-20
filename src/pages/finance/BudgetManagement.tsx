@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { BudgetLineActions } from "@/components/finance/BudgetLineActions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "react-hot-toast";
@@ -101,26 +102,18 @@ const BudgetManagement = () => {
     enabled: !!tenantId,
   });
 
-  const { data: expenses = [] } = useQuery({
-    queryKey: ["expenses-for-budget", tenantId],
-    queryFn: async () => {
-      const { data } = await (supabase.from("expenses").select("category, amount") as any).eq("tenant_id", tenantId!).eq("approval_status", "approved");
-      return data || [];
-    },
-    enabled: !!tenantId,
-  });
-
   const totalBudget = categories.reduce((s: number, c: any) => s + Number(c.allocated_amount || 0), 0);
-  const totalSpent = expenses.reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
+  // Phase 10: spend comes from budget_expenditures (server-maintained per line),
+  // not from matching every approved expense by category name (double counting).
+  const totalSpent = categories.reduce((s: number, c: any) => s + Number(c.spent_amount || 0), 0);
   const utilization = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
 
-  const spentByCategory: Record<string, number> = {};
-  expenses.forEach((e: any) => { spentByCategory[e.category || "other"] = (spentByCategory[e.category || "other"] || 0) + Number(e.amount); });
+  const lineSpent = (c: { spent_amount?: number | string | null }) => Number(c.spent_amount || 0);
 
   const chartData = categories.map((c: any) => ({
     name: c.category?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Other",
     Budgeted: Number(c.allocated_amount),
-    Spent: spentByCategory[c.category] || 0,
+    Spent: lineSpent(c),
   }));
 
   const createMutation = useMutation({
@@ -166,9 +159,9 @@ const BudgetManagement = () => {
   const catColumns: Column<any>[] = [
     { key: "category", header: "Category", sortable: true, render: r => <span className="font-medium">{r.category?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())}</span> },
     { key: "allocated_amount", header: "Budget", sortable: true, render: r => formatCurrencyFull(Number(r.allocated_amount), currency) },
-    { key: "spent", header: "Spent", render: r => formatCurrencyFull(spentByCategory[r.category] || 0, currency) },
-    { key: "remaining", header: "Remaining", render: r => { const rem = Number(r.allocated_amount) - (spentByCategory[r.category] || 0); return <span className={rem < 0 ? "text-destructive font-semibold" : ""}>{formatCurrencyFull(rem, currency)}</span>; } },
-    { key: "utilization", header: "Utilization", render: r => { const pct = Number(r.allocated_amount) > 0 ? Math.round(((spentByCategory[r.category] || 0) / Number(r.allocated_amount)) * 100) : 0; return <div className="flex items-center gap-2 w-32"><Progress value={Math.min(pct, 100)} className="h-2" /><span className="text-xs text-muted-foreground">{pct}%</span></div>; } },
+    { key: "spent", header: "Spent", render: r => formatCurrencyFull(lineSpent(r), currency) },
+    { key: "remaining", header: "Remaining", render: r => { const rem = Number(r.allocated_amount) - lineSpent(r); return <span className={rem < 0 ? "text-destructive font-semibold" : ""}>{formatCurrencyFull(rem, currency)}</span>; } },
+    { key: "utilization", header: "Utilization", render: r => { const pct = Number(r.allocated_amount) > 0 ? Math.round((lineSpent(r) / Number(r.allocated_amount)) * 100) : 0; return <div className="flex items-center gap-2 w-32"><Progress value={Math.min(pct, 100)} className="h-2" /><span className="text-xs text-muted-foreground">{pct}%</span></div>; } },
   ];
 
   return (
@@ -598,12 +591,13 @@ const BudgetManagement = () => {
                         <TableHead className="font-semibold text-gray-700">Spent</TableHead>
                         <TableHead className="font-semibold text-gray-700">Remaining</TableHead>
                         <TableHead className="font-semibold text-gray-700">Progress</TableHead>
+                        <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       <AnimatePresence>
                         {categories.map((category: any, index: number) => {
-                          const spent = spentByCategory[category.category] || 0;
+                          const spent = lineSpent(category);
                           const remaining = Number(category.allocated_amount) - spent;
                           const utilization = Number(category.allocated_amount) > 0 
                             ? Math.round((spent / Number(category.allocated_amount)) * 100) 
@@ -679,6 +673,9 @@ const BudgetManagement = () => {
                                     {utilization}%
                                   </span>
                                 </div>
+                              </TableCell>
+                              <TableCell>
+                                <BudgetLineActions line={category} tenantId={tenantId!} currency={currency || "KES"} readOnly={readOnly} />
                               </TableCell>
                             </motion.tr>
                           );

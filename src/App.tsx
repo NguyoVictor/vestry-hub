@@ -483,7 +483,8 @@ const App = () => {
                   <Route path="appointment-types" element={<Suspense fallback={<Fallback />}><AppointmentTypesSettingsPage /></Suspense>} />
                   <Route path="group-types" element={<Suspense fallback={<Fallback />}><GroupTypesSettingsPage /></Suspense>} />
                   {/* New sidebar routes — empty states for now */}
-                  {["branding","whatsapp","verification"].map(slug => (
+                  {/* Branding removed (product decision, Phase 10) */}
+                  {["whatsapp","verification"].map(slug => (
                     <Route key={slug} path={slug} element={
                       <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
                         <Settings className="h-10 w-10" />

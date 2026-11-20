@@ -1,6 +1,6 @@
 import { NavLink, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
-  Settings, Eye, Palette, Phone, GitBranch, LayoutGrid, Smartphone,
+  Settings, Eye, Phone, GitBranch, LayoutGrid, Smartphone,
   Users, UserCheck, ClipboardList, ShieldCheck,
   CreditCard, Banknote, Heart, Receipt,
   SlidersHorizontal, CalendarCheck, Bell, MessageSquare, Wrench, Globe,
@@ -19,7 +19,6 @@ const NAV_GROUPS = [
     items: [
       { label: "General",          icon: Settings,        path: "/settings/general" },
       { label: "Vision & Mission", icon: Eye,             path: "/settings/vision" },
-      { label: "Branding",         icon: Palette,         path: "/settings/branding" },
       { label: "Contact & Social", icon: Phone,           path: "/settings/contact" },
       { label: "Branches",         icon: GitBranch,       path: "/settings/branches" },
       { label: "Modules",          icon: LayoutGrid,      path: "/settings/modules" },
