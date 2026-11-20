@@ -56,12 +56,13 @@ export default function MemberRequests() {
     staleTime: 60_000,
   });
 
-  const { data: requestTypes = [] } = useQuery<{ internal_name: string; label: string }[]>({
+  const { data: requestTypes = [], isFetched: typesFetched, isError: typesError } = useQuery<{ internal_name: string; label: string }[]>({
     queryKey: ["service-request-types-member", member.churchId],
     queryFn: async () => {
-      const { data } = await supabase.from("service_request_types")
+      const { data, error } = await supabase.from("service_request_types")
         .select("internal_name, label").eq("tenant_id", member.churchId)
         .eq("is_active", true).order("sort_order", { ascending: true });
+      if (error) throw error;
       return (data ?? []) as { internal_name: string; label: string }[];
     },
     staleTime: 300_000,
@@ -251,6 +252,15 @@ export default function MemberRequests() {
                   ))}
                 </SelectContent>
               </Select>
+              {/* F8: explain an empty list instead of a silent empty dropdown. */}
+              {typesError && (
+                <p className="text-xs text-destructive">Could not load request types. Please refresh and try again.</p>
+              )}
+              {typesFetched && !typesError && requestTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground" data-testid="no-request-types-hint">
+                  Your church has not set up request types yet. Please contact your church office.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Title *</Label>

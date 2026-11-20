@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -301,12 +302,13 @@ export default function MemberRequestsPage() {
     staleTime: 60_000,
   });
 
-  const { data: serviceRequestTypes = [] } = useQuery<{ internal_name: string; label: string }[]>({
+  const { data: serviceRequestTypes = [], isFetched: typesFetched, isError: typesError } = useQuery<{ internal_name: string; label: string }[]>({
     queryKey: ["service-request-types-admin", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from("service_request_types")
+      const { data, error } = await supabase.from("service_request_types")
         .select("internal_name, label").eq("tenant_id", tenantId)
         .eq("is_active", true).order("sort_order", { ascending: true });
+      if (error) throw error;
       return (data ?? []) as { internal_name: string; label: string }[];
     },
     staleTime: 300_000,
@@ -681,6 +683,16 @@ export default function MemberRequestsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {/* F8: never leave the admin facing an empty dropdown with no explanation. */}
+              {typesError && (
+                <p className="text-xs text-destructive">Could not load request types. Please refresh and try again.</p>
+              )}
+              {typesFetched && !typesError && serviceRequestTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground" data-testid="no-request-types-hint">
+                  No request types are set up yet.{" "}
+                  <Link to="/settings/service-requests" className="text-orange-600 underline">Add request types in Settings</Link>.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Title</Label>

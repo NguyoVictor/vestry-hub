@@ -13,7 +13,7 @@
 | 1 | Credible CI | PARTIAL | `tsc --noEmit` in CI uses root tsconfig with `files: []` → checks nothing (see F-CI-1) | — | Point CI at `tsc -p tsconfig.app.json` once clean |
 | 1B.2 | Staff invitation handshake | **STAGING_TEST_PASS** — V2 fix (D-1) deployed 20 Nov; Church A + B canaries and isolation passed | see §1B.2 | pending | Church A then B staff canary (human inbox + admin session) |
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
-| 3 | Findings 2–6 (People/Operations schema drift) | **STAGING_TEST_PASS (2–6)** — browser canary + DB verification 20 Nov | see §3 | `4689c0e`, `1044be2` + canary commit | user ACCEPTED sign-off |
+| 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
 | 4–10 | Findings 7–27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
@@ -190,7 +190,16 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 - Canary records left in place deliberately as evidence (1 family, 1 visitor, 1 request, 1 board meeting, tagged `QA-CANARY-`).
 - **Product gap found (queued):** new churches start with **no service request types** (staging: only 2 of 12 tenants have any), so Create Request (admin) and member-portal requests cannot be submitted until an admin finds Settings → Service Requests → "Add Default Types"; the empty dropdown gives no hint. Proposal: seed defaults at church creation + backfill, or show an inline link.
 
-**Phase 3 status: STAGING_TEST_PASS for Findings 2–6. ACCEPTED requires the user's sign-off.**
+**Phase 3 status: Findings 2–6 ACCEPTED by the user on 20 Nov 2026.**
+
+### F8 — default service request types (user: "fix F8 now", 20 Nov)
+- **Root cause:** `service_request_types` is per-tenant and nothing seeded it at church creation; only an admin-only Settings button did. Staging: 10 of 12 real churches had zero types → admin "Create Request" and member-portal requests impossible, with a silent empty dropdown.
+- **Fix:** migration `20261120100000_p3_seed_default_service_request_types.sql` — `private.seed_default_service_request_types(text)` (15 defaults identical to the UI list, `ON CONFLICT DO NOTHING`), `AFTER INSERT` trigger `tenants_seed_service_request_types` (failure caught as WARNING so signup/church creation can never be blocked), one-off backfill for tenants with **zero** types only; EXECUTE revoked from anon/authenticated. UI: admin form shows "No request types are set up yet — Add request types in Settings" link; member portal shows "Your church has not set up request types yet. Please contact your church office."; both now surface load errors instead of an empty list.
+- **Automated:** `scripts/recovery/p3-service-request-types-pglite-harness.mjs` 6/6 (backfill only empty tenants; curated list untouched; new tenant seeded; idempotent re-run keeps edits; seeding failure does not block tenant insert and the existing church-code trigger still runs; no anon/authenticated EXECUTE; SQL list == UI DEFAULTS). Added to blocking CI job `staff-invite-handshake`. P1 Vitest 148/148; ESLint error counts unchanged vs HEAD (pre-existing); guards PASS.
+- **Staging deploy (20 Nov 09:42 UTC):** dry run listed only `20261120100000` → applied. Post-check: 12 tenants; 0 with zero types; 11 with exactly 15 (10 backfilled + Church A via Settings earlier); the one church with its own pre-existing list (1 type, created 16 Nov) received **0** new rows; trigger enabled alongside `auto_generate_church_code`; anon/authenticated EXECUTE false.
+- **Found:** 7 `service_request_types` rows belong to a tenant id that no longer exists (from 20260419 seed migration; table has no FK to `tenants`). Harmless; queued as cleanup (readiness B7).
+- **Not browser-tested:** the empty-list hints (no staging church has zero types any more; creating a church = a signup, deliberately not done). Covered by code review + the trigger making the state unreachable for new churches.
+- **Rollback (code only):** drop trigger + the two functions (see migration header); backfilled rows are ordinary editable types.
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
