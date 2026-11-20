@@ -60,11 +60,13 @@ beforeEach(() => {
   mocks.getUser.mockResolvedValue({ data: { user: {
     email: 'member@example.test', email_confirmed_at: '2026-11-01T00:00:00Z',
   } }, error: null });
-  mocks.invoke.mockResolvedValue({ data: {
-    member: { id: 'member-a', first_name: 'QA', last_name: 'Member' },
-    tenant: { id: 'tenant-a', slug: 'tenant-a', enabled_modules: {} },
-    sessionToken: 'opaque-member-session', expiresAt: future,
-  }, error: null });
+  mocks.invoke.mockImplementation(async (name: string) => name === 'member-otp-request'
+    ? { data: { ok: true }, error: null }
+    : { data: {
+      member: { id: 'member-a', first_name: 'QA', last_name: 'Member' },
+      tenant: { id: 'tenant-a', slug: 'tenant-a', enabled_modules: {} },
+      sessionToken: 'opaque-member-session', expiresAt: future,
+    }, error: null });
 });
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -79,15 +81,16 @@ describe('Member login confirmed-email OTP flow', () => {
     await waitFor(() => expect(mocks.eq).toHaveBeenCalledWith('church_code', 'TEST1234'));
   });
 
-  it('sends email OTP with account creation disabled before calling member-login', async () => {
+  it('requests the OTP through the server-side member + church code pre-check before calling member-login', async () => {
     mount();
     fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: 'member@example.test' } });
     fireEvent.change(screen.getByPlaceholderText('e.g. HOPE-2847'), { target: { value: 'ABCD1234' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));
-    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({
-      email: 'member@example.test', options: { shouldCreateUser: false },
+    await waitFor(() => expect(mocks.invoke).toHaveBeenCalledWith('member-otp-request', {
+      body: { email: 'member@example.test', churchCode: 'ABCD1234' },
     }));
-    expect(mocks.invoke).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.invoke).not.toHaveBeenCalledWith('member-login', expect.anything());
     expect(screen.getByRole('button', { name: 'Verify code & sign in' })).toBeInTheDocument();
   });
 
@@ -121,7 +124,7 @@ describe('Member login confirmed-email OTP flow', () => {
     fireEvent.change(input, { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify code & sign in' }));
     await waitFor(() => expect(mocks.verify).toHaveBeenCalled());
-    expect(mocks.invoke).not.toHaveBeenCalled();
+    expect(mocks.invoke).not.toHaveBeenCalledWith('member-login', expect.anything());
     expect(localStorage.getItem('member_session')).toBeNull();
   });
 });

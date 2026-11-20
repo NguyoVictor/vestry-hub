@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
 
     if (sessionError || !session) return json({ error: "invalid_session" }, 401);
 
-    const [{ data: member, error: memberError }, { data: tenant, error: tenantError }] = await Promise.all([
+    const [{ data: member, error: memberError }, { data: tenant, error: tenantError }, { data: link, error: linkError }] = await Promise.all([
       supabase
         .from("members")
         .select("id, tenant_id, first_name, last_name, email, phone, avatar_url, date_of_birth, gender, created_at, member_type, status, membership_status")
@@ -65,13 +65,19 @@ Deno.serve(async (req: Request) => {
         .select("id, name, logo, church_code, slug, enabled_modules")
         .eq("id", session.tenant_id)
         .maybeSingle(),
+      // Finding 1: portal access depends on the provisioned identity link, not
+      // on members.status / membership_status.
+      supabase
+        .from("member_auth_memberships")
+        .select("member_id, tenant_id")
+        .eq("member_id", session.member_id)
+        .eq("tenant_id", session.tenant_id)
+        .maybeSingle(),
     ]);
 
     if (
-      memberError || tenantError || !member || !tenant ||
+      memberError || tenantError || linkError || !member || !tenant || !link ||
       member.tenant_id !== session.tenant_id ||
-      String(member.status || "").trim().toLowerCase() !== "active" ||
-      String(member.membership_status || "").trim().toLowerCase() !== "active" ||
       !tenant.slug
     ) {
       return json({ error: "invalid_session" }, 401);

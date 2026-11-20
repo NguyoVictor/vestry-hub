@@ -36,6 +36,7 @@ import { ChurchQRModal } from "@/components/shared/ChurchQRModal";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { provisionMemberPortalAccess, describeProvisioningError, type PortalProvisioningResult } from "@/lib/memberPortalProvisioning";
 
 const addMemberSchema = z.object({
   first_name: z.string().min(2, "Min 2 chars"),
@@ -91,7 +92,7 @@ const Members = () => {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [welcomeDialog, setWelcomeDialog] = useState<{ open: boolean; memberId: string; memberName: string; email: string; tenantId: string } | null>(null);
+  const [welcomeDialog, setWelcomeDialog] = useState<{ open: boolean; memberId: string; memberName: string; email: string; tenantId: string; portal: PortalProvisioningResult | null } | null>(null);
   const [sendingWelcome, setSendingWelcome] = useState<string | null>(null);
   const [copiedWelcome, setCopiedWelcome] = useState(false);
 
@@ -150,17 +151,25 @@ const Members = () => {
         created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       } as any);
       if (error) throw error;
-      return { values, memberId };
+      // Finding 1: provision portal access immediately; never roll back the
+      // saved member when provisioning fails (retry from the member profile).
+      const portal = values.email
+        ? await provisionMemberPortalAccess(supabase, memberId, tenantId!)
+        : null;
+      return { values, memberId, portal };
     },
     onSuccess: (result: any) => {
-      const { values, memberId } = result;
+      if (!result) return;
+      const { values, memberId, portal } = result as { values: MemberForm; memberId: string; portal: PortalProvisioningResult | null };
       queryClient.invalidateQueries({ queryKey: ["members"] });
       toast.success(`${values.first_name} ${values.last_name} added successfully`);
+      if (portal && portal.ok) toast.success("Member Portal access is ready. The member can sign in with their email and church access code.");
+      if (portal && !portal.ok) toast.warning(`Member saved, but Member Portal access setup failed: ${describeProvisioningError(portal.error)} Retry from the member profile.`, { duration: 10000 });
       setSheetOpen(false); form.reset();
       captureEvent("member_created");
       logActivity({ churchId: tenantId!, actionType: "new_member", description: `${values.first_name} ${values.last_name} was added`, entityType: "member", entityName: `${values.first_name} ${values.last_name}` });
       if (values.email && memberId) {
-        setWelcomeDialog({ open: true, memberId, memberName: `${values.first_name} ${values.last_name}`, email: values.email, tenantId: tenantId! });
+        setWelcomeDialog({ open: true, memberId, memberName: `${values.first_name} ${values.last_name}`, email: values.email, tenantId: tenantId!, portal });
       }
     },
     onError: (err: any) => toast.error(toUserFacingError(err, "Failed to add member")),
@@ -458,7 +467,12 @@ const Members = () => {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <p className="text-sm text-slate-500">Send <strong>{welcomeDialog.memberName}</strong> their portal access details?</p>
+              <p className="text-sm text-slate-500" data-testid="member-portal-access-status">
+                {welcomeDialog.portal?.ok
+                  ? "Member Portal access is ready — no activation is needed."
+                  : `Member Portal access setup failed: ${describeProvisioningError(welcomeDialog.portal ? (welcomeDialog.portal as { error: string }).error : "request_failed")} Retry from the member profile.`}
+              </p>
+              <p className="text-sm text-slate-500">Optionally send <strong>{welcomeDialog.memberName}</strong> a welcome message with your church access code.</p>
               <div className="flex flex-col gap-2">
                 <Button className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white font-jakarta" disabled={sendingWelcome === "email"}
                   onClick={async () => {

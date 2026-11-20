@@ -31,8 +31,11 @@ describe('P1 member registration and session contract', () => {
     expect(server).toContain('.eq("session_token", sessionTokenHash)');
     expect(server).toContain('.eq("tenant_id", tenantId)');
     expect(server).toContain('.gt("expires_at", new Date().toISOString())');
-    expect(server).toContain('String(member.membership_status || "").trim().toLowerCase() !== "active"');
-    expect(server).toContain('String(member.status || "").trim().toLowerCase() !== "active"');
+    // Manual report Finding 1: status / membership_status must NOT block an
+    // otherwise valid member; the provisioned identity link is required instead.
+    expect(server).not.toContain('String(member.membership_status || "").trim().toLowerCase() !== "active"');
+    expect(server).not.toContain('String(member.status || "").trim().toLowerCase() !== "active"');
+    expect(server).toContain('.from("member_auth_memberships")');
   });
 
   it('requires verified identity for member login and captures canonical modules', () => {
@@ -43,12 +46,16 @@ describe('P1 member registration and session contract', () => {
     expect(loginFn).toContain('sessionTokenHash');
     expect(loginFn).toContain('enabled_modules');
     expect(loginPage).toContain('enabledModules');
-    expect(otp).toContain('shouldCreateUser: false');
+    // OTP is requested via the server-side member + church code pre-check,
+    // which calls signInWithOtp with account creation disabled.
+    expect(otp).toContain("functions.invoke('member-otp-request'");
+    expect(readFileSync(resolve(process.cwd(), 'supabase/functions/member-otp-request/index.ts'), 'utf8')).toContain('shouldCreateUser: false');
     expect(otp).toContain("type: 'email'");
   });
 
   it('records public form registrations as form rather than admin registrations', () => {
     const registerFn = source('supabase/functions/member-register/index.ts');
-    expect(registerFn).toMatch(/registration_source:\s*registrationSource === \"qr_scan\" \? \"qr_scan\" : \"form\"/);
+    // members_registration_source_check allows 'web_form' (not 'form').
+    expect(registerFn).toMatch(/registration_source:\s*registrationSource === \"qr_scan\" \? \"qr_scan\" : \"web_form\"/);
   });
 });

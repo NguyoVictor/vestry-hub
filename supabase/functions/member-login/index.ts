@@ -50,18 +50,28 @@ Deno.serve(async (req: Request) => {
     if (tenantError || !tenant) return json({ error: "invalid_credentials_or_membership" }, 403);
 
     // Identity email is read from Auth, not from a body provided by the browser.
-    const { data: member, error: memberError } = await db.from("members")
+    // Finding 1: status / membership_status must NOT block an otherwise valid
+    // member. Access requires the provisioned member_auth_memberships link
+    // between THIS verified Auth identity and a member of THIS church.
+    const { data: links, error: linkError } = await db.from("member_auth_memberships")
+      .select("member_id")
+      .eq("auth_user_id", user.id)
+      .eq("tenant_id", tenant.id);
+    if (linkError) return json({ error: "server_error" }, 500);
+    const linkedIds = (links ?? []).map((row: { member_id: string }) => row.member_id);
+    if (linkedIds.length === 0) return json({ error: "invalid_credentials_or_membership" }, 403);
+
+    const { data: candidates, error: memberError } = await db.from("members")
       .select("id, tenant_id, first_name, last_name, email, phone, avatar_url, status, member_type, membership_status, created_at")
       .eq("tenant_id", tenant.id)
-      .ilike("email", user.email.trim())
-      .maybeSingle();
-    if (memberError || !member || member.tenant_id !== tenant.id) {
+      .in("id", linkedIds);
+    const verifiedEmail = user.email.trim().toLowerCase();
+    const matches = (candidates ?? []).filter((row: { tenant_id: string; email: string | null }) =>
+      row.tenant_id === tenant.id && String(row.email || "").trim().toLowerCase() === verifiedEmail);
+    if (memberError || matches.length !== 1) {
       return json({ error: "invalid_credentials_or_membership" }, 403);
     }
-    if (String(member.status || "").trim().toLowerCase() !== "active" ||
-        !["active", "member"].includes(String(member.membership_status || "").trim().toLowerCase())) {
-      return json({ error: "membership_not_active" }, 403);
-    }
+    const member = matches[0];
 
     const sessionToken = `${crypto.randomUUID()}-${crypto.randomUUID()}`;
     const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sessionToken));
@@ -78,9 +88,13 @@ Deno.serve(async (req: Request) => {
       return json({ error: "session_creation_failed" }, 500);
     }
 
+    const seenAt = new Date().toISOString();
     await db.from("members")
-      .update({ portal_last_seen: new Date().toISOString() })
+      .update({ portal_last_seen: seenAt })
       .eq("id", member.id).eq("tenant_id", tenant.id);
+    await db.from("member_auth_memberships")
+      .update({ last_used_at: seenAt })
+      .eq("member_id", member.id).eq("auth_user_id", user.id);
 
     return json({ member, tenant, sessionToken, expiresAt });
   } catch (error) {

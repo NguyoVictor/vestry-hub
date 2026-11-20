@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Mail, Phone, MapPin, Calendar, Edit, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { MemberPortalAccessCard } from "@/components/members/MemberPortalAccessCard";
 
 const MEMBERSHIP_STATUSES = [
   "Pending Approval", "Visitor", "New Convert", "Member", "Worker",
@@ -329,6 +330,14 @@ const MemberProfile = () => {
                   {member.is_counselor && <div><span className="text-muted-foreground">Role</span><p className="font-medium text-indigo-600">Counselor</p></div>}
                 </CardContent>
               </Card>
+              {"membership_number" in member && tenantId && (
+                <MemberPortalAccessCard
+                  memberId={member.id}
+                  tenantId={tenantId}
+                  email={member.email || null}
+                  canManage={!readOnly}
+                />
+              )}
               {member.notes && (
                 <Card><CardHeader><CardTitle className="text-base">Notes</CardTitle></CardHeader><CardContent><p className="text-sm">{member.notes}</p></CardContent></Card>
               )}

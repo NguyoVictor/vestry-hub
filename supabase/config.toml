@@ -36,3 +36,15 @@ verify_jwt = true
 # Logout authenticates the opaque member token inside the function.
 [functions.member-logout]
 verify_jwt = false
+
+# Finding 1: admin-triggered member portal provisioning; requires the admin's
+# Supabase Auth JWT, then re-checks role and tenant server-side.
+[functions.member-provision-access]
+verify_jwt = true
+
+# Finding 1, login step 5: public (pre-authentication) by design. The browser's
+# sb_publishable_ key is not a JWT, so gateway JWT checks would reject every
+# call. Returns a generic, time-padded reply; never creates users (OTP
+# shouldCreateUser:false) and never grants a session by itself.
+[functions.member-otp-request]
+verify_jwt = false

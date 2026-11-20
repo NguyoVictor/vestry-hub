@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { provisionMemberPortalAccess } from "../_shared/member-portal-provisioning.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,7 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
     const {
@@ -17,7 +19,10 @@ Deno.serve(async (req: Request) => {
       ageGroup, preferredContact, prayerRequest,
     } = await req.json();
 
-    if (!churchCode || !firstName || !lastName || !phone) {
+    if (typeof churchCode !== "string" || !/^[A-Z0-9-]{4,32}$/.test(churchCode.trim().toUpperCase()) ||
+        typeof firstName !== "string" || !firstName.trim() ||
+        typeof lastName !== "string" || !lastName.trim() ||
+        typeof phone !== "string" || !phone.trim()) {
       return new Response(JSON.stringify({ error: "missing_required_fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -31,13 +36,20 @@ Deno.serve(async (req: Request) => {
     // Look up tenant by church_code OR invite_code (both are the same access code)
     const { data: tenant } = await supabase
       .from("tenants")
-      .select("id, name, logo, church_code, slug")
+      .select("id, name, logo, church_code, slug, registration_enabled")
       .or(`church_code.eq.${churchCode.trim().toUpperCase()},invite_code.eq.${churchCode.trim().toUpperCase()}`)
       .single();
 
     if (!tenant) {
       return new Response(JSON.stringify({ error: "invalid_code" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Public registration must respect each church's explicit opt-in.
+    if (tenant.registration_enabled !== true) {
+      return new Response(JSON.stringify({ error: "registration_disabled" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -118,14 +130,14 @@ Deno.serve(async (req: Request) => {
         phone: phone.trim(),
         gender: gender || null,
         date_of_birth: dateOfBirth || null,
-        street: address || null,
+        address: address || null,
         city: city || null,
         occupation: occupation || null,
         marital_status: maritalStatus || null,
         status: "active",
         member_type: "member",
         membership_status: "Pending Approval",
-        registration_source: registrationSource === "qr_scan" ? "qr_scan" : "form",
+        registration_source: registrationSource === "qr_scan" ? "qr_scan" : "web_form",
         join_date: today,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -135,6 +147,22 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (insertError) throw insertError;
+
+    // Finding 1: self-registered members with an email get portal access
+    // immediately (no invitation/activation/approval). A provisioning failure
+    // never removes the saved member; an administrator can retry from the
+    // member profile.
+    let portalAccess: string | null = null;
+    if (member.email) {
+      try {
+        const provisioned = await provisionMemberPortalAccess(supabase, tenant.id, member.id);
+        portalAccess = provisioned.ok ? provisioned.status : "provisioning_failed";
+        if (!provisioned.ok) console.error("member-register: portal provisioning failed", provisioned.error);
+      } catch (_error) {
+        portalAccess = "provisioning_failed";
+        console.error("member-register: portal provisioning threw");
+      }
+    }
 
     const sourceLabel = registrationSource === "qr_scan" ? "QR code" : "registration form";
     await supabase.from("activity_log").insert({
@@ -149,6 +177,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         type: "member",
         member,
+        portalAccess,
         churchCode: tenant.church_code,
         churchName: tenant.name,
         churchLogo: tenant.logo,
@@ -156,7 +185,8 @@ Deno.serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ error: "server_error", message: String(err) }), {
+    console.error("member-register failed", err instanceof Error ? err.message : "unknown");
+    return new Response(JSON.stringify({ error: "server_error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

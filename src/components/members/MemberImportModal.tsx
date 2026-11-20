@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FileText, Upload, Download, X } from "lucide-react";
 import Papa from "papaparse";
+import { provisionMemberPortalAccess } from "@/lib/memberPortalProvisioning";
 
 const IMPORT_STATUSES = ["Visitor", "New Convert", "Member", "Worker"];
 
@@ -52,10 +53,15 @@ export function MemberImportModal({ open, onClose, tenantId, onSuccess }: Member
       complete: async (results) => {
         const rows = results.data as any[];
         let imported = 0;
+        let failed = 0;
+        let portalReady = 0;
+        let portalFailed = 0;
         for (const row of rows) {
           if (!row.first_name || !row.last_name) continue;
           const status = (row.membership_status?.trim() || defaultStatus).toLowerCase();
-          await supabase.from("members").insert({
+          const memberId = crypto.randomUUID();
+          const { error: insertError } = await supabase.from("members").insert({
+            id: memberId,
             tenant_id: tenantId,
             first_name: row.first_name?.trim(),
             last_name: row.last_name?.trim(),
@@ -75,9 +81,17 @@ export function MemberImportModal({ open, onClose, tenantId, onSuccess }: Member
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           } as any);
+          if (insertError) { failed++; continue; }
           imported++;
+          // Finding 1: imported members with an email get portal access now.
+          if (row.email?.trim()) {
+            const portal = await provisionMemberPortalAccess(supabase, memberId, tenantId);
+            if (portal.ok) portalReady++; else portalFailed++;
+          }
         }
-        toast.success(`${imported} members imported successfully!`);
+        if (imported > 0) toast.success(`${imported} member${imported === 1 ? "" : "s"} imported. Member Portal access ready for ${portalReady}.`);
+        if (failed > 0) toast.error(`${failed} row${failed === 1 ? "" : "s"} could not be imported.`);
+        if (portalFailed > 0) toast.warning(`Member Portal access setup failed for ${portalFailed} imported member${portalFailed === 1 ? "" : "s"}. Retry from each member profile.`, { duration: 10000 });
         setImporting(false);
         setFile(null); setPreview([]); setRowCount(0);
         onSuccess();

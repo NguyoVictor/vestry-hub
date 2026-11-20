@@ -47,18 +47,26 @@ test('accepts eight-character staging church codes and normalizes case', () => {
   assert.equal(isValidChurchCode('!bad'), false);
 });
 
-test('OTP request never creates new Auth users', async () => {
-  const { client, calls } = mockClient();
-  assert.equal(await sendExistingMemberOtp(client, ' MEMBER@Example.Test '), true);
-  assert.deepEqual(calls[0], ['send', {
-    email: 'member@example.test', options: { shouldCreateUser: false },
-  }]);
+test('OTP request is pre-checked server-side with email + church code and never calls Auth directly', async () => {
+  const { client, calls } = mockClient({ functions: { invoke: async (name, args) => {
+    calls.push(['invoke', name, args]); return { data: { ok: true }, error: null };
+  } } });
+  assert.equal(await sendExistingMemberOtp(client, ' MEMBER@Example.Test ', ' abcd1234 '), true);
+  assert.deepEqual(calls, [['invoke', 'member-otp-request', {
+    body: { email: 'member@example.test', churchCode: 'ABCD1234' },
+  }]]);
 });
 
-test('invalid email cannot request OTP', async () => {
+test('invalid email or church code cannot request OTP', async () => {
   const { client, calls } = mockClient();
-  assert.equal(await sendExistingMemberOtp(client, ''), false);
+  assert.equal(await sendExistingMemberOtp(client, '', 'ABCD1234'), false);
+  assert.equal(await sendExistingMemberOtp(client, 'member@example.test', '!x'), false);
   assert.equal(calls.length, 0);
+});
+
+test('OTP request failure is reported as not sent', async () => {
+  const { client } = mockClient({ functions: { invoke: async () => ({ data: null, error: new Error('down') }) } });
+  assert.equal(await sendExistingMemberOtp(client, 'member@example.test', 'ABCD1234'), false);
 });
 
 test('verified email OTP produces a scoped member login without request-body email', async () => {

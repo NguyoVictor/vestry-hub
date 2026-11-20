@@ -37,16 +37,23 @@ export function isValidChurchCode(code: string): boolean {
   return /^[A-Z0-9-]{4,32}$/.test(normalizeChurchCode(code));
 }
 
-// Supabase's default email template sends a magic link. The project's Magic
-// Link template MUST contain {{ .Token }} to send the six-digit OTP instead.
-export async function sendExistingMemberOtp(client: MemberAuthClient, email: string): Promise<boolean> {
+// Finding 1, steps 4-6: the member-otp-request Edge Function first verifies
+// that the email belongs to a portal-provisioned member of the church named by
+// the access code, then sends the OTP with signInWithOtp({ shouldCreateUser:
+// false }). Its response is generic, so it never reveals membership.
+// Supabase's Magic Link template MUST contain {{ .Token }} to send a code.
+export async function sendExistingMemberOtp(
+  client: MemberAuthClient,
+  email: string,
+  churchCode: string,
+): Promise<boolean> {
   const normalizedEmail = normalizeMemberEmail(email);
-  if (!normalizedEmail || !normalizedEmail.includes('@')) return false;
-  const { error } = await client.auth.signInWithOtp({
-    email: normalizedEmail,
-    options: { shouldCreateUser: false },
+  const normalizedCode = normalizeChurchCode(churchCode);
+  if (!normalizedEmail || !normalizedEmail.includes('@') || !isValidChurchCode(normalizedCode)) return false;
+  const { data, error } = await client.functions.invoke('member-otp-request', {
+    body: { email: normalizedEmail, churchCode: normalizedCode },
   });
-  return !error;
+  return !error && (data as { ok?: unknown } | null)?.ok === true;
 }
 
 function validLoginPayload(value: unknown): value is VerifiedMemberLogin {

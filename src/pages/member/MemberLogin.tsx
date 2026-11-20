@@ -75,7 +75,7 @@ export default function MemberLoginPage() {
     setLoading(true);
     try {
       if (!verificationSent) {
-        const sent = await sendExistingMemberOtp(supabase, email);
+        const sent = await sendExistingMemberOtp(supabase, email, churchCode);
         if (!sent) {
           toast.error("Unable to send a sign-in code. Check your details or contact your church admin.");
           return;
