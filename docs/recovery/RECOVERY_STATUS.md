@@ -3,7 +3,7 @@
 **Branch:** `recovery/system-stabilization-2026-11` (no other branches; no merge to `main` until Gate A)
 **Staging (only approved write target):** Supabase `xwbajophstetbnnemsyq` (vestry-hub-staging). `churchapp` `crjdsxxkspvdwknrmijs` and real Production are OFF LIMITS.
 **Status vocabulary:** UNVERIFIED / REPRODUCED / ROOT_CAUSE_CONFIRMED / FIXED_LOCALLY / AUTOMATED_TEST_PASS / STAGING_TEST_PASS / ACCEPTED / BLOCKED.
-**Last updated:** 2026-11-20 (Claude Code session 2 — re-verified live state)
+**Last updated:** 2026-11-20 (Phase 1B.2 and Phase 2 closed on staging)
 
 ## Phase dashboard
 
@@ -12,7 +12,7 @@
 | 0 | Environment safety / baseline | PARTIAL | Linked CLI ref = staging (verified 19 Nov); full staging dump waived by user | earlier | Disposable QA project; Production backup (Gate B) |
 | 1 | Credible CI | PARTIAL | `tsc --noEmit` in CI uses root tsconfig with `files: []` → checks nothing (see F-CI-1) | — | Point CI at `tsc -p tsconfig.app.json` once clean |
 | 1B.2 | Staff invitation handshake | **STAGING_TEST_PASS** — V2 fix (D-1) deployed 20 Nov; Church A + B canaries and isolation passed | see §1B.2 | pending | Church A then B staff canary (human inbox + admin session) |
-| 2 (1B.3) | Finding 1 member-only provisioning + OTP | **STAGING DEPLOYED 20 Nov**, AUTOMATED_TEST_PASS; member canaries pending | see §2 | 1B.2 = `e36e652` | A/B member canaries (fresh inboxes), admin-portal denial in browser |
+| 2 (1B.3) | Finding 1 member-only provisioning + OTP | **STAGING_TEST_PASS — closed 20 Nov** (staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e` + close-out | Finding 1 awaiting your ACCEPTED sign-off; known limitations below |
 | 3–10 | Findings 2–27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
@@ -132,6 +132,27 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 - **Negative — wrong church code: PASS.** A-MEMBER email + Church B code `7805EE99` → generic "If your account is eligible…" reply, **no email sent** (server refuses before calling Auth; no quota used).
 - **Negative — Admin Portal: FAIL → D-3 FIXED_LOCALLY.** While signed in as A-MEMBER, `/dashboard` offered **church creation** (onboarding). Root cause: the member OTP leaves a Supabase Auth session in the browser; `AuthGuard` treated "Auth session without staff profile" as a new admin needing onboarding. Data impact: none — `authenticated` has **no INSERT privilege on `public.tenants`** (+ RLS on, no INSERT policy on `public.users`), so the onboarding writes are refused. Signing the Auth session out after member login was rejected as a fix because member RLS helpers `member_has_tenant` / `member_has_member` / `member_actor_matches` use `auth.uid()`. Fix: `src/lib/memberOnlyIdentity.ts` (`isMemberOnlyIdentity`, own-row read of `member_auth_memberships`, fails closed) used by `AuthGuard` (new `member-only` state → `/member`) and `Onboarding.tsx` (load and submit). Test `src/test/p1/people/memberOnlyAdminDenial.behavior.test.tsx` 3/3.
 - `member-login` v8 deployed (denial reason logging only).
+
+- **D-3 verified on staging (Preview `vestry-ob2ad72wc…` = `754da4e`):** signed in as A-MEMBER, `/dashboard`, `/onboarding` and `/settings` all redirect to `/member`; no onboarding or admin UI. DB proof under real RLS as the A-MEMBER identity (rolled-back txn): `insert into tenants` → 42501 permission denied; `insert into users` (self → super_admin of Church A) → 42501 permission denied; tenants still 12.
+- **MEMBER A: STAGING_TEST_PASS** — provisioning without invitation (Retry path), OTP via page with church-code pre-check, portal session in Church A only, wrong-church-code denial, Admin Portal denial.
+
+- **MEMBER B: STAGING_TEST_PASS** (Preview `vestry-ob2ad72wc…`): Church B admin added member → dialog "Member Portal access is ready — no activation is needed", no email; OTP login with `7805EE99` → portal "Vestry Staging Church B"; `/dashboard` → `/member`; B-MEMBER + Church A code → generic reply, no email. DB: B identity linked only in Church B, session only in Church B, 0 staff profiles, 0 open challenges; A re-checked: link/sessions only in Church A. Totals: tenants 12, auth 16, profiles 13, members 19, links 3, staff_invitations 2.
+
+### Finding 1 acceptance matrix (report §11) — 20 Nov 2026
+| Criterion | Result | Evidence |
+|---|---|---|
+| New member with email can request OTP without an invitation | PASS | A (Retry path) and B (create path): no email at provisioning |
+| OTP delivered to member email | PASS | 8-digit code (after D-2 fix); built-in SMTP rate limit noted |
+| Member verifies OTP and enters portal | PASS | A → Church A, B → Church B |
+| Member cannot access another church's records | PASS (session/link level) | links & sessions only in own church; wrong church code refused. Deeper member-data RLS matrix → Phase 5 |
+| Member cannot access Admin Portal because Auth identity exists | PASS | D-3 fixed: admin routes → `/member`; DB refuses tenant/users inserts (42501) |
+| Not blocked by Pending Approval / inactive status | PASS (code + unit) | status gates removed in member-login/session-context; canary members used default statuses |
+| Failed provisioning does not delete member | PASS | koko kiki saved with no identity, then Retry provisioned |
+| Retry without duplicates | PASS | 1 identity, 1 link each; harness + unit idempotency tests |
+| Existing admin auth/authorization still works | PASS | Church A/B admins invited staff; staff canaries passed |
+| Edge/migration/frontend tested on staging before production | PASS | migrations `20261120043624`, `20261120052702`; functions send-invitation v4, member-provision-access v4, member-otp-request v1, member-login v8, member-session-context v6, member-register v8 |
+
+**Phase 2 status: STAGING_TEST_PASS. Final ACCEPTED requires the user's sign-off.** Untested paths carried forward: CSV import provisioning and QR self-registration provisioning (code + unit tested, not browser-canaried), member-data RLS matrix (Phase 5), custom SMTP (before Gate B), backfill of portal links for pre-existing members (before Gate B).
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
