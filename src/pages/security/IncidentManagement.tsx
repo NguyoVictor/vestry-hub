@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -304,8 +304,9 @@ function ReportIncidentSheet({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Sync form when editing
-  useState(() => {
+  // Sync form when the sheet opens (edit → prefill, new → empty). Previously
+  // this ran only once at mount (useState initializer), so Edit showed a blank form.
+  useEffect(() => {
     if (open && editingIncident) {
       setForm({
         incident_date: editingIncident.incident_date ?? "",
@@ -325,7 +326,7 @@ function ReportIncidentSheet({
       setAttachmentFiles([]);
       setErrors({});
     }
-  });
+  }, [open, editingIncident?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = <K extends keyof typeof EMPTY_FORM>(key: K, val: (typeof EMPTY_FORM)[K]) =>
     setForm((f) => ({ ...f, [key]: val }));
@@ -667,10 +668,15 @@ function UpdateStatusModal({
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Sync when incident changes
-  if (incident && status !== incident.status && !saving) {
-    setStatus(incident.status);
-  }
+  // Sync ONLY when the modal opens for an incident. The previous render-time
+  // sync reset any selection back to the current status, so status could
+  // never be changed (Finding 9 follow-on).
+  useEffect(() => {
+    if (open && incident) {
+      setStatus(incident.status);
+      setNote("");
+    }
+  }, [open, incident?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     if (!incident) return;
