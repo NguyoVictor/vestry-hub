@@ -65,6 +65,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { toUserFacingError } from "@/lib/userFacingError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,20 @@ interface Course {
   tenant_id: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// Finding 20: rows as stored in training_courses / course_lessons.
+interface CourseRow {
+  id: string; tenant_id: string; title: string | null; description: string | null;
+  category: string | null; difficulty: string | null; status: string | null;
+  total_duration_minutes: number | null; has_certificate: boolean | null;
+  modules: { emoji?: string; color_theme?: string; subject?: string; age_group?: string; pass_mark?: number;
+             assignment?: { type?: 'all' | 'members' | 'groups' } } | null;
+}
+interface LessonRow {
+  id: string; course_id: string; tenant_id: string; title: string | null;
+  content_type: 'text' | 'video' | 'audio' | 'pdf' | 'flashcards'; content: string | null;
+  video_url: string | null; audio_url: string | null; flashcards: unknown; has_quiz: boolean | null;
 }
 
 interface Lesson {
@@ -277,7 +292,7 @@ function StepIndicator({ currentStep, completedSteps }: StepIndicatorProps) {
 }
 
 export default function TrainingCourseBuilder() {
-  const { tenantId } = useChurch();
+  const { tenantId, userId } = useChurch();
   const navigate = useNavigate();
   const { courseId } = useParams();
   const queryClient = useQueryClient();
@@ -320,6 +335,115 @@ export default function TrainingCourseBuilder() {
   const [notifyMembers, setNotifyMembers] = useState(true);
   const [issueCertificate, setIssueCertificate] = useState(false);
   const [passMark, setPassMark] = useState(70);
+
+  // ─── Finding 20: load an existing course (edit) ───────────────────────────
+  const { data: existing } = useQuery({
+    queryKey: ["training-course-edit", courseId, tenantId],
+    enabled: isEditing && !!tenantId,
+    queryFn: async () => {
+      const { data: course, error } = await supabase.from("training_courses")
+        .select("*").eq("id", courseId!).eq("tenant_id", tenantId!).single();
+      if (error) throw error;
+      const { data: rows, error: lErr } = await supabase.from("course_lessons" as never)
+        .select("*").eq("course_id", courseId!).order("order_index", { ascending: true });
+      if (lErr) throw lErr;
+      return { course: course as unknown as CourseRow, lessons: (rows ?? []) as unknown as LessonRow[] };
+    },
+  });
+  useEffect(() => {
+    if (!existing) return;
+    const c = existing.course; const meta = c.modules ?? {};
+    setCourseData({
+      id: c.id, title: c.title ?? "", emoji: meta.emoji ?? "📖", subject: c.category ?? meta.subject ?? "",
+      age_group: c.difficulty ?? meta.age_group ?? "", description: c.description ?? "",
+      estimated_duration: c.total_duration_minutes ?? 30, color_theme: meta.color_theme ?? "purple-indigo",
+      status: c.status ?? "draft", tenant_id: c.tenant_id,
+    });
+    setLessons(existing.lessons.map((l, i) => ({
+      id: l.id, course_id: l.course_id, title: l.title ?? "", content_type: l.content_type ?? "text",
+      content: l.content_type === "video" ? l.video_url : l.content_type === "audio" ? l.audio_url
+        : l.content_type === "flashcards" ? { cards: (l.flashcards as unknown[] | null) ?? [] } : l.content,
+      order_index: i, has_quiz: !!l.has_quiz, tenant_id: l.tenant_id,
+    })));
+    if (meta.pass_mark) setPassMark(meta.pass_mark);
+    setIssueCertificate(!!c.has_certificate);
+    if (meta.assignment?.type) setAssignmentType(meta.assignment.type);
+  }, [existing]);
+
+  // ─── Finding 20: save draft / publish (was a no-op button) ────────────────
+  const saveCourse = useMutation({
+    mutationFn: async (publish: boolean) => {
+      if (!tenantId) throw new Error("No church selected.");
+      if (!courseData.title.trim()) throw new Error("Give the course a title (step 1).");
+      const validLessons = lessons.filter(l => l.title.trim());
+      if (publish && validLessons.length === 0) throw new Error("Add at least one lesson with a title before publishing.");
+      const row: Record<string, unknown> = {
+        tenant_id: tenantId,
+        title: courseData.title.trim(),
+        description: courseData.description?.trim() || null,
+        category: courseData.subject || null,
+        difficulty: courseData.age_group || null,
+        status: publish ? "published" : "draft",
+        total_duration_minutes: courseData.estimated_duration || null,
+        has_certificate: issueCertificate,
+        certificate_title: issueCertificate ? `Certificate of Completion — ${courseData.title.trim()}` : null,
+        target_audience: assignmentType,
+        modules: {
+          emoji: courseData.emoji, color_theme: courseData.color_theme, subject: courseData.subject,
+          age_group: courseData.age_group, pass_mark: passMark, notify_members: notifyMembers,
+          assignment: { type: assignmentType, member_ids: selectedMembers.map(m => m.id), group_ids: selectedGroups.map(g => g.id) },
+        },
+        updated_at: new Date().toISOString(),
+      };
+      let id = courseData.id;
+      if (id) {
+        const { error } = await supabase.from("training_courses").update(row as never).eq("id", id).eq("tenant_id", tenantId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from("training_courses")
+          .insert({ ...row, created_by: userId } as never).select("id").single();
+        if (error) throw error;
+        id = (data as { id: string }).id;
+      }
+      const { error: delErr } = await supabase.from("course_lessons" as never).delete().eq("course_id", id!);
+      if (delErr) throw delErr;
+      if (validLessons.length) {
+        const rows = validLessons.map((l, i) => ({
+          course_id: id, tenant_id: tenantId, title: l.title.trim(), content_type: l.content_type, order_index: i,
+          has_quiz: false,
+          content: l.content_type === "text" || l.content_type === "pdf" ? (typeof l.content === "string" ? l.content : null) : null,
+          video_url: l.content_type === "video" ? (l.content || null) : null,
+          audio_url: l.content_type === "audio" ? (l.content || null) : null,
+          flashcards: l.content_type === "flashcards" ? (l.content?.cards ?? []) : null,
+        }));
+        const { error: insErr } = await supabase.from("course_lessons" as never).insert(rows as never);
+        if (insErr) throw insErr;
+      }
+      return { id, publish };
+    },
+    onSuccess: ({ id, publish }) => {
+      setCourseData(d => ({ ...d, id, status: publish ? "published" : "draft" }));
+      queryClient.invalidateQueries({ queryKey: ["training-courses"] });
+      toast.success(publish ? "Course published — members can now find it in Training." : "Draft saved.");
+      if (publish) navigate("/training");
+    },
+    onError: (err: Error) => toast.error(toUserFacingError(err, "Could not save the course")),
+  });
+
+  const addLesson = () => {
+    const next: Lesson = { title: "", content_type: "text", content: "", order_index: lessons.length, has_quiz: false, tenant_id: tenantId || "" };
+    setLessons(ls => [...ls, next]);
+    setSelectedLessonIndex(lessons.length);
+  };
+  const moveLesson = (i: number, dir: -1 | 1) => setLessons(ls => {
+    const j = i + dir; if (j < 0 || j >= ls.length) return ls;
+    const copy = [...ls]; [copy[i], copy[j]] = [copy[j], copy[i]];
+    return copy.map((l, k) => ({ ...l, order_index: k }));
+  });
+  const removeLesson = (i: number) => {
+    setLessons(ls => ls.filter((_, k) => k !== i).map((l, k) => ({ ...l, order_index: k })));
+    setSelectedLessonIndex(null);
+  };
 
   return (
     <>
@@ -655,7 +779,32 @@ export default function TrainingCourseBuilder() {
                   <h1 className="text-3xl font-bold text-slate-900 mb-2">Build Lessons</h1>
                   <p className="text-slate-600">Create engaging content for your course</p>
                 </div>
-                {/* Step 2 content placeholder */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    {lessons.map((l, i) => (
+                      <div key={i} className={`flex items-center gap-2 rounded-lg border p-2 bg-white ${selectedLessonIndex === i ? "border-purple-500" : "border-slate-200"}`}>
+                        <button type="button" className="flex-1 text-left text-sm truncate" onClick={() => setSelectedLessonIndex(i)}>
+                          {i + 1}. {l.title || <span className="text-slate-400">Untitled lesson</span>}
+                        </button>
+                        <Button type="button" size="sm" variant="ghost" aria-label="Move up" onClick={() => moveLesson(i, -1)}>↑</Button>
+                        <Button type="button" size="sm" variant="ghost" aria-label="Move down" onClick={() => moveLesson(i, 1)}>↓</Button>
+                        <Button type="button" size="sm" variant="ghost" aria-label="Remove lesson" onClick={() => removeLesson(i)}>✕</Button>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" className="w-full" onClick={addLesson}>+ Add lesson</Button>
+                  </div>
+                  <div className="md:col-span-2">
+                    {selectedLessonIndex !== null && lessons[selectedLessonIndex] ? (
+                      <LessonEditor
+                        key={selectedLessonIndex}
+                        lesson={lessons[selectedLessonIndex]}
+                        onUpdate={(updated) => setLessons(ls => ls.map((l, k) => (k === selectedLessonIndex ? updated : l)))}
+                      />
+                    ) : (
+                      <p className="text-sm text-slate-500 p-6 border border-dashed rounded-lg text-center">Add a lesson or select one to edit it.</p>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -671,7 +820,9 @@ export default function TrainingCourseBuilder() {
                   <h1 className="text-3xl font-bold text-slate-900 mb-2">AI Quiz Builder</h1>
                   <p className="text-slate-600">Create interactive quizzes for your lessons</p>
                 </div>
-                {/* Step 3 content placeholder */}
+                <p className="text-center text-sm text-slate-500 border border-dashed rounded-lg p-6">
+                  Quizzes (including AI-generated questions) are coming in a later release. You can publish this course without a quiz.
+                </p>
               </motion.div>
             )}
 
@@ -687,7 +838,25 @@ export default function TrainingCourseBuilder() {
                   <h1 className="text-3xl font-bold text-slate-900 mb-2">Assign & Publish</h1>
                   <p className="text-slate-600">Choose who can access your course and publish it</p>
                 </div>
-                {/* Step 4 content placeholder */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <PublishSettings
+                      assignmentType={assignmentType} setAssignmentType={setAssignmentType}
+                      selectedMembers={selectedMembers} setSelectedMembers={setSelectedMembers}
+                      selectedGroups={selectedGroups} setSelectedGroups={setSelectedGroups}
+                      publishTiming={publishTiming} setPublishTiming={setPublishTiming}
+                      scheduledDate={scheduledDate} setScheduledDate={setScheduledDate}
+                      notifyMembers={notifyMembers} setNotifyMembers={setNotifyMembers}
+                      issueCertificate={issueCertificate} setIssueCertificate={setIssueCertificate}
+                      passMark={passMark} setPassMark={setPassMark}
+                    />
+                    {publishTiming === "schedule" && (
+                      <p className="mt-3 text-sm text-amber-700">Scheduled publishing is not available yet — "Publish Course" publishes now; use "Save draft" to publish later.</p>
+                    )}
+                  </div>
+                  <CourseSummary courseData={courseData} lessons={lessons} quizQuestions={quizQuestions}
+                    assignmentType={assignmentType} selectedMembers={selectedMembers} selectedGroups={selectedGroups} />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -703,15 +872,22 @@ export default function TrainingCourseBuilder() {
               </Button>
             )}
             
+            <Button variant="outline" className="ml-auto mr-2" disabled={saveCourse.isPending} onClick={() => saveCourse.mutate(false)}>
+              {saveCourse.isPending ? "Saving…" : "Save draft"}
+            </Button>
             <motion.div whileTap={{ scale: 0.97 }}>
               <Button
+                disabled={saveCourse.isPending}
                 onClick={() => {
+                  if (currentStep === 1 && !courseData.title.trim()) { toast.error("Give the course a title first."); return; }
                   if (currentStep < 4) {
                     setCurrentStep(currentStep + 1);
                     if (!completedSteps.includes(currentStep)) {
                       setCompletedSteps([...completedSteps, currentStep]);
                     }
+                    return;
                   }
+                  saveCourse.mutate(true); // Finding 20: Publish Course now saves + publishes
                 }}
                 className="bg-purple-600 hover:bg-purple-700"
               >

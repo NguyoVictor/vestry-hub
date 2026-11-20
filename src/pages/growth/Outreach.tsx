@@ -26,6 +26,7 @@ import {
   ImagePlus, X, ChevronLeft, ChevronRight, List, CalendarDays, Sparkles,
 } from "lucide-react";
 import {
+import { toUserFacingError } from "@/lib/userFacingError";
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
@@ -200,7 +201,10 @@ export default function Outreach() {
   const saveActivity = useMutation({
     mutationFn: async () => {
       const payload = {
-        name: form.name,
+        // Finding 18: outreach_activities.title is NOT NULL; the form only set
+        // `name`, so every save failed (23502). Keep both in sync.
+        title: form.name.trim(),
+        name: form.name.trim(),
         type: form.type,
         activity_date: form.activity_date,
         start_time: form.start_time || null,
@@ -317,7 +321,7 @@ export default function Outreach() {
       
       toast.success(message);
     },
-    onError: () => toast.error("Failed to save activity"),
+    onError: (err: Error) => toast.error(toUserFacingError(err, "Failed to save activity")),
   });
 
   const deleteActivity = useMutation({

@@ -758,7 +758,7 @@ export default function DiscipleshipResources() {
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["resource-categories", tenantId] }); setNewCategoryName(""); toast.success("Category added"); },
-    onError: () => toast.error("Failed to add category"),
+    onError: (err: Error) => toast.error(toUserFacingError(err, "Failed to add category")),
   });
 
   const deleteCategory = useMutation({
