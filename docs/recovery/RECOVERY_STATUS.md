@@ -21,7 +21,7 @@
 | 8 | Findings 17, 18, 20 (non-AI) | **ACCEPTED 20 Nov** | see §7–8 | `a2afe03`, `83fd0e9` | — |
 | 9 | Findings 21–24 (ledger, payouts, payables, expenses) | **ACCEPTED 20 Nov**; IntaSend payment flows pending sandbox keys | see §9 | `d141940` | IntaSend sandbox keys |
 | 10 | Finding 27 tax rates, payroll edit/deactivate/delete, budget utilisation, Branding removed | **STAGING_TEST_PASS** — browser + DB + PGlite + cross-church | see §10 | `cdd4a74` | user sign-off |
-| 11 | Full staging acceptance | PENDING | — | — | — |
+| 11 | Full staging acceptance | **AUTOMATED ACCEPTANCE PASS** (41/41 browser, 161 unit, 37 harness, 0 leaks × 183 tables, typecheck −12) — user UAT checklist pending | `PHASE11_ACCEPTANCE.md` | see below | user UAT + IntaSend keys |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
 ## 2026-11-20 re-verification (read-only)

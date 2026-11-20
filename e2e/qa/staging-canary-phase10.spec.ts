@@ -104,8 +104,9 @@ test('Finding 27: enable tax, add / edit / deactivate a rate; persists', async (
   await page.getByRole('button', { name: `Deactivate ${CANARY_TAG} VAT` }).click();
   await son(page, /Tax rate deactivated/);
   await page.reload(); await page.getByRole('tab', { name: 'Tax Rates' }).click();
-  await expect(page.getByText(`${CANARY_TAG} VAT — 8%`)).toBeVisible();
-  await expect(page.getByText(/inclusive, inactive/)).toBeVisible();
+  const rate = page.locator('p').filter({ hasText: `${CANARY_TAG} VAT — 8%` });
+  await expect(rate).toBeVisible();
+  await expect(rate).toContainText('inclusive, inactive'); // scoped: earlier runs leave other inactive rates
   console.log('Tax failures:', JSON.stringify(bad(w.failures, /tax_/)), '| pageErrors:', JSON.stringify(w.pageErrors));
   expect(bad(w.failures, /tax_/)).toEqual([]);
 });
