@@ -23,7 +23,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | # | Item | Status | Notes |
 |---|---|---|---|
 | B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
-| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
+| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
 | B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
 | B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
 | B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
@@ -61,17 +61,19 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | # | Item | Status | Notes |
 |---|---|---|---|
 | E1 | Member-data RLS matrix (member A cannot read church B data via portal APIs) | ⬜ Phase 5 | Link/session isolation already proven. |
-| E2 | Staff can open Settings → Users and Add (UI); server denies | ⬜ Phase 5 | |
-| E3 | `Users.tsx` browser insert into `public.users` path | ⬜ Phase 5 | |
+| E2 | Staff can open Settings → Users and Add (UI); server denies | ✅ server-side denial + UI guidance (`a72d505`) | |
+| E3 | `Users.tsx` browser insert into `public.users` path | ✅ browser inserts removed (`a72d505`) | |
 | E4 | Provisioning authorisation aligned with `can_write_permission('member_management')` | ⬜ Phase 5 | |
 | E5 | Provider credentials stored in plain `public.tenants` columns | ⬜ Phase 5 | |
 | E6 | Supabase security advisor findings triaged | ⬜ Phase 5 | |
-| E7 | Admin page load: `login_events` insert and `users.last_login_at` update denied (403) by RLS on every load | ⬜ Phase 5 | Silent; decide server-side recording (e.g. auth hook) vs. RLS grant. |
+| E7 | Admin page load: `login_events` insert and `users.last_login_at` update denied (403) by RLS on every load | ✅ staging (`a72d505`, migration 20261120150000) | Silent; decide server-side recording (e.g. auth hook) vs. RLS grant. |
 | E8 | Browser PATCHes `tenant_subscriptions.storage_used_gb` after uploads → 403 (RLS correctly denies); usage never recorded | ⬜ billing phase | Move storage accounting server-side (trigger on storage.objects or Edge Function). |
-| E9 | `facilities_public_read_safe`: anyone can read all churches' active facilities | ⬜ Phase 5 | Confirm intended for public booking page; scope by tenant slug if not. |
-| E10 | `asset-images` / `facility-images` storage policies: any authenticated user may upload/delete any path | ⬜ Phase 5 | Tenant-folder scoping like Phase 4 buckets. |
+| E9 | `facilities_public_read_safe`: anyone can read all churches' active facilities | ✅ staging | Confirm intended for public booking page; scope by tenant slug if not. |
+| E10 | `asset-images` / `facility-images` storage policies: any authenticated user may upload/delete any path | ✅ staging | Tenant-folder scoping like Phase 4 buckets. |
 | E11 | Incident Management read-only gate uses `reports_analytics` permission | ⬜ Phase 5 | |
-| E12 | `CommunicationsSettings.tsx` upserts `service_role_key` into platform-wide `automation_settings` from the browser (denied by RLS) | ⬜ Phase 5 | Remove the call. |
+| E12 | `CommunicationsSettings.tsx` upserts `service_role_key` into platform-wide `automation_settings` from the browser (denied by RLS) | ✅ staging | Remove the call. |
+| E13 | **Analytics RPCs were executable by anon with no caller check** (latent cross-church leak) | ✅ staging (20261120160000) | Production: verify the same functions/grants before Gate B; their bodies are broken (42883) → reporting phase. |
+| C7 | `update-user-role` must be deployed to Production with the Phase 5 policy (was missing on staging) | ⬜ Gate B | |
 
 ## F. Quality gates (blocks Gate A)
 | # | Item | Status | Notes |
@@ -79,7 +81,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | F1 | CI `app-typecheck` green and **blocking** | 🔶 blocking via ratchet (no new errors); baseline errors still to burn down | ≥10 errors (announcements, types drift). `src/integrations/supabase/types.ts` regenerated from staging 20 Nov: 124 → 219 tables. |
 | F7 | **6 tables referenced by code are absent on staging:** `chart_of_accounts` (Finding 22), `fund_transactions`, `invoices`, `journal_entries`, `journal_lines`, `payroll_payments` | ⬜ Phase 9 | Decide per table: create via reviewed migration vs. repoint code to existing tables. Verify Production schema separately. |
 | F2 | Real browser E2E (disposable local Docker QA + preview bypass token) | ⬜ Phase 1 | |
-| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 10/27 | Findings 1–7, 9, 25, 26 ACCEPTED 20 Nov; 14, 19 STAGING_TEST_PASS (awaiting sign-off). |
+| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 12/27 | Findings 1–7, 9, 14, 19, 25, 26 ACCEPTED 20 Nov. |
 | F9 | Storage buckets on Production: create `facility-thumbnails`, `incident-attachments`, `church-logos` via migration `20261120120000`; verify Production bucket list first (names/visibility may differ) | ⬜ Gate B | Deferred media buckets (`church-media`, `sermon-recordings`, `quiz-documents`) only if media ships. |
 | F8 | New churches get **no service request types** → requests unusable | ✅ staging (migration `20261120100000`) | Production: the migration's backfill seeds only churches with zero types — review the Production count first (Gate B rehearsal). |
 | F4 | Untested Finding 1 paths canaried: CSV import, QR self-registration | ⬜ | |

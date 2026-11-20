@@ -15,7 +15,7 @@
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
 | 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
 | 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
-| 5 | Findings 14, 19, 26 + restored tenant RLS (26 tables) | **F26 ACCEPTED 20 Nov**; **F14, F19 STAGING_TEST_PASS (browser + API)** | see §5 | `0ad0b1b` + media canary commit | F14/F19 sign-off; remaining Phase 5 hardening items (E-list) |
+| 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **F14, F19, F26 ACCEPTED 20 Nov**; hardening E3/E7/E9/E10/E12 + update-user-role + analytics RPC guard STAGING_TEST_PASS | see §5 | `0ad0b1b`, `89407a8`, `a72d505` + RPC guard commit | Phase 5 hardening sign-off; E1/E4/E11 + leaked-password toggle |
 | 6–10 | Findings 8, 10–13, 15–18, 20–24, 27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
@@ -265,6 +265,21 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 | User sign-off | F26 ACCEPTED 20 Nov |
 
 **Found while investigating (queued):** `CommunicationsSettings.tsx` upserts a `service_role_key` row into the platform-wide `automation_settings` table from the browser (now correctly denied) — remove the call. `AssetManagement` deletes an asset's release requests/maintenance without checking errors before deleting the asset.
+
+
+### §5 hardening (20 Nov 2026, after F14/F19/F26 acceptance)
+
+| Item | Root cause | Fix | Evidence (`e2e/qa/staging-canary-phase5-hardening.spec.ts`, `…-phase5-rpc.spec.ts`, Preview `vestry-6g8dc2dpj` = `a72d505`) |
+|---|---|---|---|
+| **CRITICAL (latent): analytics RPCs** | 5 SECURITY DEFINER `get_*_optimized(p_tenant_id)` + 3 maintenance fns executable by **anon** with no caller check → any visitor could request any church's dashboard/member/financial analytics. Today every call crashes inside (42883 `varchar = uuid`), so **no data was returned** — the exposure was one bug-fix away | migration `20261120160000`: originals moved to `private.<name>_impl` (owner-only, search_path pinned); same-name public wrappers call `private.assert_own_church()`; maintenance/song fns not executable by anon/authenticated | before: anon → reaches body (42883); after: anon **401**, A admin → B **403**, A → own church passes guard. Advisor: anon-executable definer fns **8 → 0**; search_path warnings 30 → 25 |
+| E7 sign-in writes | per-page `PATCH users.last_login_at` (blocked by guard) + spoofable browser `login_events` inserts + signed-out users-by-email lookup/alerts | `record_staff_sign_in()` (own row only; guard allows last_login_at solely via its txn-local flag); browser writes removed | 0 denied login calls on sign-in; direct PATCH last_login_at **403**, direct role PATCH **403**; DB: QA users who signed in have fresh last_login_at + 1 success event each |
+| update-user-role (**not deployed** before) | church_admin/staff_leader could grant **super_admin** (also via reactivate); status unvalidated; inactive callers allowed | authorization in `policy.ts` (unit tests 4/4): active super_admin/church_admin only; elevated roles only by super_admin; validated role/status; deployed to staging | staff caller **403**; other church **404**; self **400**; bad role/status **400**; A admin sets A-STAFF pastor → staff **200/200** (restored) |
+| E3 Users page | browser inserts of `users` rows (2nd row with random id; row without login) — always denied | replaced with guidance (Edit to change role; invitations create accounts) | lint 0 → 0 |
+| E9 facilities | anon could read `booker_*` contact columns | column grants: anon gets public columns only; public page selects them explicitly | anon `booker_email` **401**; anon public cols **200** |
+| E10 image buckets | any authenticated user could upload/delete any path in `asset-images`/`facility-images`; anon could list | church-folder write policies; listing policies dropped | B → A folder **400/400**; A → own **200/200** |
+| E12 | browser wrote `service_role_key` into platform-wide `automation_settings` | call + "Enable Triggers" button removed | — |
+
+Queued: the five analytics RPC bodies are broken (42883) → dashboard/reporting phase; E1 member-data RLS matrix; E4 provisioning permission alignment; E11 incident gate key; E5 tenant credential columns readable by all tenant staff → solved by IntaSend server-side secrets (G1–G5); Auth "leaked password protection" toggle (user, dashboard); remaining 25 search_path warnings (Phase 6 inventory).
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
