@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Shield, Church, Phone, Target, ArrowRight, Loader2 } from "lucide-react";
 import { countries, getCurrencyByCountry } from "@/lib/country-currency";
 import { ADMIN_MODULES, moduleConfigFromOnboarding } from "@/config/modules";
+import { isMemberOnlyIdentity, MEMBER_PORTAL_HOME } from "@/lib/memberOnlyIdentity";
 import {
   Select,
   SelectContent,
@@ -51,6 +52,12 @@ const Onboarding = () => {
         .maybeSingle();
 
       console.log("[Onboarding] checkAuth user row:", user);
+
+      // Finding 1: Member Portal identities never get church creation.
+      if (!user?.tenant_id && await isMemberOnlyIdentity(supabase, session.user.id)) {
+        navigate(MEMBER_PORTAL_HOME, { replace: true });
+        return;
+      }
 
       if (user?.tenant_id) {
         const { data: tenant } = await supabase
@@ -96,6 +103,15 @@ const Onboarding = () => {
     if (!session) {
       toast.error("Session expired. Please sign in again.");
       navigate("/auth/signin", { replace: true });
+      return;
+    }
+
+    const { data: staffProfile } = await supabase
+      .from("users").select("tenant_id").eq("id", session.user.id).maybeSingle();
+    if (!staffProfile?.tenant_id && await isMemberOnlyIdentity(supabase, session.user.id)) {
+      setLoading(false);
+      toast.error("This email is registered for the Member Portal and cannot create a church here.");
+      navigate(MEMBER_PORTAL_HOME, { replace: true });
       return;
     }
 

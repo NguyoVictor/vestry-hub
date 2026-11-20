@@ -33,6 +33,7 @@ Deno.serve(async (req: Request) => {
     });
     const { data: { user }, error: authError } = await authClient.auth.getUser(jwt);
     if (authError || !user || !user.email || !user.email_confirmed_at) {
+      console.warn("member-login: denied", authError ? "auth_get_user_error" : "unverified_identity");
       return json({ error: "unauthorized" }, 401);
     }
 
@@ -47,7 +48,12 @@ Deno.serve(async (req: Request) => {
       .select("id, name, logo, church_code, slug, enabled_modules")
       .or(`church_code.eq.${churchCode},invite_code.eq.${churchCode}`)
       .maybeSingle();
-    if (tenantError || !tenant) return json({ error: "invalid_credentials_or_membership" }, 403);
+    // Denials log only a reason category (never email, code or ids) so a 403
+    // can be diagnosed from function logs without exposing member data.
+    if (tenantError || !tenant) {
+      console.warn("member-login: denied", tenantError ? "tenant_lookup_error" : "church_code_not_found");
+      return json({ error: "invalid_credentials_or_membership" }, 403);
+    }
 
     // Identity email is read from Auth, not from a body provided by the browser.
     // Finding 1: status / membership_status must NOT block an otherwise valid
@@ -59,7 +65,10 @@ Deno.serve(async (req: Request) => {
       .eq("tenant_id", tenant.id);
     if (linkError) return json({ error: "server_error" }, 500);
     const linkedIds = (links ?? []).map((row: { member_id: string }) => row.member_id);
-    if (linkedIds.length === 0) return json({ error: "invalid_credentials_or_membership" }, 403);
+    if (linkedIds.length === 0) {
+      console.warn("member-login: denied", "no_portal_link_in_church");
+      return json({ error: "invalid_credentials_or_membership" }, 403);
+    }
 
     const { data: candidates, error: memberError } = await db.from("members")
       .select("id, tenant_id, first_name, last_name, email, phone, avatar_url, status, member_type, membership_status, created_at")
@@ -69,6 +78,7 @@ Deno.serve(async (req: Request) => {
     const matches = (candidates ?? []).filter((row: { tenant_id: string; email: string | null }) =>
       row.tenant_id === tenant.id && String(row.email || "").trim().toLowerCase() === verifiedEmail);
     if (memberError || matches.length !== 1) {
+      console.warn("member-login: denied", memberError ? "member_lookup_error" : `email_match_count_${matches.length}`);
       return json({ error: "invalid_credentials_or_membership" }, 403);
     }
     const member = matches[0];

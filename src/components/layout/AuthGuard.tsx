@@ -6,8 +6,9 @@ import { ChurchProvider, type ChurchData } from "@/contexts/ChurchContext";
 import { Loader2 } from "lucide-react";
 import { buildTenantUrl, currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
 import { normalizeModuleConfig } from "@/config/modules";
+import { isMemberOnlyIdentity, MEMBER_PORTAL_HOME } from "@/lib/memberOnlyIdentity";
 
-type AuthState = "loading" | "unauthenticated" | "needs-onboarding" | "tenant-mismatch" | "ready";
+type AuthState = "loading" | "unauthenticated" | "needs-onboarding" | "member-only" | "tenant-mismatch" | "ready";
 
 export const AuthGuard = () => {
   const [state, setState] = useState<AuthState>("loading");
@@ -45,6 +46,12 @@ export const AuthGuard = () => {
       console.log("[AuthGuard] user row:", user);
 
       if (!user?.tenant_id) {
+        // Finding 1: a Member Portal identity (no staff profile) must never be
+        // offered church creation or any Admin Portal route.
+        if (await isMemberOnlyIdentity(supabase, session.user.id)) {
+          if (mounted) setState("member-only");
+          return;
+        }
         console.log("[AuthGuard] no tenant_id — redirecting to onboarding");
         if (mounted) setState("needs-onboarding");
         return;
@@ -205,6 +212,7 @@ export const AuthGuard = () => {
   }
 
   if (state === "unauthenticated") return <Navigate to="/auth/signin" state={{ from: location }} replace />;
+  if (state === "member-only") return <Navigate to={MEMBER_PORTAL_HOME} replace />;
   if (state === "needs-onboarding") return <Navigate to="/onboarding" replace />;
   if (state === "tenant-mismatch" && churchData?.slug) {
     const canonicalUrl = buildTenantUrl(churchData.slug, `${location.pathname}${location.search}${location.hash}`, { baseDomain: currentTenantBaseDomain() });
