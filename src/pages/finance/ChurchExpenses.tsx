@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/lib/userFacingError";
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -73,10 +74,15 @@ const ChurchExpenses = () => {
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      if (readOnly) return;
-      const { error } = await supabase.from("expenses").update({ approval_status: status, approved_by: userId, approved_at: new Date().toISOString() } as any).eq("id", id);
+      if (readOnly) throw new Error("You have read-only access to finance records.");
+      const { data, error } = await supabase.from("expenses")
+        .update({ approval_status: status, approved_by: userId, approved_at: new Date().toISOString() } as any)
+        .eq("id", id).select("id, approval_status");
       if (error) throw error;
+      // Finding 24: the update used to affect 0 rows (no UPDATE policy) while a success toast showed.
+      if (!data || data.length === 0) throw new Error("The expense status was not changed. You may not have permission.");
     },
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Could not update the expense")),
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       toast.success(`Expense ${status}`);

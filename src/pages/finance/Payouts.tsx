@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/lib/userFacingError";
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -89,8 +90,10 @@ const Payouts = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const amount = parseFloat(form.amount);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a payout amount greater than zero.");
       const { error } = await supabase.from("payouts").insert({
-        tenant_id: tenantId, recipient_name: form.recipient_name, amount: parseFloat(form.amount),
+        tenant_id: tenantId, recipient_name: form.recipient_name.trim(), amount,
         payment_method: form.payment_method as any, payment_status: form.payment_status as any,
         reference: form.reference, notes: form.notes, currency, created_by: userId,
       });
@@ -111,7 +114,7 @@ const Payouts = () => {
       setSheetOpen(false); 
       setForm({ recipient_name: "", amount: "", payment_method: "bank_transfer", payment_status: "pending", reference: "", notes: "", currency: "KES" }); 
     },
-    onError: () => toast.error("Failed to record payout", {
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to record payout"), {
       duration: 4000,
       style: {
         background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',

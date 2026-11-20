@@ -104,6 +104,7 @@ const GeneralLedger = () => {
       const { error } = await supabase.rpc("seed_chart_of_accounts", { p_tenant_id: tenantId });
       if (error) throw error;
     },
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Could not set up the chart of accounts")),
     onSuccess: () => { 
       queryClient.invalidateQueries({ queryKey: ["chart-of-accounts"] }); 
       toast.success("Chart of accounts created! 📊", {
@@ -128,6 +129,7 @@ const GeneralLedger = () => {
       // Insert individual ledger entries for each line
       const inserts = journalLines.filter(l => l.account_id && (l.debit_amount || l.credit_amount)).map(l => ({
         tenant_id: tenantId,
+        account_id: l.account_id, // Finding 22: lines were saved without their account
         description: entryForm.description,
         entry_date: entryForm.entry_date,
         debit_amount: parseFloat(l.debit_amount) || 0,

@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-route
 import { ThemeProvider } from "next-themes";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as HotToaster } from "react-hot-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import * as Sentry from "@sentry/react";
 import { useEffect, lazy, Suspense } from "react";
@@ -294,6 +295,8 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          {/* Phase 9: 13 finance/giving pages use react-hot-toast; without this mount their messages never appeared. */}
+          <HotToaster position="top-right" />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <PageViewTracker />
           <Routes>

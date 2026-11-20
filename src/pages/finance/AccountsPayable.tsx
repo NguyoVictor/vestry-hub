@@ -1,3 +1,4 @@
+import { toUserFacingError } from "@/lib/userFacingError";
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -120,7 +121,7 @@ const AccountsPayable = () => {
       }); 
       closeSheet(); 
     },
-    onError: () => toast.error("Failed to save invoice", {
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to save invoice"), {
       duration: 4000,
       style: {
         background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -134,9 +135,12 @@ const AccountsPayable = () => {
 
   const markPaidMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("accounts_payable").update({ payment_status: "paid" } as any).eq("id", id);
+      const { data, error } = await supabase.from("accounts_payable").update({ payment_status: "paid" } as any).eq("id", id).select("id");
       if (error) throw error;
+      // Never report success unless a row actually changed (RLS / wrong id → 0 rows).
+      if (!data || data.length === 0) throw new Error("The invoice was not updated. You may not have permission.");
     },
+    onError: (e: Error) => toast.error(toUserFacingError(e, "Could not mark the invoice as paid")),
     onSuccess: () => { 
       queryClient.invalidateQueries({ queryKey: ["accounts-payable"] }); 
       toast.success("Marked as paid! ✅", {
