@@ -51,6 +51,17 @@ test('Budget: record expenditure, see utilisation, reverse it', async ({ page })
   await signIn(page, 'A_ADMIN');
   await page.goto('/budget-management');
   await page.waitForLoadState('networkidle').catch(() => {});
+  if (!(await page.getByRole('button', { name: /^Actions for / }).first().isVisible().catch(() => false))) {
+    // Church A has no budget yet: create one through the real dialog.
+    await page.getByRole('button', { name: /Create Budget|Create First Budget/ }).first().click();
+    const c = page.getByRole('dialog');
+    await c.getByPlaceholder('e.g. 2025 Annual Budget').fill(`${CANARY_TAG} Budget`);
+    await c.getByPlaceholder('e.g. Worship, Outreach, Administration').first().fill('outreach');
+    await c.getByPlaceholder('0.00').first().fill('100');
+    await c.getByRole('button', { name: /Create Budget/ }).last().click();
+    await hot(page, /Budget created successfully/);
+    await page.reload(); await page.waitForLoadState('networkidle').catch(() => {});
+  }
   const actions = page.getByRole('button', { name: /^Actions for / }).first();
   await actions.click();
   await page.getByRole('menuitem', { name: 'Record expenditure' }).click();

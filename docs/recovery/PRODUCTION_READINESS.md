@@ -23,7 +23,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | # | Item | Status | Notes |
 |---|---|---|---|
 | B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
-| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000`, `20261120200000`, `20261120210000`, `20261120220000`, `20261120230000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
+| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000`, `20261120200000`, `20261120210000`, `20261120220000`, `20261120230000`, `20261120240000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
 | B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
 | B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
 | B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
@@ -87,7 +87,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | F1 | CI `app-typecheck` green and **blocking** | 🔶 blocking via ratchet (no new errors); baseline errors still to burn down | ≥10 errors (announcements, types drift). `src/integrations/supabase/types.ts` regenerated from staging 20 Nov: 124 → 219 tables. |
 | F7 | **6 tables referenced by code are absent on staging:** `chart_of_accounts` (Finding 22), `fund_transactions`, `invoices`, `journal_entries`, `journal_lines`, `payroll_payments` | ⬜ Phase 9 | Decide per table: create via reviewed migration vs. repoint code to existing tables. Verify Production schema separately. |
 | F2 | Real browser E2E (disposable local Docker QA + preview bypass token) | ⬜ Phase 1 | |
-| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 13/27 | Findings 1–9, 14, 19, 25, 26 ACCEPTED 20 Nov; 17, 18, 20 (non-AI), 21–24 STAGING_TEST_PASS; 10, 11, 12, 13, 15, 16 + AI part of 20 DEFERRED (user scope). |
+| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 22/27 accepted, 1 pending sign-off, 4 deferred (10, 11, 12/13/15/16 media) | Findings 1–9, 14, 17–19, 20 (non-AI), 21–26 ACCEPTED 20 Nov; 27 + Phase 10 product items STAGING_TEST_PASS; 10, 11, 12, 13, 15, 16 + AI part of 20 DEFERRED (user scope). |
 | F9 | Storage buckets on Production: create `facility-thumbnails`, `incident-attachments`, `church-logos` via migration `20261120120000`; verify Production bucket list first (names/visibility may differ) | ⬜ Gate B | Deferred media buckets (`church-media`, `sermon-recordings`, `quiz-documents`) only if media ships. |
 | F8 | New churches get **no service request types** → requests unusable | ✅ staging (migration `20261120100000`) | Production: the migration's backfill seeds only churches with zero types — review the Production count first (Gate B rehearsal). |
 | F4 | Untested Finding 1 paths canaried: CSV import, QR self-registration | ⬜ | |

@@ -17,10 +17,10 @@
 | 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
 | 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **CLOSED 20 Nov** — F14, F19, F26, hardening, E1, E4, E11 ACCEPTED by user; final loopholes (E5 secrets, quiz scores, volunteer hours) STAGING_TEST_PASS | see §5 | `0ad0b1b` … `5bfc7a6`, `958ffc8` + close-out | user: enable "Prevent use of leaked passwords" (staging + Production) |
 | 6 | Finding 8 + Edge Function inventory/hardening + launch-scope gating | **ACCEPTED 20 Nov** (F8 + Phase 6); Findings 10, 11, 20-AI **DEFERRED** — see `DEFERRED_BACKLOG.md` | see §6 | `a1cd4bd`, `e05a3f5`, `c2a415f`, `6d3de63`, `8d611e0` | — |
-| 7 | Church Studio removal (product) | **STAGING_TEST_PASS** — UI removed, shared `studio_media` kept; Findings 12, 13, 15, 16 DEFERRED | see §7–8 | `04cb1f0` | user sign-off |
-| 8 | Findings 17, 18, 20 (non-AI) | **STAGING_TEST_PASS** — browser + DB + member impersonation | see §7–8 | `a2afe03`, `83fd0e9` | user sign-off |
-| 9 | Findings 21–24 (ledger, payouts, payables, expenses) | **STAGING_TEST_PASS** — browser + DB + cross-church denials; IntaSend payment flows pending sandbox keys | see §9 | `d141940` | user sign-off; IntaSend sandbox keys |
-| 10 | Finding 27 tax settings, payroll edit/deactivate, budget utilisation, remove Branding nav | PENDING | — | — | — |
+| 7 | Church Studio removal (product) | **ACCEPTED 20 Nov** — UI removed, shared `studio_media` kept; Findings 12, 13, 15, 16 DEFERRED | see §7–8 | `04cb1f0` | — |
+| 8 | Findings 17, 18, 20 (non-AI) | **ACCEPTED 20 Nov** | see §7–8 | `a2afe03`, `83fd0e9` | — |
+| 9 | Findings 21–24 (ledger, payouts, payables, expenses) | **ACCEPTED 20 Nov**; IntaSend payment flows pending sandbox keys | see §9 | `d141940` | IntaSend sandbox keys |
+| 10 | Finding 27 tax rates, payroll edit/deactivate/delete, budget utilisation, Branding removed | **STAGING_TEST_PASS** — browser + DB + PGlite + cross-church | see §10 | `cdd4a74` | user sign-off |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
@@ -376,6 +376,20 @@ Migration `20261120230000`: also aligns payouts / accounts_payable / ledger_entr
 **Evidence** (`e2e/qa/staging-canary-phase9.spec.ts`, Preview `vestry-1aysgwjuk` = `d141940`; Giving & Finance enabled for QA Church A only): F22 setup → 27 accounts, balanced 2-line entry posted, both lines carry `account_id`; F21 payout cheque/processed persists; F23 invoice `paid` persists after reload; F24 expense `approved` (approver recorded) persists; 0 failed calls, 0 page errors. Church B admin (rolled-back txn): sees 0 of A's payouts / accounts, updates 0 of A's expenses, seeding A's chart refused (42501). Tenants 12. Lint and type-error counts unchanged; production build passes.
 
 Not yet: IntaSend payment flows (STK push / giving / subscriptions / payout disbursement) — need IntaSend sandbox keys (`DEFERRED_BACKLOG.md` R2).
+
+
+## §10 Phase 10 — Finance completeness & settings (20 Nov 2026)
+
+| Item | Before | After |
+|---|---|---|
+| Budget utilisation (product) | "Spent" summed in the browser from EVERY approved expense whose category NAME matched — across all budgets/periods (double counting); no way to record spend, no history/audit | `budget_expenditures` (traceable; never edited/deleted; reversal with reason; a source counts once among active rows), approved expenses linked to a line sync automatically (reversed if un-approved, moved if re-linked), `spent_amount` server-maintained, `budget_audit_log`. Per-line ⋮: Record expenditure (overspend warning, link a paid invoice), Edit line (audited), View details (allocated / spent / remaining / % + progress + history + reverse) |
+| Payroll staff (product) | edit plumbing existed but nothing opened it; no deactivate/delete | ⋮ Edit / Deactivate–Reactivate (end date; excluded from active totals; history kept) / Delete (confirm; refused when payroll history exists); row-change verified |
+| Finding 27 Tax | tables existed but had zero policies until Phase 5 → "static"; no tax rates at all | Tax Rates tab: enable switch (`tax_settings.tax_enabled`), add / edit / deactivate rates (name, %, description, inclusive/exclusive); configuration only, never auto-applied |
+| Branding (product) | Settings → Branding was a "coming soon" placeholder | removed from sidebar and routes; logos (General Settings) and email branding (Communications) untouched |
+
+Migration `20261120240000`; RLS: budgets / budget lines / expenditures / payroll_staff writes need `financial_records`; `tax_rates` need `church_settings`; audit log read-only (staff).
+
+**Evidence:** PGlite harness `scripts/recovery/p10-budget-pglite-harness.mjs` 4/4 on the real migration SQL (spend/reversal/no-edit; cross-church + wrong-line blocked; expense sync once / un-approve / re-approve / re-link with history 3 rows, 1 active; audit) — added to CI. Browser canary `e2e/qa/staging-canary-phase10.spec.ts` (Preview `vestry-46stp0r78` = `cdd4a74`): Branding absent; payroll add → edit prefilled → deactivate persists (`inactive`, end date); budget created → expenditure recorded → history → reversed (spent back to 0, 1 reversed row kept, 7 audit rows); tax enabled → rate added 16% → edited to 8% inclusive → deactivated, persists. 0 failed calls, 0 page errors. Church B (rolled-back txn): sees 0 of A's budgets / expenditures / tax rates / payroll; updates 0 of A's tax rates. Type-error counts at baseline for all 6 files; lint unchanged/improved; build passes.
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
