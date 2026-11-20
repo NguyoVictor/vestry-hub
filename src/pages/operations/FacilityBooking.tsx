@@ -569,7 +569,8 @@ function AddEditFacilityModal({
           const webpBlob = await convertToWebP(thumbFile, 600, 0.8);
           const tPath = `${tenantId}/${Date.now()}-thumb.webp`;
           const { error: tErr } = await supabase.storage.from("facility-thumbnails").upload(tPath, webpBlob, { contentType: "image/webp" });
-          if (tErr) throw new Error("Failed to upload thumbnail");
+          // Finding 7: report the real reason; the facility is not saved when the chosen thumbnail fails.
+          if (tErr) throw new Error(`Thumbnail upload failed: ${tErr.message}. The facility was not saved — try again or remove the thumbnail.`);
           thumbnailPath = tPath;
         }
 
@@ -1561,12 +1562,12 @@ export default function FacilityBookingPage() {
     staleTime: 300000,
   });
 
-  const { data: facilities = [], isLoading: facLoading } = useQuery({
+  const { data: facilities = [], isLoading: facLoading, isError: facError, error: facErrorObj } = useQuery({
     queryKey: ["facilities", tenantId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITIES as any)
-        .select("*, facility_images(id, image_path, sort_order)")
+        .select("*, facility_images!facility_images_facility_id_fkey(id, image_path, sort_order)")
         .eq(COLS.TENANT_ID, tenantId)
         .order("name");
       if (error) throw error;
@@ -1780,6 +1781,12 @@ export default function FacilityBookingPage() {
           {facLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-xl" />)}
+            </div>
+          ) : facError ? (
+            // Finding 7-B: a failed load must never look like "No facilities found".
+            <div className="flex flex-col items-center justify-center py-16 gap-2 text-center" role="alert">
+              <p className="text-base font-semibold text-red-600">Could not load facilities</p>
+              <p className="text-sm text-slate-500">{toUserFacingError(facErrorObj)}</p>
             </div>
           ) : filteredFacilities.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">

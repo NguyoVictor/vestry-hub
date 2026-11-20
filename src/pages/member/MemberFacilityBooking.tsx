@@ -724,7 +724,7 @@ export default function MemberFacilityBooking() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.FACILITIES as any)
-        .select("id, name, description, capacity, quotation, is_active, type, thumbnail_path, video_path, facility_images(image_path, sort_order)")
+        .select("id, name, description, capacity, quotation, is_active, type, thumbnail_path, video_path, facility_images!facility_images_facility_id_fkey(image_path, sort_order)")
         .eq(COLS.TENANT_ID, member.churchId)
         .neq("is_active", false)
         .order("name");

@@ -99,7 +99,7 @@ const GroupDetail = () => {
     queryKey: ["join-requests", groupId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.JOIN_REQUESTS)
-        .select("*, members(id, first_name, last_name, avatar_url)")
+        .select("*, members!join_requests_member_id_fkey(id, first_name, last_name, avatar_url)")
         .eq("group_id", groupId!).eq(COLS.TENANT_ID, tenantId!).eq("status", "pending");
       return data || [];
     },

@@ -141,20 +141,24 @@ export default function GeneralSettings() {
         }
         
         setUploading(true);
-        const ext = logoFile.name.split(".").pop();
-        const path = `${tenantId}/logo-${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("church-logos").upload(path, logoFile, { upsert: true });
-        if (!upErr) {
+        try {
+          const ext = (logoFile.name.split(".").pop() || "png").toLowerCase();
+          const path = `${tenantId}/logo-${Date.now()}.${ext}`;
+          const { error: upErr } = await supabase.storage.from("church-logos").upload(path, logoFile, { upsert: true, contentType: logoFile.type || undefined });
+          // Finding 25: never save the other settings and report success when the
+          // logo silently failed — stop and say exactly which part failed.
+          if (upErr) throw new Error(`Logo upload failed: ${upErr.message}. Your other changes were not saved.`);
           const { data } = supabase.storage.from("church-logos").getPublicUrl(path);
           logoUrl = data.publicUrl;
-          
-          // Increment storage usage
+
+          // Increment storage usage (best effort; never blocks the save)
           await supabase
             .from(TABLES.TENANT_SUBSCRIPTIONS)
             .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
             .eq('tenant_id', tenantId);
+        } finally {
+          setUploading(false);
         }
-        setUploading(false);
       }
 
       const payload: Record<string, any> = {

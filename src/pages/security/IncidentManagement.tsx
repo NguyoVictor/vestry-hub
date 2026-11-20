@@ -345,11 +345,13 @@ function ReportIncidentSheet({
     if (!attachmentFiles.length) return [];
     const paths: string[] = [];
     for (const file of attachmentFiles) {
-      const path = `${tenantId}/${Date.now()}_${file.name}`;
+      const safeName = file.name.replace(/[^\w.-]+/g, "_").slice(-120);
+      const path = `${tenantId}/${Date.now()}_${safeName}`;
       const { error } = await supabase.storage
         .from("incident-attachments")
-        .upload(path, file, { upsert: false });
-      if (error) throw error;
+        .upload(path, file, { upsert: false, contentType: file.type || undefined });
+      // Finding 9: say which part failed; the incident is not saved without its chosen evidence.
+      if (error) throw new Error(`Attachment "${file.name}" could not be uploaded: ${error.message}. The incident was not saved — remove the file or try again.`);
       paths.push(path);
     }
     return paths;
@@ -869,10 +871,20 @@ function ViewIncidentSheet({ open, onOpenChange, incident, tenantId }: ViewSheet
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Attachments</p>
               <div className="space-y-1.5">
                 {incident.attachment_paths.map((path, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={async () => {
+                      // Private bucket: open through a short-lived signed URL.
+                      const { data, error } = await supabase.storage.from("incident-attachments").createSignedUrl(path, 60);
+                      if (error || !data?.signedUrl) { toast.error(`Could not open attachment: ${error?.message ?? "unknown error"}`); return; }
+                      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                    }}
+                    className="w-full flex items-center gap-2 text-sm text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg px-3 py-2 border border-slate-200 text-left"
+                  >
                     <Paperclip className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">{path.split("/").pop()}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

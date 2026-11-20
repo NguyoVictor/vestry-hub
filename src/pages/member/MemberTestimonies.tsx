@@ -312,7 +312,7 @@ export default function MemberTestimonies() {
     queryKey: ["member-testimonies-mine", member.memberId],
     queryFn: async () => {
       const { data, error } = await supabase.from(TABLES.TESTIMONIES)
-        .select("*, testimony_categories(label, color), testimony_reactions(*), members(first_name, last_name, avatar_url)")
+        .select("*, testimony_categories!testimonies_category_id_fkey(label, color), testimony_reactions!testimony_reactions_testimony_id_fkey(*), members!testimonies_member_id_fkey(first_name, last_name, avatar_url)")
         .eq("member_id", member.memberId).eq(COLS.TENANT_ID, member.churchId).order(COLS.CREATED_AT, { ascending: false });
       if (error) throw error;
       return (data ?? []) as TestimonyWithRelations[];

@@ -92,7 +92,7 @@ export default function MemberHome() {
     queryKey: ["member-volunteer-roles", member.memberId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.VOLUNTEERS)
-        .select("role_id, volunteer_roles(name)")
+        .select("role_id, volunteer_roles!volunteers_role_id_fkey(name)")
         .eq("member_id", member.memberId)
         .eq(COLS.TENANT_ID, member.churchId);
       return data || [];

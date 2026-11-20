@@ -117,7 +117,7 @@ export function MemberGroups() {
     queryKey: ["member-my-groups", member.memberId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.GROUP_MEMBERS)
-        .select("group_id, groups(id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, meeting_date, location, is_active, jitsi_room_name, leader_id, type)")
+        .select("group_id, groups!group_members_group_id_fkey(id, name, description, cover_color, color, meeting_type, meeting_day, meeting_time, meeting_date, location, is_active, jitsi_room_name, leader_id, type)")
         .eq("member_id", member.memberId)
         .eq(COLS.TENANT_ID, member.churchId);
       return (data || []).map((gm: any) => gm.groups).filter(Boolean);

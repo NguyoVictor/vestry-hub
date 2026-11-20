@@ -7,10 +7,16 @@ export function watch(page: Page) {
   const failures: string[] = [];
   const pageErrors: string[] = [];
   page.on('pageerror', e => pageErrors.push(e.message.slice(0, 200)));
-  page.on('response', r => {
+  page.on('response', async r => {
     const u = new URL(r.url());
     if (u.hostname.endsWith('.supabase.co') && r.status() >= 400) {
-      failures.push(`${r.request().method()} ${u.pathname} -> ${r.status()}`);
+      // Error code/message only (PostgREST/Storage error envelopes); never bodies of successful calls.
+      let why = '';
+      try {
+        const j = await r.json();
+        why = [j.code ?? j.statusCode ?? j.error, j.message ?? j.msg].filter(Boolean).join(': ').slice(0, 160);
+      } catch { /* non-JSON */ }
+      failures.push(`${r.request().method()} ${u.pathname} -> ${r.status()}${why ? ` (${why})` : ''}`);
     }
   });
   return { failures, pageErrors };

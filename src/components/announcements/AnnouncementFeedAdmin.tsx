@@ -92,7 +92,7 @@ export function AnnouncementFeedAdmin({
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.ANNOUNCEMENTS)
-        .select(`*, announcement_types(label, color, icon), announcement_attachments(*), announcement_reactions(*), announcement_comments(*, members(first_name, last_name, avatar_url))`)
+        .select(`*, announcement_types!announcements_category_id_fkey(label, color, icon), announcement_attachments(*), announcement_reactions(*), announcement_comments(*, members(first_name, last_name, avatar_url))`)
         .eq(COLS.TENANT_ID, tenantId)
         .neq("status", "archived")
         .order("is_pinned", { ascending: false })

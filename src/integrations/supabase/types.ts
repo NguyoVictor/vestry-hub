@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.18"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       accounts_payable: {
@@ -4434,6 +4459,54 @@ export type Database = {
         }
         Relationships: []
       }
+      incident_status_logs: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          incident_id: string
+          new_status: string
+          note: string | null
+          old_status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          incident_id: string
+          new_status: string
+          note?: string | null
+          old_status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          incident_id?: string
+          new_status?: string
+          note?: string | null
+          old_status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incident_status_logs_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incident_status_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       incident_updates: {
         Row: {
           created_at: string | null
@@ -4471,40 +4544,61 @@ export type Database = {
       }
       incidents: {
         Row: {
+          attachment_paths: string[] | null
           created_at: string | null
           description: string | null
           id: string
           incident_date: string
+          incident_number: string | null
+          incident_time: string | null
           incident_type: string
+          location: string | null
           persons_involved: string | null
           reported_by: string | null
           resolution_notes: string | null
+          severity: string
           status: Database["public"]["Enums"]["incident_status_enum"] | null
           tenant_id: string
+          updated_at: string
+          witnesses: string | null
         }
         Insert: {
+          attachment_paths?: string[] | null
           created_at?: string | null
           description?: string | null
           id?: string
           incident_date?: string
+          incident_number?: string | null
+          incident_time?: string | null
           incident_type: string
+          location?: string | null
           persons_involved?: string | null
           reported_by?: string | null
           resolution_notes?: string | null
+          severity?: string
           status?: Database["public"]["Enums"]["incident_status_enum"] | null
           tenant_id: string
+          updated_at?: string
+          witnesses?: string | null
         }
         Update: {
+          attachment_paths?: string[] | null
           created_at?: string | null
           description?: string | null
           id?: string
           incident_date?: string
+          incident_number?: string | null
+          incident_time?: string | null
           incident_type?: string
+          location?: string | null
           persons_involved?: string | null
           reported_by?: string | null
           resolution_notes?: string | null
+          severity?: string
           status?: Database["public"]["Enums"]["incident_status_enum"] | null
           tenant_id?: string
+          updated_at?: string
+          witnesses?: string | null
         }
         Relationships: [
           {
@@ -10599,6 +10693,7 @@ export type Database = {
           subscription_tier: string | null
           tagline: string | null
           tenant_metadata: Json
+          timezone: string | null
           twitter_url: string | null
           updated_at: string | null
           vision_statement: string | null
@@ -10720,6 +10815,7 @@ export type Database = {
           subscription_tier?: string | null
           tagline?: string | null
           tenant_metadata?: Json
+          timezone?: string | null
           twitter_url?: string | null
           updated_at?: string | null
           vision_statement?: string | null
@@ -10841,6 +10937,7 @@ export type Database = {
           subscription_tier?: string | null
           tagline?: string | null
           tenant_metadata?: Json
+          timezone?: string | null
           twitter_url?: string | null
           updated_at?: string | null
           vision_statement?: string | null
@@ -12708,7 +12805,7 @@ export type Database = {
         | "prayer"
         | "outreach"
         | "bible_study"
-      incident_status_enum: "open" | "investigating" | "resolved"
+      incident_status_enum: "open" | "investigating" | "resolved" | "closed"
       integration_provider_enum:
         | "pesapal"
         | "intasend"
@@ -12866,6 +12963,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       announcement_audience_enum: ["all", "group", "branch"],
@@ -12896,7 +12996,7 @@ export const Constants = {
         "outreach",
         "bible_study",
       ],
-      incident_status_enum: ["open", "investigating", "resolved"],
+      incident_status_enum: ["open", "investigating", "resolved", "closed"],
       integration_provider_enum: [
         "pesapal",
         "intasend",

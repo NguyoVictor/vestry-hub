@@ -82,7 +82,7 @@ export default function MemberAnnouncements() {
         .from(TABLES.ANNOUNCEMENTS)
         .select(`
           *,
-          announcement_types(label, color),
+          announcement_types!announcements_category_id_fkey(label, color),
           announcement_attachments(*),
           announcement_reactions(*),
           announcement_comments(*, members(first_name, last_name, avatar_url))

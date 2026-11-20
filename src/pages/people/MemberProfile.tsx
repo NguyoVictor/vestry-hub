@@ -76,7 +76,7 @@ const MemberProfile = () => {
   const { data: groups = [] } = useQuery({
     queryKey: ["member-groups", memberId],
     queryFn: async () => {
-      const { data } = await supabase.from("group_members").select("*, groups(name, type)").eq("member_id", memberId!).eq("tenant_id", tenantId!) as any;
+      const { data } = await supabase.from("group_members").select("*, groups!group_members_group_id_fkey(name, type)").eq("member_id", memberId!).eq("tenant_id", tenantId!) as any;
       return data || [];
     },
     enabled: !!memberId,
