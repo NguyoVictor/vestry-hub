@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from "@/integrations/supabase/client";
@@ -24,33 +24,37 @@ export function SmsSettings() {
   });
   const [sendingTest, setSendingTest] = useState(false);
 
-  const { data: settings, isLoading } = useQuery({
+  type SmsSettingsRow = { id: string; tenant_id: string; at_username: string | null; sender_id: string | null; is_configured: boolean | null };
+  const { data: settings, isLoading } = useQuery<SmsSettingsRow | null>({
     queryKey: ["sms-settings", tenantId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from(TABLES.SMS_SETTINGS)
         .select("id, tenant_id, at_username, sender_id, is_configured")
         .eq("tenant_id", tenantId)
         .maybeSingle();
-      return data;
-    },
-    onSuccess: (data) => {
-      if (data) {
-        setForm({
-          at_username: data.at_username || "",
-          at_api_key: "", // Phase 5 (E5): the saved key is never sent back to the browser
-          sender_id: data.sender_id || ""
-        });
-      }
+      if (error) throw error;
+      return (data as SmsSettingsRow | null) ?? null;
     },
     staleTime: 300_000,
   });
+
+  // React Query v5 removed useQuery onSuccess, so the form never prefilled; sync here.
+  useEffect(() => {
+    if (settings) {
+      setForm({
+        at_username: settings.at_username || "",
+        at_api_key: "", // Phase 5 (E5): the saved key is never sent back to the browser
+        sender_id: settings.sender_id || ""
+      });
+    }
+  }, [settings]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (readOnly) return;
       const keyConfigured = !!form.at_api_key || !!settings?.is_configured;
-      const payload: Record<string, unknown> = {
+      const payload: { tenant_id: string; at_username: string; sender_id: string; is_configured: boolean; updated_at: string; at_api_key?: string } = {
         tenant_id: tenantId,
         at_username: form.at_username,
         sender_id: form.sender_id,
