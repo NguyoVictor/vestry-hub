@@ -19,7 +19,8 @@
 | 6 | Finding 8 + Edge Function inventory/hardening + launch-scope gating | **ACCEPTED 20 Nov** (F8 + Phase 6); Findings 10, 11, 20-AI **DEFERRED** — see `DEFERRED_BACKLOG.md` | see §6 | `a1cd4bd`, `e05a3f5`, `c2a415f`, `6d3de63`, `8d611e0` | — |
 | 7 | Church Studio removal (product) | **STAGING_TEST_PASS** — UI removed, shared `studio_media` kept; Findings 12, 13, 15, 16 DEFERRED | see §7–8 | `04cb1f0` | user sign-off |
 | 8 | Findings 17, 18, 20 (non-AI) | **STAGING_TEST_PASS** — browser + DB + member impersonation | see §7–8 | `a2afe03`, `83fd0e9` | user sign-off |
-| 9–10 | Findings 21–24, 27 + finance product items (IntaSend) | PENDING | — | — | — |
+| 9 | Findings 21–24 (ledger, payouts, payables, expenses) | **STAGING_TEST_PASS** — browser + DB + cross-church denials; IntaSend payment flows pending sandbox keys | see §9 | `d141940` | user sign-off; IntaSend sandbox keys |
+| 10 | Finding 27 tax settings, payroll edit/deactivate, budget utilisation, remove Branding nav | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
@@ -358,6 +359,23 @@ Build incident: `a2afe03` Preview failed to build (import inserted inside a mult
 | F20 member B: course 0 / lessons 0 / cannot enroll | **PASS** |
 
 Known gaps (queued): live quiz host/join still write non-existent `quiz_participants.member_id` (T2); scheduled publishing not supported (UI says so); resource↔category assignment covered by schema/FK but not separately canaried.
+
+
+## §9 Phase 9 — Finance (20 Nov 2026)
+
+| Finding | Root cause (verified on staging) | Fix |
+|---|---|---|
+| 21 Payouts | form offers `cheque` / `processed`, not in `payment_method_enum` / `payment_status_enum` → POST 400; no visible feedback | enum values added; amount validated; real error message |
+| 22 Chart of accounts | **`chart_of_accounts` table did not exist** (404) while `seed_chart_of_accounts()` inserted into it; `ledger_entries` had no account column → journal lines lost their account | table created (church-scoped; `ledger_entries.account_id` composite FK to same-church account); seed idempotent, not anon-executable; journal lines save `account_id` |
+| 23 Accounts payable | "Mark as Paid" wrote `paid`, not an enum value → PATCH 400 | enum value `paid` added (page logic already uses it); row-change verified |
+| 24 Expenses | **no UPDATE policy** → approve/reject updated 0 rows while showing success | policies + row-change verification (no false success) |
+| all ("nothing happens") | 13 finance/giving pages use **react-hot-toast, whose Toaster was never mounted** → every success/error message was invisible | `<HotToaster />` mounted once in App |
+
+Migration `20261120230000`: also aligns payouts / accounts_payable / ledger_entries / expenses / chart_of_accounts writes to `can_write_permission(<church>, 'financial_records')` (the pages' gate; previously any staff via FOR ALL tenant policies).
+
+**Evidence** (`e2e/qa/staging-canary-phase9.spec.ts`, Preview `vestry-1aysgwjuk` = `d141940`; Giving & Finance enabled for QA Church A only): F22 setup → 27 accounts, balanced 2-line entry posted, both lines carry `account_id`; F21 payout cheque/processed persists; F23 invoice `paid` persists after reload; F24 expense `approved` (approver recorded) persists; 0 failed calls, 0 page errors. Church B admin (rolled-back txn): sees 0 of A's payouts / accounts, updates 0 of A's expenses, seeding A's chart refused (42501). Tenants 12. Lint and type-error counts unchanged; production build passes.
+
+Not yet: IntaSend payment flows (STK push / giving / subscriptions / payout disbursement) — need IntaSend sandbox keys (`DEFERRED_BACKLOG.md` R2).
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
