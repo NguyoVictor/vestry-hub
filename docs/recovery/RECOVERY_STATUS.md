@@ -17,7 +17,9 @@
 | 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
 | 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **CLOSED 20 Nov** — F14, F19, F26, hardening, E1, E4, E11 ACCEPTED by user; final loopholes (E5 secrets, quiz scores, volunteer hours) STAGING_TEST_PASS | see §5 | `0ad0b1b` … `5bfc7a6`, `958ffc8` + close-out | user: enable "Prevent use of leaked passwords" (staging + Production) |
 | 6 | Finding 8 + Edge Function inventory/hardening + launch-scope gating | **ACCEPTED 20 Nov** (F8 + Phase 6); Findings 10, 11, 20-AI **DEFERRED** — see `DEFERRED_BACKLOG.md` | see §6 | `a1cd4bd`, `e05a3f5`, `c2a415f`, `6d3de63`, `8d611e0` | — |
-| 7–10 | Findings 12, 13, 15–18, 20–24, 27 + product items | PENDING (12, 13, 15, 16 deferred: media/livestream out of launch scope) | — | — | — |
+| 7 | Church Studio removal (product) | **STAGING_TEST_PASS** — UI removed, shared `studio_media` kept; Findings 12, 13, 15, 16 DEFERRED | see §7–8 | `04cb1f0` | user sign-off |
+| 8 | Findings 17, 18, 20 (non-AI) | **STAGING_TEST_PASS** — browser + DB + member impersonation | see §7–8 | `a2afe03`, `83fd0e9` | user sign-off |
+| 9–10 | Findings 21–24, 27 + finance product items (IntaSend) | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
@@ -330,6 +332,32 @@ CORS: functions use `Access-Control-Allow-Origin: *` with bearer-token auth (no 
 **Launch-scope gating:** `src/config/launchFlags.ts` (`VITE_FEATURE_<AREA>=true` re-enables per environment) + `src/lib/functionGuard.ts` (FunctionsClient guard) + `isAdminPathEnabled/isMemberPathEnabled` hook. Contract test `src/test/p1/launchScope.test.ts` classifies every browser-called function. Evidence (`staging-canary-phase6-scope.spec.ts`, Preview `6d3de63`, Church A with Resources & Media ON): AI Tools / Graphics / Church Studio / Songs / Church Media / Sermon Prep / Livestreaming absent from nav; direct URLs redirect to dashboard; 0 deferred-function requests (push registration no longer fires); 0 page errors.
 
 **CI:** `app-typecheck` failure on `e8cfdcb` (SmsSettings: untyped query) fixed in `c2a415f` → CI green; also fixed SMS form never prefilling (React Query v5 removed `onSuccess`).
+
+
+## §7–8 Phases 7 and 8 (20 Nov 2026)
+
+**Phase 7 — Church Studio removal (product decision):** the sidebar entry, breadcrumb, placeholder route, module mapping and the dead, never-routed `ChurchStudio.tsx` are removed (`04cb1f0`). The shared `studio_media` table/data is KEPT (member sermons/home read it). Contract test asserts removal + data retention. Findings 12, 13, 15, 16 deferred with media/livestream (`DEFERRED_BACKLOG.md`).
+
+**Phase 8 — root causes**
+| Finding | Root cause | Fix |
+|---|---|---|
+| 17 Discipleship resources + categories | `discipleship_resources` / `resource_categories` had RLS enabled with **zero policies** (fixed Phase 5, `20261120140000`); category errors were swallowed | real error messages; verified |
+| 18 Outreach activity | `outreach_activities.title` is NOT NULL but the form sent only `name` → every save 23502; error swallowed | `title` mirrors `name`; real error message |
+| 20 Training publish (non-AI) | course builder was an **unwired shell**: steps 2–4 were placeholder comments, `setLessons` never called, Publish only advanced steps (no-op on step 4), nothing ever saved; member side read a non-existent `course_lessons` table and non-existent enrollment/completion columns; `training_courses` readable by staff only | builder steps 2–4 wired to the existing editor/publish/summary components; Save draft + Publish write `training_courses` + `course_lessons`; edit loads; quiz step shows "coming later" (AI deferred). Migration `20261120220000`: `course_lessons`, enrollment `member_id`/`progress_percentage`, completion `member_id`/`lesson_id`/`tenant_id`, server-side progress trigger, church-scoped RLS (staff manage via `groups_ministries`; members read published courses and manage only their own enrollments/completions; members cannot set progress) |
+
+Build incident: `a2afe03` Preview failed to build (import inserted inside a multi-line import in Outreach.tsx) → fixed `83fd0e9`; pre-push lint-all + `npm run build` adopted.
+
+**Evidence** (`e2e/qa/staging-canary-phase8.spec.ts`, Preview `vestry-bkxh863g3` = `83fd0e9`; Discipleship module enabled for QA Church A, Church B untouched):
+
+| Check | Result |
+|---|---|
+| F17 category created (listed in Manage Categories); resource (external link) created → "Resource created successfully", visible after reload, 0 failed calls | **PASS** — DB: resource `external_link`, Church A |
+| F18 outreach activity → "Activity logged", visible after reload | **PASS** — DB: `title` = `name`, Church A |
+| F20 course with 2 lessons → Publish → "Course published…", listed on /training after reload | **PASS** — DB: `published`, 2 `course_lessons`, Church A |
+| F20 member A (impersonation, rolled-back txn): sees course 1 / lessons 2; enroll OK; forge progress=100 → 0 rows; complete 1 of 2 lessons → progress **50** | **PASS** |
+| F20 member B: course 0 / lessons 0 / cannot enroll | **PASS** |
+
+Known gaps (queued): live quiz host/join still write non-existent `quiz_participants.member_id` (T2); scheduled publishing not supported (UI says so); resource↔category assignment covered by schema/FK but not separately canaried.
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
