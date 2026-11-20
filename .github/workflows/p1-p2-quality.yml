@@ -39,6 +39,7 @@ jobs:
       - name: Prevent Supabase client hard-coded backend regression
         run: |
           node scripts/qa/check-supabase-client-source.mjs
+          node scripts/qa/check-no-hardcoded-supabase-projects.mjs
           node --test scripts/qa/check-supabase-client-source.node.test.mjs
       - name: Production build
         run: npm run build
@@ -46,13 +47,12 @@ jobs:
         run: npx tsc --noEmit
 
   # F-CI-1: the root tsconfig has `files: []`, so `npx tsc --noEmit` above checks
-  # nothing. This job type-checks the real app project. It is informational
-  # (continue-on-error) only until the first run establishes the true error
-  # baseline; Phase 1 must fix those errors and then make this job blocking.
+  # nothing. This job type-checks the real app project and is BLOCKING through a
+  # per-file ratchet: existing errors (baseline after regenerating types from the
+  # live schema, 20 Nov 2026) are tolerated, any NEW error fails the build.
   app-typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -63,7 +63,11 @@ jobs:
       - name: Type-check app project (tsconfig.app.json)
         env:
           NODE_OPTIONS: --max-old-space-size=6144
-        run: npx tsc -p tsconfig.app.json --noEmit
+        run: npx tsc -p tsconfig.app.json --noEmit --pretty false > "$RUNNER_TEMP/tsc.txt" || true
+      - name: Typecheck ratchet (no new errors)
+        run: |
+          node --test scripts/qa/typecheck-ratchet.node.test.mjs
+          node scripts/qa/typecheck-ratchet.mjs "$RUNNER_TEMP/tsc.txt"
 
   # Phase 1B.2: staff invitation handshake (blocking). The PGlite harness replays
   # the real trigger migrations on in-process Postgres — no network database.

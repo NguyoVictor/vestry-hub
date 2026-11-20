@@ -12,8 +12,9 @@
 | 0 | Environment safety / baseline | PARTIAL | Linked CLI ref = staging (verified 19 Nov); full staging dump waived by user | earlier | Disposable QA project; Production backup (Gate B) |
 | 1 | Credible CI | PARTIAL | `tsc --noEmit` in CI uses root tsconfig with `files: []` → checks nothing (see F-CI-1) | — | Point CI at `tsc -p tsconfig.app.json` once clean |
 | 1B.2 | Staff invitation handshake | **STAGING_TEST_PASS** — V2 fix (D-1) deployed 20 Nov; Church A + B canaries and isolation passed | see §1B.2 | pending | Church A then B staff canary (human inbox + admin session) |
-| 2 (1B.3) | Finding 1 member-only provisioning + OTP | **STAGING_TEST_PASS — closed 20 Nov** (staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e` + close-out | Finding 1 awaiting your ACCEPTED sign-off; known limitations below |
-| 3–10 | Findings 2–27 + product items | PENDING | — | — | — |
+| 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
+| 3 | Findings 2–6 (People/Operations schema drift) | **FIXED_LOCALLY + AUTOMATED_TEST_PASS**; migration on staging; browser canary pending | see §3 | pending | Preview canary A/B after push |
+| 4–10 | Findings 7–27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
@@ -152,7 +153,24 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 | Existing admin auth/authorization still works | PASS | Church A/B admins invited staff; staff canaries passed |
 | Edge/migration/frontend tested on staging before production | PASS | migrations `20261120043624`, `20261120052702`; functions send-invitation v4, member-provision-access v4, member-otp-request v1, member-login v8, member-session-context v6, member-register v8 |
 
-**Phase 2 status: STAGING_TEST_PASS. Final ACCEPTED requires the user's sign-off.** Untested paths carried forward: CSV import provisioning and QR self-registration provisioning (code + unit tested, not browser-canaried), member-data RLS matrix (Phase 5), custom SMTP (before Gate B), backfill of portal links for pre-existing members (before Gate B).
+**Phase 2 status: ACCEPTED by the user on 20 Nov 2026.** Untested paths carried forward: CSV import provisioning and QR self-registration provisioning (code + unit tested, not browser-canaried), member-data RLS matrix (Phase 5), custom SMTP (before Gate B), backfill of portal links for pre-existing members (before Gate B).
+
+## §3 Findings 2–6 — People / Operations schema drift (20 Nov 2026)
+
+| Finding | Root cause (verified read-only against live staging schema) | Fix |
+|---|---|---|
+| 2 House Fellowships | code selected non-existent `fellowship_members.role` → member list always empty, duplicate adds failed | removed `role` from selects/writes in `FellowshipDetail`, `HouseFellowships`, member portal `MemberHouseFellowship` |
+| 3 Families | code wrote `name`; column is `family_name` → every create 400 | `Families`, `FamilyDetailPage` use `family_name`; child-row failures surfaced (no false success) |
+| 4 Visitors | `readOnly` referenced in components where it is not in scope → crash (5 actions) | permission read in each component; same crash class fixed in `Staff` (payroll), `CMCheckin`, `QRCodes` |
+| 5 Member Requests | code (and live trigger `private.protect_member_request_fields`) reference non-existent `member_requests.resolved_by` → every status change 400 / 42703 | migration adds `resolved_by` (FK `public.users`, ON DELETE SET NULL); errors surfaced in UI |
+| 6 Board Meetings | code saves `end_time,type,location_type,online_link,pre_meeting_notes,status` — absent on staging → every save 400 | migration adds the 6 columns with defaults + CHECK constraints mirroring UI constants; attendee-write failures no longer report "Meeting scheduled"; empty strings → NULL |
+
+- **Migration:** `20261120083842_p3_member_requests_board_meetings_columns.sql` — additive, idempotent, no data modified (staging had 0 `board_meetings` rows). Dry run listed only this file → applied to staging 20 Nov; post-check: 6 columns + `resolved_by` + 4 constraints present, tenants unchanged (12). Remote history paired (re-verified 20 Nov 12:1x). Rollback: drop added columns/constraints.
+- **Types:** `src/integrations/supabase/types.ts` regenerated from staging (124 → 219 tables).
+- **Hard-coded projects (A3/A4):** `MemberWelcome` logo → bundled asset, `CommunicationsSettings` and `test-payhero-stk` derive from env `SUPABASE_URL`; `config.toml` label = staging; new CI guard `scripts/qa/check-no-hardcoded-supabase-projects.mjs`.
+- **CI F-CI-1 / F1:** `app-typecheck` is now **blocking** via per-file ratchet (`scripts/qa/typecheck-ratchet.mjs`, baseline `typecheck-baseline.json` from the full post-regeneration run): existing errors tolerated, any new error fails.
+- **Automated evidence (20 Nov):** P1 Vitest 27 files / 148 tests PASS (incl. new `phase3SchemaContract.test.ts`, which checks every written column against the regenerated types); ratchet unit tests 3/3; hard-coded project guard PASS; client source guard PASS; `git diff --check` warnings are pre-existing CRLF files only (line endings preserved).
+- **Not yet done:** browser canary on the Preview (Church A: create family, add fellowship member, visitor action, member-request status change, board meeting with online link; Church B isolation) — requires push → Preview build. Status will not be ACCEPTED before that.
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.

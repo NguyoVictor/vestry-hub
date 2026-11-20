@@ -158,12 +158,16 @@ const FellowshipDetail = () => {
   const { data: fellowshipMembers = [], isLoading: membersLoading } = useQuery({
     queryKey: ["fellowship-members", fellowshipId],
     queryFn: async () => {
-      const { data: fm } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
-        .select("member_id, role, joined_at").eq("fellowship_id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!);
+      // Finding 2: fellowship_members has no `role` column; selecting it made
+      // every load fail (400) and the error was silently treated as "no members".
+      const { data: fm, error: fmError } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
+        .select("member_id, joined_at").eq("fellowship_id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!);
+      if (fmError) throw fmError;
       if (!fm?.length) return [];
       const ids = fm.map(r => r.member_id);
-      const { data: memberDetails } = await supabase.from(TABLES.MEMBERS)
+      const { data: memberDetails, error: detailsError } = await supabase.from(TABLES.MEMBERS)
         .select("id, first_name, last_name, email, avatar_url").in("id", ids).eq(COLS.TENANT_ID, tenantId!);
+      if (detailsError) throw detailsError;
       const map = Object.fromEntries((memberDetails || []).map(m => [m.id, m]));
       return fm.map(r => ({ ...r, members: map[r.member_id] || null }));
     },
@@ -184,8 +188,9 @@ const FellowshipDetail = () => {
   const { data: allMembers = [] } = useQuery({
     queryKey: ["all-members", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.MEMBERS)
+      const { data, error } = await supabase.from(TABLES.MEMBERS)
         .select("id, first_name, last_name").eq(COLS.TENANT_ID, tenantId).eq("status", "active");
+      if (error) throw error;
       return data || [];
     }, staleTime: 300_000,
   });
@@ -197,9 +202,10 @@ const FellowshipDetail = () => {
   const { data: attendanceSessions = [] } = useQuery({
     queryKey: ["fellowship-attendance", fellowshipId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.FELLOWSHIP_ATTENDANCE)
+      const { data, error } = await supabase.from(TABLES.FELLOWSHIP_ATTENDANCE)
         .select("session_date, status, member_id")
         .eq("fellowship_id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!).order("session_date", { ascending: false });
+      if (error) throw error;
       // Group by session_date
       const sessions: Record<string, { present: number; absent: number }> = {};
       (data || []).forEach((r: any) => {
@@ -215,29 +221,38 @@ const FellowshipDetail = () => {
   // ── Mutations ────────────────────────────────────────────────────────────
   const addMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       const { error } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
         .insert({ fellowship_id: fellowshipId!, member_id: memberId, tenant_id: tenantId } as any);
       if (error) { if (error.code === "23505") throw new Error("Already a member"); throw error; }
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fellowship-members", fellowshipId] }); toast.success("Member added"); setSelectedMember(""); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fellowship-members", fellowshipId] });
+      qc.invalidateQueries({ queryKey: ["fellowship-member-counts", tenantId] });
+      toast.success("Member added"); setSelectedMember("");
+    },
     onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const removeMemberMut = useMutation({
     mutationFn: async (memberId: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       const { error } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
         .delete().eq("fellowship_id", fellowshipId!).eq("member_id", memberId)
         .eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fellowship-members", fellowshipId] }); toast.success("Member removed"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fellowship-members", fellowshipId] });
+      qc.invalidateQueries({ queryKey: ["fellowship-member-counts", tenantId] });
+      toast.success("Member removed");
+    },
+    onError: (e: any) => toast.error(toUserFacingError(e)),
   });
 
   const setLeaderMut = useMutation({
     mutationFn: async (memberId: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       const { error } = await supabase.from(TABLES.HOUSE_FELLOWSHIPS)
         .update({ leader_id: memberId } as any).eq("id", fellowshipId!).eq(COLS.TENANT_ID, tenantId!);
       if (error) throw error;
@@ -261,7 +276,7 @@ const FellowshipDetail = () => {
   };
 
   const handleEditSave = async () => {
-    if (readOnly) return;
+    if (readOnly) { toast.error("You have read-only access to Member Management."); return; }
     if (!eName.trim()) { toast.error("Name is required"); return; }
     setESaving(true);
     try {

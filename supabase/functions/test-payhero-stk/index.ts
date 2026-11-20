@@ -27,7 +27,7 @@ serve(async (req) => {
         channel_id: 1, // This might be configured in PayHero dashboard
         provider: 'mpesa',
         external_reference: 'test-' + Date.now(),
-        callback_url: 'https://crjdsxxkspvdwknrmijs.supabase.co/functions/v1/payment-webhook'
+        callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-webhook`
       }
       
       console.log('Sending STK Push data:', stkData)

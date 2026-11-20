@@ -161,7 +161,8 @@ const HouseFellowships = () => {
   const { data: memberCounts = {} } = useQuery({
     queryKey: ["fellowship-member-counts", tenantId],
     queryFn: async () => {
-      const { data } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS).select("fellowship_id").eq(COLS.TENANT_ID, tenantId!);
+      const { data, error } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS).select("fellowship_id").eq(COLS.TENANT_ID, tenantId!);
+      if (error) throw error;
       const counts: Record<string, number> = {};
       (data || []).forEach((fm: any) => { counts[fm.fellowship_id] = (counts[fm.fellowship_id] || 0) + 1; });
       return counts;

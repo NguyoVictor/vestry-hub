@@ -279,7 +279,8 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
   const handleTestAutomation = async () => {
     setTesting(true);
     try {
-      const response = await fetch('https://crjdsxxkspvdwknrmijs.supabase.co/functions/v1/process-email-automations', {
+      // Environment-scoped: never hard-code a Supabase project URL.
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-email-automations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -680,7 +680,7 @@ function StaffTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access.");
       const { error } = await supabase.from(TABLES.PAYROLL_STAFF).delete().eq(COLS.ID, id);
       if (error) throw error;
     },
@@ -967,6 +967,8 @@ interface PaymentModalProps {
 
 function PaymentModal({ open, onClose, tenantId, staffList, defaultMonth, defaultYear, editData, onSuccess }: PaymentModalProps) {
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const { symbol, code } = useCurrency();
   const isEdit = !!editData;
 
@@ -1116,6 +1118,8 @@ function PaymentModal({ open, onClose, tenantId, staffList, defaultMonth, defaul
 function PayrollTab({ staffList }: { staffList: StaffRow[] }) {
   const church = useChurch();
   const qc = useQueryClient();
+  const { isReadOnly } = usePermissions();
+  const readOnly = isReadOnly('financial_records');
   const { symbol, code } = useCurrency();
   const now = new Date();
   const [selMonth, setSelMonth] = useState(String(now.getMonth() + 1));
@@ -1143,7 +1147,7 @@ function PayrollTab({ staffList }: { staffList: StaffRow[] }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access.");
       
       const { error } = await supabase.from("staff_payroll").delete().eq("id", id);
       if (error) throw error;

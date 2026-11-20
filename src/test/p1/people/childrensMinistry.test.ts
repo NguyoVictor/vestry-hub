@@ -11,7 +11,11 @@ describe("P1 Children's Ministry parity contract", () => {
     expect(checkin).toContain("const readOnly = isReadOnly('member_management')");
     expect(checkin).toMatch(/mutationFn: async \(\{ childId[\s\S]*?if \(readOnly\) return;/);
     expect(checkin).toMatch(/update\(\{ checked_out_at:[\s\S]*?\.eq\("id", checkinId\)[\s\S]*?\.eq\("tenant_id", tenantId!\)/);
-    expect(checkin).toContain('if (readOnly) return; // QR check-in');
+    // The QR modal is a separate component: readOnly must be passed in (it was
+    // referenced out of scope before — a ReferenceError at scan time).
+    expect(checkin).toMatch(/function QRScanModal\(\{[^}]*\breadOnly\b[^}]*\}/);
+    expect(checkin).toMatch(/<QRScanModal\s+readOnly=\{readOnly\}/);
+    expect(checkin).toContain('if (readOnly) { toast.error("You have read-only access to Member Management."); return; } // QR check-in');
   });
 
   it('prevents read-only class/child writes and tenant-scopes mutations', () => {

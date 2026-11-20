@@ -50,10 +50,10 @@ export default function MemberHouseFellowship() {
     queryKey: ["member-fellowship", member.memberId],
     queryFn: async () => {
       const { data } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
-        .select("fellowship_id, role, house_fellowships(id, name, zone, host_name, host_address, meeting_day, meeting_time, max_capacity, is_active, cover_color, leader_id)")
+        .select("fellowship_id, house_fellowships(id, name, zone, host_name, host_address, meeting_day, meeting_time, max_capacity, is_active, cover_color, leader_id)")
         .eq("member_id", member.memberId).eq(COLS.TENANT_ID, member.churchId).limit(1).maybeSingle();
       if (!data) return null;
-      return { ...data.house_fellowships as any, myRole: data.role };
+      return { ...data.house_fellowships as any };
     },
     staleTime: 300_000,
   });
@@ -63,7 +63,7 @@ export default function MemberHouseFellowship() {
     queryKey: ["fellow-members", myFellowship?.id],
     queryFn: async () => {
       const { data: fm } = await supabase.from(TABLES.FELLOWSHIP_MEMBERS)
-        .select("member_id, role").eq("fellowship_id", myFellowship!.id).eq(COLS.TENANT_ID, member.churchId);
+        .select("member_id").eq("fellowship_id", myFellowship!.id).eq(COLS.TENANT_ID, member.churchId);
       if (!fm?.length) return [];
       const ids = fm.map(r => r.member_id);
       const { data: memberDetails } = await supabase.from(TABLES.MEMBERS)

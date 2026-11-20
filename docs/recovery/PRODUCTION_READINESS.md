@@ -1,0 +1,77 @@
+# Vestry Hub — Production readiness tracker (Gate A + Gate B)
+
+Living list of everything that must be true before code reaches the live
+domains. Updated at every phase close. Nothing here is done without evidence
+in `RECOVERY_STATUS.md`. **No item below authorises touching Production or
+Vercel Production settings; each needs the user's explicit go-ahead.**
+
+Legend: ⬜ open · 🔶 in progress · ✅ done (with evidence) · 🔒 needs user decision/approval
+
+_Last updated: 2026-11-20 (after Phase 2 acceptance)._
+
+## A. Release mapping & environments (blocks Gate A)
+| # | Item | Status | Notes |
+|---|---|---|---|
+| A1 | **R-1:** split Vercel `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` per environment (Production ≠ staging) | 🔒 plan only until Gate A | Live `main` hard-codes churchapp `crjdsxxkspvdwknrmijs`; shared Vercel var = staging. Merging unchanged would repoint live domains to staging. |
+| A2 | Confirm which Supabase project is the real Production (churchapp vs another) and record its ref | 🔒 user | Read-only inspection of the live bundle showed churchapp. |
+| A3 | Remove hard-coded churchapp URLs (`MemberWelcome.tsx:55`, `CommunicationsSettings.tsx:282`, `test-payhero-stk/index.ts:30`) | ✅ fixed locally (Phase 3 commit) | CI guard `check-no-hardcoded-supabase-projects.mjs` |
+| A4 | `supabase/config.toml` `project_id` label still churchapp | ✅ now staging label (Phase 3 commit) | Local label only; linked ref is staging. |
+| A5 | `STAFF_INVITATION_REDIRECT_ORIGIN` + Auth redirect allowlist set for the **Production** domain (`/auth/invite`, `/auth/reset-password`) | ⬜ Gate B | Staging uses a Preview origin; `stagingInviteOrigin()` deliberately rejects non-`*.vercel.app` origins → needs a reviewed production variant. |
+| A6 | Vercel Production auto-deploy behaviour on merge to `main` reviewed | ⬜ Gate A | |
+
+## B. Database & data (blocks Gate B)
+| # | Item | Status | Notes |
+|---|---|---|---|
+| B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
+| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
+| B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
+| B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
+| B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
+| B6 | Explain/clean the 20 Nov 04:55 UTC self-signup tenant on staging (not a canary) | 🔒 user | Not deleted; awaiting user confirmation of origin. |
+
+## C. Auth & email
+| # | Item | Status | Notes |
+|---|---|---|---|
+| C1 | **Custom SMTP** on Production (and staging) | ⬜ 🔒 provider credentials | Built-in Supabase email rate limit blocked OTPs twice on 20 Nov. |
+| C2 | Magic Link email template contains `{{ .Token }}` on Production | ⬜ Gate B | Staging verified working (8-digit code). |
+| C3 | Production OTP length known; UI accepts 6–10 | ✅ | D-2 fix `401b055`. |
+| C4 | JWT signing keys: staging = ES256; verify Production setting and `verify_jwt` behaviour | ⬜ Gate B | |
+| C5 | "Resend staff invitation" path (expired invite → today only password reset) | ⬜ Phase 5 | |
+| C6 | Leaked-password protection & Auth advisor items | ⬜ Phase 5 | |
+
+## D. Edge Functions & secrets
+| # | Item | Status | Notes |
+|---|---|---|---|
+| D1 | Deploy exactly the reviewed functions to Production (no bulk deploy) | ⬜ Gate B | Staging versions: send-invitation v4, member-provision-access v4, member-otp-request v1, member-login v8, member-session-context v6, member-register v8 (+ later phases). |
+| D2 | Production function secrets present (names only verified) | ⬜ Gate B | |
+| D3 | Rate limiting / abuse control on public `member-register` and `member-otp-request` | ⬜ Phase 6 | |
+
+## G. Payments (user decision 2026-11-20: IntaSend)
+| # | Item | Status | Notes |
+|---|---|---|---|
+| G1 | Payments and payment prompts (M-Pesa STK push) move to the **IntaSend API** | ⬜ Phase 9/10 | Current code uses PayHero/Daraja: `supabase/functions/test-payhero-stk`, `payment-webhook`, `c2b-webhook`, `subscription-payment-webhook`, and Daraja/PayHero credential columns on `public.tenants`. Inventory all callers before replacing. |
+| G2 | IntaSend **sandbox** keys for staging; live keys only for Production at Gate B | 🔒 user provides | Secrets go in Supabase function secrets only, never in the browser bundle, Git or tenants columns. |
+| G3 | IntaSend webhook/callback signature verification + idempotent payment recording | ⬜ Phase 9 | Callback URL must derive from `SUPABASE_URL` (A3 pattern). |
+| G4 | Decommission or gate the PayHero/Daraja paths once IntaSend is verified | ⬜ Phase 10 | Preserve historical payment records. |
+| G5 | End-to-end sandbox test: STK prompt → callback → persisted payment → ledger/receipt | ⬜ Phase 9 | No live transactions before Gate B approval. |
+
+## E. Permissions & security
+| # | Item | Status | Notes |
+|---|---|---|---|
+| E1 | Member-data RLS matrix (member A cannot read church B data via portal APIs) | ⬜ Phase 5 | Link/session isolation already proven. |
+| E2 | Staff can open Settings → Users and Add (UI); server denies | ⬜ Phase 5 | |
+| E3 | `Users.tsx` browser insert into `public.users` path | ⬜ Phase 5 | |
+| E4 | Provisioning authorisation aligned with `can_write_permission('member_management')` | ⬜ Phase 5 | |
+| E5 | Provider credentials stored in plain `public.tenants` columns | ⬜ Phase 5 | |
+| E6 | Supabase security advisor findings triaged | ⬜ Phase 5 | |
+
+## F. Quality gates (blocks Gate A)
+| # | Item | Status | Notes |
+|---|---|---|---|
+| F1 | CI `app-typecheck` green and **blocking** | 🔶 blocking via ratchet (no new errors); baseline errors still to burn down | ≥10 errors (announcements, types drift). `src/integrations/supabase/types.ts` regenerated from staging 20 Nov: 124 → 219 tables. |
+| F7 | **6 tables referenced by code are absent on staging:** `chart_of_accounts` (Finding 22), `fund_transactions`, `invoices`, `journal_entries`, `journal_lines`, `payroll_payments` | ⬜ Phase 9 | Decide per table: create via reviewed migration vs. repoint code to existing tables. Verify Production schema separately. |
+| F2 | Real browser E2E (disposable local Docker QA + preview bypass token) | ⬜ Phase 1 | |
+| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 1/27 | Finding 1 ACCEPTED 20 Nov. |
+| F4 | Untested Finding 1 paths canaried: CSV import, QR self-registration | ⬜ | |
+| F5 | Full staging UAT sign-off | 🔒 user | |
+| F6 | Release tag + exact SHA recorded | ⬜ Gate A | |

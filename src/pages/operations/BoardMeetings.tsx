@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TimeSlotPicker } from "@/components/events/TimeSlotPicker";
 import { toast } from "sonner";
+import { toUserFacingError } from "@/lib/userFacingError";
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
   isSameDay, isSameMonth, isToday, addMonths, subMonths,
@@ -703,13 +704,13 @@ export default function BoardMeetingsPage() {
         title: formData.title,
         meeting_date: formData.date,
         start_time: formData.startTime,
-        end_time: formData.endTime,
+        end_time: formData.endTime || null,
         agenda: formData.agenda,
-        location: formData.location,
+        location: formData.location || null,
         type: formData.type,
         location_type: formData.location_type,
-        online_link: formData.online_link,
-        pre_meeting_notes: formData.pre_meeting_notes,
+        online_link: formData.online_link || null,
+        pre_meeting_notes: formData.pre_meeting_notes || null,
         status: formData.status,
       };
       let meetingId = editingId;
@@ -717,7 +718,8 @@ export default function BoardMeetingsPage() {
         const { error } = await supabase.from("board_meetings").update(payload).eq("id", editingId).eq("tenant_id", tenantId!);
         if (error) throw error;
         // Replace attendees
-        await supabase.from("meeting_attendees").delete().eq("meeting_id", editingId).eq("tenant_id", tenantId!);
+        const { error: clearError } = await supabase.from("meeting_attendees").delete().eq("meeting_id", editingId).eq("tenant_id", tenantId!);
+        if (clearError) throw clearError;
       } else {
         const { data, error } = await supabase.from("board_meetings").insert({
           ...payload, tenant_id: tenantId, created_by: userId,
@@ -727,7 +729,8 @@ export default function BoardMeetingsPage() {
       }
       // Insert selected attendees
       if (selectedAttendees.length && meetingId) {
-        await supabase.from("meeting_attendees").insert(
+        // Never report "Meeting scheduled" when attendees were not saved.
+        const { error: attendeesError } = await supabase.from("meeting_attendees").insert(
           selectedAttendees.map(memberId => ({
             meeting_id: meetingId,
             member_id: memberId,
@@ -735,6 +738,7 @@ export default function BoardMeetingsPage() {
             tenant_id: tenantId,
           }))
         );
+        if (attendeesError) throw attendeesError;
       }
     },
     onSuccess: () => {
@@ -746,14 +750,16 @@ export default function BoardMeetingsPage() {
       setFormData({ ...emptyForm });
       setSelectedAttendees([]);
     },
-    onError: () => toast.error("Failed to save meeting"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to save meeting")),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       if (readOnly) throw new Error("Read-only access");
-      await supabase.from("meeting_attendees").delete().eq("meeting_id", id).eq("tenant_id", tenantId!);
-      await supabase.from("meeting_action_items").delete().eq("meeting_id", id).eq("tenant_id", tenantId!);
+      const { error: attendeesError } = await supabase.from("meeting_attendees").delete().eq("meeting_id", id).eq("tenant_id", tenantId!);
+      if (attendeesError) throw attendeesError;
+      const { error: actionsError } = await supabase.from("meeting_action_items").delete().eq("meeting_id", id).eq("tenant_id", tenantId!);
+      if (actionsError) throw actionsError;
       const { error } = await supabase.from("board_meetings").delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
     },
@@ -762,7 +768,7 @@ export default function BoardMeetingsPage() {
       setDeleteId(null);
       toast.success("Meeting deleted");
     },
-    onError: () => toast.error("Failed to delete meeting"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to delete meeting")),
   });
 
   const updateStatusMutation = useMutation({

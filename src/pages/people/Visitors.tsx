@@ -97,9 +97,10 @@ interface AddVisitorSheetProps {
   userName: string;
   editingVisitor?: Visitor | null;
   onSuccess: () => void;
+  readOnly: boolean;
 }
 
-function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editingVisitor, onSuccess }: AddVisitorSheetProps) {
+function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editingVisitor, onSuccess, readOnly }: AddVisitorSheetProps) {
   const isEdit = !!editingVisitor;
   const today = new Date().toISOString().split("T")[0];
   const emptyForm = { first_name: "", last_name: "", phone: "", email: "", city: "", gender: "", visit_date: today, how_heard: "", notes: "" };
@@ -130,7 +131,8 @@ function AddVisitorSheet({ open, onOpenChange, tenantId, userId, userName, editi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (readOnly) return;
+    // Finding 4: readOnly was referenced here without being in scope (ReferenceError).
+    if (readOnly) { toast.error("You have read-only access to Member Management."); return; }
     const errors: Record<string, string> = {};
     if (!form.first_name.trim()) errors.first_name = "First name is required";
     if (!form.last_name.trim()) errors.last_name = "Last name is required";
@@ -392,10 +394,11 @@ interface VisitorDetailsModalProps {
   userId: string;
   userName: string;
   onMutationSuccess: () => void;
+  readOnly: boolean;
 }
 
 function VisitorDetailsModal({
-  visitor, open, onOpenChange, tenantId, userId, userName, onMutationSuccess,
+  visitor, open, onOpenChange, tenantId, userId, userName, onMutationSuccess, readOnly,
 }: VisitorDetailsModalProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -443,7 +446,7 @@ function VisitorDetailsModal({
 
   const addFollowUpMut = useMutation({
     mutationFn: async () => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       if (!visitor) return;
       const taskTitle = followUpForm.task_type === "Custom Task"
         ? (followUpForm.notes.trim() || "Custom Follow-up")
@@ -475,7 +478,7 @@ function VisitorDetailsModal({
 
   const markContactedMut = useMutation({
     mutationFn: async () => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       if (!visitor) return;
       // Update visitor status to contacted
       const { error } = await supabase
@@ -515,7 +518,7 @@ function VisitorDetailsModal({
 
   const recordSalvationMut = useMutation({
     mutationFn: async (data: { salvation_date: string; counsellor_name: string; notes: string }) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       if (!visitor) return;
       const { error } = await (supabase as any).rpc("convert_visitor_to_new_convert", {
         p_visitor_id: visitor.id,
@@ -539,7 +542,7 @@ function VisitorDetailsModal({
 
   const createMemberMut = useMutation({
     mutationFn: async () => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       if (!visitor) return;
       const { data: newMemberId, error } = await (supabase as any).rpc("convert_visitor_to_member", {
         p_visitor_id: visitor.id,
@@ -902,7 +905,7 @@ const Visitors = () => {
 
   const convertToNewConvertMut = useMutation({
     mutationFn: async (v: Visitor) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       const today = new Date().toISOString().split("T")[0];
       const { error } = await (supabase as any).rpc("convert_visitor_to_new_convert", {
         p_visitor_id: v.id,
@@ -925,7 +928,7 @@ const Visitors = () => {
 
   const deleteVisitorMut = useMutation({
     mutationFn: async (id: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       // Step 1: nullify related_visitor_id on any linked follow_up_tasks
       const { error: fkErr1 } = await supabase
         .from(TABLES.FOLLOW_UP_TASKS)
@@ -1196,6 +1199,7 @@ const Visitors = () => {
         userName={userName}
         editingVisitor={editingVisitor}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ["visitors"] })}
+        readOnly={readOnly}
       />
 
       <VisitorDetailsModal
@@ -1206,6 +1210,7 @@ const Visitors = () => {
         userId={userId}
         userName={userName}
         onMutationSuccess={handleMutationSuccess}
+        readOnly={readOnly}
       />
 
       {/* Delete confirmation */}

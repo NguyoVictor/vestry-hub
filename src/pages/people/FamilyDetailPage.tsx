@@ -34,12 +34,14 @@ export default function FamilyDetailPage() {
       if (error) throw error;
 
       // Fetch family members
-      const { data: membersData } = await supabase
+      const { data: membersData, error: membersError } = await supabase
         .from('family_members')
         .select('*')
         .eq('family_id', id!);
+      if (membersError) throw membersError;
 
-      return { ...data, members: membersData || [] };
+      // Finding 3: the column is family_name; expose `name` for the UI.
+      return { ...data, name: (data as any).family_name, members: membersData || [] };
     },
     enabled: !!id && !!tenantId,
     staleTime: 300000,

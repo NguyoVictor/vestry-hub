@@ -251,6 +251,7 @@ export default function CMCheckin() {
 
       {/* QR Scanner Modal */}
       <QRScanModal
+        readOnly={readOnly}
         open={qrOpen}
         onClose={() => { setQrOpen(false); setQrResult(null); }}
         tenantId={tenantId!}
@@ -263,8 +264,9 @@ export default function CMCheckin() {
 }
 
 // ─── QR Scanner Modal ─────────────────────────────────────────────────────────
-function QRScanModal({ open, onClose, tenantId, serviceId, userId, onCheckin }: {
+function QRScanModal({ open, onClose, tenantId, serviceId, userId, onCheckin, readOnly }: {
   open: boolean; onClose: () => void; tenantId: string; serviceId: string; userId: string; onCheckin: () => void;
+  readOnly: boolean;
 }) {
   const [result, setResult] = useState<{ status: "success" | "error" | "already_in"; message: string; childName?: string } | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -298,7 +300,7 @@ function QRScanModal({ open, onClose, tenantId, serviceId, userId, onCheckin }: 
   }, [open]);
 
   const handleQRScan = async (qrData: string) => {
-    if (readOnly) return; // QR check-in
+    if (readOnly) { toast.error("You have read-only access to Member Management."); return; } // QR check-in
     try {
       navigator.vibrate?.(100);
       // Look up QR code

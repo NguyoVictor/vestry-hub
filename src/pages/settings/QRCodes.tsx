@@ -191,7 +191,7 @@ export default function QRCodes() {
         { id: "counselling",    title: "Counselling Booking",  description: "Book pastoral counselling sessions",        url: buildTenantUrl(slug, `/member/counselling?code=${encodeURIComponent(churchCode)}`) },
         { id: "facility",       title: "Facility Booking",     description: "Reserve church facilities and rooms",       url: buildTenantUrl(slug, `/member/facility?code=${encodeURIComponent(churchCode)}`) },
         { id: "store",          title: "Resource Store",       description: "Access church resources and materials",     url: buildTenantUrl(slug, `/store/${slug}`) },
-        { id: "testimony",      title: "Testimony Submission", description: "Submit testimonies and prayer requests",    url: `${BASE_URL}/member/testimony?code=${churchCode}` },
+        { id: "testimony",      title: "Testimony Submission", description: "Submit testimonies and prayer requests",    url: buildTenantUrl(slug, `/member/testimony?code=${encodeURIComponent(churchCode)}`) },
         { id: "website",        title: "Church Website",       description: "Church's external website",                 url: websiteUrl || null },
       ],
     },

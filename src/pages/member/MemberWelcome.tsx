@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import vestryLogo from "@/assets/logo.png";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
@@ -52,7 +53,7 @@ const MemberWelcome = () => {
         <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
           {/* VestryHub logo */}
           <motion.img
-            src="https://crjdsxxkspvdwknrmijs.supabase.co/storage/v1/object/public/brand/logo.jpeg"
+            src={vestryLogo}
             alt="VestryHub"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}

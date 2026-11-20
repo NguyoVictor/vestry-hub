@@ -10,7 +10,8 @@ describe('P1 People lifecycle contract', () => {
     const detail = source('src/pages/people/FamilyDetailPage.tsx');
     const notes = source('src/components/families/FamilyNotesTab.tsx');
 
-    expect(families).toMatch(/update\(\{ name: data\.name[\s\S]*?\.eq\("id", editingFamily\.id\)[\s\S]*?\.eq\("tenant_id", tenantId!\)/);
+    // Finding 3: the column is family_name (writing `name` returned HTTP 400).
+    expect(families).toMatch(/update\(\{ family_name: data\.name\.trim\(\)[\s\S]*?\.eq\("id", editingFamily\.id\)[\s\S]*?\.eq\("tenant_id", tenantId!\)/);
     expect(families).toMatch(/families"\)\.delete\(\)\.eq\("id", id\)\.eq\("tenant_id", tenantId!\)/);
     expect(detail).toContain('<FamilyNotesTab family={family} tenantId={tenantId!} readOnly={readOnly} />');
     expect(notes).toContain('if (readOnly) return;');

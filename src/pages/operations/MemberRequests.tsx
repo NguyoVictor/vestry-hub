@@ -429,7 +429,7 @@ export default function MemberRequestsPage() {
       queryClient.invalidateQueries({ queryKey: ["member_requests", tenantId] });
       toast.success(status === "completed" ? "Request resolved" : "Status updated");
     },
-    onError: () => toast.error("Failed to update status"),
+    onError: (err: any) => toast.error(toUserFacingError(err, "Failed to update status")),
   });
 
   const addNoteMutation = useMutation({

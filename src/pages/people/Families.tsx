@@ -35,17 +35,19 @@ const Families = () => {
       if (!data?.length) return [];
       // Fetch family member counts
       const familyIds = data.map((f: any) => f.id);
-      const { data: fmData } = await supabase.from("family_members").select("family_id").in("family_id", familyIds);
+      const { data: fmData, error: fmError } = await supabase.from("family_members").select("family_id").in("family_id", familyIds);
+      if (fmError) throw fmError;
       const counts: Record<string, number> = {};
       (fmData || []).forEach((fm: any) => { counts[fm.family_id] = (counts[fm.family_id] || 0) + 1; });
       // Fetch head member details
-      const headIds = [...new Set(data.map((f: any) => f.head_of_household_id).filter(Boolean))];
+      const headIds = [...new Set(data.map((f: any) => f.head_of_family_id).filter(Boolean))];
       let headMap: Record<string, any> = {};
       if (headIds.length) {
         const { data: heads } = await supabase.from("members").select("id, first_name, last_name, avatar_url").in("id", headIds as string[]).eq("tenant_id", tenantId!);
         headMap = Object.fromEntries((heads || []).map(h => [h.id, h]));
       }
-      return data.map((f: any) => ({ ...f, head: headMap[f.head_of_household_id] || null, memberCount: counts[f.id] || 0 }));
+      // Finding 3: the column is family_name (not name); expose `name` for the UI.
+      return data.map((f: any) => ({ ...f, name: f.family_name, head: headMap[f.head_of_family_id] || null, memberCount: counts[f.id] || 0 }));
     },
     enabled: !!tenantId,
     staleTime: 300000,
@@ -58,7 +60,8 @@ const Families = () => {
 
   const openEdit = async (family: any) => {
     // Load existing family members
-    const { data: existing } = await supabase.from("family_members").select("*").eq("family_id", family.id);
+    const { data: existing, error: existingError } = await supabase.from("family_members").select("*").eq("family_id", family.id);
+    if (existingError) { toast.error(toUserFacingError(existingError)); return; }
     const members = (existing || []).map((m: any) => ({
       first_name: m.first_name || "",
       middle_name: m.middle_name || "",
@@ -77,20 +80,21 @@ const Families = () => {
 
   const saveMut = useMutation({
     mutationFn: async (data: { name: string; members: any[] }) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       let familyId = editingFamily?.id;
 
       if (editingFamily) {
         // Update family name
-        const { error } = await supabase.from("families").update({ name: data.name, updated_at: new Date().toISOString() } as any).eq("id", editingFamily.id).eq("tenant_id", tenantId!);
+        const { error } = await supabase.from("families").update({ family_name: data.name.trim(), updated_at: new Date().toISOString() } as any).eq("id", editingFamily.id).eq("tenant_id", tenantId!);
         if (error) throw error;
         // Delete existing members and re-insert
-        await supabase.from("family_members").delete().eq("family_id", editingFamily.id);
+        const { error: deleteError } = await supabase.from("family_members").delete().eq("family_id", editingFamily.id);
+        if (deleteError) throw deleteError;
       } else {
         // Create new family
         const { data: newFamily, error } = await supabase.from("families").insert({
           id: crypto.randomUUID(),
-          name: data.name,
+          family_name: data.name.trim(),
           tenant_id: tenantId!,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -116,7 +120,9 @@ const Families = () => {
           classification: r.classification || "Unassigned",
           member_id: null,
         }));
-        await supabase.from("family_members").insert(inserts as any);
+        // Never report success when the members were not saved.
+        const { error: membersError } = await supabase.from("family_members").insert(inserts as any);
+        if (membersError) throw membersError;
       }
     },
     onSuccess: () => {
@@ -130,7 +136,7 @@ const Families = () => {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      if (readOnly) return;
+      if (readOnly) throw new Error("You have read-only access to Member Management.");
       await supabase.from("family_members").delete().eq("family_id", id);
       const { error } = await supabase.from("families").delete().eq("id", id).eq("tenant_id", tenantId!);
       if (error) throw error;
