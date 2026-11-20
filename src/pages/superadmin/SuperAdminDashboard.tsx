@@ -1,3 +1,4 @@
+import { LAUNCH_FEATURES } from "@/config/launchFlags";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -97,7 +98,7 @@ export default function SuperAdminDashboard() {
         )}
       </div>
 
-      <SentryMonitor />
+      {LAUNCH_FEATURES.sentryFeed && <SentryMonitor />}
       <PostHogDashboard />
     </div>
   );

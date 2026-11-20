@@ -1,3 +1,4 @@
+import { LAUNCH_FEATURES } from "@/config/launchFlags";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { requestFcmToken, onForegroundMessage } from "@/lib/firebase";
@@ -5,6 +6,7 @@ import { toast } from "sonner";
 
 export function useFcmToken(userId: string | null, tenantId: string | null) {
   useEffect(() => {
+    if (!LAUNCH_FEATURES.push) return; // push notifications deferred for launch
     if (!userId || !tenantId) return;
 
     // Register FCM token

@@ -1,3 +1,4 @@
+import { deferredFeatureForPath } from "./launchFlags";
 export const MODULE_CONFIG_VERSION = 1 as const;
 
 export type AdminModuleKey =
@@ -294,6 +295,7 @@ export function adminModuleForPath(pathname: string): AdminModuleKey | null {
 }
 
 export function isAdminPathEnabled(pathname: string, config: CanonicalModuleConfig): boolean {
+  if (deferredFeatureForPath(pathname)) return false; // launch scope (src/config/launchFlags.ts)
   if (pathname === "/dashboard" || pathname === "/settings" || pathname.startsWith("/settings/")) return true;
   const moduleKey = adminModuleForPath(pathname);
   return moduleKey ? config.admin[moduleKey] !== false : true;
@@ -305,6 +307,7 @@ export function memberRuleForPath(pathname: string): { memberKey: MemberModuleKe
 }
 
 export function isMemberPathEnabled(pathname: string, config: CanonicalModuleConfig): boolean {
+  if (deferredFeatureForPath(pathname)) return false; // launch scope (src/config/launchFlags.ts)
   if (pathname === "/member" || pathname === "/member/profile" || pathname === "/member/settings" || pathname === "/member/welcome") return true;
   const rule = memberRuleForPath(pathname);
   return rule ? config.admin[rule.adminKey] !== false && config.member_portal[rule.memberKey] !== false : true;

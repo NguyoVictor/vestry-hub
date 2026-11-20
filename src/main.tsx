@@ -3,7 +3,9 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import "./index.css";
 import { initSentry, initPostHog } from "./lib/monitoring";
+import { installFunctionGuard } from "./lib/functionGuard";
 
+installFunctionGuard();
 initSentry();
 initPostHog();
 
