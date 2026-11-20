@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Church } from "lucide-react";
-import { isValidChurchCode, normalizeMemberEmail, sendExistingMemberOtp, verifyMemberOtpAndLogin } from "@/lib/memberOtpLogin";
+import { isValidChurchCode, isValidMemberOtp, MEMBER_OTP_MAX_LENGTH, normalizeMemberEmail, sendExistingMemberOtp, verifyMemberOtpAndLogin } from "@/lib/memberOtpLogin";
 import Threads from "@/components/Threads";
 import logo from "@/assets/logo.png";
 import { currentTenantBaseDomain, tenantSlugMatchesHostname } from "@/lib/tenantHost";
@@ -81,7 +81,7 @@ export default function MemberLoginPage() {
           return;
         }
         setVerificationSent(true);
-        toast.success("If your account is eligible, check your email for a six-digit sign-in code.");
+        toast.success("If your account is eligible, check your email for your sign-in code.");
         return;
       }
 
@@ -242,14 +242,14 @@ export default function MemberLoginPage() {
                     id="member-email-otp"
                     autoComplete="one-time-code"
                     inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    placeholder="123456"
+                    pattern="[0-9]{6,10}"
+                    maxLength={MEMBER_OTP_MAX_LENGTH}
+                    placeholder="Enter the code from your email"
                     value={otp}
-                    onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, MEMBER_OTP_MAX_LENGTH))}
                     required
                     className="h-12 text-center tracking-widest text-lg border-[#e2e2e2]"
-                    aria-label="Six-digit email verification code"
+                    aria-label="Email verification code"
                   />
                   <button
                     type="button"
@@ -265,10 +265,10 @@ export default function MemberLoginPage() {
               <Button
                 type="submit"
                 className="w-full h-12 text-white font-medium transition-all duration-200 border-0 shadow-none"
-                disabled={loading || !normalizeMemberEmail(email) || !isValidChurchCode(churchCode) || (verificationSent && otp.length !== 6)}
+                disabled={loading || !normalizeMemberEmail(email) || !isValidChurchCode(churchCode) || (verificationSent && !isValidMemberOtp(otp))}
                 style={{
                   borderRadius: 8,
-                  background: loading || !email || !isValidChurchCode(churchCode) || (verificationSent && otp.length !== 6) ? "rgba(61,28,142,0.45)" : PRIMARY,
+                  background: loading || !email || !isValidChurchCode(churchCode) || (verificationSent && !isValidMemberOtp(otp)) ? "rgba(61,28,142,0.45)" : PRIMARY,
                 }}
                 onMouseEnter={e => {
                   if (!loading && email && churchCode)

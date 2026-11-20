@@ -99,7 +99,7 @@ describe('Member login confirmed-email OTP flow', () => {
     fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: 'member@example.test' } });
     fireEvent.change(screen.getByPlaceholderText('e.g. HOPE-2847'), { target: { value: 'ABCD1234' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));
-    const input = await screen.findByLabelText('Six-digit email verification code');
+    const input = await screen.findByLabelText('Email verification code');
     fireEvent.change(input, { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify code & sign in' }));
     expect(await screen.findByTestId('member-route')).toBeInTheDocument();
@@ -114,13 +114,32 @@ describe('Member login confirmed-email OTP flow', () => {
     expect(session.sessionToken).toBe('opaque-member-session');
   });
 
+  it('accepts the 8-digit OTP the staging Auth project sends, untruncated (regression 20 Nov)', async () => {
+    mount();
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: 'member@example.test' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. HOPE-2847'), { target: { value: 'ABCD1234' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));
+    const input = await screen.findByLabelText('Email verification code');
+    fireEvent.change(input, { target: { value: '12345678' } });
+    expect((input as HTMLInputElement).value).toBe('12345678');
+    fireEvent.click(screen.getByRole('button', { name: 'Verify code & sign in' }));
+    expect(await screen.findByTestId('member-route')).toBeInTheDocument();
+    expect(mocks.verify).toHaveBeenCalledWith({email: 'member@example.test',token:'12345678',type:'email'});
+  });
+
+  it('OTP validator accepts 6-10 digits only', async () => {
+    const { isValidMemberOtp } = await import('@/lib/memberOtpLogin');
+    for (const ok of ['123456', '12345678', '1234567890']) expect(isValidMemberOtp(ok)).toBe(true);
+    for (const bad of ['12345', '12345678901', '12a456', '']) expect(isValidMemberOtp(bad)).toBe(false);
+  });
+
   it('rejects missing verification and does not create a member session', async () => {
     mocks.verify.mockResolvedValue({data:{session:null},error:{message:'Invalid OTP'}});
     mount();
     fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: 'member@example.test' } });
     fireEvent.change(screen.getByPlaceholderText('e.g. HOPE-2847'), { target: { value: 'ABCD1234' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));
-    const input = await screen.findByLabelText('Six-digit email verification code');
+    const input = await screen.findByLabelText('Email verification code');
     fireEvent.change(input, { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Verify code & sign in' }));
     await waitFor(() => expect(mocks.verify).toHaveBeenCalled());

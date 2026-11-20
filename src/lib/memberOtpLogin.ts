@@ -37,6 +37,13 @@ export function isValidChurchCode(code: string): boolean {
   return /^[A-Z0-9-]{4,32}$/.test(normalizeChurchCode(code));
 }
 
+// Supabase Auth email OTP length is a per-project setting (6-10 digits; the
+// staging project sends 8). Never hard-code 6, or every login fails.
+export const MEMBER_OTP_MAX_LENGTH = 10;
+export function isValidMemberOtp(otp: string): boolean {
+  return /^\d{6,10}$/.test(otp.trim());
+}
+
 // Finding 1, steps 4-6: the member-otp-request Edge Function first verifies
 // that the email belongs to a portal-provisioned member of the church named by
 // the access code, then sends the OTP with signInWithOtp({ shouldCreateUser:
@@ -78,7 +85,7 @@ export async function verifyMemberOtpAndLogin(
 ): Promise<MemberOtpResult> {
   const normalizedEmail = normalizeMemberEmail(email);
   const normalizedCode = normalizeChurchCode(code);
-  if (!isValidChurchCode(normalizedCode) || !/^\d{6}$/.test(otp.trim())) {
+  if (!isValidChurchCode(normalizedCode) || !isValidMemberOtp(otp)) {
     return { kind: 'invalid_input' };
   }
 
