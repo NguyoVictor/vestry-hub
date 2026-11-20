@@ -28,6 +28,8 @@ const SignIn = () => {
 
     setLoading(false);
     if (error) {
+      // Finding 8: server records the failed attempt + raises alerts (no enumeration).
+      supabase.rpc('report_failed_sign_in' as never, { p_email: email, p_user_agent: navigator.userAgent } as never).then();
       toast.error(toUserFacingError(error));
       captureEvent("login_failed", { reason: error.message });
     } else {

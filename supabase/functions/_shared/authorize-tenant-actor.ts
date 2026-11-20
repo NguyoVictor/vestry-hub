@@ -4,6 +4,7 @@ export async function authorizeTenantActor(
   req: Request,
   serviceClient: SupabaseClient,
   tenantId: string,
+  allowedRoles?: readonly string[],
 ): Promise<{ userId: string | null; serviceRole: boolean }> {
   const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -22,6 +23,9 @@ export async function authorizeTenantActor(
     .maybeSingle();
 
   if (actorError || !actor || String(actor.tenant_id) !== String(tenantId) || actor.status !== "active" || actor.role === "member") {
+    throw new Error("forbidden");
+  }
+  if (allowedRoles && !allowedRoles.includes(String(actor.role ?? "").toLowerCase())) {
     throw new Error("forbidden");
   }
 

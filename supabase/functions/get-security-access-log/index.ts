@@ -26,7 +26,8 @@ Deno.serve(async (req: Request) => {
     );
 
     try {
-      await authorizeTenantActor(req, service, String(tenant_id));
+      // Phase 6: sessions / IPs / login history are visible to church administrators only.
+      await authorizeTenantActor(req, service, String(tenant_id), ["super_admin", "church_admin"]);
     } catch (error) {
       const forbidden = String(error).includes("forbidden");
       return json({ error: forbidden ? "forbidden" : "unauthorized" }, forbidden ? 403 : 401);

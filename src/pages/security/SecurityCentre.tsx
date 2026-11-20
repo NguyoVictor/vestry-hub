@@ -52,14 +52,16 @@ export default function SecurityCentre() {
   const { data: alerts, isLoading: loadingAlerts } = useQuery({
     queryKey: ["security_alerts", tenantId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("security_alerts")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false })
         .limit(20);
+      if (error) throw error;
       return data || [];
     },
+    refetchInterval: 30_000, // Finding 8: alerts are generated server-side; refresh live
   });
 
   const { data: users } = useQuery({
