@@ -23,7 +23,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | # | Item | Status | Notes |
 |---|---|---|---|
 | B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
-| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
+| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000`, `20261120200000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
 | B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
 | B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
 | B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
@@ -39,7 +39,8 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | C3 | Production OTP length known; UI accepts 6–10 | ✅ | D-2 fix `401b055`. |
 | C4 | JWT signing keys: staging = ES256; verify Production setting and `verify_jwt` behaviour | ⬜ Gate B | |
 | C5 | "Resend staff invitation" path (expired invite → today only password reset) | ⬜ Phase 5 | |
-| C6 | Leaked-password protection & Auth advisor items | ⬜ Phase 5 | |
+| C6 | Leaked-password protection & Auth advisor items | 🔒 user: Auth → Attack Protection → "Prevent use of leaked passwords" ON (staging + Production) | |
+| C9 | CAPTCHA protection: keep OFF until hCaptcha/Turnstile widget is added to staff sign-in + member OTP request (enabling alone blocks logins) | ⬜ post-launch | |
 
 ## D. Edge Functions & secrets
 | # | Item | Status | Notes |
@@ -64,7 +65,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | E2 | Staff can open Settings → Users and Add (UI); server denies | ✅ server-side denial + UI guidance (`a72d505`) | |
 | E3 | `Users.tsx` browser insert into `public.users` path | ✅ browser inserts removed (`a72d505`) | |
 | E4 | Provisioning authorisation aligned with `can_write_permission('member_management')` | ✅ staging (§5 remaining items) | |
-| E5 | Provider credentials stored in plain `public.tenants` columns | ⬜ Phase 5 | |
+| E5 | Provider credentials stored in plain `public.tenants` columns | ✅ staging: secret columns not browser-readable (`958ffc8`, 20261120200000); IntaSend keys must go to function secrets (G2) | |
 | E6 | Supabase security advisor findings triaged | ⬜ Phase 5 | |
 | E7 | Admin page load: `login_events` insert and `users.last_login_at` update denied (403) by RLS on every load | ✅ staging (`a72d505`, migration 20261120150000) | Silent; decide server-side recording (e.g. auth hook) vs. RLS grant. |
 | E8 | Browser PATCHes `tenant_subscriptions.storage_used_gb` after uploads → 403 (RLS correctly denies); usage never recorded | ⬜ billing phase | Move storage accounting server-side (trigger on storage.objects or Edge Function). |

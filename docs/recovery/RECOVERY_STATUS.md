@@ -15,7 +15,7 @@
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
 | 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
 | 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
-| 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **F14, F19, F26 + hardening (E3/E7/E9/E10/E12, update-user-role, RPC guard) ACCEPTED 20 Nov**; E1/E4/E11 STAGING_TEST_PASS | see §5 | `0ad0b1b` … `114f769` + E1/E4/E11 commit | E1/E4/E11 sign-off; user: Auth leaked-password toggle |
+| 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **CLOSED 20 Nov** — F14, F19, F26, hardening, E1, E4, E11 ACCEPTED by user; final loopholes (E5 secrets, quiz scores, volunteer hours) STAGING_TEST_PASS | see §5 | `0ad0b1b` … `5bfc7a6`, `958ffc8` + close-out | user: enable "Prevent use of leaked passwords" (staging + Production) |
 | 6–10 | Findings 8, 10–13, 15–18, 20–24, 27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
@@ -292,6 +292,18 @@ Queued: the five analytics RPC bodies are broken (42883) → dashboard/reporting
 | **E11 incident/asset gate** | pages gate on `reports_analytics`; DB allowed any staff to write incidents/assets/maintenance | `20261120190000`: reads tenant staff, writes `can_write_permission(…,'reports_analytics')`; status-log inserts follow | admin sets A-STAFF read_only → incident write **403**, read **OK**; restriction removed → write **201**; cleanup verified (0 rows left) |
 
 Queued: `volunteer_hours` member own-rows read; quiz participant UPDATE cannot be bound to anonymous players (accepted gap); media/sermon pages have no frontend isReadOnly gate yet (media deferred).
+
+
+### §5 close-out — final loopholes (20 Nov 2026, user: "close all the loopholes and close Phase 5")
+
+| Loophole | Fix | Evidence |
+|---|---|---|
+| **E5 provider secrets readable by every staff member** (`tenants` Daraja/PayHero/WhatsApp/Africa's Talking keys, `sms_settings.at_api_key`, unsalted SHA-256 `branches.branch_password_hash`) | migration `20261120200000`: column-level SELECT grants (secrets excluded) for authenticated (anon narrowed only where it had table-level SELECT); writes unchanged so admins can still set/rotate keys. 9 browser `select("*")` sites → explicit lists (`src/lib/tenantColumns.ts`); SMS pages show "configured" instead of the key; contract test `src/test/p1/settings/tenantColumns.test.ts` (safe list == schema − secrets; no `select(*)`/secret reads) | Preview `958ffc8`: staff → secret cols **403**, `select=*` **403**, sms key **403**, branch hash **403**; anon secret **401**; safe cols / sms status / anon public lookup **200**; sign-in + General Settings save OK, 0 failed calls |
+| Public church page | was already failing for anon (`select("*")` vs column-limited anon grant) → `TENANT_PUBLIC_COLUMNS` | anon public lookup 200 |
+| **Quiz scores writable by anyone** | score/coins/streak computed by `quiz_answers` trigger; public UPDATE on `quiz_participants` removed (church staff may update); one answer per question; points 0–10000; solo answers (no session) allowed | `scripts/recovery/p5-quiz-scoring-pglite-harness.mjs` 4/4 (real migration SQL), added to blocking CI |
+| volunteer_hours member read | members read only their own hours (via `member_auth_memberships`) | policy applied |
+
+Phase 5 user actions / logged follow-ups: **enable "Prevent use of leaked passwords"** (Auth → Attack Protection) on staging and Production; **CAPTCHA protection: leave OFF** until a CAPTCHA widget is added to sign-in/OTP pages (enabling it alone blocks all logins) — readiness C9. Pre-existing breakages found (not Phase 5): quiz host/join write a non-existent `member_id` column (Finding 20, Phase 8); Communications SMS settings use non-existent `sozuri_*` columns (SMS phase); analytics RPC bodies crash (42883, reporting).
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
