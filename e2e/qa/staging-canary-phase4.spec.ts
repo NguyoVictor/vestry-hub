@@ -181,3 +181,33 @@ test('Isolation: Church B admin cannot write into Church A storage folders or re
   expect(results.bListsAIncidents).toBe(0);
   expect(results.bWritesOwnIncidentFolder).toBe(200);
 });
+
+test('Embeds: every pinned select returns 200; the un-pinned form returns 300 (ambiguous)', async ({ page }) => {
+  let apikey = '';
+  page.on('request', r => { if (!apikey && new URL(r.url()).hostname.endsWith('.supabase.co')) apikey = r.headers()['apikey'] ?? ''; });
+  await signIn(page, 'A_ADMIN');
+  await page.waitForLoadState('networkidle').catch(() => {});
+  const cases: Array<[string, string]> = [
+    ['facilities', 'id,facility_images!facility_images_facility_id_fkey(id)'],
+    ['announcements', 'id,announcement_types!announcements_category_id_fkey(label)'],
+    ['testimonies', 'id,testimony_categories!testimonies_category_id_fkey(label),testimony_reactions!testimony_reactions_testimony_id_fkey(id),members!testimonies_member_id_fkey(first_name)'],
+    ['group_members', 'group_id,groups!group_members_group_id_fkey(name)'],
+    ['volunteers', 'role_id,volunteer_roles!volunteers_role_id_fkey(name)'],
+    ['join_requests', 'id,members!join_requests_member_id_fkey(first_name)'],
+  ];
+  const { token, base } = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k))!;
+    return { token: JSON.parse(localStorage.getItem(key) as string).access_token as string,
+             base: `https://${key.slice(3, key.indexOf('-auth-token'))}.supabase.co/rest/v1` };
+  });
+  const get = async (t: string, sel: string) =>
+    (await page.request.get(`${base}/${t}?select=${encodeURIComponent(sel)}&limit=1`,
+      { headers: { Authorization: `Bearer ${token}`, apikey }, maxRedirects: 0 })).status();
+  const out: Record<string, [number, number]> = {};
+  for (const [t, sel] of cases) out[t] = [await get(t, sel), await get(t, sel.replace(/![a-z_]+\(/g, '('))];
+  console.log('Embeds [pinned, unpinned]:', JSON.stringify(out));
+  for (const [t, [pinned, unpinned]] of Object.entries(out)) {
+    expect(pinned, `${t} pinned`).toBe(200);
+    expect(unpinned, `${t} unpinned (proves the ambiguity)`).toBe(300);
+  }
+});

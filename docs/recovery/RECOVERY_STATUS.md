@@ -14,7 +14,8 @@
 | 1B.2 | Staff invitation handshake | **STAGING_TEST_PASS** — V2 fix (D-1) deployed 20 Nov; Church A + B canaries and isolation passed | see §1B.2 | pending | Church A then B staff canary (human inbox + admin session) |
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
 | 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
-| 4–10 | Findings 7–27 + product items | PENDING | — | — | — |
+| 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **STAGING_TEST_PASS** — browser canary + DB + Storage API negatives 20 Nov | see §4 | `89d67c0`, `036e155` + evidence commit | user ACCEPTED sign-off; Finding 13 uploads deferred (media out of launch scope) |
+| 5–10 | Findings 8, 10–24, 26–27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
@@ -200,6 +201,43 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 - **Found:** 7 `service_request_types` rows belong to a tenant id that no longer exists (from 20260419 seed migration; table has no FK to `tenants`). Harmless; queued as cleanup (readiness B7).
 - **Not browser-tested:** the empty-list hints (no staging church has zero types any more; creating a church = a signup, deliberately not done). Covered by code review + the trigger making the state unreachable for new churches.
 - **Rollback (code only):** drop trigger + the two functions (see migration header); backfilled rows are ordinary editable types.
+
+## §4 Findings 7, 9, 25 — Storage, facilities, incidents, General Settings (20 Nov 2026)
+
+**Reproduced first** on Preview `vestry-hj34fwldv` (SHA `4f7d6bd`) as Church A admin with real error codes captured (`e2e/qa/staging-canary-phase4-repro.spec.ts`):
+
+| Finding | Real error (was "not captured" in the report) | Root cause |
+|---|---|---|
+| 25 General Settings | `PATCH /tenants` → 400 `PGRST204 Could not find the 'timezone' column`; logo upload 400 | `tenants.timezone` missing; bucket `church-logos` missing (its tenant-folder policies existed); a failed logo upload was **ignored** and "Settings saved" shown |
+| 9 Incidents | `POST /incidents` → 400 `PGRST204 'attachment_paths'` **even with no attachment**; attachment upload 400 | `incidents` lacked 7 written columns; `incident_status_logs` table absent; enum lacked `closed`; bucket `incident-attachments` missing |
+| 7-A Facility thumbnail | upload 400 | bucket `facility-thumbnails` missing |
+| 7-B Facility not listed | list `GET /facilities` → **HTTP 300**; UI: "Total Facilities 1" + "No facilities found" | ambiguous PostgREST embed: `facility_images` has simple + composite tenant FK to `facilities` (containment migration); error rendered as empty list |
+
+**Fix:** migration `20261120120000_p4_storage_incidents_settings.sql` (dry run listed only it → applied to staging): `tenants.timezone`; incidents columns + severity check + enum `closed`; `incident_status_logs` (staff-only RLS via `get_my_tenant_id()`, append-only, no anon); buckets `facility-thumbnails` (public, 5 MB, webp/jpeg/png; writes only `can_manage_facility_bookings(folder)`), `incident-attachments` (**private**, 10 MB; read/write only tenant staff), `church-logos` (public, 5 MB; writes **tightened** from `actor_has_tenant` — which admits portal members — to tenant staff / platform super admin). Frontend: real per-step error messages (no false success), facility load error state, incident attachments opened via 60 s signed URL, filename sanitising; **FK hints for 15 ambiguous embeds** (facilities ×3, announcements ×2, testimonies ×2, member groups, member profile groups, member home volunteer roles, group join requests). Canary also found and fixed: incident **Update Status could never change status** (render-time reset) and **Edit opened a blank form** (useState-as-effect) — `036e155`. Types regenerated (+104 lines).
+
+**Automated:** `src/test/p1/operations/phase4SchemaContract.test.ts` 7/7 (written columns vs generated types, bucket visibility + tenant-folder policies, pinned embeds, no false success); P1 Vitest 28 files / 155 tests; ESLint error counts unchanged vs HEAD on all 13 edited files.
+
+**Browser canary** (`e2e/qa/staging-canary-phase4.spec.ts`; F7 on Preview `vestry-2o3fgg6jo` = `89d67c0`, F9/F25/isolation/embeds on `vestry-qv1ca2vmg` = `036e155`; facility code identical between the two):
+
+| Check | Result | DB / Storage evidence |
+|---|---|---|
+| F7 facility **with thumbnail** → "Facility created.", listed after reload, thumbnail image rendered | **PASS** | facility in Church A, `thumbnail_path` under A's folder; 1 object in `facility-thumbnails/A/` |
+| F9 incident **with attachment** → "Incident reported successfully", listed after reload | **PASS** | incident in A, `incident_number`, 1 attachment under A's folder |
+| F9 attachment opens via signed URL (200 image/png); bare public URL refused (400) | **PASS** | bucket private |
+| F9 Update Status → Investigating persists after reload; Edit opens pre-filled | **PASS** | status `investigating`; 1 `incident_status_logs` row |
+| F25 timezone Africa/Kampala + new logo → "Settings saved successfully"; both persist after reload | **PASS** | `tenants.timezone`, `logo` → `church-logos/A/logo-…` |
+| Isolation (Church B admin, direct Storage API): write into A's `facility-thumbnails`, `incident-attachments`, `church-logos` folders | **PASS** — 400 / 400 / 400 (RLS) | 0 objects written in A by B |
+| Isolation: B lists A's incident attachments | **PASS** — 0 visible | |
+| Positive control: B writes into its OWN incident folder | 200 | 1 four-byte test object in `incident-attachments/B/` (canary residue) |
+| Embeds: each pinned select 200; same select un-pinned 300 | **PASS** for facilities, announcements, testimonies, group_members, volunteers, join_requests | proves the 15 queries were failing silently on staging |
+| Invariants | tenants 12 | |
+
+**Queued (not Phase 4):**
+- `PATCH tenant_subscriptions` (storage-usage counter) from the browser → 403 (correctly denied). Usage accounting must move server-side → billing phase (readiness E8).
+- `facilities_public_read_safe` lets anyone read every church's active facilities → Phase 5 review (may be intended for public booking pages).
+- `asset-images` / `facility-images` upload/delete policies allow any authenticated user on any path → Phase 5.
+- Incident page read-only gate keyed to `reports_analytics` permission → Phase 5.
+- Buckets still missing but out of launch scope (media deferred): `church-media` (Finding 13), `sermon-recordings`, `quiz-documents`.
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
