@@ -278,19 +278,11 @@ function AutomationManagementTab({ tenantId }: { tenantId: string }) {
   const handleTestAutomation = async () => {
     setTesting(true);
     try {
-      // Environment-scoped: never hard-code a Supabase project URL.
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-email-automations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
-        },
-        body: JSON.stringify({ test: true }),
+      // Phase 6: authenticated as the signed-in administrator, scoped to this church.
+      const { data: result, error } = await supabase.functions.invoke('process-email-automations', {
+        body: { test: true, tenant_id: tenantId },
       });
-      
-      if (!response.ok) throw new Error('Failed to test automation');
-      
-      const result = await response.json();
+      if (error) throw new Error(error.message || 'Failed to test automation');
       toast.success(`✅ Automation test completed. Processed: ${result.processed}, Sent: ${result.sent}`);
     } catch (err: unknown) {
       toast.error((err as Error)?.message ?? "Failed to test automation");

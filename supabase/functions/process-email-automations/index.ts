@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { replacePlaceholders, getMemberPlaceholderData } from "../_shared/placeholder-replacer.ts";
+import { authorizeTenantActor } from "../_shared/authorize-tenant-actor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -372,6 +373,20 @@ Deno.serve(async (req: Request) => {
       // Ignore parsing errors for cron calls
     }
 
+    // Phase 6: was callable by anyone with the public key and processed EVERY
+    // church. Scheduler (service role) → all churches; a church administrator
+    // → only their own church (tenant_id required).
+    let scopeTenant: string | null = null;
+    try {
+      const auth = await authorizeTenantActor(req, supabase, String(triggerData.tenant_id ?? ""), ["super_admin", "church_admin"]);
+      if (!auth.serviceRole) scopeTenant = String(triggerData.tenant_id);
+    } catch (e) {
+      const forbidden = String(e).includes("forbidden");
+      return new Response(JSON.stringify({ error: forbidden ? "forbidden" : "unauthorized" }), {
+        status: forbidden ? 403 : 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const now = new Date().toISOString();
     let processedCount = 0;
     let totalSent = 0;
@@ -403,6 +418,7 @@ Deno.serve(async (req: Request) => {
         .from('email_automations')
         .select('*')
         .eq('is_active', true);
+      if (scopeTenant) automationsQuery = automationsQuery.eq('tenant_id', scopeTenant);
 
       // If not test mode, only get due automations
       if (!triggerData.test) {

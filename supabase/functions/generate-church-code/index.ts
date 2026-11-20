@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { authorizeTenantActor } from "../_shared/authorize-tenant-actor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,17 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // Phase 6: was unauthenticated — anyone could rewrite any church's member
+    // login code. Only that church's administrators may (re)generate it.
+    try {
+      await authorizeTenantActor(req, supabase, String(tenantId), ["super_admin", "church_admin"]);
+    } catch (e) {
+      const forbidden = String(e).includes("forbidden");
+      return new Response(JSON.stringify({ error: forbidden ? "forbidden" : "unauthorized" }), {
+        status: forbidden ? 403 : 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const prefix = derivePrefix(churchName);
     let newCode = "";
