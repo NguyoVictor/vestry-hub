@@ -66,3 +66,15 @@ test('staff cannot invite other staff; tenant-bound super admin can', () => {
 test('source contracts require trusted DB invitation and safe local callback', () => {
   assert.deepEqual(checkStaffInviteHandshake(),[]);
 });
+
+test('invitation binding secret is 256-bit, unique, and its hash matches Postgres sha256 hex', async () => {
+  const { newInvitationBinding, sha256Hex } = await import('../../supabase/functions/send-invitation/handshake.ts');
+  const { createHash } = await import('node:crypto');
+  const a = await newInvitationBinding();
+  const b = await newInvitationBinding();
+  assert.match(a.nonce, /^[A-Za-z0-9_-]{43}$/);
+  assert.notEqual(a.nonce, b.nonce);
+  assert.match(a.hash, /^[0-9a-f]{64}$/);
+  assert.equal(a.hash, createHash('sha256').update(a.nonce, 'utf8').digest('hex'));
+  assert.equal(await sha256Hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+});

@@ -45,6 +45,45 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+  # F-CI-1: the root tsconfig has `files: []`, so `npx tsc --noEmit` above checks
+  # nothing. This job type-checks the real app project. It is informational
+  # (continue-on-error) only until the first run establishes the true error
+  # baseline; Phase 1 must fix those errors and then make this job blocking.
+  app-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type-check app project (tsconfig.app.json)
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+  # Phase 1B.2: staff invitation handshake (blocking). The PGlite harness replays
+  # the real trigger migrations on in-process Postgres — no network database.
+  staff-invite-handshake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Staff invitation source contract
+        run: node scripts/recovery/check-staff-invite-handshake.mjs
+      - name: Staff invitation unit tests
+        run: node --experimental-strip-types --test scripts/recovery/staff-invite-handshake.node.test.mjs
+      - name: Trigger behavior on in-process Postgres (pre -> V1 -> V2)
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/pglite" @electric-sql/pglite@0.2.17
+          PGLITE_MODULE="$RUNNER_TEMP/pglite/node_modules/@electric-sql/pglite/dist/index.js" \
+            node --test scripts/recovery/p1b2-staff-binding-pglite-harness.mjs
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:

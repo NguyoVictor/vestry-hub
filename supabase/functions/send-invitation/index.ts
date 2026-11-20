@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { mayInviteStaff, validateStaffInvite } from "./validation.ts";
-import { stagingInviteOrigin, verifiedStaffInvitation } from "./handshake.ts";
+import { newInvitationBinding, stagingInviteOrigin, verifiedStaffInvitation } from "./handshake.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +21,12 @@ function json(body: Record<string, unknown>, status = 200): Response {
  * auth.admin.inviteUserByEmail creates an auth.users identity. The AFTER INSERT
  * Auth trigger consumes that row and creates the staff profile atomically.
  *
- * Deployment gate: the database handshake marker must be present first.
+ * GoTrue INSERTs auth.users with invited_at = NULL (it is set afterwards), so
+ * the trigger cannot rely on invited_at. Instead a 256-bit single-use secret is
+ * passed in insert-time invite data; only its SHA-256 is stored on the trusted
+ * row and the trigger (STAFF_INVITATION_HANDSHAKE_V2) matches the hash.
+ *
+ * Deployment gate: the database handshake marker (version 2) must be present first.
  * Do not deploy this function to Production as part of the recovery exercise.
  */
 Deno.serve(async (req: Request) => {
@@ -55,7 +60,7 @@ Deno.serve(async (req: Request) => {
     // invitation trigger; the old trigger can create an unintended tenant.
     const { data: handshakeVersion, error: handshakeError } = await service
       .rpc("staff_invitation_handshake_version");
-    if (handshakeError || handshakeVersion !== 1) {
+    if (handshakeError || handshakeVersion !== 2) {
       return json({ error: "Staff invitation handshake is not configured" }, 503);
     }
 
@@ -99,9 +104,11 @@ Deno.serve(async (req: Request) => {
 
     // TRUST ROOT: this row is written by service-role ONLY after caller
     // authentication, role validation, uniqueness and quota checks.
+    const binding = await newInvitationBinding();
     const { data: invitation, error: invitationError } = await service.from("staff_invitations")
       .insert({ tenant_id: tenantId, email, role, first_name: firstName,
-        last_name: lastName, invited_by: authData.user.id })
+        last_name: lastName, invited_by: authData.user.id,
+        binding_nonce_hash: binding.hash })
       .select("id").single();
     if (invitationError || !invitation?.id) return json({ error: "Unable to prepare staff invitation" }, 503);
 
@@ -110,7 +117,10 @@ Deno.serve(async (req: Request) => {
     // No tenant/role from user_metadata may authorize that insertion.
     const { data: invited, error: inviteError } = await service.auth.admin.inviteUserByEmail(email, {
       redirectTo,
-      data: { first_name: firstName, last_name: lastName, church_name: tenant.name },
+      // staff_invitation_nonce is a bearer secret, not an authorization claim:
+      // it only selects the server-written row whose hash matches.
+      data: { first_name: firstName, last_name: lastName, church_name: tenant.name,
+        staff_invitation_nonce: binding.nonce },
     });
     if (inviteError || !invited.user?.id) {
       // Never delete an Auth user or invitation automatically: delivery or

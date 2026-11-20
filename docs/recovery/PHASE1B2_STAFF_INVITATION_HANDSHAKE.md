@@ -2,7 +2,7 @@
 
 - **Branch:** `recovery/system-stabilization-2026-11` (no merge to `main`)
 - **Staging project:** `xwbajophstetbnnemsyq`
-- **Current status:** Prepared implementation and unit tests. **NO migration, account creation, invitation email, or Edge Function deployment has been performed.**
+- **Current status (20 Nov 2026):** STAGING_TEST_PASS. V1 applied 19 Nov as `20261119101722`; defect D-1 (V1 gated on `invited_at`, which GoTrue sets only *after* the INSERT, so every real invite was rejected) fixed by V2 `20261120043624_p1b2_staff_invite_insert_binding.sql` + `send-invitation` **v4** (hashed single-use binding secret in insert-time invite data). Church A and Church B staff canaries passed with tenant isolation. Live evidence: `docs/recovery/RECOVERY_STATUS.md` §1B.2. The "not performed" statements below are HISTORICAL (written 18 Nov before deployment).
 - **Trigger target:** existing `public.handle_new_user()` invoked by `on_auth_user_created` on `auth.users`.
 
 ## Root cause (read-only verified on staging)

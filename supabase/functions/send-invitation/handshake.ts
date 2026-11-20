@@ -51,3 +51,20 @@ export function verifiedStaffInvitation(
     profile.role === role && profile.email?.trim().toLowerCase() === normalized &&
     profile.status === "active" && profile.invitation_sent === true);
 }
+
+/**
+ * Single-use invitation binding secret (256 bits, base64url) and its SHA-256
+ * hex digest. Only the digest is persisted; the secret travels once in the
+ * insert-time invite data so the Auth trigger can bind the new identity.
+ */
+export async function newInvitationBinding(): Promise<{ nonce: string; hash: string }> {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const nonce = btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return { nonce, hash: await sha256Hex(nonce) };
+}
+
+export async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}

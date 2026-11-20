@@ -45,3 +45,7 @@ backups/
 *.sql.age
 *.role.age
 .env.qa.local
+.vercel
+.env*
+!.env.example
+!.env.qa.example
