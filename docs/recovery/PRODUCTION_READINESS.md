@@ -23,7 +23,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | # | Item | Status | Notes |
 |---|---|---|---|
 | B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
-| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000`, `20261120200000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
+| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000`, `20261120200000`, `20261120210000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
 | B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
 | B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
 | B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
@@ -48,6 +48,9 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | D1 | Deploy exactly the reviewed functions to Production (no bulk deploy) | ⬜ Gate B | Staging versions: send-invitation v4, member-provision-access v4, member-otp-request v1, member-login v8, member-session-context v6, member-register v8 (+ later phases). |
 | D2 | Production function secrets present (names only verified) | ⬜ Gate B | |
 | D3 | Rate limiting / abuse control on public `member-register` and `member-otp-request` | ⬜ Phase 6 | |
+| D4 | Production function set = exactly the reviewed launch list (`src/test/p1/launchScope.test.ts` DEPLOYED_REVIEWED, 15 functions); deferred-area functions must NOT be deployed; Production build without VITE_FEATURE_* flags | ⬜ Gate B | |
+| D5 | Supabase plan for Production supports leaked-password protection (Pro) → enable it | ⬜ Gate B | Not available on free staging. |
+| D6 | Re-enabling a deferred area (email/SMS/push/AI/media/livestream) = review + deploy its functions, set provider secrets in function secrets, then set VITE_FEATURE_<AREA>=true | ⬜ post-launch | |
 
 ## G. Payments (user decision 2026-11-20: IntaSend)
 | # | Item | Status | Notes |
@@ -84,7 +87,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | F1 | CI `app-typecheck` green and **blocking** | 🔶 blocking via ratchet (no new errors); baseline errors still to burn down | ≥10 errors (announcements, types drift). `src/integrations/supabase/types.ts` regenerated from staging 20 Nov: 124 → 219 tables. |
 | F7 | **6 tables referenced by code are absent on staging:** `chart_of_accounts` (Finding 22), `fund_transactions`, `invoices`, `journal_entries`, `journal_lines`, `payroll_payments` | ⬜ Phase 9 | Decide per table: create via reviewed migration vs. repoint code to existing tables. Verify Production schema separately. |
 | F2 | Real browser E2E (disposable local Docker QA + preview bypass token) | ⬜ Phase 1 | |
-| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 12/27 | Findings 1–7, 9, 14, 19, 25, 26 ACCEPTED 20 Nov. |
+| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 12/27 | Findings 1–7, 9, 14, 19, 25, 26 ACCEPTED 20 Nov; 8 STAGING_TEST_PASS; 10, 11, 12, 13, 15, 16 + AI part of 20 DEFERRED (user scope). |
 | F9 | Storage buckets on Production: create `facility-thumbnails`, `incident-attachments`, `church-logos` via migration `20261120120000`; verify Production bucket list first (names/visibility may differ) | ⬜ Gate B | Deferred media buckets (`church-media`, `sermon-recordings`, `quiz-documents`) only if media ships. |
 | F8 | New churches get **no service request types** → requests unusable | ✅ staging (migration `20261120100000`) | Production: the migration's backfill seeds only churches with zero types — review the Production count first (Gate B rehearsal). |
 | F4 | Untested Finding 1 paths canaried: CSV import, QR self-registration | ⬜ | |

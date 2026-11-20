@@ -16,7 +16,8 @@
 | 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
 | 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
 | 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **CLOSED 20 Nov** — F14, F19, F26, hardening, E1, E4, E11 ACCEPTED by user; final loopholes (E5 secrets, quiz scores, volunteer hours) STAGING_TEST_PASS | see §5 | `0ad0b1b` … `5bfc7a6`, `958ffc8` + close-out | user: enable "Prevent use of leaked passwords" (staging + Production) |
-| 6–10 | Findings 8, 10–13, 15–18, 20–24, 27 + product items | PENDING | — | — | — |
+| 6 | Finding 8 + Edge Function inventory/hardening + launch-scope gating | **STAGING_TEST_PASS** (F8 awaiting sign-off); Findings 10, 11, 20-AI **DEFERRED** (user scope) | see §6 | `a1cd4bd`, `e05a3f5`, `c2a415f`, `6d3de63` | user sign-off F8 |
+| 7–10 | Findings 12, 13, 15–18, 20–24, 27 + product items | PENDING (12, 13, 15, 16 deferred: media/livestream out of launch scope) | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
@@ -304,6 +305,31 @@ Queued: `volunteer_hours` member own-rows read; quiz participant UPDATE cannot b
 | volunteer_hours member read | members read only their own hours (via `member_auth_memberships`) | policy applied |
 
 Phase 5 user actions / logged follow-ups: **enable "Prevent use of leaked passwords"** (Auth → Attack Protection) on staging and Production; **CAPTCHA protection: leave OFF** until a CAPTCHA widget is added to sign-in/OTP pages (enabling it alone blocks all logins) — readiness C9. Pre-existing breakages found (not Phase 5): quiz host/join write a non-existent `member_id` column (Finding 20, Phase 8); Communications SMS settings use non-existent `sozuri_*` columns (SMS phase); analytics RPC bodies crash (42883, reporting).
+
+
+## §6 Phase 6 — Edge Functions, security events, launch scope (20 Nov 2026)
+
+**User decisions:** app email (Resend), SMS, push, Sentry feed in-app, AI, media, livestream are DEFERRED for the 24 Nov launch (memory `launch-provider-decisions`). Leaked-password protection needs a paid plan → required on Production (Pro).
+
+**Finding 8 (Security Alerts static) — root cause:** Security Centre reads `security_alerts`, but nothing wrote it server-side (0 rows); access-log and active-sessions functions not deployed; staff could forge/delete alerts. **Fix** (`20261120210000`): `report_failed_sign_in()` (rate-limited, no enumeration) → `failed_login` (low) / `brute_force_attempt` (high, 3 in 10 min); triggers for role change / admin grant / status change / staff invitation; browser read (staff) + resolve (`reports_analytics`) only. `get-active-sessions` / `get-security-access-log` deployed **administrator-only**. Page refreshes every 30 s. **Evidence** (`staging-canary-phase6-alerts.spec.ts`, Preview `a1cd4bd`): 3 wrong passwords → `failed_login:low` + `brute_force_attempt:high`; unknown email → nothing; role change ×2 → `role_changed:medium` ×2; admin sessions/log 200, staff 403; staff forge alert 403; delete 0 rows; Security Centre shows the brute-force alert, 0 failed calls. Sentry/PostHog: not a security-alert source for launch (user decision); Sentry stays in its own dashboard.
+
+**Function inventory (staging):** 76 in repo, 11 deployed at start, 45 called by the browser. After review now deployed: + update-user-role (Phase 5 policy), get-active-sessions, get-security-access-log, generate-church-code, fetch-og-metadata, platform-admin-overview (15 total).
+
+| Function | Finding | Action |
+|---|---|---|
+| generate-church-code | unauthenticated; anyone could rewrite any church's member-login code | church admins of that church only; deployed; live 401/403/403 |
+| fetch-og-metadata | unauthenticated arbitrary-URL fetch (SSRF / open proxy) | staff only + unit-tested URL guard (scheme/port/credentials/internal names/private, loopback, link-local, metadata, IPv4-mapped IPv6), resolved-IP check, manual redirects re-validated, 512 KB cap; deployed; live: 6 SSRF targets 400, public page 200 |
+| process-email-automations | anyone with the public key could process every church's automations | scheduler (service role) → all; admin → own church; NOT deployed (email deferred) |
+| create-staff-thread | no auth at all | no remaining browser caller → stays undeployed (note: new staff get no directory thread — messaging follow-up) |
+| platform-admin-overview | reviewed: platform super admin only, read-only | deployed; church admin → 403 |
+| AI / Canva / email / SMS / push / Sentry functions | deferred areas | not deployed; calls short-circuit (guard) |
+| Payment functions (PayHero/Daraja) | replaced by IntaSend | Phase 9/10 |
+
+CORS: functions use `Access-Control-Allow-Origin: *` with bearer-token auth (no cookies) → no ambient-credential risk; accepted.
+
+**Launch-scope gating:** `src/config/launchFlags.ts` (`VITE_FEATURE_<AREA>=true` re-enables per environment) + `src/lib/functionGuard.ts` (FunctionsClient guard) + `isAdminPathEnabled/isMemberPathEnabled` hook. Contract test `src/test/p1/launchScope.test.ts` classifies every browser-called function. Evidence (`staging-canary-phase6-scope.spec.ts`, Preview `6d3de63`, Church A with Resources & Media ON): AI Tools / Graphics / Church Studio / Songs / Church Media / Sermon Prep / Livestreaming absent from nav; direct URLs redirect to dashboard; 0 deferred-function requests (push registration no longer fires); 0 page errors.
+
+**CI:** `app-typecheck` failure on `e8cfdcb` (SmsSettings: untyped query) fixed in `c2a415f` → CI green; also fixed SMS form never prefilling (React Query v5 removed `onSuccess`).
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.

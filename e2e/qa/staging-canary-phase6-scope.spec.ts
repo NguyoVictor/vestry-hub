@@ -10,7 +10,7 @@ test('deferred areas hidden for Church A (Resources & Media module ON)', async (
   await page.waitForLoadState('networkidle').catch(() => {});
   const nav = (await page.locator('aside, nav').allInnerTexts()).join(' ');
   const hiddenInNav = ['AI Tools', 'Graphics Studio', 'Church Studio', 'Song Library', 'Church Media', 'Sermon Preparation', 'Livestreaming'].filter(t => nav.includes(t));
-  const r: Record<string, unknown> = { navStillShows: hiddenInNav, navHasAssetMgmt: nav.includes('Asset Management') };
+  const r: Record<string, unknown> = { navStillShows: hiddenInNav, navHasAssetMgmt: /media & content/i.test(nav) };
   for (const p of ['/ai-tools', '/church-media', '/livestreaming', '/graphics-studio']) {
     await page.goto(p); await page.waitForLoadState('networkidle').catch(() => {});
     r[`redirect_${p}`] = new URL(page.url()).pathname;
