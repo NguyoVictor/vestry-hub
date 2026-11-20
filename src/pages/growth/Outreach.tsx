@@ -25,8 +25,8 @@ import {
   Globe, Users, Clock, TrendingUp, Plus, Heart, MapPin, Award,
   ImagePlus, X, ChevronLeft, ChevronRight, List, CalendarDays, Sparkles,
 } from "lucide-react";
-import {
 import { toUserFacingError } from "@/lib/userFacingError";
+import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
