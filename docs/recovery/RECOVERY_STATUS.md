@@ -16,7 +16,7 @@
 | 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
 | 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
 | 5 | Findings 14, 19, 26 + tenant RLS + access hardening | **CLOSED 20 Nov** — F14, F19, F26, hardening, E1, E4, E11 ACCEPTED by user; final loopholes (E5 secrets, quiz scores, volunteer hours) STAGING_TEST_PASS | see §5 | `0ad0b1b` … `5bfc7a6`, `958ffc8` + close-out | user: enable "Prevent use of leaked passwords" (staging + Production) |
-| 6 | Finding 8 + Edge Function inventory/hardening + launch-scope gating | **STAGING_TEST_PASS** (F8 awaiting sign-off); Findings 10, 11, 20-AI **DEFERRED** (user scope) | see §6 | `a1cd4bd`, `e05a3f5`, `c2a415f`, `6d3de63` | user sign-off F8 |
+| 6 | Finding 8 + Edge Function inventory/hardening + launch-scope gating | **ACCEPTED 20 Nov** (F8 + Phase 6); Findings 10, 11, 20-AI **DEFERRED** — see `DEFERRED_BACKLOG.md` | see §6 | `a1cd4bd`, `e05a3f5`, `c2a415f`, `6d3de63`, `8d611e0` | — |
 | 7–10 | Findings 12, 13, 15–18, 20–24, 27 + product items | PENDING (12, 13, 15, 16 deferred: media/livestream out of launch scope) | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
