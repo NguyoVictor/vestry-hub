@@ -14,8 +14,9 @@
 | 1B.2 | Staff invitation handshake | **STAGING_TEST_PASS** — V2 fix (D-1) deployed 20 Nov; Church A + B canaries and isolation passed | see §1B.2 | pending | Church A then B staff canary (human inbox + admin session) |
 | 2 (1B.3) | Finding 1 member-only provisioning + OTP | **ACCEPTED 20 Nov** (user sign-off after staff A/B + member A/B canaries) | see §2 | `5d250a1`, `401b055`, `754da4e`, `baca8a4` | carried-forward items in PRODUCTION_READINESS.md |
 | 3 | Findings 2–6 (People/Operations schema drift) + F8 | **ACCEPTED 20 Nov (Findings 2–6, user sign-off)**; F8 fix STAGING DEPLOYED | see §3 | `4689c0e`, `1044be2`, `3418cd3` + F8 commit | F8 UI hint browser check only possible on a church with zero types |
-| 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **STAGING_TEST_PASS** — browser canary + DB + Storage API negatives 20 Nov | see §4 | `89d67c0`, `036e155` + evidence commit | user ACCEPTED sign-off; Finding 13 uploads deferred (media out of launch scope) |
-| 5–10 | Findings 8, 10–24, 26–27 + product items | PENDING | — | — | — |
+| 4 | Findings 7, 9, 25 (+ Storage inventory, ambiguous embeds) | **ACCEPTED 20 Nov (user sign-off)** — browser canary + DB + Storage API negatives | see §4 | `89d67c0`, `036e155`, `b594ce8` (CI green) | Finding 13 uploads deferred (media out of launch scope) |
+| 5 | Findings 14, 19, 26 + restored tenant RLS (26 tables) | **F26 STAGING_TEST_PASS (browser)**; F14/F19 STAGING_TEST_PASS at API level with real sessions; browser check BLOCKED (resources_media module off for QA churches) | see §5 | migration `20261120140000` + phase 5 commit | enable Resources & Media for Church A → browser canary F14/F19; remaining Phase 5 hardening items (E-list) |
+| 6–10 | Findings 8, 10–13, 15–18, 20–24, 27 + product items | PENDING | — | — | — |
 | 11 | Full staging acceptance | PENDING | — | — | — |
 | A / B | Final merge / Production | NOT AUTHORIZED | — | — | — |
 
@@ -238,6 +239,28 @@ Independent review found two blockers in the 19 Nov local draft, both fixed:
 - `asset-images` / `facility-images` upload/delete policies allow any authenticated user on any path → Phase 5.
 - Incident page read-only gate keyed to `reports_analytics` permission → Phase 5.
 - Buckets still missing but out of launch scope (media deferred): `church-media` (Finding 13), `sermon-recordings`, `quiz-documents`.
+
+## §5 Findings 14, 19, 26 — Permissions / RLS (20 Nov 2026)
+
+**Root cause (verified read-only on staging):** 44 public tables had ROW LEVEL SECURITY **enabled with zero policies** → every browser read/write denied for everyone, admins included. Includes `asset_release_requests` (F14 "You do not have permission…" = `toUserFacingError` wording for an RLS denial), `store_categories` (F19), `giving_categories` (F26 "new row violates row-level security policy"). Their original migrations created (overly broad) tenant policies; those were removed **outside migration history** (no migration drops them) — Production must be inspected separately (readiness B8).
+
+**Fix:** migration `20261120140000_p5_restore_tenant_rls_policies.sql` — 100 policies on 26 browser-used tables (read: tenant staff, or staff+portal members where members need it; write: `private.can_write_permission(<church>, <same key as the page's isReadOnly gate>)`; permission tables: `can_manage_permissions` = church admins only; `activity_log` / `legal_signatures` insert-only). Every WITH CHECK is on the row's own church column (no cross-church writes). 18 tables intentionally left locked (server-only/unused or platform-wide): `automation_settings`, canva_*, `device_tokens`, `integration_settings`, `member_login_challenges`, `member_sessions`, `order_items`, payroll_run(s/_lines), resource_assignments/collections, `collection_resources`, `sermon_views` (media deferred), `staff_invitations`, `tenant_payment_credentials`, `users_backup`, `webhook_events`. Dry run listed only this file → applied; post-check 100 `_p5_` policies, 18 locked as intended; all helpers executable by `authenticated`.
+
+**Evidence** (`e2e/qa/staging-canary-phase5.spec.ts`, Preview `vestry-qv1ca2vmg` = `036e155`; policies are server-side so the frontend SHA is not material):
+
+| Check | Result |
+|---|---|
+| F26 browser: Church A admin Settings → Giving → Add Category → "Category created successfully", visible after reload, 0 failed calls | **PASS** |
+| F19 API (A admin session): create store category 201, reads it back | **PASS** |
+| F14 API (A admin): create asset 201 → release request 201 → approve 200 (1 row) | **PASS** |
+| A staff (role staff, default level) reads A's release request / giving categories | **PASS** (1 / 1) |
+| B admin reads A's store categories / release requests / giving categories | **PASS** 0 / 0 / 0 |
+| B admin writes into A: store category, giving category | **PASS** 403 / 403 |
+| B admin updates A's release request | **PASS** 0 rows affected |
+| Permission admin: A staff → feature_permissions 403; B admin into A 403 | **PASS** |
+| Browser check of /asset-management and /resources-store | **BLOCKED** — both are in the `resources_media` admin module, OFF for QA churches (needs user approval to enable for Church A) |
+
+**Found while investigating (queued):** `CommunicationsSettings.tsx` upserts a `service_role_key` row into the platform-wide `automation_settings` table from the browser (now correctly denied) — remove the call. `AssetManagement` deletes an asset's release requests/maintenance without checking errors before deleting the asset.
 
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.

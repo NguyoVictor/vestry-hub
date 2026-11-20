@@ -23,12 +23,13 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | # | Item | Status | Notes |
 |---|---|---|---|
 | B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
-| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
+| B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
 | B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
 | B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
 | B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
 | B6 | Explain/clean the 20 Nov 04:55 UTC self-signup tenant on staging (not a canary) | 🔒 user | Not deleted; awaiting user confirmation of origin. |
 | B7 | Orphan `service_request_types` rows (7 on staging) for a deleted tenant; table has no FK to `tenants` | ⬜ cleanup | Decide FK + cleanup; check Production. |
+| B8 | **RLS-enabled tables with zero policies** (44 on staging; policies removed outside migrations). Run the same inventory on Production BEFORE applying `20261120140000`; Production may still have the old broad policies → review/replace rather than add alongside | ⬜ Gate B | Query in RECOVERY_STATUS §5. |
 
 ## C. Auth & email
 | # | Item | Status | Notes |
@@ -70,6 +71,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | E9 | `facilities_public_read_safe`: anyone can read all churches' active facilities | ⬜ Phase 5 | Confirm intended for public booking page; scope by tenant slug if not. |
 | E10 | `asset-images` / `facility-images` storage policies: any authenticated user may upload/delete any path | ⬜ Phase 5 | Tenant-folder scoping like Phase 4 buckets. |
 | E11 | Incident Management read-only gate uses `reports_analytics` permission | ⬜ Phase 5 | |
+| E12 | `CommunicationsSettings.tsx` upserts `service_role_key` into platform-wide `automation_settings` from the browser (denied by RLS) | ⬜ Phase 5 | Remove the call. |
 
 ## F. Quality gates (blocks Gate A)
 | # | Item | Status | Notes |
@@ -77,7 +79,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | F1 | CI `app-typecheck` green and **blocking** | 🔶 blocking via ratchet (no new errors); baseline errors still to burn down | ≥10 errors (announcements, types drift). `src/integrations/supabase/types.ts` regenerated from staging 20 Nov: 124 → 219 tables. |
 | F7 | **6 tables referenced by code are absent on staging:** `chart_of_accounts` (Finding 22), `fund_transactions`, `invoices`, `journal_entries`, `journal_lines`, `payroll_payments` | ⬜ Phase 9 | Decide per table: create via reviewed migration vs. repoint code to existing tables. Verify Production schema separately. |
 | F2 | Real browser E2E (disposable local Docker QA + preview bypass token) | ⬜ Phase 1 | |
-| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 6/27 | Findings 1–6 ACCEPTED 20 Nov; 7, 9, 25 STAGING_TEST_PASS 20 Nov (awaiting sign-off). |
+| F3 | All 27 findings + 4 product items ACCEPTED | 🔶 9/27 | Findings 1–7, 9, 25 ACCEPTED 20 Nov; 26 STAGING_TEST_PASS; 14, 19 API-level pass (browser blocked on module setting). |
 | F9 | Storage buckets on Production: create `facility-thumbnails`, `incident-attachments`, `church-logos` via migration `20261120120000`; verify Production bucket list first (names/visibility may differ) | ⬜ Gate B | Deferred media buckets (`church-media`, `sermon-recordings`, `quiz-documents`) only if media ships. |
 | F8 | New churches get **no service request types** → requests unusable | ✅ staging (migration `20261120100000`) | Production: the migration's backfill seeds only churches with zero types — review the Production count first (Gate B rehearsal). |
 | F4 | Untested Finding 1 paths canaried: CSV import, QR self-registration | ⬜ | |
