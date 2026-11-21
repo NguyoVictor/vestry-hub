@@ -57,11 +57,14 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 ## G. Payments (user decision 2026-11-20: IntaSend)
 | # | Item | Status | Notes |
 |---|---|---|---|
-| G1 | Payments and payment prompts (M-Pesa STK push) move to the **IntaSend API** | ⬜ Phase 9/10 | Current code uses PayHero/Daraja: `supabase/functions/test-payhero-stk`, `payment-webhook`, `c2b-webhook`, `subscription-payment-webhook`, and Daraja/PayHero credential columns on `public.tenants`. Inventory all callers before replacing. |
+| G1 | Payments and payment prompts (M-Pesa STK push) move to the **IntaSend API** | 🔧 staging: process-stk-push (IntaSend) + intasend-webhook deployed (inactive until secrets set); pages switched to intasend_enabled | Current code uses PayHero/Daraja: `supabase/functions/test-payhero-stk`, `payment-webhook`, `c2b-webhook`, `subscription-payment-webhook`, and Daraja/PayHero credential columns on `public.tenants`. Inventory all callers before replacing. |
 | G2 | IntaSend **sandbox** keys for staging; live keys only for Production at Gate B | 🔒 user provides | Secrets go in Supabase function secrets only, never in the browser bundle, Git or tenants columns. |
-| G3 | IntaSend webhook/callback signature verification + idempotent payment recording | ⬜ Phase 9 | Callback URL must derive from `SUPABASE_URL` (A3 pattern). |
+| G3 | IntaSend webhook/callback signature verification + idempotent payment recording | 🔧 challenge constant-time + status-API confirmation + amount/currency match + idempotent event log (unit tests 6/6) | Callback URL must derive from `SUPABASE_URL` (A3 pattern). |
 | G4 | Decommission or gate the PayHero/Daraja paths once IntaSend is verified | ⬜ Phase 10 | Preserve historical payment records. |
 | G5 | End-to-end sandbox test: STK prompt → callback → persisted payment → ledger/receipt | ⬜ Phase 9 | No live transactions before Gate B approval. |
+| G6 | **Business decision:** IntaSend model — one Vestry platform account with a wallet per church (`tenants.intasend_wallet_id`), or each church its own account? Routing can only be changed by a platform super admin (guard trigger). | 🔒 user | Code supports wallet-per-church on one account. |
+| G7 | Member "cash" gift from the portal inserts `payment_status: confirmed` from the browser (today blocked by RLS → fails); should record `pending` for staff confirmation | ⬜ | |
+| G8 | Register the webhook in IntaSend (Settings → Webhooks): URL `<SUPABASE_URL>/functions/v1/intasend-webhook`, event `collection_event`, same challenge as `INTASEND_WEBHOOK_CHALLENGE` (staging now, Production at Gate B) | 🔒 user | |
 
 ## E. Permissions & security
 | # | Item | Status | Notes |

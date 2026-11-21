@@ -223,7 +223,7 @@ export default function MemberGive() {
         
         const { data: tenantData, error: tenantError } = await supabase
           .from('tenants')
-          .select('payhero_connected, name')
+          .select('intasend_enabled, name')
           .eq('id', member.churchId)
           .single();
 
@@ -232,7 +232,7 @@ export default function MemberGive() {
           throw new Error('Unable to verify payment configuration. Please try again.');
         }
 
-        if (!tenantData.payhero_connected) {
+        if (!(tenantData as { intasend_enabled?: boolean }).intasend_enabled) {
           throw new Error('Payments not configured. Please contact church admin to set up M-Pesa donations in Settings → Payments.');
         }
 

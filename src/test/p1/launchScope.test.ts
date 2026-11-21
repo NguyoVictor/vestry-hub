@@ -13,11 +13,11 @@ const DEPLOYED_REVIEWED = new Set([
   'send-invitation', 'update-user-role', 'member-provision-access', 'member-otp-request', 'member-login',
   'member-session-context', 'member-register', 'member-logout', 'member-profile-update', 'sync-member-profile',
   'member-portal-feed', 'get-active-sessions', 'get-security-access-log', 'generate-church-code', 'fetch-og-metadata',
-  'platform-admin-overview',
+  'platform-admin-overview', 'process-stk-push',
 ]);
 // Payments are rebuilt on IntaSend in Phase 9/10 (memory: payments-intasend).
 const PAYMENTS_PHASE = new Set([
-  'process-stk-push', 'initiate-subscription-stk', 'payment-webhook', 'register-c2b-urls', 'register-credentials',
+  'initiate-subscription-stk', 'payment-webhook', 'register-c2b-urls', 'register-credentials',
   'register-payment-channel', 'get-payhero-banks', 'get-supported-banks',
 ]);
 // Reviewed-but-not-yet-deployed admin tooling (super admin console).

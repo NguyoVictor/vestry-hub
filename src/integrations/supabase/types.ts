@@ -1374,6 +1374,42 @@ export type Database = {
           },
         ]
       }
+      budget_audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          entity: string
+          entity_id: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          entity: string
+          entity_id: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          entity?: string
+          entity_id?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       budget_categories: {
         Row: {
           allocated_amount: number
@@ -1402,6 +1438,82 @@ export type Database = {
             columns: ["budget_id"]
             isOneToOne: false
             referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_expenditures: {
+        Row: {
+          amount: number
+          budget_category_id: string | null
+          budget_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          expenditure_date: string
+          id: string
+          reference: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          source_id: string | null
+          source_type: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          budget_category_id?: string | null
+          budget_id: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          expenditure_date?: string
+          id?: string
+          reference?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          source_id?: string | null
+          source_type?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          budget_category_id?: string | null
+          budget_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          expenditure_date?: string
+          id?: string
+          reference?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          source_id?: string | null
+          source_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_expenditures_budget_category_id_fkey"
+            columns: ["budget_category_id"]
+            isOneToOne: false
+            referencedRelation: "budget_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_expenditures_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_expenditures_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1508,6 +1620,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "canva_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chart_of_accounts: {
+        Row: {
+          account_code: string
+          account_name: string
+          account_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_code: string
+          account_name: string
+          account_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_code?: string
+          account_name?: string
+          account_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2516,6 +2672,8 @@ export type Database = {
           course_id: string
           enrolled_at: string | null
           id: string
+          member_id: string | null
+          progress_percentage: number
           tenant_id: string
           user_id: string
         }
@@ -2525,8 +2683,10 @@ export type Database = {
           course_id: string
           enrolled_at?: string | null
           id?: string
+          member_id?: string | null
+          progress_percentage?: number
           tenant_id: string
-          user_id: string
+          user_id?: string
         }
         Update: {
           certificate_url?: string | null
@@ -2534,6 +2694,8 @@ export type Database = {
           course_id?: string
           enrolled_at?: string | null
           id?: string
+          member_id?: string | null
+          progress_percentage?: number
           tenant_id?: string
           user_id?: string
         }
@@ -2546,7 +2708,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "course_enrollments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "course_enrollments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_lessons: {
+        Row: {
+          audio_url: string | null
+          content: string | null
+          content_type: string
+          course_id: string
+          created_at: string
+          description: string | null
+          estimated_duration: string | null
+          flashcards: Json | null
+          has_quiz: boolean
+          id: string
+          image_url: string | null
+          order_index: number
+          tenant_id: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          content?: string | null
+          content_type?: string
+          course_id: string
+          created_at?: string
+          description?: string | null
+          estimated_duration?: string | null
+          flashcards?: Json | null
+          has_quiz?: boolean
+          id?: string
+          image_url?: string | null
+          order_index?: number
+          tenant_id: string
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          content?: string | null
+          content_type?: string
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          estimated_duration?: string | null
+          flashcards?: Json | null
+          has_quiz?: boolean
+          id?: string
+          image_url?: string | null
+          order_index?: number
+          tenant_id?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "training_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_lessons_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4105,12 +4349,14 @@ export type Database = {
           given_at: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id: string
+          intasend_invoice_id: string | null
           is_anonymous: boolean | null
           member_id: string | null
           mpesa_receipt: string | null
           notes: string | null
           payhero_reference: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
+          payment_provider: string | null
           payment_status:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
@@ -4137,12 +4383,14 @@ export type Database = {
           given_at?: string
           giving_type: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          intasend_invoice_id?: string | null
           is_anonymous?: boolean | null
           member_id?: string | null
           mpesa_receipt?: string | null
           notes?: string | null
           payhero_reference?: string | null
           payment_method: Database["public"]["Enums"]["payment_method_enum"]
+          payment_provider?: string | null
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
@@ -4169,12 +4417,14 @@ export type Database = {
           given_at?: string
           giving_type?: Database["public"]["Enums"]["giving_type_enum"]
           id?: string
+          intasend_invoice_id?: string | null
           is_anonymous?: boolean | null
           member_id?: string | null
           mpesa_receipt?: string | null
           notes?: string | null
           payhero_reference?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method_enum"]
+          payment_provider?: string | null
           payment_status?:
             | Database["public"]["Enums"]["payment_status_enum"]
             | null
@@ -4740,6 +4990,7 @@ export type Database = {
       }
       ledger_entries: {
         Row: {
+          account_id: string | null
           created_at: string | null
           created_by: string | null
           credit_amount: number | null
@@ -4753,6 +5004,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          account_id?: string | null
           created_at?: string | null
           created_by?: string | null
           credit_amount?: number | null
@@ -4766,6 +5018,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          account_id?: string | null
           created_at?: string | null
           created_by?: string | null
           credit_amount?: number | null
@@ -4779,6 +5032,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ledger_entries_account_tenant_fkey"
+            columns: ["account_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id", "tenant_id"]
+          },
           {
             foreignKeyName: "ledger_entries_fund_id_fkey"
             columns: ["fund_id"]
@@ -4846,24 +5106,33 @@ export type Database = {
           course_id: string
           enrollment_id: string
           id: string
-          lesson_index: number
-          module_index: number
+          lesson_id: string | null
+          lesson_index: number | null
+          member_id: string | null
+          module_index: number | null
+          tenant_id: string | null
         }
         Insert: {
           completed_at?: string | null
           course_id: string
           enrollment_id: string
           id?: string
-          lesson_index: number
-          module_index: number
+          lesson_id?: string | null
+          lesson_index?: number | null
+          member_id?: string | null
+          module_index?: number | null
+          tenant_id?: string | null
         }
         Update: {
           completed_at?: string | null
           course_id?: string
           enrollment_id?: string
           id?: string
-          lesson_index?: number
-          module_index?: number
+          lesson_id?: string | null
+          lesson_index?: number | null
+          member_id?: string | null
+          module_index?: number | null
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -4878,6 +5147,27 @@ export type Database = {
             columns: ["enrollment_id"]
             isOneToOne: false
             referencedRelation: "course_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "course_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_completions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -6630,6 +6920,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_events: {
+        Row: {
+          api_ref: string | null
+          detail: string | null
+          id: string
+          invoice_id: string
+          outcome: string
+          provider: string
+          received_at: string
+          state: string
+          tenant_id: string | null
+        }
+        Insert: {
+          api_ref?: string | null
+          detail?: string | null
+          id?: string
+          invoice_id: string
+          outcome: string
+          provider?: string
+          received_at?: string
+          state: string
+          tenant_id?: string | null
+        }
+        Update: {
+          api_ref?: string | null
+          detail?: string | null
+          id?: string
+          invoice_id?: string
+          outcome?: string
+          provider?: string
+          received_at?: string
+          state?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
       }
       payouts: {
         Row: {
@@ -10271,6 +10597,53 @@ export type Database = {
         }
         Relationships: []
       }
+      tax_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_inclusive: boolean
+          name: string
+          percentage: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_inclusive?: boolean
+          name: string
+          percentage: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_inclusive?: boolean
+          name?: string
+          percentage?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_rates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tax_settings: {
         Row: {
           created_at: string
@@ -10289,6 +10662,7 @@ export type Database = {
           tax_address: string | null
           tax_city: string | null
           tax_country: string | null
+          tax_enabled: boolean
           tax_postal_code: string | null
           tax_state: string | null
           tenant_id: string
@@ -10311,6 +10685,7 @@ export type Database = {
           tax_address?: string | null
           tax_city?: string | null
           tax_country?: string | null
+          tax_enabled?: boolean
           tax_postal_code?: string | null
           tax_state?: string | null
           tenant_id: string
@@ -10333,6 +10708,7 @@ export type Database = {
           tax_address?: string | null
           tax_city?: string | null
           tax_country?: string | null
+          tax_enabled?: boolean
           tax_postal_code?: string | null
           tax_state?: string | null
           tenant_id?: string
@@ -10632,6 +11008,8 @@ export type Database = {
           founded_year: number | null
           id: string
           instagram_url: string | null
+          intasend_enabled: boolean
+          intasend_wallet_id: string | null
           invite_code: string | null
           invite_code_uses: number
           location_radius_meters: number
@@ -10754,6 +11132,8 @@ export type Database = {
           founded_year?: number | null
           id?: string
           instagram_url?: string | null
+          intasend_enabled?: boolean
+          intasend_wallet_id?: string | null
           invite_code?: string | null
           invite_code_uses?: number
           location_radius_meters?: number
@@ -10876,6 +11256,8 @@ export type Database = {
           founded_year?: number | null
           id?: string
           instagram_url?: string | null
+          intasend_enabled?: boolean
+          intasend_wallet_id?: string | null
           invite_code?: string | null
           invite_code_uses?: number
           location_radius_meters?: number
@@ -12739,10 +13121,18 @@ export type Database = {
         }
         Returns: Json
       }
+      record_staff_sign_in: {
+        Args: { p_user_agent?: string }
+        Returns: undefined
+      }
       release_ai_credit: { Args: { p_tenant_id: string }; Returns: undefined }
       release_communication_job: {
         Args: { p_job_id: string; p_reason?: string }
         Returns: Json
+      }
+      report_failed_sign_in: {
+        Args: { p_email: string; p_user_agent?: string }
+        Returns: undefined
       }
       reserve_ai_credit: { Args: { p_tenant_id: string }; Returns: boolean }
       reserve_communication_credits: {
@@ -12812,7 +13202,7 @@ export type Database = {
         | "africas_talking"
         | "resend"
       marital_status_enum: "single" | "married" | "divorced" | "widowed"
-      payment_method_enum: "cash" | "mpesa" | "bank_transfer"
+      payment_method_enum: "cash" | "mpesa" | "bank_transfer" | "cheque"
       payment_schedule_enum: "one_time" | "weekly" | "monthly"
       payment_status_enum:
         | "pending"
@@ -12820,6 +13210,8 @@ export type Database = {
         | "failed"
         | "voided"
         | "cancelled"
+        | "paid"
+        | "processed"
       pledge_status_enum: "pending" | "partial" | "fulfilled" | "overdue"
       service_type_enum: "sunday" | "midweek" | "special"
       subscription_plan_enum: "free" | "foundation" | "growth" | "enterprise"
@@ -13004,7 +13396,7 @@ export const Constants = {
         "resend",
       ],
       marital_status_enum: ["single", "married", "divorced", "widowed"],
-      payment_method_enum: ["cash", "mpesa", "bank_transfer"],
+      payment_method_enum: ["cash", "mpesa", "bank_transfer", "cheque"],
       payment_schedule_enum: ["one_time", "weekly", "monthly"],
       payment_status_enum: [
         "pending",
@@ -13012,6 +13404,8 @@ export const Constants = {
         "failed",
         "voided",
         "cancelled",
+        "paid",
+        "processed",
       ],
       pledge_status_enum: ["pending", "partial", "fulfilled", "overdue"],
       service_type_enum: ["sunday", "midweek", "special"],

@@ -101,7 +101,7 @@ jobs:
             node --test scripts/recovery/p5-quiz-scoring-pglite-harness.mjs
           PGLITE_MODULE="$RUNNER_TEMP/pglite/node_modules/@electric-sql/pglite/dist/index.js" \
             node --test scripts/recovery/p10-budget-pglite-harness.mjs
-          node --experimental-strip-types --test scripts/recovery/update-user-role-policy.node.test.mjs scripts/recovery/member-provision-policy.node.test.mjs scripts/recovery/og-url-guard.node.test.mjs scripts/recovery/member-portal-backfill-policy.node.test.mjs
+          node --experimental-strip-types --test scripts/recovery/update-user-role-policy.node.test.mjs scripts/recovery/member-provision-policy.node.test.mjs scripts/recovery/og-url-guard.node.test.mjs scripts/recovery/member-portal-backfill-policy.node.test.mjs scripts/recovery/intasend.node.test.mjs
       - name: Member portal provisioning unit tests
         run: node --experimental-strip-types --test scripts/recovery/member-portal-provisioning.node.test.mjs
 
