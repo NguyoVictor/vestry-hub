@@ -73,4 +73,5 @@ Mechanism: `src/config/launchFlags.ts` + `src/lib/functionGuard.ts`. Pages are h
 | T12 | `tenant_subscriptions.storage_used_gb` is never updated (browser PATCH correctly denied) | Phase 4 | move storage accounting server-side (billing) |
 | T13 | `tenants`/`sms_settings`/`branches` use column-level SELECT grants — every NEW column needs an explicit GRANT + `src/lib/tenantColumns.ts` update | Phase 5 | contract test enforces |
 | T14 | Analytics/branch password login: unsalted SHA-256 branch hashes; branch login not implemented | Phase 5 | redesign server-side if branches ship |
+| T16 | Users page reads/writes `custom_roles`, which does not exist (404 PGRST205). Reads fall back to an empty list; “create custom role” shows an error (no false success) | 21 Nov canary | Hide the custom-role UI or build the table with T5 (multi-role) |
 | T15 | Typecheck baseline: 874 pre-existing type errors (ratchet prevents new ones) | Phase 1 | burn down gradually |
