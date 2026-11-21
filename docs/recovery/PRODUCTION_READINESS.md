@@ -12,24 +12,26 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 ## A. Release mapping & environments (blocks Gate A)
 | # | Item | Status | Notes |
 |---|---|---|---|
-| A1 | **R-1:** split Vercel `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` per environment (Production ≠ staging) | 🔒 plan only until Gate A | Live `main` hard-codes churchapp `crjdsxxkspvdwknrmijs`; shared Vercel var = staging. Merging unchanged would repoint live domains to staging. |
+| A1 | **R-1:** split Vercel `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` per environment (Production ≠ staging) | 🔧 plan ready — `docs/recovery/GATE_AB_RUNBOOK.md` §2 (approval at Gate A) | Live `main` hard-codes churchapp `crjdsxxkspvdwknrmijs`; shared Vercel var = staging. Merging unchanged would repoint live domains to staging. |
 | A2 | Confirm which Supabase project is the real Production (churchapp vs another) and record its ref | 🔒 user | Read-only inspection of the live bundle showed churchapp. |
 | A3 | Remove hard-coded churchapp URLs (`MemberWelcome.tsx:55`, `CommunicationsSettings.tsx:282`, `test-payhero-stk/index.ts:30`) | ✅ fixed locally (Phase 3 commit) | CI guard `check-no-hardcoded-supabase-projects.mjs` |
 | A4 | `supabase/config.toml` `project_id` label still churchapp | ✅ now staging label (Phase 3 commit) | Local label only; linked ref is staging. |
 | A5 | `STAFF_INVITATION_REDIRECT_ORIGIN` + Auth redirect allowlist set for the **Production** domain (`/auth/invite`, `/auth/reset-password`) | ⬜ Gate B | Staging uses a Preview origin; `stagingInviteOrigin()` deliberately rejects non-`*.vercel.app` origins → needs a reviewed production variant. |
 | A6 | Vercel Production auto-deploy behaviour on merge to `main` reviewed | ⬜ Gate A | |
+| A7 | **LIVE ISSUE (pre-existing):** `main` builds the payment callback URL from `VITE_SUPABASE_URL` = staging → churches that copied it into Daraja/PayHero send live callbacks to staging (function not deployed there → lost) | 🔒 user: check which live churches configured payments | Fixed by recovery branch + env split; see GATE_AB_RUNBOOK F-A2. |
+| A8 | Merge to `main` auto-deploys Production; DB and frontend are not backward-compatible → coordinated window (deploy with --skip-domain, migrate, promote) | 🔧 runbook §3 | |
 
 ## B. Database & data (blocks Gate B)
 | # | Item | Status | Notes |
 |---|---|---|---|
 | B1 | **Production backup** (DB + Storage) taken and restore-tested | 🔒 Gate B | Staging backup waiver does NOT apply. |
 | B2 | Rehearse the migration chain on a copy of Production | ⬜ Gate B | Recovery migrations so far: `20261119101722`, `20261120043624`, `20261120052702`, `20261120083842`, `20261120100000`, `20261120120000`, `20261120140000`, `20261120150000`, `20261120160000`, `20261120170000`, `20261120180000`, `20261120190000`, `20261120200000`, `20261120210000`, `20261120220000`, `20261120230000`, `20261120240000` (+ later phases). Production trigger text may differ → guarded patches will refuse; must inspect first. |
-| B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | ⬜ | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
+| B3 | **Backfill member portal links** for pre-existing members (staging: 16 of 19 had none) | 🔧 tool ready: `member-portal-backfill` (dry-run default; church admin = own church; deployed + dry-run tested on staging: 1 linked / 2 candidates). Run in Gate B window after approval | Reviewed one-off or admin Retry per member; without it existing members can't sign in. |
 | B4 | Migration-history parity Production vs repo | ⬜ Gate B | |
 | B5 | Rollback snapshots for every trigger patch captured from Production before applying | ⬜ Gate B | Staging snapshots in `docs/recovery/rollback/`. |
 | B6 | Explain/clean the 20 Nov 04:55 UTC self-signup tenant on staging (not a canary) | 🔒 user | Not deleted; awaiting user confirmation of origin. |
 | B7 | Orphan `service_request_types` rows (7 on staging) for a deleted tenant; table has no FK to `tenants` | ⬜ cleanup | Decide FK + cleanup; check Production. |
-| B8 | **RLS-enabled tables with zero policies** (44 on staging; policies removed outside migrations). Run the same inventory on Production BEFORE applying `20261120140000`; Production may still have the old broad policies → review/replace rather than add alongside | ⬜ Gate B | Query in RECOVERY_STATUS §5. |
+| B8 | **RLS-enabled tables with zero policies** (44 on staging; policies removed outside migrations). Run the same inventory on Production BEFORE applying `20261120140000`; Production may still have the old broad policies → review/replace rather than add alongside | 🔧 `docs/recovery/gate-b/preflight_production_readonly.sql` reports it (validated on staging) | Query in RECOVERY_STATUS §5. |
 
 ## C. Auth & email
 | # | Item | Status | Notes |

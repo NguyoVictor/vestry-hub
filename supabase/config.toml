@@ -48,3 +48,6 @@ verify_jwt = true
 # shouldCreateUser:false) and never grants a session by itself.
 [functions.member-otp-request]
 verify_jwt = false
+
+[functions.member-portal-backfill]
+verify_jwt = true
