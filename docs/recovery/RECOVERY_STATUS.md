@@ -391,6 +391,18 @@ Migration `20261120240000`; RLS: budgets / budget lines / expenditures / payroll
 
 **Evidence:** PGlite harness `scripts/recovery/p10-budget-pglite-harness.mjs` 4/4 on the real migration SQL (spend/reversal/no-edit; cross-church + wrong-line blocked; expense sync once / un-approve / re-approve / re-link with history 3 rows, 1 active; audit) — added to CI. Browser canary `e2e/qa/staging-canary-phase10.spec.ts` (Preview `vestry-46stp0r78` = `cdd4a74`): Branding absent; payroll add → edit prefilled → deactivate persists (`inactive`, end date); budget created → expenditure recorded → history → reversed (spent back to 0, 1 reversed row kept, 7 audit rows); tax enabled → rate added 16% → edited to 8% inclusive → deactivated, persists. 0 failed calls, 0 page errors. Church B (rolled-back txn): sees 0 of A's budgets / expenditures / tax rates / payroll; updates 0 of A's tax rates. Type-error counts at baseline for all 6 files; lint unchanged/improved; build passes.
 
+## §11 Day 2 — Payments build + pre-launch follow-ups (21 Nov 2026)
+
+| Item | Change | Evidence |
+|---|---|---|
+| G1–G3 IntaSend M-Pesa giving | `process-stk-push` + `intasend-webhook` rewritten for IntaSend (pending-first, status-API confirmation, amount/currency match, idempotent event log, never downgrade); migration `20261121090000` (routing switch super-admin only, member own-gift read, Realtime publication) | commit `e941114`; helper tests 6/6 (CI); deployed v1 both; webhook without secrets → 503. **Live STK test blocked on sandbox keys.** |
+| G7 member cash gift | portal no longer inserts/self-confirms cash or bank gifts | lint 11→7 |
+| T11 search_path | migration `20261121110000` | staging 0 unpinned; `generate_church_code` smoke OK |
+| T4 staff directory thread | migration `20261121120000` (trigger on `public.users`; guard bypass only via transaction-local flag set by the definer function) | rolled-back txn: A 2 threads/2 participants, idempotent, Church B admin self-update OK + thread, client directory insert refused 42501, member A sees 2, member B refused 42501, flag reset. Applied; backfilled QA Church A/B only (2+2). `handle_new_user` md5 unchanged. |
+| T6 resend invitation | Users page “Send set-password email” replaces the always-409 invite button | lint 0→0 |
+| T2 live quiz | deferred behind `VITE_FEATURE_LIVE_QUIZ` (broken for every player; see backlog) | launchScope test covers `/training/host` |
+| Gate B pre-flight | now 332 versions / 20 recovery + `payment_events` | staging: 332 = 332, no drift |
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

@@ -9,8 +9,24 @@ import { useChurch } from "@/contexts/ChurchContext";
 import { PinEntry } from "@/components/quiz/PinEntry";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { LAUNCH_FEATURES } from "@/config/launchFlags";
 
+// Live multiplayer quiz is deferred for launch (T2, src/config/launchFlags.ts):
+// players cannot read quiz sessions and the join/host writes target columns
+// that do not exist. Hosts no longer see "Launch Live"; an old link lands here.
 export default function QuizJoinPage() {
+  if (!LAUNCH_FEATURES.liveQuiz) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+        <Helmet><title>Join Quiz — Vestry</title></Helmet>
+        <p className="text-center text-white/80 max-w-sm">Live quizzes are not available yet. Please ask your church for the course link instead.</p>
+      </div>
+    );
+  }
+  return <QuizJoinPageLive />;
+}
+
+function QuizJoinPageLive() {
   const { pin: urlPin } = useParams();
   const navigate = useNavigate();
   const { userId } = useChurch();

@@ -63,7 +63,7 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | G4 | Decommission or gate the PayHero/Daraja paths once IntaSend is verified | ⬜ Phase 10 | Preserve historical payment records. |
 | G5 | End-to-end sandbox test: STK prompt → callback → persisted payment → ledger/receipt | ⬜ Phase 9 | No live transactions before Gate B approval. |
 | G6 | **Business decision:** IntaSend model — one Vestry platform account with a wallet per church (`tenants.intasend_wallet_id`), or each church its own account? Routing can only be changed by a platform super admin (guard trigger). | 🔒 user | Code supports wallet-per-church on one account. |
-| G7 | Member "cash" gift from the portal inserts `payment_status: confirmed` from the browser (today blocked by RLS → fails); should record `pending` for staff confirmation | ⬜ | |
+| G7 | Member "cash" gift from the portal inserts `payment_status: confirmed` from the browser (today blocked by RLS → fails); should record `pending` for staff confirmation | ✅ 21 Nov | Member portal no longer writes cash/bank gifts (no self-confirmation); explains the finance team records them; submit only for M-Pesa. A "member-declared pending gift" queue for staff is a post-launch feature. |
 | G8 | Register the webhook in IntaSend (Settings → Webhooks): URL `<SUPABASE_URL>/functions/v1/intasend-webhook`, event `collection_event`, same challenge as `INTASEND_WEBHOOK_CHALLENGE` (staging now, Production at Gate B) | 🔒 user | |
 
 ## E. Permissions & security

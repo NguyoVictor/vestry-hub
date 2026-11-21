@@ -263,22 +263,9 @@ export default function MemberGive() {
         
         return data;
       } else {
-        // Cash payment - direct insert
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await supabase.from("giving_records").insert({
-          tenant_id: member.churchId,
-          member_id: member.memberId,
-          amount: Number(amount),
-          giving_type: category as any,
-          payment_method: paymentMethod as any,
-          payment_status: 'confirmed' as any,
-          given_at: new Date().toISOString(),
-          notes: dedication || null,
-          currency: "KES",
-        } as any).select().single();
-        
-        if (error) throw error;
-        return data;
+        // Cash / bank transfer: a member cannot record (or self-confirm) a gift
+        // from the browser. The church finance team records it when received.
+        throw new Error("Cash and bank transfer gifts are recorded by the church finance team when received.");
       }
     },
     onSuccess: (data) => {
@@ -1029,7 +1016,7 @@ export default function MemberGive() {
                       <DollarSign className="w-5 h-5 text-blue-600 mt-0.5" />
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-blue-700">Cash Payment</p>
-                        <p className="text-xs text-blue-600">Record a cash payment made to the church</p>
+                        <p className="text-xs text-blue-600">Recorded by the church finance team when received</p>
                       </div>
                     </div>
                   </motion.div>
@@ -1085,13 +1072,15 @@ export default function MemberGive() {
                 )}
               </AnimatePresence>
               
-              {paymentMethod === "cash" && (
+              {(paymentMethod === "cash" || paymentMethod === "bank_transfer") && (
                 <motion.p 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-xs text-gray-500 mt-2 p-3 bg-gray-50/80 rounded-2xl border border-gray-200/50"
                 >
-                  💰 Bring your envelope on Sunday. Your giving will be recorded by our finance team.
+                  {paymentMethod === "cash"
+                    ? "💰 Bring your envelope on Sunday. Your giving will be recorded by our finance team and will then appear in your history."
+                    : "🏦 Use the church's bank details. Your giving will be recorded by our finance team once received and will then appear in your history."}
                 </motion.p>
               )}
 
@@ -1128,7 +1117,8 @@ export default function MemberGive() {
                     !amount || 
                     Number(amount) <= 0 || 
                     give.isPending ||
-                    (paymentMethod === "mpesa" && !phoneNumber)
+                    paymentMethod !== "mpesa" ||
+                    !phoneNumber
                   }
                 >
                   {give.isPending ? (

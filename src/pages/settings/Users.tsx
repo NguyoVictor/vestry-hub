@@ -1407,49 +1407,20 @@ const UsersPage = () => {
     onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to remove user.")),
   });
 
-  const sendInviteMutation = useMutation({
-    mutationFn: async (targetUser: UserRow) => {
-      if (!canAddStaff) {
-        toast.error(`Staff limit reached (${limits.staff} max on your plan). Remove an existing admin first.`);
-        throw new Error('Staff limit reached');
-      }
-      const { data, error } = await supabase.functions.invoke("send-invitation", {
-        body: {
-          email: targetUser.email,
-          role: targetUser.role,
-          church_name: church.name,
-          invited_by: church.userName || `${church.userFirstName} ${church.userLastName}`,
-          tenant_id: church.tenantId,
-        },
-      });
-      if (error || data?.error) {
-        throw new Error(data?.error ?? error?.message ?? "Failed to send invitation.");
-      }
-      return { data, targetUser };
-    },
-    onSuccess: ({ data, targetUser }) => {
-      qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
-      
-      const formatRole = (r: string) =>
-        r.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      
-      if (data?.already_registered) {
-        toast.success(`${targetUser.first_name} already has a VestryHub account. They've been added as ${formatRole(targetUser.role)} and can log in with existing credentials.`);
-      } else {
-        toast.success("Invitation sent successfully.");
-      }
-    },
-    onError: (e: Error) => toast.error(toUserFacingError(e, "Failed to send invitation.")),
-  });
+  // T6: every row on this page is an EXISTING account (the invitation created
+  // it), so re-calling send-invitation always returned 409. To resend an
+  // expired invitation (or help someone who forgot their password) send the
+  // standard set-password email; the link lands on /auth/reset-password.
+  const [resetSending, setResetSending] = useState<string | null>(null);
 
   // Reset password
   const handleResetPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       });
       if (error) throw error;
-      toast.success(`Password reset email sent to ${email}.`);
+      toast.success(`Set-password email sent to ${email}.`);
     } catch (err: unknown) {
       toast.error((err as Error)?.message ?? "Failed to send reset email.");
     }
@@ -1633,15 +1604,16 @@ const UsersPage = () => {
                         {/* Actions */}
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
-                            {/* Send Invite — only for uninvited users, only church_admin/super_admin */}
+                            {/* Resend invitation / set-password email — church_admin/super_admin only */}
                             {!isCurrentUser &&
-                              !user.invitation_sent &&
+                              user.status === "active" &&
                               (church.userRole === "church_admin" || church.userRole === "super_admin") && (
                               <button
-                                title="Send invitation"
+                                title="Send set-password email (resends an expired invitation)"
+                                aria-label={`Send set-password email to ${user.email}`}
                                 className="rounded p-1.5 text-slate-400 hover:bg-purple-50 hover:text-purple-500 transition-colors"
-                                onClick={() => sendInviteMutation.mutate(user)}
-                                disabled={sendInviteMutation.isPending}
+                                onClick={async () => { setResetSending(user.id); try { await handleResetPassword(user.email); } finally { setResetSending(null); } }}
+                                disabled={resetSending === user.id}
                               >
                                 <Send className="h-4 w-4" />
                               </button>

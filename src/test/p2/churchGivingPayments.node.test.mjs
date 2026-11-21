@@ -5,11 +5,22 @@ import { readFileSync } from 'node:fs';
 const stk = readFileSync(new URL('../../../supabase/functions/process-stk-push/index.ts', import.meta.url), 'utf8');
 const webhook = readFileSync(new URL('../../../supabase/functions/payment-webhook/index.ts', import.meta.url), 'utf8');
 const c2b = readFileSync(new URL('../../../supabase/functions/c2b-webhook/index.ts', import.meta.url), 'utf8');
+const intasendWebhook = readFileSync(new URL('../../../supabase/functions/intasend-webhook/index.ts', import.meta.url), 'utf8');
+const functionConfig = readFileSync(new URL('../../../supabase/config.toml', import.meta.url), 'utf8');
 
-test('STK initiation reads protected tenant payment credentials', () => {
-  assert.match(stk, /tenant_payment_credentials/);
-  assert.match(stk, /daraja_shortcode/);
-  assert.doesNotMatch(stk, /\.from\(["']tenants["']\)\s*\.select\([^)]*daraja_consumer_(?:key|secret)/);
+// Phase 9 (21 Nov 2026): STK push moved from direct Daraja to IntaSend (user
+// decision). Provider secrets are function secrets only — never tenant rows.
+test('STK initiation (IntaSend) uses only the server secret and verifies the caller', () => {
+  assert.match(stk, /Deno\.env\.get\(["']INTASEND_SECRET_KEY["']\)/);
+  const stkCode = stk.replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(stkCode, /tenant_payment_credentials|daraja|payhero/i);
+  assert.doesNotMatch(stk, /\.from\(["']tenants["']\)\s*\.select\([^)]*(?:secret|passkey|consumer_key|api_key)/i);
+  assert.match(stk, /auth\.getUser\(/, 'caller must be authenticated');
+  assert.match(stk, /member_auth_memberships/, 'members may only give as themselves');
+  assert.match(stk, /intasend_enabled/, 'church must be enabled by Vestry');
+  // A pending gift is written BEFORE the push; only the webhook confirms.
+  assert.match(stk, /payment_status: "pending"[\s\S]*mpesa-stk-push/);
+  assert.doesNotMatch(stk, /payment_status: ["']confirmed["']/);
 });
 
 test('STK webhook delegates authoritative payment state to hardened RPC', () => {
@@ -52,9 +63,18 @@ test('tenant-authorized payment setup functions use throwing authorizeTenantActo
   }
 });
 
+test('IntaSend webhook authenticates, re-verifies with the status API and never trusts the body alone', () => {
+  assert.match(intasendWebhook, /INTASEND_WEBHOOK_CHALLENGE/);
+  assert.match(intasendWebhook, /challengeMatches\(/, 'constant-time challenge check');
+  assert.match(intasendWebhook, /\/payment\/status\//, 'confirmation via status API');
+  assert.match(intasendWebhook, /amountMatches\(/);
+  assert.match(intasendWebhook, /nextStatus\(/, 'no downgrade of confirmed gifts');
+  assert.match(intasendWebhook, /\.eq\(["']payment_status["'], gift\.payment_status\)/, 'optimistic update');
+  assert.match(functionConfig, /\[functions\.intasend-webhook\]\s*\nverify_jwt = false/);
+  assert.match(functionConfig, /\[functions\.process-stk-push\]\s*\nverify_jwt = true/);
+});
+
 test('church M-Pesa callbacks require a server-only webhook secret', () => {
-  assert.match(stk, /CHURCH_DARAJA_WEBHOOK_SECRET/);
-  assert.match(stk, /searchParams\.set\(["']token["']/);
   assert.match(webhook, /CHURCH_DARAJA_WEBHOOK_SECRET/);
   assert.match(webhook, /searchParams\.get\(["']token["']/);
   assert.match(registerC2b, /CHURCH_DARAJA_WEBHOOK_SECRET/);

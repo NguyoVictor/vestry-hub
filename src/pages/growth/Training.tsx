@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LaunchSessionModal } from "@/components/training/LaunchSessionModal";
+import { LAUNCH_FEATURES } from "@/config/launchFlags";
 import { 
   SplitText, 
   BlurText, 
@@ -362,6 +363,7 @@ export default function Training() {
                 Create Course
               </Button>
               
+              {LAUNCH_FEATURES.liveQuiz && (
               <Button 
                 variant="outline"
                 onClick={handleLaunchQuiz}
@@ -370,6 +372,7 @@ export default function Training() {
                 <Rocket className="h-4 w-4 mr-2" />
                 Launch Live Quiz
               </Button>
+              )}
             </motion.div>
           </div>
         </div>
@@ -554,6 +557,7 @@ export default function Training() {
                               <Edit className="h-3 w-3 mr-1" />
                               Edit
                             </Button>
+                            {LAUNCH_FEATURES.liveQuiz && (
                             <Button 
                               size="sm" 
                               className="flex-1 bg-purple-600 hover:bg-purple-700"
@@ -562,6 +566,7 @@ export default function Training() {
                               <Play className="h-3 w-3 mr-1" />
                               Launch Live
                             </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

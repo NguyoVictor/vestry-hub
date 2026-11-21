@@ -48,7 +48,7 @@ describe('launch scope (Phase 6)', () => {
 
   it('deferred pages are hidden for admins and members; launch pages stay', () => {
     const cfg = { ...DEFAULT_MODULE_CONFIG };
-    for (const p of ['/ai-tools', '/graphics-studio', '/song-library', '/church-media', '/sermons', '/sermon-preparation', '/livestreaming', '/settings/livestreaming']) {
+    for (const p of ['/ai-tools', '/graphics-studio', '/song-library', '/church-media', '/sermons', '/sermon-preparation', '/livestreaming', '/settings/livestreaming', '/training/host/abc']) {
       expect(deferredFeatureForPath(p), p).not.toBeNull();
       expect(isAdminPathEnabled(p, cfg), p).toBe(false);
     }

@@ -60,16 +60,16 @@ Mechanism: `src/config/launchFlags.ts` + `src/lib/functionGuard.ts`. Pages are h
 | # | Item | Found in | Notes |
 |---|---|---|---|
 | T1 | Dashboard analytics RPC bodies crash (`42883 varchar = uuid`) — dashboard/member/financial/activity/performance analytics | Phase 5 | Callers are now guarded (own church only); bodies in `private.*_impl` need type fixes |
-| T2 | Live quiz host/join write non-existent `quiz_participants.member_id` | Phase 5 | Finding 20 (Phase 8) |
+| T2 | Live multiplayer quiz broken end to end: players cannot read `quiz_sessions` (staff-only RLS), join/host write non-existent `quiz_participants.member_id` and omit `tenant_id`/`display_name`, join route param mismatch, waiting room URL lacks participant id; player screens would also download the answer key | Phase 5 | **21 Nov: deferred behind `VITE_FEATURE_LIVE_QUIZ`** (Launch Live buttons + `/training/host` hidden; old `/join` links show “not available”). Needs a server-side game API (join by PIN, question without answers, scoring). Self-paced course quizzes unaffected. |
 | T3 | Communications SMS settings use non-existent `sms_settings.sozuri_*` columns (two SMS providers in code) | Phase 5 | Decide one provider when SMS returns (L2) |
-| T4 | New staff get no staff-directory message thread (create-staff-thread has no safe caller) | Phase 6 | Create the thread server-side on invitation acceptance |
+| T4 | New staff get no staff-directory message thread (create-staff-thread has no safe caller) | Phase 6 | ✅ **21 Nov** migration `20261121120000`: trigger on `public.users` creates the thread when a row becomes active staff (never blocks the write). Existing staff: optional backfill `docs/recovery/gate-b/t4_staff_directory_backfill.sql` (**product decision** — makes all staff visible to members); run on staging QA Church A/B only. `create-staff-thread` function obsolete (never deploy). |
 | T5 | Users page: one account = one role; adding a second role to an existing person not supported (old code created unusable rows) | Phase 5 | Product decision |
-| T6 | No "resend staff invitation" path (expired invite → password reset only) | Phase 1B.2 | C5 |
+| T6 | No "resend staff invitation" path (expired invite → password reset only) | Phase 1B.2 | ✅ **21 Nov** Users page: the per-row “Send invitation” button always failed (409, every listed person already has an account) → replaced with “Send set-password email” (→ `/auth/reset-password`, allowlisted) for admins. |
 | T7 | Orphan `service_request_types` rows (7) for a deleted tenant; table has no FK to tenants | Phase 3 | B7 |
 | T8 | Backfill member portal links for pre-existing members (Production) | Phase 2 | B3 — required before Gate B |
 | T9 | Media/sermon pages have no read-only (isReadOnly) gate in the UI (DB enforces) | Phase 5 | with media re-enable |
 | T10 | Quiz participant rows of anonymous players cannot be bound to the player | Phase 5 | accepted, game-only |
-| T11 | 25 functions without pinned `search_path` (advisor WARN) | Phase 5 | low risk |
+| T11 | 25 functions without pinned `search_path` (advisor WARN) | Phase 5 | ✅ **21 Nov** migration `20261121110000` (`public, extensions, pg_temp`, behaviour-neutral); staging: 0 unpinned |
 | T12 | `tenant_subscriptions.storage_used_gb` is never updated (browser PATCH correctly denied) | Phase 4 | move storage accounting server-side (billing) |
 | T13 | `tenants`/`sms_settings`/`branches` use column-level SELECT grants — every NEW column needs an explicit GRANT + `src/lib/tenantColumns.ts` update | Phase 5 | contract test enforces |
 | T14 | Analytics/branch password login: unsalted SHA-256 branch hashes; branch login not implemented | Phase 5 | redesign server-side if branches ship |
