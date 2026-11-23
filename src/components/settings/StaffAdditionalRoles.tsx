@@ -1,6 +1,7 @@
 // T5 — additional roles for a staff member (built-in non-admin roles and
 // custom roles). Each tick saves immediately; the database only lets church
 // admins assign roles and refuses admin roles here (admin stays the main role).
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,8 @@ const NOT_ASSIGNABLE = new Set(["super_admin", "church_admin", "member", "guest"
 export function StaffAdditionalRoles({ tenantId, userId, mainRole, builtInOptions }: Props) {
   const qc = useQueryClient();
   const key = ["staff-role-assignments", tenantId, userId];
+  // Show the tick immediately; revert if the server refuses.
+  const [pending, setPending] = useState<Record<string, boolean>>({});
 
   const { data: assignments = [] } = useQuery({
     queryKey: key,
@@ -41,6 +44,8 @@ export function StaffAdditionalRoles({ tenantId, userId, mainRole, builtInOption
   });
 
   const toggle = useMutation({
+    onMutate: (v: { role?: string; customRoleId?: string; on: boolean }) =>
+      setPending(p => ({ ...p, [v.role ? `r:${v.role}` : `c:${v.customRoleId}`]: v.on })),
     mutationFn: async (v: { role?: string; customRoleId?: string; on: boolean }) => {
       if (v.on) {
         const { error } = await supabase.from("staff_role_assignments").insert({
@@ -55,8 +60,11 @@ export function StaffAdditionalRoles({ tenantId, userId, mainRole, builtInOption
         if (!data?.length) throw new Error("The role was not removed (no permission).");
       }
     },
+    onSettled: async (_d, _e, v) => {
+      await qc.invalidateQueries({ queryKey: key });
+      setPending(p => { const n = { ...p }; delete n[v.role ? `r:${v.role}` : `c:${v.customRoleId}`]; return n; });
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: key });
       qc.invalidateQueries({ queryKey: ["staff-role-assignments-all", tenantId] });
       toast.success("Roles updated");
     },
@@ -64,8 +72,8 @@ export function StaffAdditionalRoles({ tenantId, userId, mainRole, builtInOption
   });
 
   const builtIns = builtInOptions.filter(o => !NOT_ASSIGNABLE.has(o.value) && o.value !== mainRole);
-  const hasRole = (role: string) => assignments.some(a => a.role === role);
-  const hasCustom = (id: string) => assignments.some(a => a.custom_role_id === id);
+  const hasRole = (role: string) => pending[`r:${role}`] ?? assignments.some(a => a.role === role);
+  const hasCustom = (id: string) => pending[`c:${id}`] ?? assignments.some(a => a.custom_role_id === id);
 
   return (
     <div className="space-y-1.5" data-testid="additional-roles">
