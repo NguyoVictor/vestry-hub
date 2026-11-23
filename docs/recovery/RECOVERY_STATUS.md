@@ -414,6 +414,10 @@ Migration `20261120240000`; RLS: budgets / budget lines / expenditures / payroll
 
 Typecheck ratchet 864 → **804** (baseline lowered). Build passes; P1 165/165; P2 53/53.
 
+**Browser evidence** (`e2e/qa/staging-canary-live-quiz-gifts.spec.ts`, Preview `vestry-bxt1ko196` = `54a4d1f`, deployment id verified): 2/2 PASS, 0 failed calls, 0 page errors. T2: admin wrote a quiz via Training → Launch Live Quiz, saved (persists after reload), hosted (PIN `RU4RAN`); a separate signed-out browser joined at `/join/RU4RAN`, answered, host auto-revealed when everyone answered, player saw “Correct!”, leaderboard → final results, player “#1 of 1”. DB: session ended, 1 player (token hash set), 1 answer correct 989 pts (speed-scored). G7b: two gifts declared by the Church A member through `member_declare_gift`; admin confirmed one and rejected the other (Reject disabled until a reason is typed); DB: confirmed / cancelled with reason, reviewer + time recorded. Tenants 12.
+
+Note: a second Vercel project `vestry-hub-ole7` also deploys this branch — check its env/purpose before Gate A.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

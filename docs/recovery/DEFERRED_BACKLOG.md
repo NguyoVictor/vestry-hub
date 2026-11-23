@@ -61,8 +61,8 @@ These must be done before the Production release (Gate A/B), not after launch:
 
 | # | Item | Size estimate |
 |---|---|---|
-| T2 | Live multiplayer quiz — server-side game API (join by PIN, questions without answers, scoring, host controls) | ✅ built 23 Nov (migration `20261123100000`; quiz library `/training/quizzes`, host `/training/host/:id`, players `/join`) — browser canary pending |
-| G7b | Members log cash/bank gifts as **pending** → staff "Awaiting confirmation" queue → confirm / reject | ✅ built 23 Nov (migration `20261123110000`; member portal Give + Giving Records queue) — browser canary pending |
+| T2 | Live multiplayer quiz — server-side game API (join by PIN, questions without answers, scoring, host controls) | ✅ built 23 Nov (migration `20261123100000`; quiz library `/training/quizzes`, host `/training/host/:id`, players `/join`) — browser canary PASS (54a4d1f) |
+| G7b | Members log cash/bank gifts as **pending** → staff "Awaiting confirmation" queue → confirm / reject | ✅ built 23 Nov (migration `20261123110000`; member portal Give + Giving Records queue) — browser canary PASS (54a4d1f) |
 | T5 + T16 | Custom roles table + multi-role staff (one person, several roles) | 1–2 days (needs product rules) |
 | T1 | Dashboard / member / financial / activity / performance analytics RPC bodies (varchar vs uuid) | ~0.5–1 day |
 | T12 | Storage-usage tracking server-side (`tenant_subscriptions.storage_used_gb`) | ~0.5 day |
