@@ -1,4 +1,6 @@
 // M-Pesa STK push for giving, via IntaSend (Phase 9; replaces PayHero/Daraja).
+// ONE ACCOUNT PER CHURCH (20261123160000): the church's own secret key comes
+// from Vault through intasend_secret_for_tenant (service role only).
 // Same request/response contract the giving pages already use:
 //   POST { amount, phone_number, tenant_id, member_id?, donor_name?, giving_type?, campaign_id?, notes? }
 //   → { success, message, CheckoutRequestID, checkout_request_id, giving_record_id }
@@ -25,9 +27,7 @@ Deno.serve(async (req) => {
   if (!bearer) return reply({ success: false, error: "unauthorized" }, 401);
 
   const url = Deno.env.get("SUPABASE_URL"), serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const secret = Deno.env.get("INTASEND_SECRET_KEY");
   if (!url || !serviceKey) return reply({ success: false, error: "server_configuration_error" }, 500);
-  if (!secret) return reply({ success: false, error: "M-Pesa payments are not configured yet." }, 503);
   const db = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   const { data: auth, error: authError } = await db.auth.getUser(bearer[1]);
@@ -54,9 +54,11 @@ Deno.serve(async (req) => {
     memberId = String(link.member_id); // members always give as themselves
   }
 
-  const { data: tenant } = await db.from("tenants").select("id, intasend_enabled, intasend_wallet_id").eq("id", tenantId).maybeSingle();
+  const { data: tenant } = await db.from("tenants").select("id, intasend_enabled").eq("id", tenantId).maybeSingle();
   if (!tenant) return reply({ success: false, error: "Church not found." }, 404);
   if (!tenant.intasend_enabled) return reply({ success: false, error: "M-Pesa giving is not enabled for this church yet." }, 409);
+  const { data: secret } = await db.rpc("intasend_secret_for_tenant", { p_tenant_id: tenantId });
+  if (typeof secret !== "string" || !secret) return reply({ success: false, error: "This church has not connected its IntaSend account yet." }, 409);
 
   const amountCheck = validateAmount(body?.amount);
   if (!amountCheck.ok) return reply({ success: false, error: amountCheck.error }, 400);
@@ -85,9 +87,9 @@ Deno.serve(async (req) => {
   }
 
   // 2) STK push.
+  // No wallet_id: IntaSend credits the church account's own KES settlement wallet.
   const stk = await intasendPost("/payment/mpesa-stk-push/", secret, {
     amount: amountCheck.amount, phone_number: phone, api_ref: gift.id,
-    ...(tenant.intasend_wallet_id ? { wallet_id: tenant.intasend_wallet_id } : {}),
   });
   const invoice = (stk.json?.invoice ?? null) as Record<string, unknown> | null;
   const invoiceId = invoice && typeof invoice.invoice_id === "string" ? invoice.invoice_id : null;

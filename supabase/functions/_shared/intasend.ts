@@ -70,3 +70,29 @@ export async function intasendPost(path: string, secretKey: string, body: Record
   });
   return { status: r.status, json: await r.json().catch(() => null) };
 }
+
+// ── One account per church (20261123160000) ────────────────────────────────
+
+/** Environment of a key pair from its prefixes, or an error. Both keys must agree. */
+export function keyPairEnv(secretKey: unknown, publishableKey: unknown): { ok: true; env: "live" | "test" } | { ok: false; error: string } {
+  const s = typeof secretKey === "string" ? secretKey.trim() : "";
+  const p = typeof publishableKey === "string" ? publishableKey.trim() : "";
+  const sm = /^ISSecretKey_(live|test)_[A-Za-z0-9._-]{8,200}$/.exec(s);
+  const pm = /^ISPubKey_(live|test)_[A-Za-z0-9._-]{8,200}$/.exec(p);
+  if (!sm) return { ok: false, error: "The secret key should start with ISSecretKey_live_ or ISSecretKey_test_." };
+  if (!pm) return { ok: false, error: "The publishable key should start with ISPubKey_live_ or ISPubKey_test_." };
+  if (sm[1] !== pm[1]) return { ok: false, error: "Both keys must be from the same environment (both live or both test)." };
+  return { ok: true, env: sm[1] as "live" | "test" };
+}
+
+/** Random webhook challenge the church pastes into IntaSend (Settings → Webhooks). */
+export function newChallenge(): string {
+  const b = new Uint8Array(24);
+  crypto.getRandomValues(b);
+  return "vestry_" + Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
+}
+
+export async function intasendGet(path: string, secretKey: string): Promise<{ status: number; json: Record<string, unknown> | null }> {
+  const r = await fetch(`${INTASEND_API}${path}`, { headers: { Authorization: `Bearer ${secretKey}` } });
+  return { status: r.status, json: await r.json().catch(() => null) };
+}

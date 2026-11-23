@@ -33,3 +33,17 @@ test('amount/currency must match before confirming', () => {
   assert.equal(amountMatches(100, '99.00', 'KES'), false);
   assert.equal(amountMatches(100, '100.00', 'USD'), false);
 });
+import { keyPairEnv, newChallenge } from '../../supabase/functions/_shared/intasend.ts';
+test('key pair environment (one account per church)', () => {
+  assert.deepEqual(keyPairEnv('ISSecretKey_live_abcdefgh123', 'ISPubKey_live_abcdefgh456'), { ok: true, env: 'live' });
+  assert.deepEqual(keyPairEnv(' ISSecretKey_test_abcdefgh123 ', 'ISPubKey_test_abcdefgh456'), { ok: true, env: 'test' });
+  assert.equal(keyPairEnv('ISSecretKey_live_abcdefgh123', 'ISPubKey_test_abcdefgh456').ok, false);
+  assert.equal(keyPairEnv('ISPubKey_live_abcdefgh123', 'ISSecretKey_live_abcdefgh456').ok, false);
+  assert.equal(keyPairEnv('sk_live_x', 'ISPubKey_live_abcdefgh456').ok, false);
+  assert.equal(keyPairEnv(undefined, null).ok, false);
+});
+test('webhook challenge is random and long', () => {
+  const a = newChallenge(), b = newChallenge();
+  assert.match(a, /^vestry_[0-9a-f]{48}$/);
+  assert.notEqual(a, b);
+});

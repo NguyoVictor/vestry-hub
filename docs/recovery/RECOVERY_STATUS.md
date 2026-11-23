@@ -459,6 +459,19 @@ Evidence: rolled-back txn 14/14 (credentials cleared; assign / reassign; member,
 
 **Browser evidence** (`e2e/qa/staging-canary-t14-branches.spec.ts`, Preview `vestry-honnypvcn` = `1c94617`, deployment id verified): 2/2 PASS — admin set A-STAFF's branch to “QA-CANARY North Branch” via Edit user (saved through update-user-role + the new table), the Users list shows it after reload, Settings → Branches shows the explainer, “1 staff” and the name, no `/branch-login` text; set back to All branches (DB: 0 assignments). The branch detail page redirects to the dashboard because the **Branches module is off for QA Church A** (correct behaviour; detail page not browser-verified). Harness finding: the canary config sent the Vercel bypass headers to Supabase too, which Edge Functions with a fixed CORS allow-list reject (“Failed to send a request to the Edge Function”) — not an app bug; new helper `scopeBypassToPreview` limits them to the Preview host. QA branch `qa-canary-branch-a` left in Church A for UAT.
 
+## §16 IntaSend — one account per church (23 Nov 2026)
+
+User decision: each church uses its own (KYC-verified) IntaSend account; money goes straight to the church.
+
+| Piece | Detail |
+|---|---|
+| Storage | `tenant_payment_credentials` (no browser access) gains the church's Vault secret id, publishable key, environment (live/test) and the SHA-256 of its webhook challenge. Secret keys are encrypted in Supabase Vault; only server functions (service role) can store/read them. `intasend_connection_status()` shows staff of the church whether it is connected (no secrets). |
+| Connect | New `intasend-connect` function (verify_jwt; church admins of that church or platform admin): validates key format + same environment, proves the secret with IntaSend `GET /wallets/`, stores it, switches M-Pesa giving on, returns the church's webhook URL `…/intasend-webhook?church=<id>` and a new random challenge (shown once). Also `new_challenge` and `disconnect` (deletes the Vault secret, giving off). |
+| Payments | `process-stk-push` uses the church's own key (no platform key, no wallet id — credits the church's settlement wallet). `intasend-webhook` identifies the church from the URL, checks its challenge, only matches that church's gifts and re-verifies with that church's key. |
+| App | Settings → Payments rebuilt (was the undeployed PayHero/Daraja flow). |
+
+Evidence: rolled-back txn 16/16 (Vault round-trip, no plaintext in table, re-connect replaces the secret, per-church challenge, staff status without secrets, staff/admin cannot read secrets or table or store directly, other church / member refused, disconnect deletes the secret and turns giving off). Helper unit tests 8/8; P2 contracts 54/54 (per-church assertions); P1 168/168; typecheck 748 → 738; build OK. Deployed on staging: intasend-connect, process-stk-push, intasend-webhook — smoke: webhook without church 404, bad challenge 401, connect without login 401.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

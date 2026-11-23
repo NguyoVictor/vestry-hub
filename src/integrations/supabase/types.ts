@@ -10936,6 +10936,12 @@ export type Database = {
           daraja_passkey: string | null
           daraja_shortcode: string | null
           daraja_transaction_type: string
+          intasend_challenge_hash: string | null
+          intasend_connected_at: string | null
+          intasend_connected_by: string | null
+          intasend_env: string | null
+          intasend_publishable_key: string | null
+          intasend_secret_id: string | null
           mpesa_callback_secret: string
           tenant_id: string
           updated_at: string
@@ -10948,6 +10954,12 @@ export type Database = {
           daraja_passkey?: string | null
           daraja_shortcode?: string | null
           daraja_transaction_type?: string
+          intasend_challenge_hash?: string | null
+          intasend_connected_at?: string | null
+          intasend_connected_by?: string | null
+          intasend_env?: string | null
+          intasend_publishable_key?: string | null
+          intasend_secret_id?: string | null
           mpesa_callback_secret?: string
           tenant_id: string
           updated_at?: string
@@ -10960,6 +10972,12 @@ export type Database = {
           daraja_passkey?: string | null
           daraja_shortcode?: string | null
           daraja_transaction_type?: string
+          intasend_challenge_hash?: string | null
+          intasend_connected_at?: string | null
+          intasend_connected_by?: string | null
+          intasend_env?: string | null
+          intasend_publishable_key?: string | null
+          intasend_secret_id?: string | null
           mpesa_callback_secret?: string
           tenant_id?: string
           updated_at?: string
@@ -13245,6 +13263,37 @@ export type Database = {
       }
       increment_unread_count: {
         Args: { p_conversation_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      intasend_challenge_ok: {
+        Args: { p_challenge: string; p_tenant_id: string }
+        Returns: boolean
+      }
+      intasend_clear_credentials: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      intasend_connection_status: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
+      intasend_secret_for_tenant: {
+        Args: { p_tenant_id: string }
+        Returns: string
+      }
+      intasend_set_challenge: {
+        Args: { p_challenge: string; p_tenant_id: string }
+        Returns: undefined
+      }
+      intasend_store_credentials: {
+        Args: {
+          p_actor: string
+          p_challenge: string
+          p_env: string
+          p_publishable_key: string
+          p_secret_key: string
+          p_tenant_id: string
+        }
         Returns: undefined
       }
       mark_messaging_conversation_read: {

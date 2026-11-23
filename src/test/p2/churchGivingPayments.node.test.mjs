@@ -10,8 +10,14 @@ const functionConfig = readFileSync(new URL('../../../supabase/config.toml', imp
 
 // Phase 9 (21 Nov 2026): STK push moved from direct Daraja to IntaSend (user
 // decision). Provider secrets are function secrets only — never tenant rows.
-test('STK initiation (IntaSend) uses only the server secret and verifies the caller', () => {
-  assert.match(stk, /Deno\.env\.get\(["']INTASEND_SECRET_KEY["']\)/);
+const connect = readFileSync(new URL('../../../supabase/functions/intasend-connect/index.ts', import.meta.url), 'utf8');
+
+// One account per church (20261123160000): each church's own secret from Vault.
+test('STK initiation (IntaSend) uses the church\'s own key from the server and verifies the caller', () => {
+  assert.match(stk, /rpc\(["']intasend_secret_for_tenant["']/);
+  const stkNoComments = stk.replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(stkNoComments, /INTASEND_SECRET_KEY/, 'no platform-wide key');
+  assert.doesNotMatch(stkNoComments, /wallet_id/, 'pays into the church account itself');
   const stkCode = stk.replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(stkCode, /tenant_payment_credentials|daraja|payhero/i);
   assert.doesNotMatch(stk, /\.from\(["']tenants["']\)\s*\.select\([^)]*(?:secret|passkey|consumer_key|api_key)/i);
@@ -64,14 +70,27 @@ test('tenant-authorized payment setup functions use throwing authorizeTenantActo
 });
 
 test('IntaSend webhook authenticates, re-verifies with the status API and never trusts the body alone', () => {
-  assert.match(intasendWebhook, /INTASEND_WEBHOOK_CHALLENGE/);
-  assert.match(intasendWebhook, /challengeMatches\(/, 'constant-time challenge check');
+  assert.match(intasendWebhook, /searchParams\.get\(["']church["']\)/, 'church identified by its webhook URL');
+  assert.match(intasendWebhook, /rpc\(["']intasend_challenge_ok["']/, 'challenge checked against that church');
+  assert.match(intasendWebhook, /\.eq\(["']tenant_id["'], church\)/, 'gift must belong to that church');
+  assert.match(intasendWebhook, /rpc\(["']intasend_secret_for_tenant["']/, 're-verified with the church\'s own key');
+  assert.doesNotMatch(intasendWebhook, /INTASEND_SECRET_KEY|INTASEND_WEBHOOK_CHALLENGE/);
   assert.match(intasendWebhook, /\/payment\/status\//, 'confirmation via status API');
   assert.match(intasendWebhook, /amountMatches\(/);
   assert.match(intasendWebhook, /nextStatus\(/, 'no downgrade of confirmed gifts');
   assert.match(intasendWebhook, /\.eq\(["']payment_status["'], gift\.payment_status\)/, 'optimistic update');
   assert.match(functionConfig, /\[functions\.intasend-webhook\]\s*\nverify_jwt = false/);
   assert.match(functionConfig, /\[functions\.process-stk-push\]\s*\nverify_jwt = true/);
+  assert.match(functionConfig, /\[functions\.intasend-connect\]\s*\nverify_jwt = true/);
+});
+
+test('intasend-connect: church admins only, keys verified with IntaSend, never returned or logged', () => {
+  assert.match(connect, /\["super_admin", "church_admin"\]/);
+  assert.match(connect, /actor\.tenant_id === tenantId/);
+  assert.match(connect, /intasendGet\(["']\/wallets\//, 'key proven before storing');
+  assert.match(connect, /rpc\(["']intasend_store_credentials["']/);
+  assert.doesNotMatch(connect, /console\.[a-z]+\([^)]*(secret|publishable)/i, 'keys never logged');
+  assert.doesNotMatch(connect, /reply\(\{[^}]*secret_key/, 'secret never returned');
 });
 
 test('church M-Pesa callbacks require a server-only webhook secret', () => {
