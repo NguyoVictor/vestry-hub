@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { Tables } from "@/integrations/supabase/types";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -50,7 +51,11 @@ const MemberProfile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<any>(null);
 
-  const { data: member, isLoading } = useQuery({
+  // A profile is a member row; staff without a member record fall back to their
+  // users row (T15: that fallback asked for a non-existent users.date_of_birth,
+  // so it always failed).
+  type ProfileRow = Partial<Tables<"members">> & { id: string; role?: string | null };
+  const { data: member, isLoading } = useQuery<ProfileRow | null>({
     queryKey: ["member", memberId],
     queryFn: async () => {
       const { data: memberData } = await supabase
@@ -59,15 +64,15 @@ const MemberProfile = () => {
         .eq("id", memberId!)
         .eq("tenant_id", tenantId!)
         .maybeSingle();
-      if (memberData) return memberData;
+      if (memberData) return memberData as ProfileRow;
       const { data, error } = await supabase
         .from("users")
-        .select("id, tenant_id, email, role, first_name, last_name, phone, date_of_birth, join_date, status, gender, avatar_url, created_at, updated_at")
+        .select("id, tenant_id, email, role, first_name, last_name, phone, join_date, status, gender, avatar_url, created_at, updated_at")
         .eq("id", memberId!)
         .eq("tenant_id", tenantId!)
         .single();
       if (error) throw error;
-      return data;
+      return data as ProfileRow;
     },
     enabled: !!memberId,
     staleTime: 300000,
@@ -93,7 +98,7 @@ const MemberProfile = () => {
       occupation: member.occupation || "",
       phone: member.phone || "",
       email: member.email || "",
-      street: member.street || "",
+      street: member.address || "", // stored as members.address
       city: member.city || "",
       state: member.state || "",
       postal_code: member.postal_code || "",
@@ -264,7 +269,6 @@ const MemberProfile = () => {
             </div>
             <div className="flex gap-2 pt-2">
               <PermissionButton
-                permission="member_management"
                 readOnly={readOnly}
                 variant="outline"
                 className="flex-1"
@@ -279,7 +283,7 @@ const MemberProfile = () => {
             </div>
             {member.membership_status === "Pending Approval" && (
               <PermissionButton
-                permission="member_management"
+                readOnly={readOnly}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                 size="sm"
                 onClick={async () => {
