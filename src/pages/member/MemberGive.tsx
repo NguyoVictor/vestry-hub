@@ -83,6 +83,8 @@ export default function MemberGive() {
   const [paymentMethod, setPaymentMethod] = useState("mpesa");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dedication, setDedication] = useState("");
+  const [reference, setReference] = useState("");
+  const [givenOn, setGivenOn] = useState(() => new Date().toISOString().slice(0, 10));
   const [success, setSuccess] = useState<any>(null);
   const [stkPushState, setStkPushState] = useState<{
     isActive: boolean;
@@ -202,10 +204,12 @@ export default function MemberGive() {
         .from("giving_records")
         .select("*")
         .eq("member_id", member.memberId)
-        .in("payment_status", ["confirmed", "cancelled"])
+        .in("payment_status", ["confirmed", "cancelled", "pending"])
         .order("created_at", { ascending: false })
-        .limit(5);
-      return data || [];
+        .limit(10);
+      // In-flight M-Pesa prompts are shown by the payment tracker, not here;
+      // gifts the member declared stay visible while awaiting confirmation.
+      return (data || []).filter((g) => g.payment_status !== "pending" || g.submitted_by_member).slice(0, 5);
     },
   });
 
@@ -263,9 +267,19 @@ export default function MemberGive() {
         
         return data;
       } else {
-        // Cash / bank transfer: a member cannot record (or self-confirm) a gift
-        // from the browser. The church finance team records it when received.
-        throw new Error("Cash and bank transfer gifts are recorded by the church finance team when received.");
+        // Cash / bank transfer (G7b): recorded as PENDING on the server for the
+        // church finance team to confirm; the member is resolved server-side.
+        const { data, error } = await supabase.rpc("member_declare_gift", {
+          p_tenant_id: member.churchId,
+          p_amount: Number(amount),
+          p_giving_type: category,
+          p_payment_method: paymentMethod,
+          p_given_on: givenOn,
+          p_reference: reference || undefined,
+          p_note: dedication || undefined,
+        });
+        if (error) throw error;
+        return data;
       }
     },
     onSuccess: (data) => {
@@ -280,10 +294,12 @@ export default function MemberGive() {
           terminalState: null
         });
       } else {
+        // No receipt for a declared gift: it is not confirmed yet.
         queryClient.invalidateQueries({ queryKey: ['member-giving', member.memberId] });
-        setSuccess(data);
+        toast.success("Thank you! Your gift is recorded and awaiting confirmation by the finance team.");
         setAmount('');
         setDedication('');
+        setReference('');
       }
     },
     onError: (error: any) => {
@@ -1016,7 +1032,7 @@ export default function MemberGive() {
                       <DollarSign className="w-5 h-5 text-blue-600 mt-0.5" />
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-blue-700">Cash Payment</p>
-                        <p className="text-xs text-blue-600">Recorded by the church finance team when received</p>
+                        <p className="text-xs text-blue-600">Tell us about a gift you gave; the finance team confirms it</p>
                       </div>
                     </div>
                   </motion.div>
@@ -1079,9 +1095,28 @@ export default function MemberGive() {
                   className="text-xs text-gray-500 mt-2 p-3 bg-gray-50/80 rounded-2xl border border-gray-200/50"
                 >
                   {paymentMethod === "cash"
-                    ? "💰 Bring your envelope on Sunday. Your giving will be recorded by our finance team and will then appear in your history."
-                    : "🏦 Use the church's bank details. Your giving will be recorded by our finance team once received and will then appear in your history."}
+                    ? "💰 Record a cash gift you have given. It shows as “awaiting confirmation” until the finance team confirms it."
+                    : "🏦 Record a bank transfer you have made. Add the transfer reference so the finance team can match it."}
                 </motion.p>
+              )}
+
+              {(paymentMethod === "cash" || paymentMethod === "bank_transfer") && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="given-on" className="text-sm font-semibold text-gray-700">Date given</Label>
+                    <Input id="given-on" type="date" value={givenOn} max={new Date().toISOString().slice(0, 10)}
+                      onChange={e => setGivenOn(e.target.value)}
+                      className="h-12 rounded-2xl border-2 border-gray-100 bg-white/80" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gift-reference" className="text-sm font-semibold text-gray-700">
+                      Reference <span className="text-gray-400 font-normal">(optional)</span>
+                    </Label>
+                    <Input id="gift-reference" value={reference} maxLength={60} onChange={e => setReference(e.target.value)}
+                      placeholder={paymentMethod === "bank_transfer" ? "Bank transfer reference" : "Envelope number"}
+                      className="h-12 rounded-2xl border-2 border-gray-100 bg-white/80" />
+                  </div>
+                </div>
               )}
 
               {/* Dedication Field */}
@@ -1117,8 +1152,8 @@ export default function MemberGive() {
                     !amount || 
                     Number(amount) <= 0 || 
                     give.isPending ||
-                    paymentMethod !== "mpesa" ||
-                    !phoneNumber
+                    (paymentMethod === "mpesa" && !phoneNumber) ||
+                    (paymentMethod !== "mpesa" && !givenOn)
                   }
                 >
                   {give.isPending ? (
@@ -1249,6 +1284,8 @@ export default function MemberGive() {
                                 className={`text-xs border ${
                                   g.payment_status === 'confirmed'
                                     ? 'bg-green-100 text-green-700 border-green-200'
+                                    : g.payment_status === 'pending'
+                                    ? 'bg-amber-100 text-amber-700 border-amber-200'
                                     : g.payment_status === 'cancelled'
                                     ? 'bg-gray-100 text-gray-600 border-gray-200'
                                     : 'bg-red-100 text-red-700 border-red-200'
@@ -1256,10 +1293,15 @@ export default function MemberGive() {
                               >
                                 {g.payment_status === 'confirmed' && <CheckCircle2 className="w-3 h-3 mr-1" />}
                                 {g.payment_status === 'cancelled' && <X className="w-3 h-3 mr-1" />}
-                                {g.payment_status}
+                                {g.payment_status === 'pending' ? 'awaiting confirmation'
+                                  : g.payment_status === 'cancelled' && g.submitted_by_member ? 'not confirmed'
+                                  : g.payment_status}
                               </Badge>
                             )}
                           </div>
+                          {g.payment_status === 'cancelled' && g.submitted_by_member && g.review_note && (
+                            <p className="text-xs text-gray-500" data-testid="gift-review-note">Finance team: {g.review_note}</p>
+                          )}
                           
                           <p className="text-xs text-gray-500 flex items-center space-x-2">
                             <span>

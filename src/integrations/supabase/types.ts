@@ -4366,6 +4366,10 @@ export type Database = {
           receipt_number: string | null
           receipt_url: string | null
           recorded_by: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          submitted_by_member: boolean
           tenant_id: string
           void_reason: string | null
           voided_at: string | null
@@ -4400,6 +4404,10 @@ export type Database = {
           receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          submitted_by_member?: boolean
           tenant_id: string
           void_reason?: string | null
           voided_at?: string | null
@@ -4434,6 +4442,10 @@ export type Database = {
           receipt_number?: string | null
           receipt_url?: string | null
           recorded_by?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          submitted_by_member?: boolean
           tenant_id?: string
           void_reason?: string | null
           voided_at?: string | null
@@ -7692,6 +7704,7 @@ export type Database = {
           id: string
           is_host: boolean | null
           joined_at: string | null
+          player_token_hash: string | null
           rank: number | null
           score: number | null
           session_id: string
@@ -7706,6 +7719,7 @@ export type Database = {
           id?: string
           is_host?: boolean | null
           joined_at?: string | null
+          player_token_hash?: string | null
           rank?: number | null
           score?: number | null
           session_id: string
@@ -7720,6 +7734,7 @@ export type Database = {
           id?: string
           is_host?: boolean | null
           joined_at?: string | null
+          player_token_hash?: string | null
           rank?: number | null
           score?: number | null
           session_id?: string
@@ -7755,7 +7770,11 @@ export type Database = {
           join_code: string
           join_url: string | null
           music_enabled: boolean | null
+          phase: string
+          question_started_at: string | null
+          questions_snapshot: Json
           quiz_id: string
+          quiz_title: string | null
           settings: Json | null
           started_at: string | null
           status: string | null
@@ -7772,7 +7791,11 @@ export type Database = {
           join_code: string
           join_url?: string | null
           music_enabled?: boolean | null
+          phase?: string
+          question_started_at?: string | null
+          questions_snapshot?: Json
           quiz_id: string
+          quiz_title?: string | null
           settings?: Json | null
           started_at?: string | null
           status?: string | null
@@ -7789,7 +7812,11 @@ export type Database = {
           join_code?: string
           join_url?: string | null
           music_enabled?: boolean | null
+          phase?: string
+          question_started_at?: string | null
+          questions_snapshot?: Json
           quiz_id?: string
+          quiz_title?: string | null
           settings?: Json | null
           started_at?: string | null
           status?: string | null
@@ -13085,6 +13112,18 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: undefined
       }
+      member_declare_gift: {
+        Args: {
+          p_amount: number
+          p_given_on?: string
+          p_giving_type: string
+          p_note?: string
+          p_payment_method: string
+          p_reference?: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       member_portal_find_auth_user: {
         Args: { p_email: string }
         Returns: string
@@ -13107,6 +13146,34 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: string
+      }
+      quiz_host_control: {
+        Args: { p_action: string; p_session_id: string }
+        Returns: Json
+      }
+      quiz_host_create_session: { Args: { p_quiz_id: string }; Returns: Json }
+      quiz_host_state: { Args: { p_session_id: string }; Returns: Json }
+      quiz_join: {
+        Args: { p_avatar?: string; p_code: string; p_display_name: string }
+        Returns: Json
+      }
+      quiz_player_state: {
+        Args: {
+          p_participant_id: string
+          p_session_id: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      quiz_submit_answer: {
+        Args: {
+          p_choice: number
+          p_participant_id: string
+          p_question_index: number
+          p_session_id: string
+          p_token: string
+        }
+        Returns: Json
       }
       record_mpesa_c2b_payment: {
         Args: {
@@ -13150,6 +13217,10 @@ export type Database = {
         Returns: undefined
       }
       staff_invitation_handshake_version: { Args: never; Returns: number }
+      staff_review_member_gift: {
+        Args: { p_decision: string; p_gift_id: string; p_note?: string }
+        Returns: Json
+      }
       submit_survey_response: {
         Args: {
           p_completed_at?: string

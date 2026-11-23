@@ -16,14 +16,12 @@ export const LAUNCH_FEATURES = {
   push: on(env.VITE_FEATURE_PUSH),                      // FCM push notifications
   sentryFeed: on(env.VITE_FEATURE_SENTRY_FEED),         // Sentry issues inside the app
   paymentDevTools: on(env.VITE_FEATURE_PAYMENT_DEV_TOOLS), // PayHero/bank test panels
-  liveQuiz: on(env.VITE_FEATURE_LIVE_QUIZ),             // multiplayer live quiz (T2): players cannot read sessions; needs a server-side game API
 } as const;
 export type LaunchFeature = keyof typeof LAUNCH_FEATURES;
 
 export const FEATURE_LABELS: Record<LaunchFeature, string> = {
   ai: "AI tools", media: "Media & content", livestream: "Livestreaming", appEmail: "Email sending",
   sms: "SMS", push: "Push notifications", sentryFeed: "Error monitoring feed", paymentDevTools: "Payment test tools",
-  liveQuiz: "Live quiz",
 };
 
 /** Admin + member-portal pages hidden while their area is deferred. */
@@ -32,7 +30,6 @@ export const DEFERRED_PATHS: ReadonlyArray<[string, LaunchFeature]> = [
   ["/graphics-studio", "media"], ["/song-library", "media"],
   ["/church-media", "media"], ["/sermon-preparation", "media"], ["/sermons", "media"],
   ["/livestreaming", "livestream"], ["/settings/livestreaming", "livestream"],
-  ["/training/host", "liveQuiz"],
   ["/member/church-media", "media"], ["/member/sermons", "media"], ["/member/livestreaming", "livestream"],
 ];
 

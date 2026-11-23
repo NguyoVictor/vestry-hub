@@ -26,8 +26,6 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LaunchSessionModal } from "@/components/training/LaunchSessionModal";
-import { LAUNCH_FEATURES } from "@/config/launchFlags";
 import { 
   SplitText, 
   BlurText, 
@@ -75,7 +73,7 @@ interface QuizSession {
   title: string;
   status: string;
   participant_count: number;
-  avg_score: number;
+  join_code: string;
   created_at: string;
 }
 
@@ -130,8 +128,6 @@ export default function Training() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("my-courses");
   const [searchQuery, setSearchQuery] = useState("");
-  const [launchModalOpen, setLaunchModalOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<{ id: string; title: string } | null>(null);
 
   // ─── Data Queries ─────────────────────────────────────────────────────────
 
@@ -172,16 +168,20 @@ export default function Training() {
       try {
         const { data, error } = await supabase
           .from(TABLES.QUIZ_SESSIONS)
-          .select("*")
+          .select("id, quiz_id, quiz_title, status, join_code, created_at, quiz_participants(count)")
           .eq(COLS.TENANT_ID, tenantId)
-          .order("created_at", { ascending: false });
+          .order("created_at", { ascending: false })
+          .limit(50);
         
         if (error) {
-          // If table doesn't exist or other database error, return empty array
           console.warn('Quiz sessions query failed:', error.message);
           return [];
         }
-        return data as QuizSession[];
+        return (data ?? []).map((r) => ({
+          id: r.id, quiz_id: r.quiz_id, title: r.quiz_title ?? "Live quiz", status: r.status ?? "waiting",
+          join_code: r.join_code, created_at: r.created_at ?? "",
+          participant_count: (r.quiz_participants as unknown as { count: number }[] | null)?.[0]?.count ?? 0,
+        })) as QuizSession[];
       } catch (error) {
         // Catch any other errors and return empty array silently
         console.warn('Quiz sessions not available:', error);
@@ -299,14 +299,8 @@ export default function Training() {
     navigate("/training/new");
   };
 
-  const handleLaunchQuiz = (course?: { id: string; title: string }) => {
-    if (course) {
-      setSelectedCourse(course);
-    } else {
-      setSelectedCourse(null);
-    }
-    setLaunchModalOpen(true);
-  };
+  // Live quizzes (T2): authored and hosted from the quiz library.
+  const handleLaunchQuiz = () => navigate("/training/quizzes");
 
   const handleEditCourse = (courseId: string) => {
     navigate(`/training/${courseId}/edit`);
@@ -363,7 +357,6 @@ export default function Training() {
                 Create Course
               </Button>
               
-              {LAUNCH_FEATURES.liveQuiz && (
               <Button 
                 variant="outline"
                 onClick={handleLaunchQuiz}
@@ -372,7 +365,6 @@ export default function Training() {
                 <Rocket className="h-4 w-4 mr-2" />
                 Launch Live Quiz
               </Button>
-              )}
             </motion.div>
           </div>
         </div>
@@ -557,16 +549,14 @@ export default function Training() {
                               <Edit className="h-3 w-3 mr-1" />
                               Edit
                             </Button>
-                            {LAUNCH_FEATURES.liveQuiz && (
                             <Button 
                               size="sm" 
                               className="flex-1 bg-purple-600 hover:bg-purple-700"
-                              onClick={() => handleLaunchQuiz({ id: course.id, title: course.title })}
+                              onClick={handleLaunchQuiz}
                             >
                               <Play className="h-3 w-3 mr-1" />
                               Launch Live
                             </Button>
-                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -617,9 +607,9 @@ export default function Training() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Live Quiz Sessions</h3>
-                <Button onClick={() => handleLaunchQuiz()} className="bg-purple-600 hover:bg-purple-700">
+                <Button onClick={handleLaunchQuiz} className="bg-purple-600 hover:bg-purple-700">
                   <Calendar className="h-4 w-4 mr-2" />
-                  Schedule New Session
+                  Host a live quiz
                 </Button>
               </div>
 
@@ -633,7 +623,7 @@ export default function Training() {
                           <th className="text-left p-4 text-sm font-medium text-slate-600">Course</th>
                           <th className="text-left p-4 text-sm font-medium text-slate-600">Date</th>
                           <th className="text-left p-4 text-sm font-medium text-slate-600">Participants</th>
-                          <th className="text-left p-4 text-sm font-medium text-slate-600">Avg Score</th>
+                          <th className="text-left p-4 text-sm font-medium text-slate-600">PIN</th>
                           <th className="text-left p-4 text-sm font-medium text-slate-600">Status</th>
                           <th className="text-left p-4 text-sm font-medium text-slate-600">Actions</th>
                         </tr>
@@ -642,7 +632,7 @@ export default function Training() {
                         {quizSessions.length === 0 ? (
                           <tr>
                             <td colSpan={7} className="text-center py-8 text-slate-500">
-                              No live sessions yet. Schedule your first session to get started.
+                              No live quizzes yet. Write a quiz, then host it live.
                             </td>
                           </tr>
                         ) : (
@@ -654,7 +644,7 @@ export default function Training() {
                                 {format(new Date(session.created_at), "MMM d, yyyy")}
                               </td>
                               <td className="p-4 text-slate-600">{session.participant_count}</td>
-                              <td className="p-4 text-slate-600">{session.avg_score}%</td>
+                              <td className="p-4 font-mono text-slate-600">{session.join_code}</td>
                               <td className="p-4">
                                 <Badge 
                                   className={session.status === 'active' ? 
@@ -666,8 +656,8 @@ export default function Training() {
                                 </Badge>
                               </td>
                               <td className="p-4">
-                                <Button variant="ghost" size="sm">
-                                  View Results
+                                <Button variant="ghost" size="sm" onClick={() => navigate(`/training/host/${session.id}`)}>
+                                  {session.status === 'ended' ? 'View results' : 'Open'}
                                 </Button>
                               </td>
                             </tr>
@@ -925,13 +915,6 @@ export default function Training() {
         </Tabs>
       </div>
 
-      {/* Launch Session Modal */}
-      <LaunchSessionModal
-        open={launchModalOpen}
-        onClose={() => setLaunchModalOpen(false)}
-        courseId={selectedCourse?.id}
-        courseName={selectedCourse?.title}
-      />
     </>
   );
 }

@@ -262,9 +262,8 @@ function PageViewTracker() {
 // Training quiz game routes
 const QuizHostView = lazy(() => import("./pages/training/QuizHostView"));
 const QuizJoinPage = lazy(() => import("./pages/training/QuizJoinPage"));
-const QuizWaitingRoom = lazy(() => import("./pages/training/QuizWaitingRoom"));
 const QuizPlayView = lazy(() => import("./pages/training/QuizPlayView"));
-const QuizResultsView = lazy(() => import("./pages/training/QuizResultsView"));
+const QuizLibrary = lazy(() => import("./pages/training/QuizLibrary"));
 
 const PEOPLE_PATHS = ["/members", "/groups", "/house-fellowships", "/families", "/visitors", "/follow-up-tasks", "/new-converts", "/childrens-ministry"];
 const FINANCE_PATHS = ["/give-online", "/giving-records", "/pledge-campaigns", "/church-expenses", "/budget-management", "/payroll", "/fund-accounting", "/accounts-payable", "/general-ledger", "/payouts"];
@@ -313,10 +312,9 @@ const App = () => {
             <Route path="/member-login" element={<Navigate to="/member/login" replace />} />
             <Route path="/onboarding" element={<Onboarding />} />
             {/* Public quiz join routes — no auth required */}
+            <Route path="/join" element={<Suspense fallback={<Fallback />}><QuizJoinPage /></Suspense>} />
             <Route path="/join/:joinCode" element={<Suspense fallback={<Fallback />}><QuizJoinPage /></Suspense>} />
-            <Route path="/quiz/waiting/:sessionId/:participantId" element={<Suspense fallback={<Fallback />}><QuizWaitingRoom /></Suspense>} />
             <Route path="/quiz/play/:sessionId/:participantId" element={<Suspense fallback={<Fallback />}><QuizPlayView /></Suspense>} />
-            <Route path="/quiz/results/:sessionId/:participantId" element={<Suspense fallback={<Fallback />}><QuizResultsView /></Suspense>} />
             <Route path="/church/:slug" element={<ChurchPublicPage />} />
             <Route path="/visitor-registration/:churchId" element={<Suspense fallback={<Fallback />}><VisitorRegistration /></Suspense>} />
             <Route path="/member-registration/:orgId" element={<Suspense fallback={<Fallback />}><MemberRegistration /></Suspense>} />
@@ -409,7 +407,7 @@ const App = () => {
                 <Route path="/training/new" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
                 <Route path="/training/:courseId/edit" element={<Suspense fallback={<Fallback />}><TrainingCourseBuilder /></Suspense>} />
                 <Route path="/training/host/:sessionId" element={<Suspense fallback={<Fallback />}><QuizHostView /></Suspense>} />
-                <Route path="/training/host/:sessionId/results" element={<Suspense fallback={<Fallback />}><QuizResultsView /></Suspense>} />
+                <Route path="/training/quizzes" element={<Suspense fallback={<Fallback />}><QuizLibrary /></Suspense>} />
                 {/* Analytics & Branches routes */}
                 <Route path="/reports" element={<Suspense fallback={<Fallback />}><Reports /></Suspense>} />
                 <Route path="/branches" element={<Suspense fallback={<Fallback />}><Branches /></Suspense>} />

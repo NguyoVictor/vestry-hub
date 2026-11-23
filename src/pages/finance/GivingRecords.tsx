@@ -29,6 +29,7 @@ import { format } from "date-fns";
 import { formatCurrencyFull } from "@/lib/format";
 
 import { logActivity } from "@/lib/activityLogger";
+import { PendingMemberGifts } from "@/components/finance/PendingMemberGifts";
 
 interface GivingRow { 
   id: string; 
@@ -377,6 +378,7 @@ const GivingRecords = () => {
 
         {readOnly && <ReadOnlyBanner section="Financial Records" />}
         {reportsReadOnly && <ReadOnlyBanner section="Reports & Analytics" />}
+        {tenantId && <PendingMemberGifts tenantId={tenantId} readOnly={readOnly} getMemberName={getMemberName} />}
 
         {/* Premium Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

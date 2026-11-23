@@ -48,12 +48,12 @@ describe('launch scope (Phase 6)', () => {
 
   it('deferred pages are hidden for admins and members; launch pages stay', () => {
     const cfg = { ...DEFAULT_MODULE_CONFIG };
-    for (const p of ['/ai-tools', '/graphics-studio', '/song-library', '/church-media', '/sermons', '/sermon-preparation', '/livestreaming', '/settings/livestreaming', '/training/host/abc']) {
+    for (const p of ['/ai-tools', '/graphics-studio', '/song-library', '/church-media', '/sermons', '/sermon-preparation', '/livestreaming', '/settings/livestreaming']) {
       expect(deferredFeatureForPath(p), p).not.toBeNull();
       expect(isAdminPathEnabled(p, cfg), p).toBe(false);
     }
     for (const p of ['/member/church-media', '/member/sermons', '/member/livestreaming']) expect(isMemberPathEnabled(p, cfg), p).toBe(false);
-    for (const p of ['/dashboard', '/members', '/families', '/facility-booking', '/incident-management', '/asset-management', '/bible-explorer', '/settings/general', '/giving-records'])
+    for (const p of ['/training/quizzes', '/training/host/abc', '/dashboard', '/members', '/families', '/facility-booking', '/incident-management', '/asset-management', '/bible-explorer', '/settings/general', '/giving-records'])
       expect(isAdminPathEnabled(p, cfg), p).toBe(true);
     for (const p of ['/member/profile', '/member/requests', '/member/bible']) expect(isMemberPathEnabled(p, cfg), p).toBe(true);
   });
