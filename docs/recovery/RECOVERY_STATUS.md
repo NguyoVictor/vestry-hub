@@ -488,6 +488,12 @@ Remaining 487: ~45% in the deferred media / Song Library area; PremiumBroadcasts
 
 Evidence (Preview = `2fc33ff`, deployment id verified): `e2e/qa/staging-canary-t15-leave.spec.ts` PASS (request saved, listed after reload, 0 leave call failures; test data removed); regression Phase 5 read-only (write 403 while read-only / 201 after), Phase 9, Phase 10, Phase 3 ops, day-2 (updated: live quiz is now in scope) — all PASS. Note: the leave dialog lists only ACTIVE payroll staff; QA Church A's payroll records were all inactive from earlier tests (one reactivated for the test, then set back).
 
+## §18 T17 — server-function error messages (23 Nov 2026)
+
+On a non-2xx reply supabase-js returns a generic “Edge Function returned a non-2xx status code” and no body, so screens showed that instead of the reason. Fixed once in the app-wide invoke wrapper (`src/lib/functionGuard.ts`, all 73 call sites): the reply body is read from a copy (the original stays readable) and its message surfaced as `error.message` and `data.error`. Unit 3/3; P1 171/171.
+
+Browser evidence: `e2e/qa/staging-canary-t17-errors.spec.ts` PASS on Preview `vestry-jzzporbq6` (commit `4a9512a`; GitHub status API was rate-limited, the behaviour itself proves the new build — the old code could only show the generic text): inviting an email that already has an account shows “Existing-account access requires a separate review”. Nothing created.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 
