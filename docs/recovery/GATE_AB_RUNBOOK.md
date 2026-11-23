@@ -15,6 +15,7 @@
 | F-A3 | `vercel.json` has no build-skip rule → **merging to `main` triggers an immediate Production deployment** | `vercel.json` | Gate A must be a controlled release (§3), not a plain merge. |
 | F-A4 | The new frontend and the new database rules are **not backward-compatible with each other's old versions** (e.g. old `main` signs in with `tenants select("*")`, which the Phase 5 column grants deliberately block; new frontend needs the new tables/columns) | Phases 4–10 | DB migrations and frontend must go live **in the same window** (§3). |
 | F-A5 | Production backend is **churchapp** (`crjdsxxkspvdwknrmijs`) — **confirmed by the user 23 Nov 2026** | user | Still no change to Production without approval per step. A7 check: `docs/recovery/gate-b/a7_live_payment_callbacks_readonly.sql` (read-only). |
+| F-A7 | A **second Vercel project `vestry-hub-ole7`** is connected to the same repo: it builds every push of the recovery branch (Preview) and has its own Production (`vestry-hub-ole7.vercel.app`, last deployed 12 Nov) → a merge to `main` would also deploy there | `vercel project ls`; GitHub commit statuses (23 Nov) | 🔒 User decides: disconnect/delete it, or confirm its purpose and its env (which database it points at) before Gate A. |
 | F-A6 | Legacy env vars `VITE_SUPABASE_ANON_KEY` / `VITE_SUPABASE_PROJECT_ID` exist (Production+Preview) but are not read by the recovery code | `grep` | Leave as is; remove after launch (cleanup). |
 
 ## 2. Vercel environment split (🔒 approval at Gate A)
