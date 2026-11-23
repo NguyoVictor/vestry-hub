@@ -25,6 +25,16 @@ export default function SuperAdminChurches() {
     },
     staleTime: 60_000,
   });
+  // T12: storage usage computed on the server from each church's stored files.
+  const { data: storageByChurch = {} } = useQuery({
+    queryKey: ["superadmin-storage-usage"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("refresh_all_storage_usage");
+      if (error) return {} as Record<string, number>;
+      return (data ?? {}) as Record<string, number>;
+    },
+    staleTime: 60_000,
+  });
 
   return (
     <div className="space-y-6 font-jakarta">
@@ -54,8 +64,8 @@ export default function SuperAdminChurches() {
             <tbody>
               {churches.map((church: any) => {
                 const sub = church.subscription;
-                const used = Number(sub?.storage_used_gb || 0);
-                const limit = Number(sub?.storage_limit_gb || 0) + Number(sub?.storage_addons_gb || 0);
+                const used = Number(storageByChurch[church.id] ?? sub?.storage_used_gb ?? 0);
+                const limit = Number(sub?.storage_limit_gb ?? 2) + Number(sub?.storage_addons_gb || 0);
                 return (
                   <tr key={church.id} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
                     <td className="px-5 py-3.5">
@@ -63,7 +73,7 @@ export default function SuperAdminChurches() {
                       <p className="text-[10px] text-slate-500 mt-0.5">{church.slug || church.id}</p>
                     </td>
                     <td className="px-5 py-3.5 text-slate-300 capitalize">{sub?.plan || "free"}</td>
-                    <td className="px-5 py-3.5 text-slate-300">{used.toFixed(1)} GB <span className="text-slate-500">/ {limit.toFixed(1)} GB</span></td>
+                    <td className="px-5 py-3.5 text-slate-300">{used < 0.1 ? `${(used * 1024).toFixed(1)} MB` : `${used.toFixed(1)} GB`} <span className="text-slate-500">/ {limit.toFixed(1)} GB</span></td>
                     <td className="px-5 py-3.5"><StatusChip status={sub?.status} /></td>
                     <td className="px-5 py-3.5 text-slate-400 text-xs">{church.created_at ? format(new Date(church.created_at), "dd MMM yyyy") : "—"}</td>
                   </tr>

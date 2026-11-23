@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { TABLES } from "@/lib/schema";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ── Add Sermon Dialog ─────────────────────────────────────────────────────────
 
@@ -154,12 +155,7 @@ function AddSermonDialog({ open, onClose, tenantId, userId, editing, onSuccess }
       
       // Increment storage usage after successful upload
       if (totalSizeGB > 0) {
-        await supabase
-          .from(TABLES.TENANT_SUBSCRIPTIONS)
-          .update({
-            storage_used_gb: usage.storage_gb + totalSizeGB
-          })
-          .eq('tenant_id', tenantId);
+        await refreshStorageUsage(tenantId);
       }
 
       toast.success(editing?.id ? "Sermon updated" : "Sermon saved");

@@ -27,6 +27,7 @@ import {
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ResourceType = "document" | "video" | "link" | "lesson";
@@ -91,10 +92,7 @@ async function uploadFile(
   onProgress?.(100);
 
   // Post-upload increment storage
-  await supabase
-    .from(TABLES.TENANT_SUBSCRIPTIONS)
-    .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-    .eq('tenant_id', tenantId);
+  await refreshStorageUsage(tenantId);
 
   if (bucket === "church-video") {
     const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);

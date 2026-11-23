@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { TABLES } from "@/lib/schema";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -413,10 +414,7 @@ function UploadArchiveDialog({ open, onClose, tenantId, userId, onSuccess }: Upl
       if (dbErr) throw dbErr;
 
       // Post-upload increment storage
-      await supabase
-        .from(TABLES.TENANT_SUBSCRIPTIONS)
-        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-        .eq('tenant_id', tenantId);
+      await refreshStorageUsage(tenantId);
 
       // Kick off AI processing in the background — don't await so UI closes immediately
       toast.success("Uploaded! AI is processing your archive...");

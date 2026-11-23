@@ -28,6 +28,7 @@ import { TABLES } from "@/lib/schema";
 import type { StorageStats, StoragePlan } from "@/types/media";
 import { useMediaNotifications } from "@/hooks/useMediaNotifications";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 const BUCKET_MAP: Record<string, string> = { image: "church-media", audio: "church-audio", video: "church-video" };
 const ACCEPT_MAP: Record<string, string> = {
@@ -106,12 +107,7 @@ function UploadDialog({ open, onOpenChange, mediaType, tenantId, userId, onSucce
       }
       
       // Increment storage usage after successful upload
-      await supabase
-        .from(TABLES.TENANT_SUBSCRIPTIONS)
-        .update({
-          storage_used_gb: usage.storage_gb + totalSizeGB
-        })
-        .eq('tenant_id', tenantId);
+      await refreshStorageUsage(tenantId);
       
       setUploadProgress(100);
       toast.success(filesToUpload.length > 1 ? `${filesToUpload.length} files uploaded!` : "Uploaded successfully");

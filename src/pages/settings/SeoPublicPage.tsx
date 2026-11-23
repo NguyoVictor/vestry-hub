@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { TABLES } from "@/lib/schema";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 const seoSchema = z.object({
   page_title: z.string().max(60).optional().or(z.literal("")),
@@ -147,10 +148,7 @@ const SeoPublicPage = () => {
     } as any, { onConflict: "tenant_id" });
     
     // Post-upload increment storage
-    await supabase
-      .from(TABLES.TENANT_SUBSCRIPTIONS)
-      .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-      .eq('tenant_id', church.tenantId);
+    await refreshStorageUsage(church.tenantId);
     
     qc.invalidateQueries({ queryKey: ["seo-settings", church.tenantId] });
     toast.success("OG image uploaded");

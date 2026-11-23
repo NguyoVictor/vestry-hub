@@ -13192,6 +13192,8 @@ export type Database = {
         Args: { p_user_agent?: string }
         Returns: undefined
       }
+      refresh_all_storage_usage: { Args: never; Returns: Json }
+      refresh_storage_usage: { Args: { p_tenant_id: string }; Returns: Json }
       release_ai_credit: { Args: { p_tenant_id: string }; Returns: undefined }
       release_communication_job: {
         Args: { p_job_id: string; p_reason?: string }

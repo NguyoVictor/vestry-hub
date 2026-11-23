@@ -21,6 +21,7 @@ import { validateImageFile, optimizeImage, generateImageSizes } from './utils/im
 import { ColorExtractor } from './ColorExtractor';
 import type { ImageUploadProps, CoverArtUploadResult, UploadProgress, FileValidationResult } from './types';
 import type { CoverArtColors } from '@/types/song-library';
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -185,10 +186,7 @@ export function ImageUpload({
 
       // Post-upload increment storage
       const fileSizeGB = optimizedFile.size / (1024 * 1024 * 1024);
-      await supabase
-        .from(TABLES.TENANT_SUBSCRIPTIONS)
-        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-        .eq('tenant_id', tenantId);
+      await refreshStorageUsage(tenantId);
 
       // Clean up preview
       if (previewUrl) {

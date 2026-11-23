@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { STORAGE_CHANGED_EVENT, fetchStorageUsage } from '@/lib/storageUsage';
 import { supabase } from '@/integrations/supabase/client';
 import { useChurch } from '@/contexts/ChurchContext';
 import { PLANS } from '@/config/plans';
@@ -19,6 +21,20 @@ export function useSubscription() {
     },
     staleTime: 30_000,
   });
+
+  // T12: storage usage computed on the server from the church's stored files.
+  const queryClient = useQueryClient();
+  const { data: storageUsage } = useQuery({
+    queryKey: ['storage-usage', tenantId],
+    queryFn: () => fetchStorageUsage(tenantId!),
+    enabled: !!tenantId,
+    staleTime: 15_000,
+  });
+  useEffect(() => {
+    const onChange = () => { void queryClient.invalidateQueries({ queryKey: ['storage-usage', tenantId] }); };
+    window.addEventListener(STORAGE_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(STORAGE_CHANGED_EVENT, onChange);
+  }, [queryClient, tenantId]);
 
   const plan = PLANS[subscription?.plan as keyof typeof PLANS ?? 'free'];
 
@@ -81,7 +97,7 @@ export function useSubscription() {
   const usage = {
     members: memberCount,
     staff: staffCount,
-    storage_gb: subscription?.storage_used_gb ?? 0,
+    storage_gb: storageUsage?.used_gb ?? subscription?.storage_used_gb ?? 0,
     sms: subscription?.sms_used ?? 0,
     email: subscription?.email_used ?? 0,
     ai: subscription?.ai_used ?? 0,

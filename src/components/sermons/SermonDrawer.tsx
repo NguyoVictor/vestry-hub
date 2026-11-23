@@ -14,6 +14,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { showPaywallToast } from '@/components/PaywallToast';
 import { TABLES } from '@/lib/schema';
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 interface SermonDrawerProps {
   open: boolean;
@@ -171,10 +172,7 @@ export default function SermonDrawer({
 
       // Post-upload increment storage (only if files were uploaded)
       if (totalUploadedGB > 0) {
-        await supabase
-          .from(TABLES.TENANT_SUBSCRIPTIONS)
-          .update({ storage_used_gb: usage.storage_gb + totalUploadedGB })
-          .eq('tenant_id', tenantId);
+        await refreshStorageUsage(tenantId);
       }
     },
     onSuccess: () => {

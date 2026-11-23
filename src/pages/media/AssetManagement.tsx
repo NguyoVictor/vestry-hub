@@ -31,6 +31,7 @@ import {
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORIES = ["Electronics", "Furniture", "Vehicles", "Musical Instruments", "Buildings", "Other"];
@@ -168,10 +169,7 @@ function AssetDialog({ open, onClose, tenantId, editing, onSuccess }: any) {
       
       // Post-upload increment storage (only if file was uploaded)
       if (uploadedGB > 0) {
-        await supabase
-          .from(TABLES.TENANT_SUBSCRIPTIONS)
-          .update({ storage_used_gb: usage.storage_gb + uploadedGB })
-          .eq('tenant_id', tenantId);
+        await refreshStorageUsage(tenantId);
       }
       
       toast.success(editing?.id ? "Asset updated" : "Asset added");

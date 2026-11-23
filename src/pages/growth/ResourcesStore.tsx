@@ -28,6 +28,7 @@ import {
   LayoutDashboard, BookOpen, FolderOpen, Layers, Ticket,
   Truck, ClipboardList, RotateCcw, Settings, Grid, List, MapPin,
 } from "lucide-react";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ─── Store QR Modal ───────────────────────────────────────────────────────────
 const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:8080";
@@ -237,10 +238,7 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       const { data: { publicUrl } } = supabase.storage.from("store-covers").getPublicUrl(path);
       
       // Increment storage usage
-      await supabase
-        .from(TABLES.TENANT_SUBSCRIPTIONS)
-        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-        .eq('tenant_id', tenantId);
+      await refreshStorageUsage(tenantId);
       
       setUploadProgress(p => ({ ...p, cover: 100 }));
       return publicUrl;
@@ -281,10 +279,7 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       }
       
       // Increment storage usage
-      await supabase
-        .from(TABLES.TENANT_SUBSCRIPTIONS)
-        .update({ storage_used_gb: usage.storage_gb + totalSizeGB })
-        .eq('tenant_id', tenantId);
+      await refreshStorageUsage(tenantId);
       
       setUploadProgress(p => ({ ...p, gallery: 100 }));
       return urls;
@@ -317,10 +312,7 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
       setUploadProgress(p => ({ ...p, digital: 90 }));
       
       // Increment storage usage
-      await supabase
-        .from(TABLES.TENANT_SUBSCRIPTIONS)
-        .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-        .eq('tenant_id', tenantId);
+      await refreshStorageUsage(tenantId);
       
       // Digital files are private, so we store the path, not public URL
       setUploadProgress(p => ({ ...p, digital: 100 }));

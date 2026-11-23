@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Upload, Clock, Save, CreditCard } from "lucide-react";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ─── Timezone list ────────────────────────────────────────────────────────────
 const TIMEZONES = [
@@ -153,10 +154,7 @@ export default function GeneralSettings() {
           logoUrl = data.publicUrl;
 
           // Increment storage usage (best effort; never blocks the save)
-          await supabase
-            .from(TABLES.TENANT_SUBSCRIPTIONS)
-            .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-            .eq('tenant_id', tenantId);
+          await refreshStorageUsage(tenantId);
         } finally {
           setUploading(false);
         }

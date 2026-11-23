@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useSubscription } from "@/hooks/useSubscription";
 import { showPaywallToast } from "@/components/PaywallToast";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Conversation {
@@ -687,7 +688,7 @@ function ChatPanel({ conv, userId, tenantId, userName, onBack, onClose, onlineUs
       }).select().single();
       if (msgErr) throw msgErr;
       setAllMessages(prev => prev.map(m => m.id === optimistic.id ? msgData : m));
-      await (supabase as any).from(TABLES.TENANT_SUBSCRIPTIONS).update({ storage_used_gb: usage.storage_gb + fileSizeGB }).eq("tenant_id", tenantId);
+      await refreshStorageUsage(tenantId);
       qc.invalidateQueries({ queryKey: ["conversations-dm", tenantId, userId] });
       qc.invalidateQueries({ queryKey: ["conversations-group", tenantId, userId] });
       toast.success("File sent");

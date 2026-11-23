@@ -53,6 +53,7 @@ import {
   Plus, Building2, Calendar, Users, MoreVertical, Pencil, Trash2,
   Share2, Eye, MessageSquare, Search, X, ChevronRight, Video, ChevronLeft, ImageIcon, Download,
 } from "lucide-react";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 // ─── Pure helper functions ────────────────────────────────────────────────────
 
@@ -632,12 +633,7 @@ function AddEditFacilityModal({
         
         // Increment storage usage after successful upload
         if (totalSizeGB > 0) {
-          await supabase
-            .from(TABLES.TENANT_SUBSCRIPTIONS)
-            .update({
-              storage_used_gb: usage.storage_gb + totalSizeGB
-            })
-            .eq('tenant_id', tenantId);
+          await refreshStorageUsage(tenantId);
         }
 
         return facilityId;
@@ -695,12 +691,7 @@ function AddEditFacilityModal({
     
     // Increment storage usage after successful uploads
     if (uploadedSizeGB > 0) {
-      await supabase
-        .from(TABLES.TENANT_SUBSCRIPTIONS)
-        .update({
-          storage_used_gb: usage.storage_gb + uploadedSizeGB
-        })
-        .eq('tenant_id', tenantId);
+      await refreshStorageUsage(tenantId);
     }
     
     setUploading(false);

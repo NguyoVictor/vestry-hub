@@ -28,6 +28,7 @@ import { Loader2, Upload, X, Check, QrCode } from "lucide-react";
 import { countries } from "@/lib/country-currency";
 import { TABLES } from "@/lib/schema";
 import { ChurchQRModal } from "@/components/shared/ChurchQRModal";
+import { refreshStorageUsage } from "@/lib/storageUsage";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const CURRENCIES = ["KES", "USD", "GBP", "EUR", "UGX", "TZS", "ZAR", "NGN", "GHS", "CAD", "AUD", "INR"];
@@ -171,10 +172,7 @@ const ChurchProfile = () => {
     await supabase.from("tenants").update({ logo: urlData.publicUrl } as any).eq("id", church.tenantId);
     
     // Increment storage usage
-    await supabase
-      .from(TABLES.TENANT_SUBSCRIPTIONS)
-      .update({ storage_used_gb: usage.storage_gb + fileSizeGB })
-      .eq('tenant_id', church.tenantId);
+    await refreshStorageUsage(church.tenantId);
     
     qc.invalidateQueries({ queryKey: ["tenant", church.tenantId] });
     toast.success("Logo uploaded");

@@ -418,6 +418,16 @@ Typecheck ratchet 864 → **804** (baseline lowered). Build passes; P1 165/165; 
 
 Note: a second Vercel project `vestry-hub-ole7` also deploys this branch — check its env/purpose before Gate A.
 
+## §13 Pre-production scope — analytics (T1) + storage usage (T12) (23 Nov 2026)
+
+| Item | Change | Evidence |
+|---|---|---|
+| T1 analytics | The five `*_optimized` analytics functions failed on every call (`varchar = uuid`); gift totals counted pending / failed / cancelled (and member-declared) gifts; top donors showed “Unknown” for members; performance metrics read non-existent `pg_stat_user_indexes` columns. Fixed (confirmed gifts only, member names, real columns, search_path ''); result shapes unchanged. Only the (unmounted) admin PerformanceMonitor calls them — Dashboard / Analytics use other, working functions. | Rolled-back txn 14/14: all five work for Church A admin + staff; a pending 99,999 gift is excluded; Church B admin, member of A, member of B, unknown user, NULL church and anon all refused. |
+| **Security** `private.assert_own_church` | `NOT (super_admin OR church = get_staff_tenant_id())` is NULL (not true) for any signed-in account without a staff row, so the IF never raised → members of ANY church passed for ANY church. Only these five wrappers used it; no data leaked because the bodies crashed. Now NULL means “not allowed”. A scan of all 35 identity-checking functions found no other such check. | Test 08 failed before the fix (member allowed) and passes after. |
+| T12 storage usage | `storage_used_gb` was never updated (13 screens wrote it from the browser; always refused) → every church showed 0 GB and upload limit checks never triggered. Now `refresh_storage_usage(church)` (church staff; NULL-safe) sums the church's files in Storage (`<tenant_id>/…`, 20/20 objects on staging), stores and returns it; `refresh_all_storage_usage()` (platform admin) for the Churches list. The 16 browser writes replaced by a server refresh; `useSubscription` reads live usage; Billing shows MB under 1 GB. No trigger on `storage.objects` (would risk every upload). Note: staging has **no** `tenant_subscriptions` rows (defaults apply). | Rolled-back txn 10/10: computed bytes = direct sum (1,432 B for Church A), stored on the subscription row; staff of A OK; B admin / member / NULL / anon refused; refresh-all only for platform admin (12 churches). |
+
+Typecheck 804 → 804; lint unchanged or lower in all 17 edited files; build OK; P1 165/165; P2 53/53.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 
