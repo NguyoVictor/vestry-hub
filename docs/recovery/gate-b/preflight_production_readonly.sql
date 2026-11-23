@@ -1,5 +1,5 @@
 -- Gate B pre-flight / post-flight — READ-ONLY. Generated from supabase/migrations
--- (337 versions, 25 recovery). Run against the TARGET project with a
+-- (338 versions, 26 recovery). Run against the TARGET project with a
 -- read-only connection, e.g.:
 --   supabase db query --db-url "<target read-only url>" --read-only -f docs/recovery/gate-b/preflight_production_readonly.sql
 -- Returns one row per check: (section, check_name, value). Writes nothing.
@@ -340,10 +340,11 @@ WITH repo(version) AS (VALUES
     ('20261123110000'),
     ('20261123120000'),
     ('20261123130000'),
-    ('20261123140000')
+    ('20261123140000'),
+    ('20261123150000')
 ),
 remote AS (SELECT version FROM supabase_migrations.schema_migrations),
-recovery(version) AS (SELECT unnest(ARRAY['20261119101722','20261120043624','20261120052702','20261120083842','20261120100000','20261120120000','20261120140000','20261120150000','20261120160000','20261120170000','20261120180000','20261120190000','20261120200000','20261120210000','20261120220000','20261120230000','20261120240000','20261121090000','20261121110000','20261121120000','20261123100000','20261123110000','20261123120000','20261123130000','20261123140000']))
+recovery(version) AS (SELECT unnest(ARRAY['20261119101722','20261120043624','20261120052702','20261120083842','20261120100000','20261120120000','20261120140000','20261120150000','20261120160000','20261120170000','20261120180000','20261120190000','20261120200000','20261120210000','20261120220000','20261120230000','20261120240000','20261121090000','20261121110000','20261121120000','20261123100000','20261123110000','20261123120000','20261123130000','20261123140000','20261123150000']))
 SELECT * FROM (
   SELECT 1 o, 'migrations' section, 'repo versions' check_name, count(*)::text value FROM repo
   UNION ALL SELECT 2, 'migrations', 'remote versions', count(*)::text FROM remote
@@ -358,7 +359,7 @@ SELECT * FROM (
   UNION ALL SELECT 22, 'rls', 'always-true policies (non-anon)', coalesce((SELECT string_agg(tablename || '.' || policyname, ',') FROM pg_policies WHERE schemaname = 'public' AND roles::text <> '{anon}' AND (coalesce(qual, '') ~* '^\(?true\)?$' OR coalesce(with_check, '') ~* '^\(?true\)?$')), '')
   UNION ALL SELECT 23, 'rls', 'tautological tenant policies', coalesce((SELECT string_agg(tablename || '.' || policyname, ',') FROM pg_policies WHERE schemaname = 'public' AND (coalesce(qual, '') || coalesce(with_check, '')) ~* 'FROM tenants\s+WHERE\s+\(+\s*\(?tenants\.id\)?::text\s*=\s*\(?[a-z_]+\.tenant_id'), '')
   UNION ALL SELECT 30, 'functions', 'SECURITY DEFINER executable by anon', coalesce((SELECT string_agg(n.nspname || '.' || p.proname, ',' ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE p.prosecdef AND n.nspname = 'public' AND has_function_privilege('anon', p.oid, 'EXECUTE')), '')
-  UNION ALL SELECT 40, 'schema', 'tables created by recovery already present', coalesce((SELECT string_agg(t, ',') FROM unnest(ARRAY['incident_status_logs','course_lessons','chart_of_accounts','budget_expenditures','budget_audit_log','tax_rates','member_auth_memberships','staff_invitations','member_login_challenges','payment_events','custom_roles','staff_role_assignments']) t WHERE to_regclass('public.' || t) IS NOT NULL), '')
+  UNION ALL SELECT 40, 'schema', 'tables created by recovery already present', coalesce((SELECT string_agg(t, ',') FROM unnest(ARRAY['incident_status_logs','course_lessons','chart_of_accounts','budget_expenditures','budget_audit_log','tax_rates','member_auth_memberships','staff_invitations','member_login_challenges','payment_events','custom_roles','staff_role_assignments','staff_branch_assignments']) t WHERE to_regclass('public.' || t) IS NOT NULL), '')
   UNION ALL SELECT 41, 'schema', 'storage buckets present (recovery)', coalesce((SELECT string_agg(id, ',' ORDER BY id) FROM storage.buckets WHERE id IN ('facility-thumbnails','incident-attachments','church-logos')), '')
   UNION ALL SELECT 42, 'schema', 'payment_status_enum labels', coalesce((SELECT string_agg(e.enumlabel, ',' ORDER BY e.enumsortorder) FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'payment_status_enum'), 'MISSING')
   UNION ALL SELECT 50, 'data', 'tenants', (SELECT count(*)::text FROM public.tenants)

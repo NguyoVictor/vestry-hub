@@ -22,7 +22,6 @@
   "src/integrations/supabase/client.ts": 1,
   "src/lib/dataValidation.ts": 23,
   "src/lib/queryOptimization.ts": 5,
-  "src/pages/analytics/BranchDetail.tsx": 28,
   "src/pages/communications/AdminBroadcast.tsx": 3,
   "src/pages/communications/components/HeroStatCards.tsx": 4,
   "src/pages/communications/components/PremiumBroadcastsView.tsx": 39,

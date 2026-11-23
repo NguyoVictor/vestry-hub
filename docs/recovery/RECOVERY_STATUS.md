@@ -445,6 +445,18 @@ Evidence: rolled-back txn 24/24 (staff cannot create/assign roles; invalid area/
 
 **Browser evidence** (Preview = `ef4482a`, deployment id verified): `e2e/qa/staging-canary-t5-roles.spec.ts` 3/3 — admin created a role with Financial Records = No access (summary shown), ticked it as an additional role for A-STAFF (badge shown after reload); A-STAFF got the no-access page on Giving Records and Payroll but not on Members; admin removed + deleted the role; A-STAFF has Finance again; DB left clean (0 assignments, 0 active roles). The first run exposed that the tick only showed after the list reloaded → made immediate (reverts if refused). **Regression** after the `can_write_permission` change: Phase 5 read-only (per-person override: write 403 while read-only, reads OK, write 201 after removal), Phase 9 finance, Phase 10, Phase 3 operations — 14/14 PASS.
 
+## §15 Pre-production scope — branch access with personal accounts (T14) (23 Nov 2026)
+
+User decision: personal accounts per branch (no shared branch passwords).
+
+| Before | After |
+|---|---|
+| Settings → Branches set ONE shared username + password per branch, hashed in the browser with unsalted SHA-256, for a `/branch-login` page that never existed. | Shared credentials cleared and refused by the database (`branches_no_shared_credentials`). The page now explains that branch staff use their own invited accounts and lists each branch's assigned staff. |
+| “Branch Assignment” in Add / Edit user was never saved (no column); the users list showed the first branch's name for everyone. | `staff_branch_assignments` (one branch per staff member, none = all; church admins only; same-church staff and branch validated). Add user (all 4 success paths) and Edit user save it; Edit loads it; the list shows the real branch. |
+| Branch analytics counted members by a non-existent `members.branch_id` and filtered giving / services / groups by `tenant_id = branch id` → always 0; the detail page read non-existent columns and had settings switches / “Change admin” / a QR to `vestry.app/join/…` that did nothing. | `branch_overview(church)` (staff of the church; NULL-safe) returns what is really recorded per branch: assigned staff, services this month (`services.branch_id`), upcoming events (`events.branch_id`). Branches list + detail rebuilt on it; non-functional controls removed; members / giving / groups labelled as church-wide. |
+
+Evidence: rolled-back txn 14/14 (credentials cleared; assign / reassign; member, other-church staff and other-church branch refused; shared password refused; overview counts 1 staff + 1 service for the test branch; staff cannot move themselves; Church B admin cannot assign or view A; member / anon refused). Typecheck 776 → **748**; lint BranchDetail 4 → 0, Branches 15 → 5; P1 168/168; P2 53/53; build OK.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

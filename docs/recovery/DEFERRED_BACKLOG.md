@@ -66,7 +66,7 @@ These must be done before the Production release (Gate A/B), not after launch:
 | T5 + T16 | Custom roles table + multi-role staff (one person, several roles) | ✅ 23 Nov (migration `20261123140000`; rules: several roles, most generous wins, per-area templates, church admins only). Follow-up: “no access” is enforced for writes (DB) and pages (app); staff can still READ an area's data through the API — add read enforcement for sensitive areas (finance first) if required |
 | T1 | Dashboard / member / financial / activity / performance analytics RPC bodies (varchar vs uuid) | ✅ 23 Nov (migration `20261123120000`) — also fixed a NULL-unsafe guard (`assert_own_church`) that let any non-staff account through |
 | T12 | Storage-usage tracking server-side (`tenant_subscriptions.storage_used_gb`) | ✅ 23 Nov (migration `20261123130000`); server-side upload *blocking* remains a follow-up |
-| T14 | Branch logins redesigned server-side (no browser-side SHA-256 hashes) | 1–2 days |
+| T14 | Branch logins redesigned server-side (no browser-side SHA-256 hashes) | ✅ 23 Nov (migration `20261123150000`; user decision: personal accounts per branch — shared branch passwords retired) |
 | T15 | Clear the type-error backlog (864 errors) | multi-day; high regression risk if rushed |
 
 ## 3. Technical follow-ups queued during the phases (fix after the launch phases)

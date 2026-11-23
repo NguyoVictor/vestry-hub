@@ -9514,6 +9514,52 @@ export type Database = {
           },
         ]
       }
+      staff_branch_assignments: {
+        Row: {
+          assigned_by: string | null
+          branch_id: string
+          created_at: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          branch_id: string
+          created_at?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          branch_id?: string
+          created_at?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_branch_assignments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_branch_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_branch_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invitations: {
         Row: {
           auth_user_id: string | null
@@ -13017,6 +13063,7 @@ export type Database = {
         Args: { p_conversation_id: string; p_excluding_user_id: string }
         Returns: undefined
       }
+      branch_overview: { Args: { p_tenant_id: string }; Returns: Json }
       claim_communication_jobs: {
         Args: {
           p_batch_size?: number

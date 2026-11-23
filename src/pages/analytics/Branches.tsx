@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchBranchOverview } from "@/lib/branchOverview";
 import { useChurch } from "@/contexts/ChurchContext";
 import { usePermissions } from '@/hooks/usePermissions';
 import { ReadOnlyBanner } from '@/components/shared/ReadOnlyBanner';
@@ -69,29 +70,12 @@ export default function Branches() {
     enabled: !!tenantId,
   });
 
+  // T14: only figures that are really recorded per branch (server-side).
+  // Members, giving and groups carry no branch, so they are not split per branch.
   const { data: branchStats = {} } = useQuery({
-    queryKey: ["branches-stats", tenantId],
-    queryFn: async () => {
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const stats: Record<string, any> = {};
-      for (const branch of branches) {
-        const [members, giving, services, groups] = await Promise.all([
-          (supabase as any).from(TABLES.MEMBERS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branch.id).eq("status", "active"),
-          (supabase as any).from(TABLES.GIVING_RECORDS).select("amount").eq(COLS.TENANT_ID, branch.id).gte(COLS.GIVING_DATE, monthStart),
-          (supabase as any).from(TABLES.SERVICES).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branch.id).gte("service_date", monthStart),
-          (supabase as any).from(TABLES.GROUPS).select("id", { count: "exact", head: true }).eq(COLS.TENANT_ID, branch.id).eq("is_active", true),
-        ]);
-        stats[branch.id] = {
-          members: members.count || 0,
-          giving: (giving.data || []).reduce((s: number, d: any) => s + (d.amount || 0), 0),
-          services: services.count || 0,
-          groups: groups.count || 0,
-        };
-      }
-      return stats;
-    },
-    enabled: branches.length > 0,
+    queryKey: ["branch-overview", tenantId],
+    queryFn: () => fetchBranchOverview(tenantId!),
+    enabled: !!tenantId && branches.length > 0,
   });
 
   const saveBranch = useMutation({
@@ -173,8 +157,8 @@ export default function Branches() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
           { label: "Total Branches", value: branches.length, icon: GitBranch, color: "indigo" },
-          { label: "Total Members Across Branches", value: Object.values(branchStats as Record<string, any>).reduce((s: number, b: any) => s + (b?.members || 0), 0).toLocaleString(), icon: Users, color: "emerald" },
-          { label: "Combined Monthly Giving", value: formatCurrencyFull(Object.values(branchStats as Record<string, any>).reduce((s: number, b: any) => s + (b?.giving || 0), 0), currency), icon: TrendingUp, color: "violet" },
+          { label: "Staff Assigned to Branches", value: Object.values(branchStats).reduce((s, b) => s + (b?.staff_count || 0), 0).toLocaleString(), icon: Users, color: "emerald" },
+          { label: "Branch Services This Month", value: Object.values(branchStats).reduce((s, b) => s + (b?.services_this_month || 0), 0).toLocaleString(), icon: TrendingUp, color: "violet" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
             <CardContent className="p-5 flex items-center gap-4">
@@ -255,9 +239,9 @@ export default function Branches() {
                 {branchStats[branch.id] && (
                   <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-100 dark:border-slate-700">
                     {[
-                      { label: "Members", value: branchStats[branch.id]?.members || 0, icon: Users },
-                      { label: "Services", value: branchStats[branch.id]?.services || 0, icon: CalendarDays },
-                      { label: "Groups", value: branchStats[branch.id]?.groups || 0, icon: Building2 },
+                      { label: "Staff", value: branchStats[branch.id]?.staff_count || 0, icon: Users },
+                      { label: "Services (month)", value: branchStats[branch.id]?.services_this_month || 0, icon: CalendarDays },
+                      { label: "Upcoming events", value: branchStats[branch.id]?.upcoming_events || 0, icon: Building2 },
                     ].map(({ label, value, icon: Icon }) => (
                       <div key={label} className="text-center">
                         <p className="text-base font-bold">{value}</p>

@@ -39,6 +39,7 @@ import {
 
 // ─── Role config ──────────────────────────────────────────────────────────────
 import { StaffAdditionalRoles } from "@/components/settings/StaffAdditionalRoles";
+import { loadStaffBranches, saveStaffBranch, saveStaffBranchByEmail } from "@/lib/staffBranch";
 import { RolePermissionGrid } from "@/components/settings/RolePermissionGrid";
 import { LEVEL_LABELS, ROLE_AREAS, type RolePermissions } from "@/lib/rolePermissions";
 const ROLES = [
@@ -150,6 +151,18 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
     setSelectedMember(m);
   };
 
+  // T14: save the chosen branch once the staff account exists.
+  const applyBranch = async () => {
+    if (!branchId || !tenantId) return;
+    const email = inviteByEmail ? inviteEmail.trim() : selectedMember?.email;
+    try {
+      const ok = await saveStaffBranchByEmail(tenantId, email, branchId);
+      if (!ok) toast.message("Branch will be set once the invited person's account is created. Edit the user later to assign it.");
+    } catch (e) {
+      toast.error(`Staff added, but the branch was not saved: ${(e as Error).message}`);
+    }
+  };
+
   const handleSubmit = async () => {
     if (readOnly) return;
     if (inviteByEmail) {
@@ -188,6 +201,7 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
           toast.success(`Invitation sent to ${inviteEmail}.`);
         }
 
+        await applyBranch();
         onSuccess();
         handleClose();
         return;
@@ -259,7 +273,8 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
               ? `${selectedMember.first_name}'s access has been restored as ${formatRole(role)}.`
               : `${selectedMember.first_name} has been added as ${formatRole(role)}.`
           );
-          onSuccess();
+          await applyBranch();
+        onSuccess();
           handleClose();
           return;
         }
@@ -347,7 +362,8 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
                 ? `${selectedMember.first_name}'s access has been restored as ${formatRole(role)}.`
                 : `${selectedMember.first_name} has been added as ${formatRole(role)}.`
             );
-            onSuccess();
+            await applyBranch();
+        onSuccess();
             handleClose();
             return;
           } else if (existingUser.role === role) {
@@ -370,7 +386,8 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
         }
       }
 
-      onSuccess();
+      await applyBranch();
+        onSuccess();
       handleClose();
     } catch (err: unknown) {
       const message = (err as Error)?.message ?? '';
@@ -654,6 +671,14 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
     }
   }, [user]);
 
+  // T14: current branch assignment
+  useEffect(() => {
+    if (!user || !church.tenantId) return;
+    let alive = true;
+    loadStaffBranches(church.tenantId).then(m => { if (alive) setBranchId(m[user.id] ?? ""); }).catch(() => {});
+    return () => { alive = false; };
+  }, [user, church.tenantId]);
+
   if (!user) return null;
 
   const handleSave = async () => {
@@ -676,6 +701,8 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
         throw new Error(data?.error ?? error?.message ?? "Failed to update user.");
       }
 
+      if (church.tenantId) await saveStaffBranch(church.tenantId, user.id, branchId || null);
+      qc.invalidateQueries({ queryKey: ["staff-branches", church.tenantId] });
       toast.success("User updated successfully.");
       qc.invalidateQueries({ queryKey: ["settings-users", church.tenantId] });
       qc.invalidateQueries({ queryKey: ["staff-count", church.tenantId] });
@@ -1290,6 +1317,12 @@ const UsersPage = () => {
     },
     staleTime: 30_000,
   });
+  const { data: staffBranches = {} } = useQuery({
+    queryKey: ["staff-branches", church.tenantId],
+    enabled: !!church.tenantId,
+    queryFn: () => loadStaffBranches(church.tenantId!),
+    staleTime: 30_000,
+  });
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
@@ -1570,7 +1603,7 @@ const UsersPage = () => {
                         {/* Branch */}
                         <TableCell className="hidden md:table-cell">
                           <span className="text-sm text-slate-500">
-                            {branches.length > 0 ? branches[0].name : "All branches"}
+                            {branches.find(b => b.id === staffBranches[user.id])?.name ?? "All branches"}
                           </span>
                         </TableCell>
                         {/* Status */}
