@@ -55,6 +55,20 @@ Mechanism: `src/config/launchFlags.ts` + `src/lib/functionGuard.ts`. Pages are h
 
 ---
 
+## 2b. Moved INTO pre-production scope (user decision 23 Nov 2026)
+
+These must be done before the Production release (Gate A/B), not after launch:
+
+| # | Item | Size estimate |
+|---|---|---|
+| T2 | Live multiplayer quiz — server-side game API (join by PIN, questions without answers, scoring, host controls) | 1–2 days |
+| G7b | Members log cash/bank gifts as **pending** → staff "Awaiting confirmation" queue → confirm / reject | ~1 day |
+| T5 + T16 | Custom roles table + multi-role staff (one person, several roles) | 1–2 days (needs product rules) |
+| T1 | Dashboard / member / financial / activity / performance analytics RPC bodies (varchar vs uuid) | ~0.5–1 day |
+| T12 | Storage-usage tracking server-side (`tenant_subscriptions.storage_used_gb`) | ~0.5 day |
+| T14 | Branch logins redesigned server-side (no browser-side SHA-256 hashes) | 1–2 days |
+| T15 | Clear the type-error backlog (864 errors) | multi-day; high regression risk if rushed |
+
 ## 3. Technical follow-ups queued during the phases (fix after the launch phases)
 
 | # | Item | Found in | Notes |
