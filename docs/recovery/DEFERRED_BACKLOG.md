@@ -67,6 +67,7 @@ These must be done before the Production release (Gate A/B), not after launch:
 | T1 | Dashboard / member / financial / activity / performance analytics RPC bodies (varchar vs uuid) | ✅ 23 Nov (migration `20261123120000`) — also fixed a NULL-unsafe guard (`assert_own_church`) that let any non-staff account through |
 | T12 | Storage-usage tracking server-side (`tenant_subscriptions.storage_used_gb`) | ✅ 23 Nov (migration `20261123130000`); server-side upload *blocking* remains a follow-up |
 | T14 | Branch logins redesigned server-side (no browser-side SHA-256 hashes) | ✅ 23 Nov (migration `20261123150000`; user decision: personal accounts per branch — shared branch passwords retired) |
+| T17 | Server-function errors show “Edge Function returned a non-2xx status code” instead of the function's own message on most screens (`data?.error ?? error.message` never sees the body on non-2xx). Fixed on Payments; shared helper to apply everywhere | 23 Nov canary | with T15 |
 | T15 | Clear the type-error backlog (864 errors) | multi-day; high regression risk if rushed |
 
 ## 3. Technical follow-ups queued during the phases (fix after the launch phases)

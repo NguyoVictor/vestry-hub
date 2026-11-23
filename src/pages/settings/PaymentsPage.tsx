@@ -22,7 +22,13 @@ interface WebhookSetup { webhook_url: string; challenge: string }
 
 async function callConnect(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke("intasend-connect", { body });
-  if (error || data?.error) throw new Error(data?.error ?? error?.message ?? "Request failed");
+  if (error) {
+    // Non-2xx: supabase-js keeps the function's JSON body on error.context (a Response).
+    const ctx = (error as { context?: Response }).context;
+    const detail = ctx && typeof ctx.json === "function" ? await ctx.json().catch(() => null) : null;
+    throw new Error((detail as { error?: string } | null)?.error ?? error.message ?? "Request failed");
+  }
+  if (data?.error) throw new Error(data.error);
   return data as { ok: true; env?: string; webhook_url?: string; challenge?: string };
 }
 
