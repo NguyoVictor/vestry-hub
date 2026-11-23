@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { motion, useInView, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import { motion, useInView, useMotionValue, useTransform, useSpring, type Variants } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface MasonryGridProps<T> {
@@ -60,7 +60,7 @@ function MasonryGrid<T>({
     visible: { transition: { staggerChildren: staggerDelay } },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 24, scale: 0.96, filter: 'blur(6px)' },
     visible: {
       opacity: 1, y: 0, scale: 1, filter: 'blur(0px)',

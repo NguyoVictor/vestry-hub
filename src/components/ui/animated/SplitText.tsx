@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { ReactNode, useEffect } from "react";
 
 interface SplitTextProps {
@@ -28,7 +28,7 @@ export function SplitText({
     }),
   };
 
-  const child = {
+  const child: Variants = {
     visible: {
       opacity: 1,
       y: 0,

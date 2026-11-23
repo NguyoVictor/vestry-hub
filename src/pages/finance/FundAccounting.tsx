@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, type Variants } from "motion/react";
 import NumberFlow from "@/components/finance/AnimatedNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useChurch } from "@/contexts/ChurchContext";
@@ -27,7 +27,7 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 const FUND_TYPES = ["restricted", "unrestricted", "temporarily_restricted"];
 
 // Premium page animations
-const pageVariants = {
+const pageVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -40,7 +40,7 @@ const pageVariants = {
   }
 }
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 32, scale: 0.96 },
   visible: { 
     opacity: 1, 

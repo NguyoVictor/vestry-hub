@@ -1,6 +1,6 @@
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemberPortal } from "@/contexts/MemberPortalContext";
 import { TABLES, COLS } from "@/lib/schema";
@@ -33,7 +33,7 @@ import html2canvas from "html2canvas";
 import { toast } from "react-hot-toast";
 
 // Premium page animations
-const pageVariants = {
+const pageVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -46,7 +46,7 @@ const pageVariants = {
   }
 }
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 32, scale: 0.96 },
   visible: { 
     opacity: 1, 
@@ -60,7 +60,7 @@ const cardVariants = {
   }
 }
 
-const floatingVariants = {
+const floatingVariants: Variants = {
   animate: {
     y: [-2, 2, -2],
     transition: {

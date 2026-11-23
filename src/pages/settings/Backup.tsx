@@ -80,7 +80,7 @@ const CATEGORIES: Category[] = [
       const { data } = await supabase.from(TABLES.GROUPS).select("*").eq(COLS.TENANT_ID, tid);
       return (data ?? []).map(r => ({
         "Group Name": r.name, "Description": r.description, "Type": r.type,
-        "Status": r.status, "Leader ID": r.leader_id, "Created At": r.created_at,
+        "Status": r.is_active ? "active" : "inactive", "Leader ID": r.leader_id, "Created At": r.created_at,
       }));
     },
   },
@@ -94,7 +94,7 @@ const CATEGORIES: Category[] = [
       const { data } = await supabase.from(TABLES.FACILITIES).select("*").eq(COLS.TENANT_ID, tid);
       return (data ?? []).map(r => ({
         "Facility Name": r.name, "Type": r.type, "Capacity": r.capacity,
-        "Location": r.location, "Status": r.status,
+        "Description": r.description, "Status": r.is_active ? "active" : "inactive",
       }));
     },
   },
@@ -108,7 +108,7 @@ const CATEGORIES: Category[] = [
       const { data } = await supabase.from(TABLES.CHURCH_ASSETS).select("*").eq(COLS.TENANT_ID, tid);
       return (data ?? []).map(r => ({
         "Asset Name": r.name, "Category": r.category, "Serial Number": r.serial_number,
-        "Status": r.status, "Condition": r.condition, "Purchase Date": r.purchase_date,
+        "Location": r.location, "Condition": r.condition, "Purchase Date": r.purchase_date,
         "Purchase Value": r.purchase_value,
       }));
     },
@@ -137,8 +137,8 @@ const CATEGORIES: Category[] = [
     fetcher: async (tid) => {
       const { data } = await supabase.from(TABLES.ANNOUNCEMENTS).select("*").eq(COLS.TENANT_ID, tid);
       return (data ?? []).map(r => ({
-        "Title": r.title, "Content": r.content, "Published At": r.published_at,
-        "Status": r.status, "Author ID": r.author_id,
+        "Title": r.title, "Content": r.body, "Published At": r.publish_at ?? r.created_at,
+        "Status": r.status, "Author ID": r.created_by,
       }));
     },
   },
@@ -163,10 +163,10 @@ const CATEGORIES: Category[] = [
     items: ["Branches", "Hierarchy Levels", "Staff Records", "Staff Positions"],
     tableCount: 4,
     fetcher: async (tid) => {
-      const { data } = await supabase.from(TABLES.BRANCHES).select("id, tenant_id, name, location, pastor_id, contact_email, contact_phone, is_active, created_at, branch_username, last_login_at") /* Phase 5: never read branch_password_hash */.eq(COLS.TENANT_ID, tid);
+      const { data } = await supabase.from(TABLES.BRANCHES).select("id, tenant_id, name, location, pastor_id, contact_email, contact_phone, is_active, created_at").eq(COLS.TENANT_ID, tid);
       return (data ?? []).map(r => ({
-        "Branch Name": r.name, "Location": r.location, "Status": r.status,
-        "Pastor": r.pastor_name, "Created At": r.created_at,
+        "Branch Name": r.name, "Location": r.location, "Status": r.is_active ? "active" : "inactive",
+        "Pastor ID": r.pastor_id, "Contact Email": r.contact_email, "Contact Phone": r.contact_phone, "Created At": r.created_at,
       }));
     },
   },

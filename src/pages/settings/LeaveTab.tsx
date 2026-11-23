@@ -53,7 +53,7 @@ interface LeaveRequest {
   cover_staff_id: string | null;
   cover_notes: string | null;
   status: string;
-  org_id: string;
+  tenant_id: string;
   created_at: string;
   payroll_staff?: {
     job_title: string | null;
@@ -80,7 +80,7 @@ interface LeaveBalance {
   compassionate_leave_used: number;
   unpaid_leave_total: number;
   unpaid_leave_used: number;
-  org_id: string;
+  tenant_id: string;
   year: number;
   payroll_staff?: {
     job_title: string | null;
@@ -96,7 +96,7 @@ interface Absence {
   reason: string | null;
   status: string;
   notes: string | null;
-  org_id: string;
+  tenant_id: string;
   payroll_staff?: {
     job_title: string | null;
     custom_position: string | null;
@@ -238,7 +238,7 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
         cover_staff_id: coverStaffId || null,
         cover_notes: coverNotes || null,
         status: "pending",
-        org_id: tenantId,
+        tenant_id: tenantId,
       } as never);
 
       if (error) throw error;
@@ -260,15 +260,16 @@ function NewLeaveRequestModal({ open, onClose, tenantId, staffList, onSuccess }:
         .select("id, " + usedCol)
         .eq("staff_id", staffId)
         .eq("year", year)
-        .eq("org_id", tenantId)
+        .eq("tenant_id", tenantId)
         .maybeSingle();
 
       if (balRow) {
-        const currentUsed = (balRow as Record<string, number>)[usedCol] ?? 0;
+        const row = balRow as unknown as { id: string } & Record<string, number>;
+        const currentUsed = row[usedCol] ?? 0;
         await supabase
           .from(TABLES.STAFF_LEAVE_BALANCES)
           .update({ [usedCol]: currentUsed + dur } as never)
-          .eq("id", balRow.id);
+          .eq("id", row.id);
       }
 
       qc.invalidateQueries({ queryKey: ["leave-requests", tenantId] });
@@ -470,7 +471,7 @@ function AbsenceModal({ open, onClose, tenantId, staffList, editData, onSuccess 
         reason: reason || null,
         status: resolvedType,
         notes: notes || null,
-        org_id: tenantId,
+        tenant_id: tenantId,
       };
       if (isEdit && editData) {
         const { error } = await supabase.from(TABLES.STAFF_ABSENCES).update(payload as never).eq("id", editData.id);
@@ -577,10 +578,10 @@ function LeaveRequestsTab({ tenantId, staffList }: { tenantId: string; staffList
           payroll_staff:staff_id(job_title, custom_position, members(first_name, last_name)),
           cover_staff:cover_staff_id(members(first_name, last_name))
         `)
-        .eq("org_id", tenantId)
+        .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as LeaveRequest[];
+      return (data ?? []) as unknown as LeaveRequest[];
     },
     staleTime: 300_000,
   });
@@ -890,11 +891,11 @@ function LeaveBalancesTab({ tenantId, staffList }: { tenantId: string; staffList
       const { data, error } = await supabase
         .from(TABLES.STAFF_LEAVE_BALANCES)
         .select("*, payroll_staff:staff_id(job_title, custom_position, annual_leave_days, sick_leave_days, members(first_name, last_name))")
-        .eq("org_id", tenantId)
+        .eq("tenant_id", tenantId)
         .eq("year", parseInt(selYear))
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as LeaveBalance[];
+      return (data ?? []) as unknown as LeaveBalance[];
     },
     staleTime: 300_000,
   });
@@ -911,7 +912,7 @@ function LeaveBalancesTab({ tenantId, staffList }: { tenantId: string; staffList
       await supabase
         .from(TABLES.STAFF_LEAVE_BALANCES)
         .delete()
-        .eq("org_id", tenantId)
+        .eq("tenant_id", tenantId)
         .eq("year", parseInt(selYear));
     }
 
@@ -931,7 +932,7 @@ function LeaveBalancesTab({ tenantId, staffList }: { tenantId: string; staffList
         compassionate_leave_used: 0,
         unpaid_leave_total: 0,
         unpaid_leave_used: 0,
-        org_id: tenantId,
+        tenant_id: tenantId,
         year: parseInt(selYear),
       }));
 
@@ -1055,7 +1056,7 @@ function AbsencesTab({ tenantId, staffList }: { tenantId: string; staffList: Sta
       const { data, error } = await supabase
         .from(TABLES.STAFF_ABSENCES)
         .select("*, payroll_staff:staff_id(job_title, custom_position, members(first_name, last_name))")
-        .eq("org_id", tenantId)
+        .eq("tenant_id", tenantId)
         .order("absence_date", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Absence[];

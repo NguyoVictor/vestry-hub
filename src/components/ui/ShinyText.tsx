@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface ShinyTextProps {
@@ -26,7 +26,7 @@ export default function ShinyText({
   speed = 2,
   disabled = false,
 }: ShinyTextProps) {
-  const shimmerVariants = {
+  const shimmerVariants: Variants = {
     initial: {
       backgroundPosition: '-200% 0',
     },

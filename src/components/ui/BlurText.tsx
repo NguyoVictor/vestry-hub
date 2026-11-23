@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface BlurTextProps {
@@ -58,7 +58,7 @@ export default function BlurText({
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: {
       opacity: 0,
       filter: 'blur(10px)',

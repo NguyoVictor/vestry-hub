@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, useMotionValue, useTransform, animate, type Variants } from "framer-motion";
 import { useEffect } from "react";
 import { Send, FileText, Clock, TrendingUp, Loader2 } from "lucide-react";
 
@@ -96,7 +96,7 @@ interface HeroStatCardsProps {
 }
 
 export const HeroStatCards = ({ stats, isLoading }: HeroStatCardsProps) => {
-  const cardVariants = {
+  const cardVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,

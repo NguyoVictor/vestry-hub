@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { useMemberPortal } from '@/contexts/MemberPortalContext'
@@ -33,7 +33,7 @@ import { format, differenceInDays } from 'date-fns'
 import { toast } from 'react-hot-toast'
 
 // Premium page animations with spring physics
-const pageVariants = {
+const pageVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -46,7 +46,7 @@ const pageVariants = {
   }
 }
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 32, scale: 0.96 },
   visible: { 
     opacity: 1, 
@@ -60,7 +60,7 @@ const cardVariants = {
   }
 }
 
-const floatingVariants = {
+const floatingVariants: Variants = {
   animate: {
     y: [-2, 2, -2],
     transition: {

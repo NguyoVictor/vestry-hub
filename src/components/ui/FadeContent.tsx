@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface FadeContentProps {
@@ -45,7 +45,7 @@ export default function FadeContent({
     }
   };
 
-  const variants = {
+  const variants: Variants = {
     hidden: {
       opacity: 0,
       ...getInitialPosition(),
