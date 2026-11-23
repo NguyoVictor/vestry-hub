@@ -38,6 +38,9 @@ import {
 } from "lucide-react";
 
 // ─── Role config ──────────────────────────────────────────────────────────────
+import { StaffAdditionalRoles } from "@/components/settings/StaffAdditionalRoles";
+import { RolePermissionGrid } from "@/components/settings/RolePermissionGrid";
+import { LEVEL_LABELS, ROLE_AREAS, type RolePermissions } from "@/lib/rolePermissions";
 const ROLES = [
   { value: "church_admin",      label: "Church Admin",      color: "bg-orange-100 text-orange-700 border-orange-200" },
   { value: "general_overseer",  label: "General Overseer",  color: "bg-slate-100 text-slate-600 border-slate-200" },
@@ -131,21 +134,6 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
     },
     staleTime: 60_000,
     enabled: open,
-  });
-
-  const { data: customRoles = [] } = useQuery({
-    queryKey: ['custom-roles', church.tenantId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('custom_roles')
-        .select('name')
-        .eq('tenant_id', church.tenantId)
-        .eq('is_active', true)
-        .order('name');
-      return data ?? [];
-    },
-    enabled: !!church.tenantId,
-    staleTime: 60_000,
   });
 
   // Client-side filter
@@ -560,16 +548,6 @@ function AddUserModal({ open, onClose, branches, tenantId, onSuccess }: AddUserM
                 {ROLES.map(r => (
                   <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                 ))}
-                {customRoles.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide border-t border-slate-100 mt-1 pt-2">
-                      Custom
-                    </div>
-                    {customRoles.map(r => (
-                      <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>
-                    ))}
-                  </>
-                )}
               </SelectContent>
             </Select>
           </div>
@@ -666,21 +644,6 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const { data: customRolesEdit = [] } = useQuery({
-    queryKey: ['custom-roles', church.tenantId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('custom_roles')
-        .select('name')
-        .eq('tenant_id', church.tenantId)
-        .eq('is_active', true)
-        .order('name');
-      return data ?? [];
-    },
-    enabled: !!church.tenantId,
-    staleTime: 60_000,
-  });
-
   // Sync state when user changes
   useEffect(() => {
     if (user) {
@@ -749,19 +712,14 @@ function EditUserModal({ user, branches, onClose, onSuccess }: EditUserModalProp
               <SelectTrigger className="focus:ring-orange-400"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {EDIT_ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                {customRolesEdit.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide border-t border-slate-100 mt-1 pt-2">
-                      Custom
-                    </div>
-                    {customRolesEdit.map(r => (
-                      <SelectItem key={r.name} value={r.name}>{r.name}</SelectItem>
-                    ))}
-                  </>
-                )}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Additional roles (T5) — church admins only */}
+          {(church.userRole === "church_admin" || church.userRole === "super_admin") && church.tenantId && (
+            <StaffAdditionalRoles tenantId={church.tenantId} userId={user.id} mainRole={user.role} builtInOptions={ROLES} />
+          )}
 
           {/* Branch Assignment */}
           <div className="space-y-1.5">
@@ -1041,14 +999,15 @@ function RolesOverview() {
   const [editingRole, setEditingRole] = useState<{ id: string; name: string; description: string } | null>(null);
   const [roleName, setRoleName] = useState('');
   const [roleDescription, setRoleDescription] = useState('');
+  const [rolePerms, setRolePerms] = useState<RolePermissions>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: customRoles = [] } = useQuery({
-    queryKey: ['custom-roles', tenantId],
+    queryKey: ['custom-roles-full', tenantId],
     queryFn: async () => {
       const { data } = await supabase
         .from('custom_roles')
-        .select('id, name, description')
+        .select('id, name, description, permissions')
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('name');
@@ -1065,18 +1024,18 @@ function RolesOverview() {
       if (editingRole) {
         const { error } = await supabase
           .from('custom_roles')
-          .update({ name: roleName.trim(), description: roleDescription.trim() })
+          .update({ name: roleName.trim(), description: roleDescription.trim(), permissions: rolePerms })
           .eq('id', editingRole.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('custom_roles')
-          .insert({ tenant_id: tenantId, name: roleName.trim(), description: roleDescription.trim() });
+          .insert({ tenant_id: tenantId, name: roleName.trim(), description: roleDescription.trim(), permissions: rolePerms });
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['custom-roles', tenantId] });
+      qc.invalidateQueries({ queryKey: ['custom-roles-full', tenantId] });
       toast.success(editingRole ? 'Role updated!' : 'Role created!');
       setModalOpen(false);
       setEditingRole(null);
@@ -1096,7 +1055,7 @@ function RolesOverview() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['custom-roles', tenantId] });
+      qc.invalidateQueries({ queryKey: ['custom-roles-full', tenantId] });
       toast.success('Role removed!');
       setDeleteId(null);
     },
@@ -1107,13 +1066,15 @@ function RolesOverview() {
     setEditingRole(null);
     setRoleName('');
     setRoleDescription('');
+    setRolePerms({});
     setModalOpen(true);
   };
 
-  const openEdit = (r: { id: string; name: string; description: string }) => {
-    setEditingRole(r);
+  const openEdit = (r: { id: string; name: string; description: string | null; permissions?: unknown }) => {
+    setEditingRole({ id: r.id, name: r.name, description: r.description ?? '' });
     setRoleName(r.name);
     setRoleDescription(r.description ?? '');
+    setRolePerms((r.permissions ?? {}) as RolePermissions);
     setModalOpen(true);
   };
 
@@ -1209,6 +1170,10 @@ function RolesOverview() {
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{r.name}</p>
                   {r.description && <p className="text-xs text-slate-400 mt-0.5">{r.description}</p>}
+                  <p className="text-xs text-slate-500 mt-1" data-testid="role-access-summary">
+                    {ROLE_AREAS.filter(a => (r.permissions as RolePermissions | null)?.[a.key])
+                      .map(a => `${a.label}: ${LEVEL_LABELS[(r.permissions as RolePermissions)[a.key]!]}`).join(' · ') || 'No access settings yet'}
+                  </p>
                 </div>
                 {isAdmin && (
                   <div className="flex items-center gap-1 ml-2 shrink-0">
@@ -1234,7 +1199,7 @@ function RolesOverview() {
 
       {/* Add / Edit Role Modal */}
       <Dialog open={modalOpen} onOpenChange={v => { if (!v) setModalOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingRole ? 'Edit Role' : 'Add Custom Role'}</DialogTitle>
           </DialogHeader>
@@ -1260,6 +1225,10 @@ function RolesOverview() {
                 rows={3}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Access per area</Label>
+              <RolePermissionGrid value={rolePerms} onChange={setRolePerms} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
@@ -1280,7 +1249,7 @@ function RolesOverview() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this role?</AlertDialogTitle>
             <AlertDialogDescription>
-              This role will be removed. Users currently assigned this role will keep it until manually reassigned.
+              This role will be removed and its access settings stop applying to everyone who holds it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1305,6 +1274,22 @@ const UsersPage = () => {
   const { canAddStaff, limits } = useSubscription();
   const { isReadOnly } = usePermissions();
   const readOnly = isReadOnly('church_settings');
+  // T5: additional roles per person (custom + built-in), shown next to the main role.
+  const { data: extraRoles = {} } = useQuery({
+    queryKey: ["staff-role-assignments-all", church.tenantId],
+    enabled: !!church.tenantId,
+    queryFn: async () => {
+      const { data } = await supabase.from("staff_role_assignments")
+        .select("user_id, role, custom_roles(name, is_active)").eq("tenant_id", church.tenantId!);
+      const map: Record<string, string[]> = {};
+      for (const a of (data ?? []) as { user_id: string; role: string | null; custom_roles: { name: string; is_active: boolean } | null }[]) {
+        const label = a.role ? getRoleConfig(a.role).label : a.custom_roles?.is_active ? a.custom_roles.name : null;
+        if (label) (map[a.user_id] ??= []).push(label);
+      }
+      return map;
+    },
+    staleTime: 30_000,
+  });
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
@@ -1576,6 +1561,11 @@ const UsersPage = () => {
                           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${roleConfig.color}`}>
                             {roleConfig.label}
                           </span>
+                          {(extraRoles[user.id] ?? []).map(label => (
+                            <span key={label} className="ml-1 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600" data-testid="extra-role-badge">
+                              {label}
+                            </span>
+                          ))}
                         </TableCell>
                         {/* Branch */}
                         <TableCell className="hidden md:table-cell">

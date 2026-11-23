@@ -154,6 +154,5 @@
   "src/pages/settings/NotificationsSettings.tsx": 1,
   "src/pages/settings/PaymentsPage.tsx": 10,
   "src/pages/settings/TaxSettings.tsx": 1,
-  "src/pages/settings/Users.tsx": 28,
   "src/types/song-library.ts": 12
 }

@@ -12,6 +12,8 @@ import { ChevronLeft, ChevronRight, LogOut, GitBranch, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { TABLES, COLS } from "@/lib/schema";
+import { permissionKeyForPath, usePermissions } from "@/hooks/usePermissions";
+import { NoAccessPanel } from "@/components/shared/NoAccessPanel";
 
 // ─── Branch switching helpers (sessionStorage-based) ─────────────────────────
 function getActiveBranch(): { id: string; name: string } | null {
@@ -127,6 +129,10 @@ export const AppLayout = () => {
     .map(group => ({ ...group, items: filterAdminNavigation(group.items, church.enabledModules) }))
     .filter(group => group.items.length > 0);
   const routeEnabled = isAdminPathEnabled(location.pathname, church.enabledModules);
+  // T16: an area set to "no access" by the person's custom roles.
+  const { isNoAccess } = usePermissions();
+  const areaKey = permissionKeyForPath(location.pathname);
+  const noAccess = !!areaKey && isNoAccess(areaKey);
 
   if (!routeEnabled) return <Navigate to="/dashboard" replace state={{ disabledModulePath: location.pathname }} />;
 
@@ -310,7 +316,7 @@ export const AppLayout = () => {
         )}
         <TopNavbar onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950 font-jakarta">
-          <Outlet />
+          {noAccess ? <NoAccessPanel areaKey={areaKey!} /> : <Outlet />}
         </main>
       </div>
     </div>

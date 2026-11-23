@@ -430,6 +430,19 @@ Typecheck 804 → 804; lint unchanged or lower in all 17 edited files; build OK;
 
 **Browser evidence:** `e2e/qa/staging-canary-t12-storage.spec.ts` on Preview `vestry-gc7sge241` (= `25d257c`, deployment id verified): Billing calls `refresh_storage_usage` (200; 1,432 bytes for QA Church A) and shows that server figure; 0 failed calls, 0 page errors. Display now uses KB below 1 MB.
 
+## §14 Pre-production scope — custom roles + multi-role staff (T5/T16) (23 Nov 2026)
+
+Product rules (user, 23 Nov): a person may hold several roles; effective access per area = the most generous among their custom roles that set it; custom roles are per-area templates (full / read-only / no access); only church admins create or assign roles.
+
+| Change | Detail |
+|---|---|
+| Tables | `custom_roles` (name, description, per-area `permissions`, soft delete) and `staff_role_assignments` (extra built-in non-admin roles and custom roles per person). Validated in the DB (known areas/levels only, reserved built-in names, one active name per church, only staff of the same church, admin roles cannot be added as extra roles). RLS: staff of the church read; only church admins write. |
+| Effective level | `private.effective_permission_level`: per-person override → most generous active custom role → default. `private.can_write_permission` (behind ~125 policies) now honours it; read-only and no access both block writes; church admins unchanged. `my_permission_levels()` gives the app the same answer. |
+| App | `usePermissions` reads the server levels (`isNoAccess` added); pages of a “no access” area show “You don't have access” (path → area map; personal settings stay reachable). Users page: custom roles get an access grid; Edit user → “Additional roles” (church admins); extra-role badges in the list; custom roles removed from the MAIN role dropdowns (the `users_role_check` constraint only allows built-in roles — the old option always failed). |
+| Not done | “No access” does not hide menu items (option not chosen) and does not block API reads of that area's data — backlog. |
+
+Evidence: rolled-back txn 24/24 (staff cannot create/assign roles; invalid area/level/reserved/duplicate names refused; extra admin role refused; cross-church assignment refused; with “Youth Leader” (finance none, members read-only, events full) staff could update **0** of Church A's 2 payouts (2 before); adding “Finance Committee” (finance full) restored finance (most generous); a per-person override wins; deactivating roles removes their effect; Church B staff sees none of A's roles; Church B admin cannot assign in A; Church A admin unaffected; member gets no levels). P1 168/168 (+3 path-mapping), P2 53/53, PGlite harnesses 37/37, typecheck 804 → **776** (Users page 28 → 0), build OK.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

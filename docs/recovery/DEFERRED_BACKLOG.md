@@ -63,7 +63,7 @@ These must be done before the Production release (Gate A/B), not after launch:
 |---|---|---|
 | T2 | Live multiplayer quiz — server-side game API (join by PIN, questions without answers, scoring, host controls) | ✅ built 23 Nov (migration `20261123100000`; quiz library `/training/quizzes`, host `/training/host/:id`, players `/join`) — browser canary PASS (54a4d1f) |
 | G7b | Members log cash/bank gifts as **pending** → staff "Awaiting confirmation" queue → confirm / reject | ✅ built 23 Nov (migration `20261123110000`; member portal Give + Giving Records queue) — browser canary PASS (54a4d1f) |
-| T5 + T16 | Custom roles table + multi-role staff (one person, several roles) | 1–2 days (needs product rules) |
+| T5 + T16 | Custom roles table + multi-role staff (one person, several roles) | ✅ 23 Nov (migration `20261123140000`; rules: several roles, most generous wins, per-area templates, church admins only). Follow-up: “no access” is enforced for writes (DB) and pages (app); staff can still READ an area's data through the API — add read enforcement for sensitive areas (finance first) if required |
 | T1 | Dashboard / member / financial / activity / performance analytics RPC bodies (varchar vs uuid) | ✅ 23 Nov (migration `20261123120000`) — also fixed a NULL-unsafe guard (`assert_own_church`) that let any non-staff account through |
 | T12 | Storage-usage tracking server-side (`tenant_subscriptions.storage_used_gb`) | ✅ 23 Nov (migration `20261123130000`); server-side upload *blocking* remains a follow-up |
 | T14 | Branch logins redesigned server-side (no browser-side SHA-256 hashes) | 1–2 days |
