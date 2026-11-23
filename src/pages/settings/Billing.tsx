@@ -283,7 +283,9 @@ export default function Billing() {
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
                                 <span className="text-slate-600">
-                                  {item.unit === 'GB' && item.used < 1
+                                  {item.unit === 'GB' && item.used * 1024 < 1
+                                    ? `${Math.ceil(item.used * 1024 * 1024).toLocaleString()} KB`
+                                    : item.unit === 'GB' && item.used < 1
                                     ? `${(item.used * 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })} MB`
                                     : `${item.used.toLocaleString(undefined, { maximumFractionDigits: 2 })}${item.unit ? ` ${item.unit}` : ''}`} used
                                 </span>

@@ -428,6 +428,8 @@ Note: a second Vercel project `vestry-hub-ole7` also deploys this branch — che
 
 Typecheck 804 → 804; lint unchanged or lower in all 17 edited files; build OK; P1 165/165; P2 53/53.
 
+**Browser evidence:** `e2e/qa/staging-canary-t12-storage.spec.ts` on Preview `vestry-gc7sge241` (= `25d257c`, deployment id verified): Billing calls `refresh_storage_usage` (200; 1,432 bytes for QA Church A) and shows that server figure; 0 failed calls, 0 page errors. Display now uses KB below 1 MB.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 
