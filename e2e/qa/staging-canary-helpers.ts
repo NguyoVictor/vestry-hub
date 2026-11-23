@@ -34,3 +34,18 @@ export async function signIn(page: Page, actor: Actor) {
 }
 
 export const CANARY_TAG = process.env.PW_CANARY_TAG || `QA-CANARY-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`;
+
+/**
+ * Send the Vercel bypass headers ONLY to the Preview host. The global
+ * extraHTTPHeaders also reach Supabase, where Edge Functions with a fixed CORS
+ * allow-list reject them ("Failed to send a request to the Edge Function").
+ * Use with `test.use({ extraHTTPHeaders: {} })` in specs that call functions.
+ */
+export async function scopeBypassToPreview(page: Page) {
+  const base = process.env.PW_CANARY_BASE_URL ?? '';
+  const host = base ? new URL(base).host : '';
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '';
+  await page.route(url => url.host === host, route => route.continue({
+    headers: { ...route.request().headers(), 'x-vercel-protection-bypass': secret, 'x-vercel-set-bypass-cookie': 'true' },
+  }));
+}

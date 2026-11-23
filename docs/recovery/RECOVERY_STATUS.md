@@ -457,6 +457,8 @@ User decision: personal accounts per branch (no shared branch passwords).
 
 Evidence: rolled-back txn 14/14 (credentials cleared; assign / reassign; member, other-church staff and other-church branch refused; shared password refused; overview counts 1 staff + 1 service for the test branch; staff cannot move themselves; Church B admin cannot assign or view A; member / anon refused). Typecheck 776 → **748**; lint BranchDetail 4 → 0, Branches 15 → 5; P1 168/168; P2 53/53; build OK.
 
+**Browser evidence** (`e2e/qa/staging-canary-t14-branches.spec.ts`, Preview `vestry-honnypvcn` = `1c94617`, deployment id verified): 2/2 PASS — admin set A-STAFF's branch to “QA-CANARY North Branch” via Edit user (saved through update-user-role + the new table), the Users list shows it after reload, Settings → Branches shows the explainer, “1 staff” and the name, no `/branch-login` text; set back to All branches (DB: 0 assignments). The branch detail page redirects to the dashboard because the **Branches module is off for QA Church A** (correct behaviour; detail page not browser-verified). Harness finding: the canary config sent the Vercel bypass headers to Supabase too, which Edge Functions with a fixed CORS allow-list reject (“Failed to send a request to the Edge Function”) — not an app bug; new helper `scopeBypassToPreview` limits them to the Preview host. QA branch `qa-canary-branch-a` left in Church A for UAT.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 
