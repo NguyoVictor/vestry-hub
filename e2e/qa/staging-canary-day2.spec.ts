@@ -12,18 +12,17 @@ import { signIn, watch } from './staging-canary-helpers';
 
 test.describe.configure({ mode: 'serial' });
 
-test('T2: live quiz is hidden for launch', async ({ page }) => {
+test('T2: live quiz entry points are available', async ({ page }) => {
   const w = watch(page);
   await signIn(page, 'A_ADMIN');
   await page.goto('/training');
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
   await expect(page.getByRole('heading', { name: /Training/ }).first()).toBeVisible();
-  await expect(page.getByRole('button', { name: /Launch Live/i })).toHaveCount(0);
-  await page.goto('/training/host/canary-session');
-  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
-  await expect(page).not.toHaveURL(/\/training\/host\//);
+  // 23 Nov: the live quiz was rebuilt (T2) and is now part of launch scope;
+  // the full game is covered by staging-canary-live-quiz-gifts.spec.ts.
+  await expect(page.getByRole('button', { name: 'Launch Live Quiz' })).toBeVisible();
   await page.goto('/join/ABC123');
-  await expect(page.getByText(/Live quizzes are not available yet/)).toBeVisible();
+  await expect(page.getByLabel('Nickname')).toBeVisible();
   console.log('T2 pageErrors:', JSON.stringify(w.pageErrors));
   expect(w.pageErrors).toEqual([]);
 });

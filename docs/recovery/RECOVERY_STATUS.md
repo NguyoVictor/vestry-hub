@@ -472,6 +472,22 @@ User decision: each church uses its own (KYC-verified) IntaSend account; money g
 
 Evidence: rolled-back txn 16/16 (Vault round-trip, no plaintext in table, re-connect replaces the secret, per-church challenge, staff status without secrets, staff/admin cannot read secrets or table or store directly, other church / member refused, disconnect deletes the secret and turns giving off). Helper unit tests 8/8; P2 contracts 54/54 (per-church assertions); P1 168/168; typecheck 748 → 738; build OK. Deployed on staging: intasend-connect, process-stk-push, intasend-webhook — smoke: webhook without church 404, bad challenge 401, connect without login 401.
 
+## §17 T15 type-error backlog — batches 1–2 (23 Nov 2026)
+
+Type errors **864 → 487** across the recovery (738 → 487 today). Errors in launch-scope pages were treated as bug reports and checked against the real schema:
+
+| Real bug found | Fix |
+|---|---|
+| Member profile: staff fallback asked `users` for a non-existent `date_of_birth` (always failed); edit form read non-existent `member.street`, so the saved address never showed; approve-member button ignored read-only access | select fixed, address loaded from `members.address`, button gated (58 errors → 0) |
+| **Settings → Staff → Leave**: wrote and filtered `org_id` on leave tables that use `tenant_id` → every leave request / balance / absence query failed | `tenant_id` (browser-verified: leave request saved and listed) |
+| Backup export read non-existent columns → empty columns in backups | mapped to real columns |
+| `PermissionButton` ignored its `permission` prop (passed to the DOM) → 48 buttons never disabled for read-only staff | derives read-only from the person's level when `readOnly` is not given |
+| Dead code: PerformanceMonitor chain (4 modules imported nowhere else) | removed |
+
+Remaining 487: ~45% in the deferred media / Song Library area; PremiumBroadcastsView belongs with app email/SMS (deferred). Server-function error messages (T17) still to do.
+
+Evidence (Preview = `2fc33ff`, deployment id verified): `e2e/qa/staging-canary-t15-leave.spec.ts` PASS (request saved, listed after reload, 0 leave call failures; test data removed); regression Phase 5 read-only (write 403 while read-only / 201 after), Phase 9, Phase 10, Phase 3 ops, day-2 (updated: live quiz is now in scope) — all PASS. Note: the leave dialog lists only ACTIVE payroll staff; QA Church A's payroll records were all inactive from earlier tests (one reactivated for the test, then set back).
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 
