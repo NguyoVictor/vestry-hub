@@ -24,7 +24,7 @@ export function StaffAdditionalRoles({ tenantId, userId, mainRole, builtInOption
   // Show the tick immediately; revert if the server refuses.
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
-  const { data: assignments = [] } = useQuery({
+  const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
     queryKey: key,
     queryFn: async () => {
       const { data, error } = await supabase.from("staff_role_assignments")
@@ -85,7 +85,7 @@ export function StaffAdditionalRoles({ tenantId, userId, mainRole, builtInOption
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Custom roles</p>
             {customRoles.map(r => (
               <label key={r.id} className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="accent-orange-500" checked={hasCustom(r.id)} disabled={toggle.isPending}
+                <input type="checkbox" className="accent-orange-500" checked={hasCustom(r.id)} disabled={toggle.isPending || loadingAssignments}
                   onChange={e => toggle.mutate({ customRoleId: r.id, on: e.target.checked })} aria-label={`Custom role ${r.name}`} />
                 <span className="text-sm text-slate-700">{r.name}</span>
               </label>
@@ -97,7 +97,7 @@ export function StaffAdditionalRoles({ tenantId, userId, mainRole, builtInOption
           <div className="grid grid-cols-2 gap-1.5">
             {builtIns.map(o => (
               <label key={o.value} className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="accent-orange-500" checked={hasRole(o.value)} disabled={toggle.isPending}
+                <input type="checkbox" className="accent-orange-500" checked={hasRole(o.value)} disabled={toggle.isPending || loadingAssignments}
                   onChange={e => toggle.mutate({ role: o.value, on: e.target.checked })} aria-label={`Role ${o.label}`} />
                 <span className="text-sm text-slate-700">{o.label}</span>
               </label>

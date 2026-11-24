@@ -48,6 +48,8 @@ test('admin creates a role with Finance = No access and assigns it to staff', as
 
 test('staff with that role gets the no-access page on Finance only', async ({ page }) => {
   const w = watch(page);
+  let apikey = '';
+  page.on('request', r => { if (!apikey && new URL(r.url()).hostname.endsWith('.supabase.co')) apikey = r.headers()['apikey'] ?? ''; });
   await signIn(page, 'A_STAFF');
   await page.goto('/giving-records');
   await expect(page.getByTestId('no-access-panel')).toContainText('Financial Records');
@@ -56,13 +58,31 @@ test('staff with that role gets the no-access page on Finance only', async ({ pa
   await page.goto('/members');
   await settle(page);
   await expect(page.getByTestId('no-access-panel')).toHaveCount(0);
+  // 24 Nov: finance data is also blocked at the API (not just the pages).
+  const counts = await page.evaluate(async (apikey) => {
+    const k = Object.keys(localStorage).find(x => /^sb-.*-auth-token$/.test(x))!;
+    const v = JSON.parse(localStorage.getItem(k) as string);
+    const base = `https://${k.slice(3, k.indexOf('-auth-token'))}.supabase.co/rest/v1`;
+    const n = async (t: string) => {
+      const r = await fetch(`${base}/${t}?select=id&limit=50`, { headers: { Authorization: `Bearer ${v.access_token}`, apikey } });
+      const j = await r.json().catch(() => null); return Array.isArray(j) ? j.length : -r.status;
+    };
+    return { gifts: await n('giving_records'), payouts: await n('payouts'), budgets: await n('budgets'), members: await n('members') };
+  }, apikey);
+  console.log('API counts with finance no-access:', JSON.stringify(counts));
+  expect(counts.gifts).toBe(0);
+  expect(counts.payouts).toBe(0);
+  expect(counts.budgets).toBe(0);
+  expect(counts.members).toBeGreaterThan(0);
   expect(w.pageErrors).toEqual([]);
 });
 
 test('admin removes and deactivates the role; staff has Finance again', async ({ page, browser }, testInfo) => {
   await signIn(page, 'A_ADMIN');
   const edit = await openEditStaff(page);
-  await edit.getByRole('checkbox', { name: `Custom role ${roleName}` }).uncheck();
+  const box = edit.getByRole('checkbox', { name: `Custom role ${roleName}` });
+  await expect(box).toBeChecked(); // wait until the person's current roles have loaded
+  await box.uncheck();
   await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'Roles updated' }).first()).toBeVisible();
   await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: 'Roles' }).click();

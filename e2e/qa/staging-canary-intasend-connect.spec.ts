@@ -15,8 +15,15 @@ test('admin: fake keys are rejected by IntaSend and nothing is connected', async
   const w = watch(page);
   await signIn(page, 'A_ADMIN');
   await page.goto('/settings/payments');
+  // If the church is already connected (real account), only check the status
+  // card — never try fake keys against a live connection.
+  await expect(page.getByTestId('intasend-connect-form').or(page.getByTestId('intasend-connected'))).toBeVisible();
+  if (await page.getByTestId('intasend-connected').isVisible()) {
+    await expect(page.getByTestId('intasend-connected')).toContainText(/Live — real money|Test \(sandbox\)/);
+    console.log('IntaSend already connected for Church A — status card verified; fake-key check skipped.');
+    return;
+  }
   const form = page.getByTestId('intasend-connect-form');
-  await expect(form).toBeVisible();
   await form.getByLabel('Publishable key').fill('ISPubKey_test_vestryCanaryFake0000');
   await form.getByLabel('Secret key').fill('ISSecretKey_test_vestryCanaryFake0000');
   await form.getByRole('button', { name: 'Check and connect' }).click();
