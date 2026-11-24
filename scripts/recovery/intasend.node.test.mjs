@@ -47,3 +47,14 @@ test('webhook challenge is random and long', () => {
   assert.match(a, /^vestry_[0-9a-f]{48}$/);
   assert.notEqual(a, b);
 });
+import { verifyStatusReply } from '../../supabase/functions/_shared/intasend.ts';
+test('status reply verification (documented nested shape) and readable reasons', () => {
+  const doc = { invoice: { invoice_id: 'ABC123', state: 'COMPLETE', value: 10, currency: 'KES', api_ref: 'gift-1', provider_ref: 'QWE123RTY' } };
+  assert.deepEqual(verifyStatusReply(200, doc, 'gift-1', '10.00'), { ok: true, receipt: 'QWE123RTY' });
+  assert.equal(verifyStatusReply(200, { ...doc.invoice }, 'gift-1', 10).ok, true, 'flat reply also accepted');
+  const wrongRef = verifyStatusReply(200, doc, 'gift-2', 10);
+  assert.equal(wrongRef.ok, false); assert.match(wrongRef.reason, /api_ref_match=false/);
+  assert.match(verifyStatusReply(400, { detail: 'x' }, 'gift-1', 10).reason, /http=400 .*keys=detail/);
+  assert.match(verifyStatusReply(200, { invoice: { ...doc.invoice, state: 'PROCESSING' } }, 'gift-1', 10).reason, /state=PROCESSING/);
+  assert.match(verifyStatusReply(200, { invoice: { ...doc.invoice, value: 9 } }, 'gift-1', 10).reason, /value=9/);
+});

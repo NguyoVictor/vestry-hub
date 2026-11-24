@@ -676,12 +676,12 @@ export default function MemberGive() {
 
                   <div className="space-y-2">
                     <h3 className="text-2xl font-bold text-gray-800">
-                      {stkPushState.terminalState === 'expired' && 'Time elapsed'}
+                      {stkPushState.terminalState === 'expired' && 'Still waiting for confirmation'}
                       {stkPushState.terminalState === 'cancelled' && 'Payment cancelled'}
                       {stkPushState.terminalState === 'failed' && 'Payment failed'}
                     </h3>
                     <p className="text-gray-500 text-sm">
-                      {stkPushState.terminalState === 'expired' && 'The payment request has expired. Please try again.'}
+                      {stkPushState.terminalState === 'expired' && "We haven't received M-Pesa's confirmation yet. If you approved the payment on your phone, please don't pay again — it will appear in giving records as soon as it is confirmed."}
                       {stkPushState.terminalState === 'cancelled' && 'You cancelled the M-Pesa payment request.'}
                       {stkPushState.terminalState === 'failed' && 'The payment could not be processed. Please try again.'}
                     </p>

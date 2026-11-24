@@ -10,7 +10,7 @@
 // the endpoint; a bad challenge returns 401.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { amountMatches, intasendPost, mapState, nextStatus } from "../_shared/intasend.ts";
+import { intasendPost, mapState, nextStatus, verifyStatusReply } from "../_shared/intasend.ts";
 
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -58,13 +58,13 @@ Deno.serve(async (req) => {
     const { data: secret } = await db.rpc("intasend_secret_for_tenant", { p_tenant_id: church });
     if (typeof secret !== "string" || !secret) { await log("rejected", "church has no IntaSend key", gift.tenant_id); return json({ ok: true, ignored: "no_key" }); }
     const status = await intasendPost("/payment/status/", secret, { invoice_id: invoiceId });
-    const inv = (status.json?.invoice ?? {}) as Record<string, unknown>;
-    if (String(inv.state ?? "").toUpperCase() !== "COMPLETE" || String(inv.api_ref ?? "") !== gift.id
-        || !amountMatches(gift.amount, inv.value, inv.currency)) {
-      await log("rejected", "status API did not confirm COMPLETE with matching api_ref/amount/currency", gift.tenant_id);
+    const verdict = verifyStatusReply(status.status, status.json, gift.id, gift.amount);
+    if (!verdict.ok) {
+      // Non-sensitive facts only (no keys, no phone numbers) so a stuck gift can be diagnosed.
+      await log("rejected", `status API did not confirm: ${verdict.reason}`.slice(0, 500), gift.tenant_id);
       return json({ ok: true, ignored: "unverified" });
     }
-    receipt = typeof inv.provider_ref === "string" ? inv.provider_ref : (typeof body.mpesa_reference === "string" ? body.mpesa_reference : null);
+    receipt = verdict.receipt ?? (typeof body.mpesa_reference === "string" ? body.mpesa_reference : null);
   }
 
   const update: Record<string, unknown> = { payment_status: target };

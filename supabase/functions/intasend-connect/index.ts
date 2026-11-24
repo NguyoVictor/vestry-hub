@@ -7,10 +7,13 @@
 //       challenge (shown ONCE — paste both into IntaSend → Settings → Webhooks).
 //   POST { action: "new_challenge", tenant_id } → a fresh challenge (shown once).
 //   POST { action: "disconnect", tenant_id } → secret deleted, giving off.
+//   POST { action: "recheck", tenant_id, gift_id } → re-asks IntaSend about ONE pending
+//     M-Pesa gift of this church (missed / rejected confirmation) and confirms it
+//     with the same checks as the webhook, or returns the non-sensitive reason.
 // Keys are never logged or returned.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { intasendGet, keyPairEnv, newChallenge } from "../_shared/intasend.ts";
+import { intasendGet, intasendPost, keyPairEnv, newChallenge, verifyStatusReply } from "../_shared/intasend.ts";
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +50,35 @@ Deno.serve(async (req) => {
     const { error } = await db.rpc("intasend_clear_credentials", { p_tenant_id: tenantId });
     if (error) { console.error("intasend-connect: clear failed", error.code); return reply({ error: "Could not disconnect." }, 500); }
     return reply({ ok: true, connected: false });
+  }
+
+  if (action === "recheck") {
+    const giftId = typeof body?.gift_id === "string" ? body.gift_id : "";
+    const { data: gift } = await db.from("giving_records")
+      .select("id, tenant_id, amount, payment_status, intasend_invoice_id, payment_provider")
+      .eq("id", giftId).eq("tenant_id", tenantId).maybeSingle();
+    if (!gift || gift.payment_provider !== "intasend" || !gift.intasend_invoice_id) return reply({ error: "M-Pesa gift not found for this church." }, 404);
+    if (gift.payment_status === "confirmed") return reply({ ok: true, payment_status: "confirmed", detail: "already confirmed" });
+    const { data: secret } = await db.rpc("intasend_secret_for_tenant", { p_tenant_id: tenantId });
+    if (typeof secret !== "string" || !secret) return reply({ error: "IntaSend is not connected for this church." }, 409);
+    const status = await intasendPost("/payment/status/", secret, { invoice_id: gift.intasend_invoice_id });
+    const verdict = verifyStatusReply(status.status, status.json, gift.id, gift.amount);
+    const state = String(((status.json?.invoice ?? status.json ?? {}) as Record<string, unknown>).state ?? "").toUpperCase() || "UNKNOWN";
+    if (!verdict.ok) {
+      await db.from("payment_events").upsert({ provider: "intasend", invoice_id: gift.intasend_invoice_id, state: `RECHECK_${state}`,
+        api_ref: gift.id, tenant_id: tenantId, outcome: "rejected", detail: `recheck: ${verdict.reason}`.slice(0, 500) },
+        { onConflict: "provider,invoice_id,state", ignoreDuplicates: false });
+      return reply({ ok: false, payment_status: gift.payment_status, detail: verdict.reason });
+    }
+    const update: Record<string, unknown> = { payment_status: "confirmed" };
+    if (verdict.receipt) update.mpesa_receipt = verdict.receipt;
+    const { data: changed, error } = await db.from("giving_records").update(update)
+      .eq("id", gift.id).eq("payment_status", gift.payment_status).select("id");
+    if (error) return reply({ error: "Could not update the gift." }, 500);
+    await db.from("payment_events").upsert({ provider: "intasend", invoice_id: gift.intasend_invoice_id, state: "RECHECK_COMPLETE",
+      api_ref: gift.id, tenant_id: tenantId, outcome: "applied", detail: `recheck: ${gift.payment_status} → confirmed` },
+      { onConflict: "provider,invoice_id,state", ignoreDuplicates: false });
+    return reply({ ok: true, payment_status: changed?.length ? "confirmed" : gift.payment_status, receipt: verdict.receipt });
   }
 
   if (action === "new_challenge") {

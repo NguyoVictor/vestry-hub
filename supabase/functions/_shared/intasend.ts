@@ -96,3 +96,23 @@ export async function intasendGet(path: string, secretKey: string): Promise<{ st
   const r = await fetch(`${INTASEND_API}${path}`, { headers: { Authorization: `Bearer ${secretKey}` } });
   return { status: r.status, json: await r.json().catch(() => null) };
 }
+
+/**
+ * Decide whether an IntaSend status reply (POST /payment/status/) confirms a
+ * gift. Shared by the webhook and the manual re-check. Returns a short,
+ * non-sensitive reason when it does not (stored in payment_events.detail).
+ */
+export function verifyStatusReply(
+  httpStatus: number, json: Record<string, unknown> | null, giftId: string, giftAmount: number | string,
+): { ok: true; receipt: string | null } | { ok: false; reason: string } {
+  const inv = (json?.invoice ?? json ?? {}) as Record<string, unknown>;
+  const state = String(inv.state ?? "").toUpperCase();
+  const apiRefOk = String(inv.api_ref ?? "") === giftId;
+  const amountOk = amountMatches(giftAmount, inv.value, inv.currency);
+  if (httpStatus >= 300 || state !== "COMPLETE" || !apiRefOk || !amountOk) {
+    return { ok: false, reason: `http=${httpStatus} state=${state || "?"} api_ref_match=${apiRefOk} value=${String(inv.value ?? "?")} currency=${String(inv.currency ?? "?")} keys=${Object.keys(json ?? {}).slice(0, 8).join("|")}` };
+  }
+  const receipt = typeof inv.provider_ref === "string" && inv.provider_ref ? inv.provider_ref
+    : typeof inv.mpesa_reference === "string" && inv.mpesa_reference ? inv.mpesa_reference : null;
+  return { ok: true, receipt };
+}

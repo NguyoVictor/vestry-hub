@@ -41,12 +41,19 @@ test('IntaSend webhook authenticates, re-verifies with the status API and never 
   assert.match(intasendWebhook, /rpc\(["']intasend_secret_for_tenant["']/, 're-verified with the church\'s own key');
   assert.doesNotMatch(intasendWebhook, /INTASEND_SECRET_KEY|INTASEND_WEBHOOK_CHALLENGE/);
   assert.match(intasendWebhook, /\/payment\/status\//, 'confirmation via status API');
-  assert.match(intasendWebhook, /amountMatches\(/);
+  assert.match(intasendWebhook, /verifyStatusReply\(/, 'state + api_ref + amount + currency checked (shared, unit-tested)');
   assert.match(intasendWebhook, /nextStatus\(/, 'no downgrade of confirmed gifts');
   assert.match(intasendWebhook, /\.eq\(["']payment_status["'], gift\.payment_status\)/, 'optimistic update');
   assert.match(functionConfig, /\[functions\.intasend-webhook\]\s*\nverify_jwt = false/);
   assert.match(functionConfig, /\[functions\.process-stk-push\]\s*\nverify_jwt = true/);
   assert.match(functionConfig, /\[functions\.intasend-connect\]\s*\nverify_jwt = true/);
+});
+
+test('intasend-connect recheck: one gift of this church, same verification as the webhook', () => {
+  assert.match(connect, /action === "recheck"/);
+  assert.match(connect, /\.eq\("tenant_id", tenantId\)/);
+  assert.match(connect, /verifyStatusReply\(/);
+  assert.match(connect, /\.eq\("payment_status", gift\.payment_status\)/, 'optimistic update');
 });
 
 test('intasend-connect: church admins only, keys verified with IntaSend, never returned or logged', () => {
