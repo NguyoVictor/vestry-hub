@@ -71,7 +71,7 @@ describe('P1 A5 Announcements + Surveys contract', () => {
     expect(member).toContain('.eq("tenant_id", member.churchId)');
     expect(take).toContain('submit_survey_response');
     expect(take).toContain('p_responses: answers as any');
-    expect(take).toContain('const questions: Question[] = Array.isArray(survey.questions) ? survey.questions : []');
+    expect(take).toContain('const questions: Question[] = Array.isArray(survey.questions) ? (survey.questions as unknown as Question[]) : []');
     expect(responses).toContain('const questions: any[] = Array.isArray(survey.questions) ? survey.questions : []');
     expect(migrations).toContain('create or replace function private.member_can_view_survey');
     expect(migrations).toMatch(/s\.target_audience\s*=\s*'group'/);

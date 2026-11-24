@@ -795,7 +795,7 @@ function ViewIncidentSheet({ open, onOpenChange, incident, tenantId }: ViewSheet
         .eq("tenant_id", tenantId)
         .order("changed_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as StatusLog[];
+      return (data ?? []) as unknown as StatusLog[];
     },
     enabled: !!incident?.id && open,
     staleTime: 300000,
@@ -1248,7 +1248,7 @@ export default function IncidentManagement() {
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Incident[];
+      return (data ?? []) as unknown as Incident[];
     },
     staleTime: 300000,
   });

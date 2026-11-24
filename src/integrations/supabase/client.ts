@@ -24,7 +24,7 @@ function currentMemberSessionToken(): string | null {
   }
 }
 
-const memberSessionFetch: typeof fetch = (input, init = {}) => {
+const memberSessionFetch: typeof fetch = (input, init: RequestInit = {}) => {
   const headers = new Headers(
     typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
   );

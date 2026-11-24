@@ -15,6 +15,7 @@ export interface CommentNode {
     last_name: string;
     avatar_url: string | null;
   };
+  parent_id?: string | null;
   replies: CommentNode[];
 }
 
@@ -52,7 +53,7 @@ function CommentItem({ comment, currentMemberId, onAddComment, depth = 0 }: Comm
         {!comment.is_deleted && (
           <MemberAvatar
             name={authorName}
-            src={comment.author.avatar_url ?? undefined}
+            avatarUrl={comment.author.avatar_url}
             size="sm"
           />
         )}

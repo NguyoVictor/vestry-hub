@@ -588,8 +588,8 @@ export default function MemberLessonPlayer() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 25, delay: 0.2 }}
         >
-          {lesson.flashcards && lesson.flashcards.length > 0 ? (
-            <FlashcardPlayer flashcards={lesson.flashcards} ageGroup={ageGroup} />
+          {Array.isArray(lesson.flashcards) && lesson.flashcards.length > 0 ? (
+            <FlashcardPlayer flashcards={lesson.flashcards as unknown[]} ageGroup={ageGroup} />
           ) : (
             <LessonContent lesson={lesson} ageGroup={ageGroup} />
           )}

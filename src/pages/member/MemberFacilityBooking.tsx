@@ -729,7 +729,7 @@ export default function MemberFacilityBooking() {
         .neq("is_active", false)
         .order("name");
       if (error) throw error;
-      return (data ?? []) as Facility[];
+      return (data ?? []) as unknown as Facility[];
     },
     staleTime: 300000,
   });

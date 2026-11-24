@@ -184,7 +184,7 @@ export default function NotificationsSettings() {
         .eq(COLS.ID, tenantId)
         .single();
       if (error) throw error;
-      return data as Record<string, boolean | string | number | null>;
+      return data as unknown as Record<string, boolean | string | number | null>;
     },
     enabled: !!tenantId,
     staleTime: 60_000,

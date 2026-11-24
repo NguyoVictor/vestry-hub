@@ -286,7 +286,7 @@ export default function Outreach() {
           description: `Outreach activity conducted at ${form.location || "location not specified"} on ${format(new Date(form.activity_date), "dd MMM yyyy")}. ${form.follow_up_count} people require follow-up contact.`,
           assigned_to: form.team_leader_id,
           due_date: format(followUpDate, "yyyy-MM-dd"),
-          status: "pending",
+          status: "open" as const, // task_status_enum: open | in_progress | completed | cancelled
           created_by: userId,
         };
         

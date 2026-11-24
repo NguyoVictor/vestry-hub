@@ -170,8 +170,7 @@ export default function GroupTypes() {
       setSeeding(true);
       supabase.from(TABLES.GROUP_TYPES)
         .insert(DEFAULTS.map(d => ({ ...d, tenant_id: tenantId, is_active: true })) as never)
-        .then(() => { qc.invalidateQueries({ queryKey: ["group-types", tenantId] }); setSeeding(false); })
-        .catch(() => setSeeding(false));
+        .then(() => { qc.invalidateQueries({ queryKey: ["group-types", tenantId] }); setSeeding(false); }, () => setSeeding(false));
     }
   }, [isLoading, types.length]); // eslint-disable-line react-hooks/exhaustive-deps
 

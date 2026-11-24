@@ -675,10 +675,10 @@ export default function MemberPledgeCampaigns() {
                   >
                     <Label className="text-sm font-semibold text-gray-700 mb-3 block">Payment Method</Label>
                     <div className="grid grid-cols-2 gap-3">
-                      {[
+                      {([
                         ['mpesa', 'M-Pesa', Smartphone],
                         ['cash', 'Cash', DollarSign]
-                      ].map(([value, label, Icon]) => (
+                      ] as const).map(([value, label, Icon]) => (
                         <motion.button
                           key={value}
                           whileHover={{ scale: 1.05 }}

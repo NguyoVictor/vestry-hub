@@ -169,8 +169,7 @@ export default function MediaCategories() {
       setSeeding(true);
       supabase.from(TABLES.MEDIA_CATEGORIES)
         .insert(DEFAULTS.map(d => ({ ...d, tenant_id: tenantId, status: "active" })) as never)
-        .then(() => { qc.invalidateQueries({ queryKey: ["media-categories", tenantId] }); setSeeding(false); })
-        .catch(() => setSeeding(false));
+        .then(() => { qc.invalidateQueries({ queryKey: ["media-categories", tenantId] }); setSeeding(false); }, () => setSeeding(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, categories.length]); // primitives only — no object refs

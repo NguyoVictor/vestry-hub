@@ -306,7 +306,7 @@ export default function SurveyTakePage() {
   );
 
   const church = (survey as any).tenants;
-  const questions: Question[] = Array.isArray(survey.questions) ? survey.questions : [];
+  const questions: Question[] = Array.isArray(survey.questions) ? (survey.questions as unknown as Question[]) : [];
   const isClosed = !survey.is_published || (survey.closing_date && new Date(survey.closing_date) < new Date());
 
   // Closed state

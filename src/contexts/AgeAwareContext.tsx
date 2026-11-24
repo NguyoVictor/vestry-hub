@@ -60,7 +60,7 @@ export const getAgeStyles = (ageGroup: AgeGroup) => {
         titleSize: "text-3xl",
         spacing: "gap-6",
         padding: "p-6",
-        animation: { scale: 1.05, transition: { type: "spring", stiffness: 400, damping: 25 } }
+        animation: { scale: 1.05, transition: { type: "spring" as const, stiffness: 400, damping: 25 } }
       };
     case 'teens':
       return {
@@ -75,7 +75,7 @@ export const getAgeStyles = (ageGroup: AgeGroup) => {
         titleSize: "text-2xl",
         spacing: "gap-4",
         padding: "p-5",
-        animation: { scale: 1.02, transition: { type: "spring", stiffness: 400, damping: 25 } }
+        animation: { scale: 1.02, transition: { type: "spring" as const, stiffness: 400, damping: 25 } }
       };
     case 'adults':
       return {
@@ -90,7 +90,7 @@ export const getAgeStyles = (ageGroup: AgeGroup) => {
         titleSize: "text-xl",
         spacing: "gap-3",
         padding: "p-4",
-        animation: { scale: 1.01, transition: { type: "spring", stiffness: 400, damping: 25 } }
+        animation: { scale: 1.01, transition: { type: "spring" as const, stiffness: 400, damping: 25 } }
       };
   }
 };

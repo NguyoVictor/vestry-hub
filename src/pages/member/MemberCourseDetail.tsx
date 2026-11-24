@@ -416,9 +416,9 @@ export default function MemberCourseDetail() {
               ageGroup === 'teens' ? "w-full lg:w-56 h-40" :
               "w-full lg:w-48 h-32"
             )}>
-              {course.thumbnail_url ? (
+              {course.cover_image_url ? (
                 <img 
-                  src={course.thumbnail_url} 
+                  src={course.cover_image_url} 
                   alt={course.title}
                   className="w-full h-full object-cover"
                 />
@@ -452,7 +452,7 @@ export default function MemberCourseDetail() {
                   <div className="flex items-center gap-4 mb-3">
                     <div className={cn("flex items-center gap-1", colors.textSecondary)}>
                       <Clock className="h-4 w-4" />
-                      <span className="text-sm">{course.estimated_duration || '2 hours'}</span>
+                      <span className="text-sm">{course.total_duration_minutes ? `${Math.round(course.total_duration_minutes / 6) / 10} hours` : '—'}</span>
                     </div>
                     <div className={cn("flex items-center gap-1", colors.textSecondary)}>
                       <Users className="h-4 w-4" />

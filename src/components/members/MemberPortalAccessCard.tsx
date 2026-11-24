@@ -45,7 +45,7 @@ export function MemberPortalAccessCard({ memberId, tenantId, email, canManage }:
     if (result.ok) {
       toast.success("Member Portal access is ready.");
     } else {
-      const message = describeProvisioningError(result.error);
+      const message = describeProvisioningError(result.ok === false ? result.error : '');
       setLastError(message);
       toast.error(`Portal access setup failed: ${message}`);
     }

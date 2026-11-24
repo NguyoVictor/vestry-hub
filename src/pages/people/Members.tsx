@@ -164,7 +164,7 @@ const Members = () => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
       toast.success(`${values.first_name} ${values.last_name} added successfully`);
       if (portal && portal.ok) toast.success("Member Portal access is ready. The member can sign in with their email and church access code.");
-      if (portal && !portal.ok) toast.warning(`Member saved, but Member Portal access setup failed: ${describeProvisioningError(portal.error)} Retry from the member profile.`, { duration: 10000 });
+      if (portal && !portal.ok) toast.warning(`Member saved, but Member Portal access setup failed: ${describeProvisioningError(portal.ok === false ? portal.error : '')} Retry from the member profile.`, { duration: 10000 });
       setSheetOpen(false); form.reset();
       captureEvent("member_created");
       logActivity({ churchId: tenantId!, actionType: "new_member", description: `${values.first_name} ${values.last_name} was added`, entityType: "member", entityName: `${values.first_name} ${values.last_name}` });

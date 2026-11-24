@@ -75,7 +75,6 @@ export default function MemberAlbumDetail() {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-slate-900 font-jakarta">{album?.name ?? "Album"}</h1>
-                {album?.description && <p className="text-sm text-slate-500 font-jakarta mt-0.5">{album.description}</p>}
               </div>
               <span className="ml-auto text-xs text-slate-400 font-jakarta">{media.length} item{media.length !== 1 ? "s" : ""}</span>
             </div>

@@ -144,7 +144,7 @@ export function MemberSermonDetail() {
         {/* Player */}
         {sermon.media_url && (
           <div className="rounded-2xl overflow-hidden bg-black aspect-video">
-            <ReactPlayer url={sermon.media_url} width="100%" height="100%" controls />
+            <ReactPlayer src={sermon.media_url} width="100%" height="100%" controls />
           </div>
         )}
 

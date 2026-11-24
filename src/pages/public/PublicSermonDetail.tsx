@@ -20,7 +20,7 @@ export default function PublicSermonDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('name, logo, primary_color')
+        .select('name, logo')
         .eq('id', tenantId!)
         .single();
       if (error) throw error;
@@ -219,11 +219,11 @@ export default function PublicSermonDetail() {
           )}
 
           {/* Description */}
-          {sermon.description && (
+          {sermon.introduction && (
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 mb-6">
-              <h3 className="font-semibold text-slate-900 dark:text-white mb-3 font-jakarta">Description</h3>
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-3 font-jakarta">Introduction</h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed font-jakarta whitespace-pre-wrap">
-                {sermon.description}
+                {sermon.introduction}
               </p>
             </div>
           )}

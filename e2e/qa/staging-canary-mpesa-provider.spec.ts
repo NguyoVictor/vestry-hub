@@ -45,3 +45,13 @@ test('Church A admin: the connected IntaSend status card shows (read-only)', asy
   await expect(page.getByTestId('intasend-connected')).toContainText(/M-Pesa via IntaSend/, { timeout: 30_000 });
   await expect(page.getByTestId('provider-choice')).toHaveCount(0);
 });
+
+test('Church A admin: the M-Pesa connection guide shows all three paths', async ({ page }) => {
+  await signIn(page, 'A_ADMIN');
+  await page.goto('/settings/payments');
+  const guide = page.getByTestId('mpesa-connect-guide');
+  await expect(guide).toBeVisible({ timeout: 30_000 });
+  for (const id of ['guide-intasend', 'guide-intasend-own-shortcode', 'guide-daraja']) await expect(guide.getByTestId(id)).toBeVisible();
+  await guide.getByTestId('guide-daraja').locator('summary').click();
+  await expect(guide.getByTestId('guide-daraja')).toContainText('developer.safaricom.co.ke');
+});

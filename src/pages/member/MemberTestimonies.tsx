@@ -303,7 +303,7 @@ export default function MemberTestimonies() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_member_published_testimonies', { p_tenant_id: member.churchId });
       if (error) throw error;
-      return (Array.isArray(data) ? data : []) as TestimonyWithRelations[];
+      return (Array.isArray(data) ? data : []) as unknown as TestimonyWithRelations[];
     },
     staleTime: 300_000,
   });

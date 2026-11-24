@@ -506,7 +506,7 @@ export function MemberEventDetail() {
           <Link to="/member/events"><ArrowLeft className="h-4 w-4" />Events & Services</Link>
         </Button>
         <div className="h-48 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl overflow-hidden">
-          {event.banner_url && <img src={event.banner_url} alt={event.title} className="w-full h-full object-cover" />}
+          {event.banner_image_url && <img src={event.banner_image_url} alt={event.title} className="w-full h-full object-cover" />}
         </div>
         <div className="space-y-3">
           <h1 className="text-2xl font-bold">{event.title}</h1>

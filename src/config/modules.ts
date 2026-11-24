@@ -47,11 +47,12 @@ export type MemberModuleKey =
   | "resource_store"
   | "children";
 
-export interface CanonicalModuleConfig {
+// A type alias (not an interface) so it is assignable to the jsonb column type.
+export type CanonicalModuleConfig = {
   version: typeof MODULE_CONFIG_VERSION;
   admin: Record<AdminModuleKey, boolean>;
   member_portal: Record<MemberModuleKey, boolean>;
-}
+};
 
 export interface AdminModuleDefinition {
   key: AdminModuleKey;

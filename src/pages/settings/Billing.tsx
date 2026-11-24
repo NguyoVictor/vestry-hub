@@ -202,10 +202,10 @@ export default function Billing() {
                       >
                         <Card 
                           className={`relative h-full ${isCurrent ? 'ring-2' : 'hover:shadow-lg transition-shadow'}`}
-                          style={isCurrent ? { 
-                            ringColor: planData.color,
+                          style={isCurrent ? ({
+                            '--tw-ring-color': planData.color,
                             backgroundColor: planData.color + '05'
-                          } : {}}
+                          } as React.CSSProperties) : undefined}
                         >
                           <CardHeader className="pb-4">
                             <div className="flex items-center justify-between">

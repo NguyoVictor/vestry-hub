@@ -13,12 +13,14 @@ interface AnimatedNumberProps {
     duration?: number
     easing?: string
   }
+  className?: string
 }
 
 export function AnimatedNumber({ 
   value, 
   format = {}, 
-  transformTiming = { duration: 1000, easing: 'ease-out' } 
+  transformTiming = { duration: 1000, easing: 'ease-out' },
+  className,
 }: AnimatedNumberProps) {
   const [displayValue, setDisplayValue] = useState(0)
 
@@ -64,6 +66,7 @@ export function AnimatedNumber({
 
   return (
     <motion.span
+      className={className}
       key={value}
       initial={{ scale: 1.1 }}
       animate={{ scale: 1 }}

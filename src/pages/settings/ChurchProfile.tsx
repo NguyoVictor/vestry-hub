@@ -26,7 +26,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { toast } from "sonner";
 import { Loader2, Upload, X, Check, QrCode } from "lucide-react";
 import { countries } from "@/lib/country-currency";
-import { TABLES } from "@/lib/schema";
 import { ChurchQRModal } from "@/components/shared/ChurchQRModal";
 import { refreshStorageUsage } from "@/lib/storageUsage";
 
@@ -210,9 +209,6 @@ const ChurchProfile = () => {
         <ChurchQRModal
           open={qrOpen}
           onClose={() => setQrOpen(false)}
-          churchName={tenant.name || ""}
-          churchCode={tenant.church_code || ""}
-          churchSlug={tenant.slug || ""}
         />
       )}
 

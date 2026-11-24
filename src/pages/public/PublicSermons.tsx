@@ -25,7 +25,7 @@ export default function PublicSermons() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenants')
-        .select('name, logo, primary_color')
+        .select('name, logo')
         .eq('id', tenantId!)
         .single();
       if (error) throw error;

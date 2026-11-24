@@ -95,7 +95,7 @@ function ReadOnlyCommentItem({ comment, depth = 0 }: { comment: CommentNode; dep
         {!comment.is_deleted && (
           <MemberAvatar
             name={authorName}
-            src={comment.author.avatar_url ?? undefined}
+            avatarUrl={comment.author.avatar_url}
             size="sm"
             className="shrink-0 mt-0.5"
           />

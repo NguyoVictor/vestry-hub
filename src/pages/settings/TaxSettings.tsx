@@ -612,11 +612,20 @@ function StatementsTab({ tenantId, isConfigured, taxSettings, currency }: {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(TABLES.TAX_STATEMENTS)
-        .select("*, members(first_name, last_name, email)")
+        .select("*")
         .eq("tenant_id", tenantId)
         .order("generated_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as TaxStatement[];
+      // tax_statements has no foreign key to members, so the member details are
+      // loaded separately (an embedded members(...) select fails).
+      const rows = (data ?? []) as unknown as TaxStatement[];
+      const ids = [...new Set(rows.map((r) => r.member_id).filter(Boolean))];
+      if (!ids.length) return rows;
+      const { data: people, error: peopleError } = await supabase
+        .from(TABLES.MEMBERS).select("id, first_name, last_name, email").eq("tenant_id", tenantId).in("id", ids);
+      if (peopleError) throw peopleError;
+      const byId = new Map((people ?? []).map((m) => [m.id, m]));
+      return rows.map((r) => ({ ...r, members: byId.get(r.member_id) ?? null }));
     },
     staleTime: 60_000,
   });

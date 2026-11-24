@@ -498,7 +498,7 @@ const Dashboard = () => {
                   tickLine={false}
                   tickFormatter={(v) => `KSh ${v.toLocaleString()}`}
                 />
-                <Tooltip 
+                <RechartsTooltip
                   contentStyle={{
                     background: "#ffffff",
                     border: "1px solid #E5E7EB",
@@ -506,7 +506,7 @@ const Dashboard = () => {
                     boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
                     fontSize: "13px"
                   }}
-                  formatter={(value: number) => [`KSh ${value.toLocaleString()}`, "Total"]}
+                  formatter={(value) => [`KSh ${Number(value).toLocaleString()}`, "Total"]}
                 />
                 <Area
                   type="monotone"
@@ -846,7 +846,7 @@ const Dashboard = () => {
                       />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <RechartsTooltip
                     contentStyle={{
                       background: "#ffffff",
                       border: "1px solid #E5E7EB",

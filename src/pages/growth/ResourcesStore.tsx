@@ -394,7 +394,7 @@ function AddResourceForm({ tenantId, editProduct, onClose, onSaved }: {
         const { error } = await supabase.from(TABLES.STORE_PRODUCTS).update(payload).eq(COLS.ID, editProduct.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from(TABLES.STORE_PRODUCTS).insert(payload);
+        const { error } = await supabase.from(TABLES.STORE_PRODUCTS).insert(payload as never);
         if (error) throw error;
       }
 
@@ -2228,7 +2228,8 @@ function ShippingTab({ tenantId }: { tenantId: string }) {
         .eq(COLS.ID, tenantId)
         .single();
       if (error) throw error;
-      return data;
+      // store_settings is a jsonb object
+      return data as { store_settings: Record<string, unknown> & { shipping?: typeof settings } | null };
     },
     enabled: !!tenantId,
     staleTime: 300000,

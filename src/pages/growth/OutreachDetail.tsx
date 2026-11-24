@@ -64,7 +64,10 @@ export default function OutreachDetail() {
     </div>
   );
 
-  const impactScore = (activity.people_reached || 0) + (activity.volunteer_ids?.length || 0) * 2;
+  // volunteer_ids / photo_urls are jsonb arrays
+  const volunteerIds: string[] = Array.isArray(activity.volunteer_ids) ? (activity.volunteer_ids as string[]) : [];
+  const photoUrls: string[] = Array.isArray(activity.photo_urls) ? (activity.photo_urls as string[]) : [];
+  const impactScore = (activity.people_reached || 0) + volunteerIds.length * 2;
   const badge = impactBadge(impactScore);
   const conversionRate = activity.people_reached > 0 ? ((activity.salvations / activity.people_reached) * 100).toFixed(1) : "0";
 
@@ -74,7 +77,7 @@ export default function OutreachDetail() {
     { name: "Visitors", value: activity.visitors_captured || 0, fill: "#7C3AED" },
   ];
 
-  const volunteerMembers = members.filter((m: any) => activity.volunteer_ids?.includes(m.id));
+  const volunteerMembers = members.filter((m: any) => volunteerIds.includes(m.id));
   const teamLeader = members.find((m: any) => m.id === activity.team_leader_id);
 
   return (
@@ -124,7 +127,7 @@ export default function OutreachDetail() {
                   { label: "People Reached", value: activity.people_reached || 0, icon: Users, color: "indigo" },
                   { label: "Salvations", value: activity.salvations || 0, icon: Heart, color: "emerald" },
                   { label: "Visitors Captured", value: activity.visitors_captured || 0, icon: Users, color: "violet" },
-                  { label: "Volunteers", value: activity.volunteer_ids?.length || 0, icon: Users, color: "amber" },
+                  { label: "Volunteers", value: volunteerIds.length || 0, icon: Users, color: "amber" },
                 ].map(({ label, value, icon: Icon, color }) => (
                   <div key={label} className="text-center">
                     <p className={`text-3xl font-bold text-${color}-600`}>{value}</p>
@@ -152,12 +155,12 @@ export default function OutreachDetail() {
           </Card>
 
           {/* Photos */}
-          {activity.photo_urls && activity.photo_urls.length > 0 && (
+          {photoUrls.length > 0 && (
             <Card>
               <CardHeader><CardTitle>Photos</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {(activity.photo_urls as string[]).map((url, i) => (
+                  {photoUrls.map((url, i) => (
                     <img key={i} src={url} alt={`Photo ${i + 1}`} className="rounded-lg object-cover aspect-square cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(url, "_blank")} />
                   ))}
                 </div>
@@ -217,7 +220,7 @@ export default function OutreachDetail() {
               <p className="text-sm text-muted-foreground mt-3">Score: {impactScore}</p>
               <div className="text-xs text-muted-foreground mt-2 space-y-1">
                 <p>People reached × 1 = {activity.people_reached || 0}</p>
-                <p>Volunteers × 2 = {(activity.volunteer_ids?.length || 0) * 2}</p>
+                <p>Volunteers × 2 = {(volunteerIds.length || 0) * 2}</p>
               </div>
             </CardContent>
           </Card>

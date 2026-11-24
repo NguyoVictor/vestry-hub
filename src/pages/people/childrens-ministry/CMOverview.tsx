@@ -240,7 +240,7 @@ export default function CMOverview() {
         </div>
       </PageTransition>
 
-      <RegisterChildModal open={registerOpen} onClose={() => setRegisterOpen(false)} />
+      <RegisterChildModal open={registerOpen} onClose={() => setRegisterOpen(false)} readOnly={readOnly} />
     </>
   );
 }

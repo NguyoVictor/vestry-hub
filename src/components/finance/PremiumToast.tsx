@@ -228,7 +228,7 @@ export function PremiumToastContainer() {
     const unsubscribe = premiumToast.subscribe(() => {
       setToasts(premiumToast.getToasts())
     })
-    return unsubscribe
+    return () => { unsubscribe() }
   }, [])
 
   return (

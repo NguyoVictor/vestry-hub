@@ -35,7 +35,8 @@ import { format, startOfMonth, startOfYear } from "date-fns";
 import { toUserFacingError } from "@/lib/userFacingError";
 
 const GIVING_CATEGORIES = ["tithe", "offering", "pledge_payment", "special_donation"] as const;
-const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "cheque", "other"] as const;
+// Must match payment_method_enum (cash, mpesa, bank_transfer, cheque) — "other" was rejected by the database.
+const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "cheque"] as const;
 
 // ── Shared animation variants ─────────────────────────────────────────────────
 const pageVariants = {
@@ -824,11 +825,13 @@ const GiveOnline = () => {
         tenant_id: tenantId,
         member_id: isAnonymous ? null : (form.member_id || null),
         amount: parseFloat(form.amount),
-        giving_type: form.giving_type,
-        payment_method: form.payment_method,
+        giving_type: form.giving_type as (typeof GIVING_CATEGORIES)[number],
+        payment_method: form.payment_method as (typeof PAYMENT_METHODS)[number],
         given_at: form.given_at,
         recorded_by: userId,
         currency: currency || "KES",
+        // The M-Pesa reference typed in the form used to be dropped.
+        mpesa_receipt: form.payment_method === "mpesa" && form.payment_reference.trim() ? form.payment_reference.trim().toUpperCase() : null,
       };
       if (isAnonymous || !form.member_id) delete payload.member_id;
       const { error } = await supabase.from("giving_records").insert(payload);

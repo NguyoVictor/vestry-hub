@@ -853,7 +853,7 @@ export default function DiscipleshipResources() {
       try {
         const payload = await buildPayload();
         payload.tenant_id = tenantId;
-        const { error } = await supabase.from(TABLES.DISCIPLESHIP_RESOURCES).insert(payload);
+        const { error } = await supabase.from(TABLES.DISCIPLESHIP_RESOURCES).insert(payload as never);
         if (error) throw error;
       } finally { setUploading(false); }
     },
