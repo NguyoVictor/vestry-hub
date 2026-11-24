@@ -58,3 +58,13 @@ test('status reply verification (documented nested shape) and readable reasons',
   assert.match(verifyStatusReply(200, { invoice: { ...doc.invoice, state: 'PROCESSING' } }, 'gift-1', 10).reason, /state=PROCESSING/);
   assert.match(verifyStatusReply(200, { invoice: { ...doc.invoice, value: 9 } }, 'gift-1', 10).reason, /value=9/);
 });
+
+test('fee on top (CUSTOMER-PAYS): KES 10 gift, value 11, net 10 is confirmed; a short payment is not', () => {
+  const inv = (value, net) => ({ invoice: { state: 'COMPLETE', api_ref: 'g', currency: 'KES', value, net_amount: net, charges: 1, provider_ref: 'R1' } });
+  assert.equal(verifyStatusReply(200, inv(11, 10), 'g', '10.00').ok, true, 'giver paid the fee');
+  assert.equal(verifyStatusReply(200, inv(11, 10.67), 'g', '10.00').ok, true, 'real first live test: value 11, net 10.67');
+  assert.equal(verifyStatusReply(200, inv(50, 48.5), 'g', 10).ok, false, 'charged far more than gift + fee');
+  assert.equal(verifyStatusReply(200, inv(10, 9.7), 'g', 10).ok, true, 'church paid the fee');
+  const short = verifyStatusReply(200, inv(9, 8.7), 'g', 10);
+  assert.equal(short.ok, false); assert.match(short.reason, /value=9 net=8.7 charges=1/);
+});

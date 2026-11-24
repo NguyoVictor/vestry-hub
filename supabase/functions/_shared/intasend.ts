@@ -108,9 +108,18 @@ export function verifyStatusReply(
   const inv = (json?.invoice ?? json ?? {}) as Record<string, unknown>;
   const state = String(inv.state ?? "").toUpperCase();
   const apiRefOk = String(inv.api_ref ?? "") === giftId;
-  const amountOk = amountMatches(giftAmount, inv.value, inv.currency);
+  // Either the giver was charged exactly the gift (church pays the fee:
+  // BUSINESS-PAYS), or the fee was added on top (CUSTOMER-PAYS, IntaSend's
+  // default): the church then receives AT LEAST the gift and the charge stays
+  // within the fee range (3 % rounded up to a whole shilling). First live test:
+  // KES 10 gift → value 11, charges 0.33, net 10.67.
+  const gift = Number(giftAmount), value = Number(inv.value), net = Number(inv.net_amount);
+  const kes = String(inv.currency ?? "KES").toUpperCase() === "KES";
+  const feeOnTop = kes && Number.isFinite(net) && Number.isFinite(value)
+    && net >= gift - 0.005 && value >= gift && value <= Math.ceil(gift * 1.05) + 1;
+  const amountOk = amountMatches(giftAmount, inv.value, inv.currency) || feeOnTop;
   if (httpStatus >= 300 || state !== "COMPLETE" || !apiRefOk || !amountOk) {
-    return { ok: false, reason: `http=${httpStatus} state=${state || "?"} api_ref_match=${apiRefOk} value=${String(inv.value ?? "?")} currency=${String(inv.currency ?? "?")} keys=${Object.keys(json ?? {}).slice(0, 8).join("|")}` };
+    return { ok: false, reason: `http=${httpStatus} state=${state || "?"} api_ref_match=${apiRefOk} value=${String(inv.value ?? "?")} net=${String(inv.net_amount ?? "?")} charges=${String(inv.charges ?? "?")} currency=${String(inv.currency ?? "?")} keys=${Object.keys(json ?? {}).slice(0, 8).join("|")}` };
   }
   const receipt = typeof inv.provider_ref === "string" && inv.provider_ref ? inv.provider_ref
     : typeof inv.mpesa_reference === "string" && inv.mpesa_reference ? inv.mpesa_reference : null;

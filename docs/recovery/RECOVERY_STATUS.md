@@ -507,6 +507,17 @@ P1 171/171, P2 47/47, typecheck 487 → 482, build OK.
 
 **IntaSend:** QA Church A connected by the user with **live** keys on 24 Nov 06:28 UTC (key in Vault, challenge set, giving enabled); no payment events yet. The IntaSend canary now only checks the status card when an account is connected.
 
+## §20 First LIVE IntaSend payment (24 Nov 2026)
+
+QA Church A (live keys, connected by the user). KES 10 M-Pesa gift from Give Online:
+- STK prompt received and paid; IntaSend webhook reached staging and the per-church challenge verified: PENDING → PROCESSING → COMPLETE events logged.
+- **Bug**: the COMPLETE confirmation was rejected by the status-API re-check (no reason recorded) → gift stayed pending; the page said “expired, please try again” although the money was taken.
+- Cause (found with the new recorded reason): IntaSend's default tariff adds the fee on top (CUSTOMER-PAYS) and rounds up — **giver charged KES 11** (value 11, charges 0.33, net 10.67 to the church) for a KES 10 gift; the check required value == gift.
+- Fix (`fdaa51d` + this commit): shared `verifyStatusReply` accepts value == gift (church pays the fee) or fee-on-top (church receives ≥ gift, charge within the fee range); short / inflated payments still refused; rejection reasons now recorded (http, state, api_ref match, value, net, charges, currency). New `recheck` action (church admins) re-verifies one pending gift. Timeout text now: “Still waiting for confirmation … please don't pay again”.
+- Result: re-check confirmed the gift — **KES 10.00 confirmed, M-Pesa receipt stored (UKO6K2U0IR)**. Unit 10/10, P2 48/48.
+
+Open decision: who pays the IntaSend fee — giver (current default: charged gift + fee, rounded up) or church (BUSINESS-PAYS: giver charged exactly the gift).
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 
