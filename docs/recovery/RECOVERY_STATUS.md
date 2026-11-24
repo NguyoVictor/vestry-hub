@@ -527,6 +527,7 @@ User decision: each church chooses IntaSend (own IntaSend account) or Daraja (st
 - `process-stk-push` uses the church's active provider (Daraja: paybill = CustomerPayBillOnline, till = CustomerBuyGoodsOnline with PartyB = till).
 - Settings → Payments: provider choice, Daraja form (Live / Sandbox, Paybill / Till, shortcode, till, consumer key/secret, passkey), status card per provider.
 Evidence: rolled-back txn 16 checks (validation, Vault only, per-church callback token, staff status without secrets, routing guard, clearing semantics); Daraja helper unit 7/7 (timestamp UTC+3, password, paybill/till body, callback parsing); P2 51/51; P1 171/171; typecheck 482; build OK. Deployed: daraja-connect, daraja-callback, process-stk-push — smoke: callback without church 404, bad token 401, connect without login 401.
+Browser evidence (`e2e/qa/staging-canary-mpesa-provider.spec.ts`, Preview = `4122f17`, deployment id verified): 2/2 — Church B admin sees the IntaSend / Daraja choice, picks Daraja (Sandbox, Paybill 174379, fake credentials) and Safaricom's sandbox rejects them (“Safaricom rejected the consumer key / secret…”), nothing stored (DB: 0 Daraja connections, 0 Vault secrets); Church A shows its connected IntaSend card.
 Not yet tested end to end: a real Daraja STK payment (needs a Daraja app — sandbox or a church's live one).
 
 ## Security observations queued for later phases
