@@ -503,6 +503,10 @@ Rolled-back txn: admin and default staff see all finance rows (gifts 2, payouts 
 
 P1 171/171, P2 47/47, typecheck 487 → 482, build OK.
 
+**Browser evidence** (Preview = `814649c`, deployment id verified): roles canary with Finance = No access — the staff member's own API session returned **0 gift / 0 payout / 0 budget rows and 3 members**; no-access page on Giving Records / Payroll; Members page normal. Regression: Phase 10 4/4, Phase 9 (F24 rerun alone after a network-slow run) PASS, live quiz + gifts, T17 PASS. The roles canary exposed a race on slow connections (unticking before the person's roles loaded) → role checkboxes now stay disabled until loaded (`33b99b2`); leftover test roles cleaned (0 assignments). The first run was cut by a local internet outage (`ERR_INTERNET_DISCONNECTED`).
+
+**IntaSend:** QA Church A connected by the user with **live** keys on 24 Nov 06:28 UTC (key in Vault, challenge set, giving enabled); no payment events yet. The IntaSend canary now only checks the status card when an account is connected.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 
