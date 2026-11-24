@@ -227,11 +227,11 @@ function AdminGive() {
 
       const { data: tenantData, error: tenantError } = await supabase
         .from("tenants")
-        .select("intasend_enabled, name")
+        .select("mpesa_enabled, name")
         .eq("id", adminProfile.tenant_id)
         .single();
       if (tenantError) throw new Error("Unable to verify payment configuration. Please try again.");
-      if (!(tenantData as { intasend_enabled?: boolean }).intasend_enabled) throw new Error("M-Pesa giving is not enabled for this church yet. Please set up M-Pesa donations in Settings → Payments.");
+      if (!(tenantData as { mpesa_enabled?: boolean }).mpesa_enabled) throw new Error("M-Pesa giving is not enabled for this church yet. Please set up M-Pesa donations in Settings → Payments.");
 
       const { data, error } = await supabase.functions.invoke("process-stk-push", {
         body: {

@@ -10931,10 +10931,16 @@ export type Database = {
         Row: {
           c2b_callback_secret: string
           created_at: string
+          daraja_callback_hash: string | null
+          daraja_connected_at: string | null
+          daraja_connected_by: string | null
           daraja_consumer_key: string | null
           daraja_consumer_secret: string | null
+          daraja_env: string | null
           daraja_passkey: string | null
+          daraja_secret_id: string | null
           daraja_shortcode: string | null
+          daraja_till_number: string | null
           daraja_transaction_type: string
           intasend_challenge_hash: string | null
           intasend_connected_at: string | null
@@ -10949,10 +10955,16 @@ export type Database = {
         Insert: {
           c2b_callback_secret?: string
           created_at?: string
+          daraja_callback_hash?: string | null
+          daraja_connected_at?: string | null
+          daraja_connected_by?: string | null
           daraja_consumer_key?: string | null
           daraja_consumer_secret?: string | null
+          daraja_env?: string | null
           daraja_passkey?: string | null
+          daraja_secret_id?: string | null
           daraja_shortcode?: string | null
+          daraja_till_number?: string | null
           daraja_transaction_type?: string
           intasend_challenge_hash?: string | null
           intasend_connected_at?: string | null
@@ -10967,10 +10979,16 @@ export type Database = {
         Update: {
           c2b_callback_secret?: string
           created_at?: string
+          daraja_callback_hash?: string | null
+          daraja_connected_at?: string | null
+          daraja_connected_by?: string | null
           daraja_consumer_key?: string | null
           daraja_consumer_secret?: string | null
+          daraja_env?: string | null
           daraja_passkey?: string | null
+          daraja_secret_id?: string | null
           daraja_shortcode?: string | null
+          daraja_till_number?: string | null
           daraja_transaction_type?: string
           intasend_challenge_hash?: string | null
           intasend_connected_at?: string | null
@@ -11205,6 +11223,8 @@ export type Database = {
           member_id_prefix: string
           mission_statement: string | null
           morning_service_time: string
+          mpesa_enabled: boolean
+          mpesa_provider: string | null
           name: string
           notif_anniversary: boolean
           notif_appt_confirmation: boolean
@@ -11329,6 +11349,8 @@ export type Database = {
           member_id_prefix?: string
           mission_statement?: string | null
           morning_service_time?: string
+          mpesa_enabled?: boolean
+          mpesa_provider?: string | null
           name: string
           notif_anniversary?: boolean
           notif_appt_confirmation?: boolean
@@ -11453,6 +11475,8 @@ export type Database = {
           member_id_prefix?: string
           mission_statement?: string | null
           morning_service_time?: string
+          mpesa_enabled?: boolean
+          mpesa_provider?: string | null
           name?: string
           notif_anniversary?: boolean
           notif_appt_confirmation?: boolean
@@ -13110,6 +13134,30 @@ export type Database = {
         }
         Returns: string
       }
+      daraja_callback_ok: {
+        Args: { p_tenant_id: string; p_token: string }
+        Returns: boolean
+      }
+      daraja_clear_credentials: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      daraja_config_for_tenant: { Args: { p_tenant_id: string }; Returns: Json }
+      daraja_store_credentials: {
+        Args: {
+          p_actor: string
+          p_callback_token: string
+          p_consumer_key: string
+          p_consumer_secret: string
+          p_env: string
+          p_passkey: string
+          p_shortcode: string
+          p_tenant_id: string
+          p_till_number: string
+          p_transaction_type: string
+        }
+        Returns: undefined
+      }
       finalize_communication_job: {
         Args: {
           p_delivered_count: number
@@ -13330,6 +13378,10 @@ export type Database = {
       }
       member_portal_provisioning_version: { Args: never; Returns: string }
       my_permission_levels: { Args: { p_tenant_id: string }; Returns: Json }
+      payment_connection_status: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       post_auto_journal_entry: {
         Args: {
           p_date: string

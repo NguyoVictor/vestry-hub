@@ -17,11 +17,11 @@ test('STK initiation (IntaSend) uses the church\'s own key from the server and v
   assert.doesNotMatch(stkNoComments, /INTASEND_SECRET_KEY/, 'no platform-wide key');
   assert.doesNotMatch(stkNoComments, /wallet_id/, 'pays into the church account itself');
   const stkCode = stk.replace(/^\s*\/\/.*$/gm, '');
-  assert.doesNotMatch(stkCode, /tenant_payment_credentials|daraja|payhero/i);
+  assert.doesNotMatch(stkCode, /tenant_payment_credentials|payhero/i, 'credentials only via service-role RPCs');
   assert.doesNotMatch(stk, /\.from\(["']tenants["']\)\s*\.select\([^)]*(?:secret|passkey|consumer_key|api_key)/i);
   assert.match(stk, /auth\.getUser\(/, 'caller must be authenticated');
   assert.match(stk, /member_auth_memberships/, 'members may only give as themselves');
-  assert.match(stk, /intasend_enabled/, 'church must be enabled by Vestry');
+  assert.match(stk, /mpesa_enabled/, 'church must have M-Pesa giving enabled (either provider)');
   // A pending gift is written BEFORE the push; only the webhook confirms.
   assert.match(stk, /payment_status: "pending"[\s\S]*mpesa-stk-push/);
   assert.doesNotMatch(stk, /payment_status: ["']confirmed["']/);
@@ -74,4 +74,35 @@ test('legacy PayHero / Daraja functions stay removed', () => {
                    'test-payhero-stk', 'get-payhero-banks', 'get-supported-banks', 'register-payment-channel', 'initiate-payment']) {
     assert.equal(existsSync(new URL(`../../../supabase/functions/${f}/index.ts`, import.meta.url)), false, f);
   }
+});
+
+// Provider choice (24 Nov): Safaricom Daraja direct to the church's own paybill / till.
+const darajaConnect = readFileSync(new URL('../../../supabase/functions/daraja-connect/index.ts', import.meta.url), 'utf8');
+const darajaCallback = readFileSync(new URL('../../../supabase/functions/daraja-callback/index.ts', import.meta.url), 'utf8');
+
+test('daraja-connect: church admins only, credentials proven with a Daraja token before storing, never logged or returned', () => {
+  assert.match(darajaConnect, /\["super_admin", "church_admin"\]/);
+  assert.match(darajaConnect, /actor\.tenant_id === tenantId/);
+  assert.match(darajaConnect, /darajaToken\(/, 'credentials proven first');
+  assert.match(darajaConnect, /rpc\("daraja_store_credentials"/);
+  assert.doesNotMatch(darajaConnect, /console\.[a-z]+\([^)]*(consumer|passkey|secret)/i);
+  assert.doesNotMatch(darajaConnect, /reply\(\{[^}]*:\s*(consumerSecret|consumerKey|passkey)\b/, 'credential values never returned');
+});
+
+test('daraja-callback: per-church token, only that church\'s gifts, Safaricom re-check + amount before confirming', () => {
+  assert.match(darajaCallback, /rpc\("daraja_callback_ok"/);
+  assert.match(darajaCallback, /\.eq\("tenant_id", church\)/);
+  assert.match(darajaCallback, /stkQuery\(/, 're-verified with Safaricom');
+  assert.match(darajaCallback, /amountMatches\(gift\.amount, cb\.amount/);
+  assert.match(darajaCallback, /nextStatus\(/);
+  assert.match(darajaCallback, /\.eq\("payment_status", gift\.payment_status\)/, 'optimistic update');
+  assert.match(functionConfig, /\[functions\.daraja-callback\]\s*\nverify_jwt = false/);
+  assert.match(functionConfig, /\[functions\.daraja-connect\]\s*\nverify_jwt = true/);
+});
+
+test('process-stk-push picks the church\'s active provider; Daraja credentials only from the server', () => {
+  assert.match(stk, /mpesa_provider/);
+  assert.match(stk, /rpc\("daraja_config_for_tenant"/);
+  assert.match(stk, /daraja-callback\?c=/);
+  assert.doesNotMatch(stk.replace(/^\s*\/\/.*$/gm, ''), /DARAJA_|consumer_secret"\s*:/);
 });

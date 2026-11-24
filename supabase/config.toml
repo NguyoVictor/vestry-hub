@@ -55,3 +55,9 @@ verify_jwt = true
 
 [functions.intasend-connect]
 verify_jwt = true
+
+[functions.daraja-connect]
+verify_jwt = true
+
+[functions.daraja-callback]
+verify_jwt = false

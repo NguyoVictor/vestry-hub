@@ -518,6 +518,17 @@ QA Church A (live keys, connected by the user). KES 10 M-Pesa gift from Give Onl
 
 Open decision: who pays the IntaSend fee — giver (current default: charged gift + fee, rounded up) or church (BUSINESS-PAYS: giver charged exactly the gift).
 
+## §21 M-Pesa provider choice: IntaSend or Safaricom Daraja (24 Nov 2026)
+
+User decision: each church chooses IntaSend (own IntaSend account) or Daraja (straight to its own paybill / till).
+- Migrations `20261124110000` + `20261124120000`: `tenants.mpesa_enabled` / `mpesa_provider` (backfilled from IntaSend; guarded — only server / platform admin change them); Daraja credentials (consumer key, secret, passkey + the per-church callback token) as ONE Vault secret; table keeps shortcode, till, transaction type, environment and the callback-token hash; service-role store / config / callback-check / clear; `payment_connection_status()` (both providers, no secrets). Connecting a provider makes it active; clearing the active one turns giving off.
+- `daraja-connect` (church admins): validates, proves the key/secret with a Daraja OAuth token before storing, creates the callback token; `disconnect`; `recheck` (STK query) for stuck gifts.
+- `daraja-callback` (verify_jwt off): per-church `?c=&t=` token, only that church's Daraja gifts, success confirmed only after Safaricom STK query (church's own credentials) and amount == gift; failures / cancellations marked failed; never downgrades a confirmed gift; always answers Safaricom 200 once authentic.
+- `process-stk-push` uses the church's active provider (Daraja: paybill = CustomerPayBillOnline, till = CustomerBuyGoodsOnline with PartyB = till).
+- Settings → Payments: provider choice, Daraja form (Live / Sandbox, Paybill / Till, shortcode, till, consumer key/secret, passkey), status card per provider.
+Evidence: rolled-back txn 16 checks (validation, Vault only, per-church callback token, staff status without secrets, routing guard, clearing semantics); Daraja helper unit 7/7 (timestamp UTC+3, password, paybill/till body, callback parsing); P2 51/51; P1 171/171; typecheck 482; build OK. Deployed: daraja-connect, daraja-callback, process-stk-push — smoke: callback without church 404, bad token 401, connect without login 401.
+Not yet tested end to end: a real Daraja STK payment (needs a Daraja app — sandbox or a church's live one).
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

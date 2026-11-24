@@ -10,7 +10,7 @@ import { DEFAULT_MODULE_CONFIG, isAdminPathEnabled, isMemberPathEnabled } from '
 
 // Deployed on staging after Phase 1B.2–6 security review.
 const DEPLOYED_REVIEWED = new Set([
-  'intasend-connect', 'send-invitation', 'update-user-role', 'member-provision-access', 'member-otp-request', 'member-login',
+  'intasend-connect', 'daraja-connect', 'send-invitation', 'update-user-role', 'member-provision-access', 'member-otp-request', 'member-login',
   'member-session-context', 'member-register', 'member-logout', 'member-profile-update', 'sync-member-profile',
   'member-portal-feed', 'get-active-sessions', 'get-security-access-log', 'generate-church-code', 'fetch-og-metadata',
   'platform-admin-overview', 'process-stk-push',
