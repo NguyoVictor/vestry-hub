@@ -25,6 +25,7 @@ test('STK initiation (IntaSend) uses the church\'s own key from the server and v
   // A pending gift is written BEFORE the push; only the webhook confirms.
   assert.match(stk, /payment_status: "pending"[\s\S]*mpesa-stk-push/);
   assert.doesNotMatch(stk, /payment_status: ["']confirmed["']/);
+  assert.match(stk, /mobile_tarrif: "CUSTOMER-PAYS"/, 'giver pays the IntaSend fee (user decision 24 Nov)');
 });
 
 

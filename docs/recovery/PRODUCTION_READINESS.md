@@ -98,3 +98,5 @@ _Last updated: 2026-11-20 (after Phase 2 acceptance)._
 | F4 | Untested Finding 1 paths canaried: CSV import, QR self-registration | ⬜ | |
 | F5 | Full staging UAT sign-off | 🔒 user | |
 | F6 | Release tag + exact SHA recorded | ⬜ Gate A | |
+
+- 24 Nov: IntaSend fee — **giver pays** (`CUSTOMER-PAYS`, explicit in process-stk-push); giving pages show the fee note.

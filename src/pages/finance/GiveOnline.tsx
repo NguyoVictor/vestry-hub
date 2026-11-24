@@ -643,7 +643,7 @@ function AdminGive() {
                   <Smartphone className="w-5 h-5 text-green-600 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-green-700">M-Pesa STK Push</p>
-                    <p className="text-xs text-green-600">You'll receive a payment request on your phone</p>
+                    <p className="text-xs text-green-600">You'll receive a payment request on your phone. A small M-Pesa processing fee (about 3%) may be added to the amount shown on your phone, so the church receives your full gift.</p>
                   </div>
                 </div>
               </div>

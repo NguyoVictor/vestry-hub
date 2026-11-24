@@ -516,7 +516,7 @@ QA Church A (live keys, connected by the user). KES 10 M-Pesa gift from Give Onl
 - Fix (`fdaa51d` + this commit): shared `verifyStatusReply` accepts value == gift (church pays the fee) or fee-on-top (church receives ≥ gift, charge within the fee range); short / inflated payments still refused; rejection reasons now recorded (http, state, api_ref match, value, net, charges, currency). New `recheck` action (church admins) re-verifies one pending gift. Timeout text now: “Still waiting for confirmation … please don't pay again”.
 - Result: re-check confirmed the gift — **KES 10.00 confirmed, M-Pesa receipt stored (UKO6K2U0IR)**. Unit 10/10, P2 48/48.
 
-Open decision: who pays the IntaSend fee — giver (current default: charged gift + fee, rounded up) or church (BUSINESS-PAYS: giver charged exactly the gift).
+Decided 24 Nov: **the giver pays the IntaSend fee** — `mobile_tarrif: "CUSTOMER-PAYS"` is now sent explicitly on every IntaSend STK push (not left to the account default); the giving pages say a ~3% processing fee may be added on the phone so the church receives the full gift. Daraja fees follow each church's own paybill tariff with Safaricom.
 
 ## §21 M-Pesa provider choice: IntaSend or Safaricom Daraja (24 Nov 2026)
 

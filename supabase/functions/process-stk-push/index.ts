@@ -123,8 +123,10 @@ Deno.serve(async (req) => {
 
   // 2b) IntaSend.
   // No wallet_id: IntaSend credits the church account's own KES settlement wallet.
+  // The GIVER pays the IntaSend fee (user decision 24 Nov): set explicitly so it
+  // never depends on the account default. The church receives the full gift.
   const stk = await intasendPost("/payment/mpesa-stk-push/", secret!, {
-    amount: amountCheck.amount, phone_number: phone, api_ref: gift.id,
+    amount: amountCheck.amount, phone_number: phone, api_ref: gift.id, mobile_tarrif: "CUSTOMER-PAYS",
   });
   const invoice = (stk.json?.invoice ?? null) as Record<string, unknown> | null;
   const invoiceId = invoice && typeof invoice.invoice_id === "string" ? invoice.invoice_id : null;
