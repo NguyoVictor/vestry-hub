@@ -530,6 +530,44 @@ Evidence: rolled-back txn 16 checks (validation, Vault only, per-church callback
 Browser evidence (`e2e/qa/staging-canary-mpesa-provider.spec.ts`, Preview = `4122f17`, deployment id verified): 2/2 — Church B admin sees the IntaSend / Daraja choice, picks Daraja (Sandbox, Paybill 174379, fake credentials) and Safaricom's sandbox rejects them (“Safaricom rejected the consumer key / secret…”), nothing stored (DB: 0 Daraja connections, 0 Vault secrets); Church A shows its connected IntaSend card.
 Not yet tested end to end: a real Daraja STK payment (needs a Daraja app — sandbox or a church's live one).
 
+## §22 M-Pesa connection guide + T15 launch-scope type errors (24 Nov 2026)
+
+- **M-Pesa guide** (`6d6f9a9`): Settings → Payments has a collapsible "How to connect M-Pesa" section with three paths: (1) IntaSend (account, KYC, API keys, connect, webhook Endpoint + Challenge with the Collection event); (2) IntaSend with the church's own paybill / till (Org Portal, live Daraja app, IntaSend Integrations → M-Pesa settings → Activate); (3) Safaricom Daraja direct. Each path states where the money goes, and the guide states that givers pay the fee.
+- **T15** (`8573d54`): type errors went from 482 to 408. Every launch-scope error was checked against the live staging schema. **Real defects found and fixed:**
+  - Outreach auto follow-up tasks used status `pending`, which `task_status_enum` doesn't allow, so they were never created.
+  - Record Giving:
+    - offered "Other", which `payment_method_enum` rejects; it has been removed;
+    - dropped the M-Pesa reference typed in the form; it's now saved to `mpesa_receipt`.
+  - Tax statements embedded `members(...)` with no foreign key, so the query failed. Members are now loaded separately.
+  - Public sermons asked for `tenants.primary_color` (doesn't exist), so the church header failed; `sermons.description` doesn't exist either, so the page now shows the introduction.
+  - Dashboard charts used the Radix tooltip instead of the Recharts one, so they showed no hover values.
+  - Comment avatars passed `src` instead of `avatarUrl`, so member photos never showed.
+  - Wrong field names:
+    - member event banner (`banner_image_url`);
+    - course cover and duration (`cover_image_url`, `total_duration_minutes`);
+    - album description (no such column).
+  - Smaller fixes:
+    - react-player v3 `src`;
+    - Lenis v1 option names;
+    - Billing current-plan ring;
+    - landing pricing card tint;
+    - the children register modal now honours read-only.
+- **Remaining launch-scope errors:**
+  - livestream and media (deferred);
+  - one compiler depth limit in Onboarding (no runtime effect).
+- **Evidence:**
+  - P1 171/171; P2 51/51; node tests 65/65; build OK.
+  - Ratchet baseline: 408.
+  - Browser canary on Preview `vestry-6tnuiwbaz` (built from `8573d54`):
+    - `staging-canary-mpesa-provider.spec.ts` 3/3, including the guide's three paths.
+    - `staging-canary-t15-fixes.spec.ts` 4/4:
+      - Record Giving has no "Other";
+      - Tax page loads with no error;
+      - Dashboard charts render with no page errors;
+      - the public sermons header shows "Vestry Staging Church A Sermons".
+  - DB read-only: the canary gift `177600db…` (KES 7, anonymous, Church A) has `mpesa_receipt = QAMWUXLOBB`.
+- **Finding (needs a decision, not changed):** `sermons` has only a tenant-member RLS policy, so the public `/sermons/:tenantId` page shows the header but **no sermons to anonymous visitors**. Sermons and media are deferred for launch, so this is left as is.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

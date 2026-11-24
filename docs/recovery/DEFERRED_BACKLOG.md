@@ -68,7 +68,7 @@ These must be done before the Production release (Gate A/B), not after launch:
 | T12 | Storage-usage tracking server-side (`tenant_subscriptions.storage_used_gb`) | ✅ 23 Nov (migration `20261123130000`); server-side upload *blocking* remains a follow-up |
 | T14 | Branch logins redesigned server-side (no browser-side SHA-256 hashes) | ✅ 23 Nov (migration `20261123150000`; user decision: personal accounts per branch — shared branch passwords retired) |
 | T17 | Server-function errors show “Edge Function returned a non-2xx status code” instead of the function's own message on most screens | 23 Nov canary | ✅ 23 Nov: fixed centrally in `src/lib/functionGuard.ts` (all 73 call sites): the reply body is read from a copy and its message surfaced as `error.message` and `data.error` (unit 3/3) |
-| T15 | Clear the type-error backlog (864 errors) | multi-day; high regression risk if rushed |
+| T15 | Clear the type-error backlog (864 errors) | ✅ launch scope 24 Nov (`8573d54`, 482 → 408). The 408 left are deferred Media/Song Library, email/SMS broadcasts, livestream, and one Onboarding compiler depth limit. Several real bugs fixed; see RECOVERY_STATUS §22 |
 
 ## 3. Technical follow-ups queued during the phases (fix after the launch phases)
 
