@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toUserFacingError } from "@/lib/userFacingError";
+import { MpesaConnectGuide } from "@/components/settings/MpesaConnectGuide";
 
 interface Status {
   enabled: boolean;
@@ -290,6 +291,8 @@ export default function PaymentsPage() {
           <p className="text-xs text-amber-800">The challenge is shown only now. If you lose it, create a new one and update IntaSend.</p>
         </div>
       )}
+
+      <MpesaConnectGuide />
 
       <AlertDialog open={!!confirmDisconnect} onOpenChange={o => { if (!o) setConfirmDisconnect(null); }}>
         <AlertDialogContent>
