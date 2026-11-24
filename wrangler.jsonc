@@ -1,0 +1,32 @@
+// Cloudflare hosting (user decision 2026-11-24: Cloudflare free plan instead
+// of Vercel Pro). Vestry is a static Vite app (Supabase does the rest), served
+// by a Worker with static assets — this supports the wildcard church
+// subdomains (*.vestryhub.com), which Cloudflare Pages custom domains do not.
+// Deployed by .github/workflows/cloudflare-deploy.yml:
+//   recovery branch -> private preview version (staging database)
+//   main            -> production, ONLY when repository variable
+//                      CLOUDFLARE_PRODUCTION_ENABLED = "true" (set at release)
+// Routes are attached only after vestryhub.com's DNS is on Cloudflare.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vestry-hub",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    // Any path loads the app (same as vercel.json rewrites to /index.html).
+    "not_found_handling": "single-page-application"
+  },
+  "preview_urls": true,
+  "workers_dev": true,
+  "env": {
+    "production": {
+      "name": "vestry-hub-production",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        { "pattern": "vestryhub.com/*", "zone_name": "vestryhub.com" },
+        { "pattern": "*.vestryhub.com/*", "zone_name": "vestryhub.com" }
+      ]
+    }
+  }
+}

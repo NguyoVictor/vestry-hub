@@ -1,0 +1,74 @@
+# Cloudflare hosting (2026-11-24). Skips cleanly until the Cloudflare secrets
+# exist, so CI stays green before the account is set up.
+#   Secrets:  CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
+#             STAGING_SUPABASE_URL, STAGING_SUPABASE_PUBLISHABLE_KEY,
+#             PROD_SUPABASE_URL, PROD_SUPABASE_PUBLISHABLE_KEY,
+#             PROD_SENTRY_DSN, PROD_POSTHOG_KEY (optional)
+#   Variable: CLOUDFLARE_PRODUCTION_ENABLED = "true"  (set only at release)
+name: Cloudflare deploy
+
+on:
+  push:
+    branches: [recovery/system-stabilization-2026-11, main]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/recovery/system-stabilization-2026-11'
+    runs-on: ubuntu-latest
+    env:
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - name: Cloudflare not configured yet
+        if: env.HAS_CF != 'true'
+        run: echo "Cloudflare secrets not set - skipping preview deploy."
+      - uses: actions/checkout@v4
+        if: env.HAS_CF == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_CF == 'true'
+        with: { node-version: 22, cache: npm }
+      - name: Build (staging database)
+        if: env.HAS_CF == 'true'
+        run: npm ci && npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      - name: Upload preview version (private behind Cloudflare Access)
+        if: env.HAS_CF == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: versions upload --preview-alias recovery --env=""
+
+  production:
+    if: github.ref == 'refs/heads/main' && vars.CLOUDFLARE_PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - name: Refuse a build pointing at staging
+        run: |
+          case "${{ secrets.PROD_SUPABASE_URL }}" in
+            *xwbajophstetbnnemsyq*|"") echo "PROD_SUPABASE_URL is missing or points at staging"; exit 1;;
+          esac
+      - name: Build (production database)
+        run: npm ci && npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.PROD_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.PROD_SENTRY_DSN }}
+          VITE_POSTHOG_KEY: ${{ secrets.PROD_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: https://eu.i.posthog.com
+      - name: Deploy production
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --env production

@@ -36,6 +36,19 @@ Steps (Vercel dashboard → Project → Settings → Environment Variables, or C
 3. Do NOT redeploy Production yet (env changes only apply to new builds).
 4. Verify: `vercel env ls` shows separate Production and Preview rows; a new Preview build still references only staging.
 
+## 2b. Hosting moves to Cloudflare (user decision 2026-11-24 — avoid Vercel Pro)
+
+Vercel's free plan is non-commercial only. Vestry will be served by **Cloudflare (free plan)**: a Worker with static assets (`wrangler.jsonc`), which supports the wildcard church subdomains `*.vestryhub.com` (Cloudflare Pages custom domains cannot). Deploys: `.github/workflows/cloudflare-deploy.yml` — recovery branch → private preview versions (staging DB); `main` → production only when the repository variable `CLOUDFLARE_PRODUCTION_ENABLED = true`. Validated with `wrangler deploy --dry-run` (both environments).
+
+Before the window (user, ~30 min):
+1. Free Cloudflare account → **Add site** `vestryhub.com` (Free plan). Cloudflare imports the current DNS records — check that the Google-verification TXT and the `_dmarc` TXT came across, and add the email provider's records (Resend) here.
+2. At the domain **registrar**, replace the Vercel nameservers (`ns1/ns2.vercel-dns.com`) with the two Cloudflare nameservers shown. The live site keeps working while DNS propagates (minutes–hours) because the imported records still point at Vercel.
+3. Cloudflare → My Profile → API Tokens → **Create token** from the *Edit Cloudflare Workers* template (account + zone vestryhub.com). Copy the **Account ID** (Workers & Pages overview).
+4. GitHub → repository → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `STAGING_SUPABASE_URL`, `STAGING_SUPABASE_PUBLISHABLE_KEY` (previews start working), and at release `PROD_SUPABASE_URL`, `PROD_SUPABASE_PUBLISHABLE_KEY`, `PROD_SENTRY_DSN`, `PROD_POSTHOG_KEY`; create the `production` environment.
+5. Cloudflare Zero Trust (free) → Access → protect the preview hostnames (`*-vestry-hub.<account>.workers.dev`) so staging previews stay private; create a **service token** for the automated browser tests.
+
+In the release window, steps 2, 4, 9 and 11 below become: (2) no build-skip needed — production deploys only when `CLOUDFLARE_PRODUCTION_ENABLED` is set; (4) set `CLOUDFLARE_PRODUCTION_ENABLED = true` after the database steps and run the workflow on `main` (it refuses a build pointing at staging); (9) the Worker routes `vestryhub.com/*` and `*.vestryhub.com/*` go live with that deploy — then point the apex/wildcard DNS records at the Worker (proxied); (11) leave Vercel untouched for 7 days as the fallback. **Rollback:** `wrangler rollback --env production` (previous version) or point DNS back at Vercel's records.
+
 ## 3. Coordinated release (Gate A merge + Gate B database in ONE window)
 
 Pre-requisites (all ✅ before the window): user UAT sign-off · Production confirmed (F-A5) · Supabase **Pro** on Production + **backup taken and restore-tested** (R1/B1) · rehearsal on a Production **copy** passed (§4) · Production SMTP + DNS (R3/R4) · redirect allowlists (R7) · IntaSend live keys if payments ship at launch.
