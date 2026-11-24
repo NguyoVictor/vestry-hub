@@ -15,13 +15,12 @@ export const LAUNCH_FEATURES = {
   sms: on(env.VITE_FEATURE_SMS),                        // Africa's Talking
   push: on(env.VITE_FEATURE_PUSH),                      // FCM push notifications
   sentryFeed: on(env.VITE_FEATURE_SENTRY_FEED),         // Sentry issues inside the app
-  paymentDevTools: on(env.VITE_FEATURE_PAYMENT_DEV_TOOLS), // PayHero/bank test panels
 } as const;
 export type LaunchFeature = keyof typeof LAUNCH_FEATURES;
 
 export const FEATURE_LABELS: Record<LaunchFeature, string> = {
   ai: "AI tools", media: "Media & content", livestream: "Livestreaming", appEmail: "Email sending",
-  sms: "SMS", push: "Push notifications", sentryFeed: "Error monitoring feed", paymentDevTools: "Payment test tools",
+  sms: "SMS", push: "Push notifications", sentryFeed: "Error monitoring feed",
 };
 
 /** Admin + member-portal pages hidden while their area is deferred. */
@@ -44,7 +43,6 @@ export const FUNCTION_FEATURE: Readonly<Record<string, LaunchFeature>> = {
   "africastalking-sms": "sms", "africastalking-balance": "sms", "at-sms": "sms", "send-whatsapp-message": "sms",
   "register-device-token": "push", "send-push-notification": "push",
   "fetch-sentry-issues": "sentryFeed",
-  "test-payhero-api": "paymentDevTools", "test-payhero-stk": "paymentDevTools",
 };
 
 export function deferredFeatureForPath(pathname: string): LaunchFeature | null {

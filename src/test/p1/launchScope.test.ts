@@ -16,10 +16,8 @@ const DEPLOYED_REVIEWED = new Set([
   'platform-admin-overview', 'process-stk-push',
 ]);
 // Payments are rebuilt on IntaSend in Phase 9/10 (memory: payments-intasend).
-const PAYMENTS_PHASE = new Set([
-  'initiate-subscription-stk', 'payment-webhook', 'register-c2b-urls', 'register-credentials',
-  'register-payment-channel', 'get-payhero-banks', 'get-supported-banks',
-]);
+// Vestry's own plan billing (needs Vestry's IntaSend account; decision pending).
+const PAYMENTS_PHASE = new Set(['initiate-subscription-stk']);
 // Reviewed-but-not-yet-deployed admin tooling (super admin console).
 const PENDING_REVIEW = new Set<string>([]);
 

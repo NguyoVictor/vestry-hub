@@ -222,9 +222,7 @@ export default function MemberGive() {
           throw new Error("Please enter a valid Kenyan phone number");
         }
 
-        // CRITICAL: Check if church has configured PayHero channel BEFORE attempting STK push
-        console.log('Checking PayHero channel configuration for church:', member.churchId);
-        
+        // Check the church has connected its IntaSend account before sending the M-Pesa prompt
         const { data: tenantData, error: tenantError } = await supabase
           .from('tenants')
           .select('intasend_enabled, name')

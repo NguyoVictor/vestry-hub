@@ -494,6 +494,15 @@ On a non-2xx reply supabase-js returns a generic “Edge Function returned a non
 
 Browser evidence: `e2e/qa/staging-canary-t17-errors.spec.ts` PASS on Preview `vestry-jzzporbq6` (commit `4a9512a`; GitHub status API was rate-limited, the behaviour itself proves the new build — the old code could only show the generic text): inviting an email that already has an account shows “Existing-account access requires a separate review”. Nothing created.
 
+## §19 Finance read-blocking + payments clean-up (24 Nov 2026)
+
+**Finance read-blocking** (migration `20261124090000`): `private.can_read_permission(church, area)` (NULL-safe; staff of that church; admin roles always; otherwise effective level ≠ none). The 12 staff read policies of finance tables keep their live condition verbatim AND the read check; `giving_records`, `funds`, `pledges`, `pledge_campaigns`, `pledge_commitments` had catch-all FOR ALL policies that let ANY staff member read AND write them — replaced by finance read / `can_write_permission(financial_records)` write policies (members' own-gift read and server functions unchanged).
+Rolled-back txn: admin and default staff see all finance rows (gifts 2, payouts 4, budgets 1, accounts 27, expenses 4, payroll 5) and members 3; with Finance = **No access** staff see 0 finance rows (members still 3) and cannot add a gift; Finance = Read-only: reads all, add refused; Church B staff 0; member still sees own 2 gifts; anon 0.
+
+**Payments clean-up**: removed 10 PayHero/Daraja server functions (none deployed; IntaSend replaced them) and 12 unreferenced PayHero/bank test & setup components; the `paymentDevTools` launch flag; config entries; Daraja contract tests replaced by a guard that they stay removed. Integrations page: M-Pesa card now “M-Pesa (IntaSend)” → Settings → Payments; cards whose Connect button did nothing (Stripe, YouTube, Google Analytics) now say Coming soon. Kept: `initiate-subscription-stk` / `subscription-payment-webhook` (Vestry plan billing — needs Vestry's own IntaSend account, decision pending) and the legacy `payhero_*` / `daraja_*` columns (dropping columns = Production schema change for a reviewed release).
+
+P1 171/171, P2 47/47, typecheck 487 → 482, build OK.
+
 ## Security observations queued for later phases
 - `public.tenants` stores provider credentials (`daraja_consumer_secret`, `at_api_key`, `whatsapp_access_token`, …) in ordinary columns → Phase 5 RLS/column-privilege review.
 

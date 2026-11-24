@@ -2,13 +2,14 @@ import { Helmet } from "react-helmet-async";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, MessageSquare, Mail, Youtube, Video, Send, BarChart3, CalendarDays, Zap, Globe } from "lucide-react";
 
 const integrations = [
   { category: "Payments", items: [
-    { name: "Stripe", desc: "Accept online donations and process payouts", icon: CreditCard, status: "available" as const },
-    { name: "M-Pesa (Daraja)", desc: "Accept mobile money payments via M-Pesa", icon: CreditCard, status: "available" as const },
+    { name: "M-Pesa (IntaSend)", desc: "Receive M-Pesa gifts into your church's own IntaSend account", icon: CreditCard, status: "available" as const, href: "/settings/payments" },
+    { name: "Stripe", desc: "Accept online donations and process payouts", icon: CreditCard, status: "coming_soon" as const },
   ]},
   { category: "Communication", items: [
     { name: "Twilio", desc: "Send SMS notifications to members", icon: MessageSquare, status: "coming_soon" as const },
@@ -16,11 +17,11 @@ const integrations = [
     { name: "WhatsApp Business", desc: "Send WhatsApp messages to members", icon: Send, status: "coming_soon" as const },
   ]},
   { category: "Media", items: [
-    { name: "YouTube", desc: "Link your YouTube channel for livestreaming", icon: Youtube, status: "available" as const },
+    { name: "YouTube", desc: "Link your YouTube channel for livestreaming", icon: Youtube, status: "coming_soon" as const },
     { name: "Zoom", desc: "Embed Zoom meetings and livestreams", icon: Video, status: "coming_soon" as const },
   ]},
   { category: "Marketing & Analytics", items: [
-    { name: "Google Analytics", desc: "Track your public church page traffic", icon: BarChart3, status: "available" as const },
+    { name: "Google Analytics", desc: "Track your public church page traffic", icon: BarChart3, status: "coming_soon" as const },
     { name: "Mailchimp", desc: "Sync members to Mailchimp email lists", icon: Mail, status: "coming_soon" as const },
   ]},
   { category: "Productivity", items: [
@@ -53,10 +54,10 @@ const Integrations = () => {
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
                       <div className="mt-3">
-                        {item.status === "coming_soon" ? (
-                          <Button variant="outline" size="sm" disabled>Connect</Button>
+                        {"href" in item && item.href ? (
+                          <Button variant="outline" size="sm" asChild><Link to={item.href}>Set up</Link></Button>
                         ) : (
-                          <Button variant="outline" size="sm">Connect</Button>
+                          <Button variant="outline" size="sm" disabled>Connect</Button>
                         )}
                       </div>
                     </div>
